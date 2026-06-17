@@ -15,7 +15,8 @@ const dbConfig = {
   port: parseInt(process.env.DB_PORT || '3306'),
   user: process.env.DB_USER || 'root',
   password: process.env.DB_PASSWORD || 'uttam@2004',
-  database: process.env.DB_NAME || 'school_management'
+  database: process.env.DB_NAME || 'school_management',
+  ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : undefined
 };
 
 const SCHEMA_FILE = path.join(__dirname, 'schema.sql');
@@ -29,7 +30,8 @@ async function seed() {
       host: dbConfig.host,
       port: dbConfig.port,
       user: dbConfig.user,
-      password: dbConfig.password
+      password: dbConfig.password,
+      ssl: dbConfig.ssl
     });
     
     // Create database if not exists
@@ -40,6 +42,18 @@ async function seed() {
     // 2. Reconnect with target database
     connection = await mysql.createConnection(dbConfig);
     console.log(`[Seeder] Connected to database: ${dbConfig.database}`);
+
+    // Drop all existing tables to guarantee schema sync
+    console.log(`[Seeder] Dropping all existing tables in database...`);
+    await connection.query('SET FOREIGN_KEY_CHECKS = 0');
+    const [rows] = await connection.query('SHOW TABLES');
+    const dbNameKey = `Tables_in_${dbConfig.database}`;
+    for (const row of rows) {
+      const tableName = row[dbNameKey] || Object.values(row)[0];
+      await connection.query(`DROP TABLE IF EXISTS \`${tableName}\``);
+    }
+    await connection.query('SET FOREIGN_KEY_CHECKS = 1');
+    console.log(`[Seeder] Existing tables dropped.`);
 
     // 3. Read and execute schema.sql
     if (!fs.existsSync(SCHEMA_FILE)) {
@@ -70,7 +84,7 @@ async function seed() {
     await connection.query('SET FOREIGN_KEY_CHECKS = 0');
     const tables = [
       'schools', 'students', 'student_enrollments', 'parents', 'addresses', 'medical_records',
-      'documents', 'fee_assignments', 'student_accounts', 'parent_accounts', 'teachers', 'staff',
+      'documents', 'fee_assignments', 'student_accounts', 'parent_accounts', 'staff',
       'timetables', 'invoices', 'fees', 'expenses', 'payroll', 'staff_payments', 'activities',
       'exams', 'exam_timetables', 'notices', 'holidays', 'events', 'results', 'overall_results',
       'subjects', 'timeslots', 'fee_structures', 'salary_structures', 'staff_salary_structures',
@@ -136,7 +150,7 @@ async function seed() {
     ];
     for (const t of teachers) {
       await connection.query(
-        `INSERT INTO teachers (
+        `INSERT INTO staff (
           id, name, email, phone, username, password, gender, qualification, experience, dateOfJoining,
           salaryGrade, address, city, state, pincode, emergencyContact, emergencyPhone, photo, aadharFile,
           certificateFile, status, avatarBg, tenantId
