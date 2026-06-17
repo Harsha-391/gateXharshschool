@@ -1,0 +1,42 @@
+{
+  "name": "aether-academy-backend",
+  "version": "1.0.0",
+  "description": "Backend API server for Aether Academy ERP Dashboard",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "prestart": "npx kill-port 5000",
+    "start": "node server.js",
+    "predev": "npx kill-port 5000",
+    "dev": "nodemon --ignore db.json --ignore tenants/ --ignore uploads/ --ignore scratch/ server.js",
+    "seed": "node seed.js",
+    "seed:sql": "node seedSql.js",
+    "seed:20": "node seed20.js",
+    "test-mysql": "node test_mysql.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^4.22.2",
+    "jsonwebtoken": "^9.0.3",
+    "multer": "^2.1.1",
+    "mysql2": "^3.22.5",
+    "pdf-parse": "^2.4.5",
+    "qrcode": "^1.5.4",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.0"
+  },
+  "nodemonConfig": {
+    "ignore": [
+      "db.json",
+      "tenants/*",
+      "tenants/**/*",
+      "uploads/*",
+      "uploads/**/*",
+      "*.log",
+      "scratch/*"
+    ]
+  }
+}

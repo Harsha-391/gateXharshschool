@@ -1,0 +1,8 @@
+{
+  "schools": [],
+  "subscriptionPlans": [
+    { "id": "PLAN-001", "name": "Starter", "price": "$99/mo", "features": ["Up to 100 Students", "Basic Analytics", "Standard Support"] },
+    { "id": "PLAN-002", "name": "Growth", "price": "$249/mo", "features": ["Up to 500 Students", "Full Reports", "Priority Support"] },
+    { "id": "PLAN-003", "name": "Premium", "price": "$499/mo", "features": ["Unlimited Students", "Advanced Account Management", "24/7 Dedicated Support"] }
+  ]
+}
