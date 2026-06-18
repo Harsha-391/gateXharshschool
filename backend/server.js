@@ -152,7 +152,7 @@ app.post('/api/auth/login', (req, res) => {
           permissions = matrix;
         }
         const token = generateToken({ role: 'Main Admin', tenantId, username, permissions });
-        return res.json({ token, role: 'Main Admin', name: schoolRecord.adminName, school: schoolRecord, permissions });
+        return res.json({ token, role: 'Main Admin', name: schoolRecord.principalName || schoolRecord.principal || schoolRecord.adminName, school: schoolRecord, permissions });
       }
 
     } else if (currentRole === 'Teacher') {
@@ -644,7 +644,7 @@ app.get('/api/auth/profile', auth, restoreTenantContext, (req, res) => {
     }
     return res.json({
       role: 'Main Admin',
-      name: schoolRecord.adminName,
+      name: schoolRecord.principalName || schoolRecord.principal || schoolRecord.adminName,
       username: schoolRecord.adminUsername,
       email: schoolRecord.adminEmail,
       phone: schoolRecord.phone,

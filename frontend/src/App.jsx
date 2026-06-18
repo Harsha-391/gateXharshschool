@@ -119,7 +119,11 @@ export default function App() {
     try {
       const token = sessionStorage.getItem('token');
       if (!token) return;
-      const res = await fetch('/api/auth/profile');
+      const res = await fetch('/api/auth/profile', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
       if (res.ok) {
         const data = await res.json();
         setUserProfile(data);

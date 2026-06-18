@@ -17,7 +17,12 @@ export default function UserProfile({ onProfileUpdate, showToast, onLogout }) {
   const fetchProfile = async () => {
     try {
       setLoading(true);
-      const res = await fetch('/api/auth/profile');
+      const token = sessionStorage.getItem('token');
+      const res = await fetch('/api/auth/profile', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
       if (res.ok) {
         const data = await res.json();
         setProfile(data);
