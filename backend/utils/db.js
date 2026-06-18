@@ -1506,26 +1506,33 @@ export const ensureTenantSqlLoaded = async (req, res, next) => {
   const activeTenant = tenantId ? slugify(tenantId) : 'platform';
   
   try {
-    if (activeTenant === 'platform') {
-      // Platform cache validation: check count of schools, max id, and max updatedAt timestamp
-      const dbRows = await sqlDb.query('SELECT COUNT(*) as count, MAX(id) as maxId, MAX(updatedAt) as maxUpdatedAt FROM schools');
-      const count = dbRows[0]?.count || 0;
-      const maxId = dbRows[0]?.maxId || '';
-      const maxUpdatedAt = dbRows[0]?.maxUpdatedAt || '';
-      const cacheSignature = `${count}-${maxId}-${maxUpdatedAt}`;
-      if (!dbCache[activeTenant] || dbCache[activeTenant]._signature !== cacheSignature) {
-        const data = await loadTenantSqlIntoMemory(activeTenant);
-        if (data) {
-          data._signature = cacheSignature;
-          dbCache[activeTenant] = data;
-        }
+    // 1. ALWAYS validate and load platform cache first, because any tenant request might need global school config
+    const dbRows = await sqlDb.query('SELECT COUNT(*) as count, MAX(id) as maxId, MAX(updatedAt) as maxUpdatedAt FROM schools');
+    const count = dbRows[0]?.count || 0;
+    const maxId = dbRows[0]?.maxId || '';
+    const maxUpdatedAt = dbRows[0]?.maxUpdatedAt || '';
+    const platformSignature = `${count}-${maxId}-${maxUpdatedAt}`;
+    if (!dbCache['platform'] || dbCache['platform']._signature !== platformSignature) {
+      console.log(`[SQL Cache] Invalidating platform cache (Local: ${dbCache['platform']?._signature || 'None'} != SQL: ${platformSignature})`);
+      const data = await loadTenantSqlIntoMemory('platform');
+      if (data) {
+        data._signature = platformSignature;
+        dbCache['platform'] = data;
       }
-    } else {
-      // Tenant cache validation: check schools.updatedAt timestamp
+    }
+
+    // 2. Validate and load tenant cache if we are inside a tenant context
+    if (activeTenant !== 'platform') {
       const rows = await sqlDb.query('SELECT updatedAt FROM schools WHERE subdomain = ?', [activeTenant]);
       const dbUpdatedAt = rows[0]?.updatedAt || '';
-      if (!dbCache[activeTenant] || dbCache[activeTenant]._updatedAt !== dbUpdatedAt) {
-        console.log(`[SQL Cache] Invalidating cache for tenant: ${activeTenant} (Local: ${dbCache[activeTenant]?._updatedAt || 'None'} != SQL: ${dbUpdatedAt})`);
+      
+      const dbUpdatedAtStr = dbUpdatedAt instanceof Date ? dbUpdatedAt.toISOString() : (dbUpdatedAt || '');
+      const localUpdatedAtStr = (dbCache[activeTenant] && dbCache[activeTenant]._updatedAt)
+        ? (dbCache[activeTenant]._updatedAt instanceof Date ? dbCache[activeTenant]._updatedAt.toISOString() : dbCache[activeTenant]._updatedAt)
+        : '';
+
+      if (!dbCache[activeTenant] || localUpdatedAtStr !== dbUpdatedAtStr) {
+        console.log(`[SQL Cache] Invalidating cache for tenant: ${activeTenant} (Local: ${localUpdatedAtStr} != SQL: ${dbUpdatedAtStr})`);
         const data = await loadTenantSqlIntoMemory(activeTenant);
         if (data) {
           data._updatedAt = dbUpdatedAt;

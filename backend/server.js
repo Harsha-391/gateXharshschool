@@ -88,7 +88,7 @@ app.post('/api/auth/login', (req, res) => {
   }
 
   // 1. If role is Developer Admin or credentials match the Platform Owner (dev@admin.com)
-  const globalDb = readDb();
+  const globalDb = tenantStorage.run(null, () => readDb());
   const owner = globalDb.platformOwner || {
     name: "Platform Owner",
     username: "dev@admin.com",

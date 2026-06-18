@@ -1,15 +1,10 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   User, 
-  Mail, 
-  Phone, 
   Lock, 
   Shield, 
   Check, 
-  Camera, 
-  Upload, 
   AlertCircle, 
-  CheckCircle,
   Eye,
   EyeOff,
   LogOut
@@ -21,11 +16,7 @@ export default function UserProfile({ onProfileUpdate, showToast, onLogout }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
 
-  // Form states
-  const [name, setName] = useState('');
-  const [username, setUsername] = useState('');
-  const [email, setEmail] = useState('');
-  const [phone, setPhone] = useState('');
+  // Form states for password changes
   const [oldPassword, setOldPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -35,11 +26,6 @@ export default function UserProfile({ onProfileUpdate, showToast, onLogout }) {
   const [showNewPass, setShowNewPass] = useState(false);
   const [showConfirmPass, setShowConfirmPass] = useState(false);
 
-  // Avatar state
-  const [avatarFile, setAvatarFile] = useState(null);
-  const [avatarPreview, setAvatarPreview] = useState('');
-  const fileInputRef = useRef(null);
-
   const fetchProfile = async () => {
     try {
       setLoading(true);
@@ -47,13 +33,6 @@ export default function UserProfile({ onProfileUpdate, showToast, onLogout }) {
       if (res.ok) {
         const data = await res.json();
         setProfile(data);
-        setName(data.name || '');
-        setUsername(data.username || '');
-        setEmail(data.email || '');
-        setPhone(data.phone || '');
-        if (data.photo) {
-          setAvatarPreview(data.photo);
-        }
       } else {
         const errData = await res.json();
         setError(errData.error || 'Failed to load profile.');
@@ -70,91 +49,51 @@ export default function UserProfile({ onProfileUpdate, showToast, onLogout }) {
     fetchProfile();
   }, []);
 
-  const handleFileChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      if (file.size > 2 * 1024 * 1024) {
-        if (showToast) showToast('File size must be under 2MB', 'error');
-        return;
-      }
-      setAvatarFile(file);
-      setAvatarPreview(URL.createObjectURL(file));
-    }
-  };
-
-  const handleDragOver = (e) => {
-    e.preventDefault();
-  };
-
-  const handleDrop = (e) => {
-    e.preventDefault();
-    const file = e.dataTransfer.files[0];
-    if (file) {
-      if (file.size > 2 * 1024 * 1024) {
-        if (showToast) showToast('File size must be under 2MB', 'error');
-        return;
-      }
-      setAvatarFile(file);
-      setAvatarPreview(URL.createObjectURL(file));
-    }
-  };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     
     // Validations
-    if (!name.trim()) {
-      if (showToast) showToast('Full name is required', 'error');
+    if (!oldPassword) {
+      if (showToast) showToast('Please enter your current password', 'error');
       return;
     }
-    if (!username.trim()) {
-      if (showToast) showToast('Username is required', 'error');
+    if (!newPassword) {
+      if (showToast) showToast('Please enter a new password', 'error');
       return;
     }
-
-    if (newPassword || confirmPassword) {
-      if (!oldPassword) {
-        if (showToast) showToast('Please enter your current password to set a new one', 'error');
-        return;
-      }
-      // Simple verification
-      if (oldPassword !== profile.password) {
-        if (showToast) showToast('Incorrect current password', 'error');
-        return;
-      }
-      if (newPassword.length < 6) {
-        if (showToast) showToast('New password must be at least 6 characters long', 'error');
-        return;
-      }
-      if (newPassword !== confirmPassword) {
-        if (showToast) showToast('New passwords do not match', 'error');
-        return;
-      }
+    if (oldPassword !== profile?.password) {
+      if (showToast) showToast('Incorrect current password', 'error');
+      return;
+    }
+    if (newPassword.length < 6) {
+      if (showToast) showToast('New password must be at least 6 characters long', 'error');
+      return;
+    }
+    if (newPassword === oldPassword) {
+      if (showToast) showToast('New password must be different from current password', 'error');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      if (showToast) showToast('New passwords do not match', 'error');
+      return;
     }
 
     try {
       setSaving(true);
-      const formData = new FormData();
-      formData.append('name', name);
-      formData.append('username', username);
-      formData.append('email', email);
-      formData.append('phone', phone);
-      if (newPassword) {
-        formData.append('password', newPassword);
-      }
-      if (avatarFile) {
-        formData.append('photo', avatarFile);
-      }
-
       const res = await fetch('/api/auth/profile', {
         method: 'PUT',
-        body: formData
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          password: newPassword
+        })
       });
 
       if (res.ok) {
         const result = await res.json();
         if (showToast) {
-          showToast(result.message || 'Profile updated successfully!', 'success');
+          showToast(result.message || 'Password updated successfully!', 'success');
         }
         
         // Reset password fields
@@ -170,7 +109,7 @@ export default function UserProfile({ onProfileUpdate, showToast, onLogout }) {
       } else {
         const errData = await res.json();
         if (showToast) {
-          showToast(errData.error || 'Failed to update profile.', 'error');
+          showToast(errData.error || 'Failed to update password.', 'error');
         }
       }
     } catch (err) {
@@ -244,36 +183,20 @@ export default function UserProfile({ onProfileUpdate, showToast, onLogout }) {
   };
 
   return (
-    <div className="animate-slide-up" style={{
-      display: 'grid',
-      gridTemplateColumns: '1fr',
-      gap: '24px',
-      alignItems: 'start',
-      paddingBottom: '40px'
-    }}>
-      {/* Dynamic Grid: Left Sidebar Card, Right Main Card */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
-        gap: '24px',
-        alignItems: 'start'
-      }}>
+    <div style={{ maxWidth: '1100px', margin: '0 auto', padding: '20px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '32px', alignItems: 'start' }}>
         {/* Left Side: Avatar Card & Stats Info */}
         <div className="glass-panel" style={{ padding: '32px', display: 'flex', flexDirection: 'column', gap: '24px', position: 'sticky', top: '10px' }}>
           
           {/* Avatar Interaction */}
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
             <div 
-              onDragOver={handleDragOver}
-              onDrop={handleDrop}
-              onClick={() => fileInputRef.current.click()}
               style={{
                 width: '120px',
                 height: '120px',
                 borderRadius: '50%',
                 overflow: 'hidden',
                 position: 'relative',
-                cursor: 'pointer',
                 border: '3px solid hsl(var(--color-primary))',
                 background: 'var(--bg-form)',
                 boxShadow: '0 8px 20px rgba(hsl(var(--color-primary)), 0.2)',
@@ -282,46 +205,17 @@ export default function UserProfile({ onProfileUpdate, showToast, onLogout }) {
                 justifyContent: 'center',
                 transition: 'all 0.3s ease'
               }}
-              className="avatar-container"
             >
-              {avatarPreview ? (
-                <img src={avatarPreview} alt="Avatar Preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              {profile?.photo ? (
+                <img src={profile.photo} alt="User Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
               ) : (
                 <User size={48} style={{ color: 'var(--text-muted)' }} />
               )}
-              
-              {/* Hover Edit Overlay */}
-              <div style={{
-                position: 'absolute',
-                top: 0, left: 0, right: 0, bottom: 0,
-                background: 'rgba(0,0,0,0.5)',
-                color: 'white',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
-                opacity: 0,
-                transition: 'opacity 0.25s ease',
-                gap: '4px'
-              }}
-              className="avatar-hover-overlay"
-              >
-                <Camera size={18} />
-                <span style={{ fontSize: '0.65rem', fontWeight: 600 }}>Change Photo</span>
-              </div>
             </div>
             
-            <input 
-              type="file" 
-              ref={fileInputRef} 
-              style={{ display: 'none' }} 
-              accept="image/*"
-              onChange={handleFileChange}
-            />
-
             <div style={{ textAlign: 'center' }}>
-              <h2 style={{ fontSize: '1.25rem', fontWeight: 800 }}>{name || 'User Profile'}</h2>
-              <span className="badge badge-info" style={{ marginTop: '6px' }}>{profile.role}</span>
+              <h2 style={{ fontSize: '1.25rem', fontWeight: 800 }}>{profile?.name || 'User Profile'}</h2>
+              <span className="badge badge-info" style={{ marginTop: '6px' }}>{profile?.role}</span>
             </div>
           </div>
 
@@ -339,11 +233,11 @@ export default function UserProfile({ onProfileUpdate, showToast, onLogout }) {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
               <span>User ID:</span>
-              <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>{profile.id || 'N/A'}</span>
+              <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>{profile?.id || 'N/A'}</span>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
               <span>Login Username:</span>
-              <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>{profile.username || 'N/A'}</span>
+              <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>{profile?.username || 'N/A'}</span>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
               <span>Current Status:</span>
@@ -381,77 +275,6 @@ export default function UserProfile({ onProfileUpdate, showToast, onLogout }) {
           
           {/* Main profile form */}
           <form onSubmit={handleSubmit} className="glass-panel" style={{ padding: '32px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-            <h2 style={{ fontSize: '1.2rem', fontWeight: 800 }}>Profile Variables</h2>
-            <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '-12px' }}>Update account information and personal details.</p>
-
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px' }}>
-              <div className="form-group">
-                <label>Full Name</label>
-                <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                  <User size={16} style={{ position: 'absolute', left: '12px', color: 'var(--text-muted)' }} />
-                  <input 
-                    type="text" 
-                    value={name} 
-                    onChange={e => setName(e.target.value)} 
-                    className="form-control" 
-                    placeholder="Enter full name"
-                    style={{ paddingLeft: '38px' }}
-                    required
-                  />
-                </div>
-              </div>
-
-              <div className="form-group">
-                <label>Login Username</label>
-                <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                  <User size={16} style={{ position: 'absolute', left: '12px', color: 'var(--text-muted)' }} />
-                  <input 
-                    type="text" 
-                    value={username} 
-                    onChange={e => setUsername(e.target.value)} 
-                    className="form-control" 
-                    placeholder="Enter login username"
-                    style={{ paddingLeft: '38px' }}
-                    required
-                  />
-                </div>
-              </div>
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px' }}>
-              <div className="form-group">
-                <label>Email Address</label>
-                <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                  <Mail size={16} style={{ position: 'absolute', left: '12px', color: 'var(--text-muted)' }} />
-                  <input 
-                    type="email" 
-                    value={email} 
-                    readOnly
-                    className="form-control" 
-                    placeholder="Enter email address"
-                    style={{ paddingLeft: '38px' }}
-                  />
-                </div>
-              </div>
-
-              <div className="form-group">
-                <label>Phone Number</label>
-                <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                  <Phone size={16} style={{ position: 'absolute', left: '12px', color: 'var(--text-muted)' }} />
-                  <input 
-                    type="tel" 
-                    value={phone} 
-                    onChange={e => setPhone(e.target.value)} 
-                    className="form-control" 
-                    placeholder="Enter phone number"
-                    style={{ paddingLeft: '38px' }}
-                  />
-                </div>
-              </div>
-            </div>
-
-            <hr style={{ border: 'none', height: '1px', background: 'var(--border-glass)', margin: '8px 0' }} />
-
             {/* Password Management */}
             <h2 style={{ fontSize: '1.2rem', fontWeight: 800 }}>Change Password</h2>
             <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '-12px' }}>Provide current and new password variables to save changes.</p>
@@ -545,13 +368,6 @@ export default function UserProfile({ onProfileUpdate, showToast, onLogout }) {
           </form>
         </div>
       </div>
-
-      {/* Styled avatar hover effect rules */}
-      <style>{`
-        .avatar-container:hover .avatar-hover-overlay {
-          opacity: 1 !important;
-        }
-      `}</style>
     </div>
   );
 }
