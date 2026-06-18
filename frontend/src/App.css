@@ -8,7 +8,7 @@
 
 /* Sidebar Styling */
 .app-sidebar {
-  width: 340px;
+  width: 365px;
   height: 100vh;
   position: sticky;
   top: 0;
@@ -159,6 +159,11 @@
   height: 24px;
   background: hsl(var(--color-primary));
   border-radius: 0 4px 4px 0;
+}
+
+.nav-item.active .nav-label {
+  text-overflow: clip;
+  overflow: visible;
 }
 
 .nav-label {
