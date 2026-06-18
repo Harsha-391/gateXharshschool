@@ -74,7 +74,7 @@ app.post('/api/auth/login', (req, res) => {
   }
 
   // 1. If role is Developer Admin or credentials match the Platform Owner (dev@admin.com)
-  const globalDb = JSON.parse(fs.readFileSync(GLOBAL_DB_FILE, 'utf8'));
+  const globalDb = readDb();
   const owner = globalDb.platformOwner || {
     name: "Platform Owner",
     username: "dev@admin.com",
@@ -581,7 +581,7 @@ app.get('/api/auth/profile', auth, restoreTenantContext, (req, res) => {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
-  const globalDb = JSON.parse(fs.readFileSync(GLOBAL_DB_FILE, 'utf8'));
+  const globalDb = readDb();
 
   if (user.role === 'Developer Admin') {
     if (!globalDb.platformOwner) {
@@ -593,7 +593,7 @@ app.get('/api/auth/profile', auth, restoreTenantContext, (req, res) => {
         phone: "",
         photo: ""
       };
-      fs.writeFileSync(GLOBAL_DB_FILE, JSON.stringify(globalDb, null, 2), 'utf8');
+      writeDb(globalDb);
     }
     return res.json({
       role: 'Developer Admin',
@@ -701,7 +701,7 @@ app.put('/api/auth/profile', auth, upload.single('photo'), restoreTenantContext,
   const { name, username, email, phone, password } = req.body;
   const photoPath = req.file ? `/uploads/${req.file.filename}` : undefined;
 
-  const globalDb = JSON.parse(fs.readFileSync(GLOBAL_DB_FILE, 'utf8'));
+  const globalDb = readDb();
 
   if (user.role === 'Developer Admin') {
     if (!globalDb.platformOwner) {
@@ -724,7 +724,7 @@ app.put('/api/auth/profile', auth, upload.single('photo'), restoreTenantContext,
     if (photoPath) {
       globalDb.platformOwner.photo = photoPath;
     }
-    fs.writeFileSync(GLOBAL_DB_FILE, JSON.stringify(globalDb, null, 2), 'utf8');
+    writeDb(globalDb);
 
     return res.json({
       success: true,
@@ -761,7 +761,7 @@ app.put('/api/auth/profile', auth, upload.single('photo'), restoreTenantContext,
       logo: photoPath || currentSchool.logo,
       adminPassword: password || currentSchool.adminPassword
     };
-    fs.writeFileSync(GLOBAL_DB_FILE, JSON.stringify(globalDb, null, 2), 'utf8');
+    writeDb(globalDb);
 
     // Sync to tenant db
     const tenantDbPath = path.join(__dirname, 'tenants', `db_${currentSchool.subdomain}.json`);

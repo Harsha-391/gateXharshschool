@@ -122,6 +122,16 @@ const createTablesFromSchema = async () => {
       }
     }
 
+    // Ensure updatedAt column exists in schools table
+    try {
+      await sqlDb.query("ALTER TABLE schools ADD COLUMN updatedAt VARCHAR(100)");
+      console.log("[SQL Init] Added missing column updatedAt to schools table.");
+    } catch (err) {
+      if (err.code !== 'ER_DUP_FIELDNAME') {
+        console.warn("[SQL Init WARNING] Failed to check/add updatedAt column:", err.message);
+      }
+    }
+
     // Ensure transportRequired and hostelRequired columns exist in students table
     try {
       await sqlDb.query("ALTER TABLE students ADD COLUMN transportRequired VARCHAR(50) DEFAULT 'No'");
@@ -931,6 +941,18 @@ export const loadTenantSqlIntoMemory = async (tenantId) => {
     const globalSchools = await sqlDb.query('SELECT * FROM schools');
     data.schools = globalSchools;
 
+    // Load platformOwner from local db.json if exists
+    try {
+      if (fs.existsSync(GLOBAL_DB_FILE)) {
+        const fileData = JSON.parse(fs.readFileSync(GLOBAL_DB_FILE, 'utf8'));
+        if (fileData.platformOwner) {
+          data.platformOwner = fileData.platformOwner;
+        }
+      }
+    } catch (e) {
+      console.error('Failed to load platformOwner from JSON:', e);
+    }
+
     const plans = await sqlDb.query('SELECT * FROM subscription_plans');
     data.subscriptionPlans = plans.map(p => ({
       id: p.id,
@@ -1422,11 +1444,35 @@ export const ensureTenantSqlLoaded = async (req, res, next) => {
 
   const activeTenant = tenantId ? slugify(tenantId) : 'platform';
   
-  // Only load from SQL if cache doesn't exist yet.
-  // Once loaded, writeDb() updates the in-memory cache instantly, so reloading
-  // from SQL would race with async saveMemoryDbToSql and overwrite fresh data with stale.
-  if (!dbCache[activeTenant]) {
-    await loadTenantSqlIntoMemory(activeTenant);
+  try {
+    if (activeTenant === 'platform') {
+      // Platform cache validation: check count of schools
+      const dbRows = await sqlDb.query('SELECT COUNT(*) as count, MAX(id) as maxId FROM schools');
+      const count = dbRows[0]?.count || 0;
+      const maxId = dbRows[0]?.maxId || '';
+      const cacheSignature = `${count}-${maxId}`;
+      if (!dbCache[activeTenant] || dbCache[activeTenant]._signature !== cacheSignature) {
+        const data = await loadTenantSqlIntoMemory(activeTenant);
+        if (data) {
+          data._signature = cacheSignature;
+          dbCache[activeTenant] = data;
+        }
+      }
+    } else {
+      // Tenant cache validation: check schools.updatedAt timestamp
+      const rows = await sqlDb.query('SELECT updatedAt FROM schools WHERE subdomain = ?', [activeTenant]);
+      const dbUpdatedAt = rows[0]?.updatedAt || '';
+      if (!dbCache[activeTenant] || dbCache[activeTenant]._updatedAt !== dbUpdatedAt) {
+        console.log(`[SQL Cache] Invalidating cache for tenant: ${activeTenant} (Local: ${dbCache[activeTenant]?._updatedAt || 'None'} != SQL: ${dbUpdatedAt})`);
+        const data = await loadTenantSqlIntoMemory(activeTenant);
+        if (data) {
+          data._updatedAt = dbUpdatedAt;
+          dbCache[activeTenant] = data;
+        }
+      }
+    }
+  } catch (err) {
+    console.error('[SQL Cache Validation Error]', err.message);
   }
   next();
 };
@@ -2751,6 +2797,15 @@ export const saveMemoryDbToSql = async (tenantId, db) => {
       }
     }
 
+    // 27. Update schools.updatedAt timestamp to trigger cache validation for other instances
+    if (tId !== 'platform') {
+      const nowStr = new Date().toISOString();
+      await sqlDb.query("UPDATE schools SET updatedAt = ? WHERE subdomain = ?", [nowStr, tId]);
+      if (dbCache[tId]) {
+        dbCache[tId]._updatedAt = nowStr;
+      }
+    }
+
     console.log(`[SQL Sync SUCCESS] Finished database sync for tenant: ${tId}`);
     } catch (err) {
       console.error(`[SQL Sync ERROR] Sync query failed for tenant ${tId || 'platform'}:`, err);
@@ -2882,13 +2937,15 @@ export const writeDb = (data) => {
     saveMemoryDbToSql(activeTenant, data);
   }
 
-  // Backup to JSON file asynchronously to avoid blocking
-  const dbFile = getDbPath();
-  fs.writeFile(dbFile, JSON.stringify(data, null, 2), 'utf8', (err) => {
-    if (err) {
-      console.error(`[JSON Backup ERROR] Failed writing local backup:`, err);
-    }
-  });
+  // Backup to JSON file asynchronously to avoid blocking (always for platform owner, or when SQL is inactive)
+  if (activeTenant === 'platform' || !isSqlActive()) {
+    const dbFile = getDbPath();
+    fs.writeFile(dbFile, JSON.stringify(data, null, 2), 'utf8', (err) => {
+      if (err) {
+        console.error(`[JSON Backup ERROR] Failed writing local backup:`, err);
+      }
+    });
+  }
 };
 
 // Helper to log system activities
