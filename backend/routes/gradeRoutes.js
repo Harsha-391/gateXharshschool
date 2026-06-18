@@ -250,7 +250,8 @@ router.delete('/:id', (req, res) => {
       return res.status(404).json({ error: 'Grade not found.' });
     }
 
-    // Reference validation check
+    // Reference validation check bypassed to allow clean grade reset / deletion
+    /*
     // 1. Grade name check
     const usageError = checkGradeUsage(db, grade.name);
     if (usageError) {
@@ -278,6 +279,7 @@ router.delete('/:id', (req, res) => {
         }
       }
     }
+    */
 
     // Delete mappings & grade
     db.gradeDepartments = (db.gradeDepartments || []).filter(gd => gd.gradeId !== id);
