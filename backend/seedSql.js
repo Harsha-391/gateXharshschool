@@ -123,7 +123,7 @@ async function seed() {
         schoolId, 'Green Valley Public School', 'SCH-GV-001', tenantId, '', 'Dr. John Miller', 
         'contact@greenvalley.edu', '1234567890', 'Khimel Rani Station Rd', 'Bali', 'Rajasthan', 'India', 
         '2026-2027', 'Growth', `http://${tenantId}.localhost:3000`, 'Active', 'Zachary Langley', 
-        'qino@mailinator.com', 'greenvalley_admin', 'uttam@2004', 
+        'qino@mailinator.com', 'school_admin', 'uttam@2004', 
         new Date().toISOString()
       ]
     );
