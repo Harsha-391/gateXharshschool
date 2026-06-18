@@ -38,12 +38,24 @@ function getCacheKey(url, options) {
 }
 
 window.fetch = function (url, options = {}) {
-  let targetUrl = typeof url === 'string' ? url : (url.url || '');
+  let targetUrl = '';
+  if (typeof url === 'string') {
+    targetUrl = url;
+  } else if (url && typeof url === 'object') {
+    targetUrl = url.url || url.href || '';
+  }
+
+  let pathname = targetUrl;
+  try {
+    const parsed = new URL(targetUrl, window.location.origin);
+    pathname = parsed.pathname;
+  } catch (e) {}
+
   options.headers = options.headers || {};
 
   // 1. Context / headers injection (preserving original functionality)
-  if (targetUrl.startsWith('/') || targetUrl.includes('/api/')) {
-    if (targetUrl.startsWith('/api/platform/')) {
+  if (pathname.startsWith('/') || pathname.includes('/api/')) {
+    if (pathname.startsWith('/api/platform/')) {
       delete options.headers['x-tenant-id'];
     } else if (!options.headers['x-tenant-id']) {
       const host = window.location.hostname;
@@ -70,7 +82,7 @@ window.fetch = function (url, options = {}) {
   }
 
   const method = (options.method || 'GET').toUpperCase();
-  const isApiCall = targetUrl.startsWith('/') || targetUrl.includes('/api/');
+  const isApiCall = pathname.startsWith('/') || pathname.includes('/api/');
 
   // For mutations (POST, PUT, DELETE, PATCH), invalidate the cache
   if (isApiCall && ['POST', 'PUT', 'DELETE', 'PATCH'].includes(method)) {

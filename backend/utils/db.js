@@ -1605,6 +1605,31 @@ export const ensureTenantSqlLoaded = async (req, res, next) => {
 // Queue to serialize SQL sync operations per tenant to prevent concurrent write race conditions
 const sqlSyncQueues = {};
 
+// Helpers to perform bulk insertions/updates in single queries
+const bulkInsertOrUpdate = async (tableName, columns, valueRows, updateColumns) => {
+  if (!valueRows || valueRows.length === 0) return;
+  const chunkSize = 100;
+  for (let i = 0; i < valueRows.length; i += chunkSize) {
+    const chunk = valueRows.slice(i, i + chunkSize);
+    const valuePlaceholders = chunk.map(() => `(${columns.map(() => '?').join(', ')})`).join(', ');
+    const sql = `INSERT INTO \`${tableName}\` (${columns.map(col => `\`${col}\``).join(', ')}) VALUES ${valuePlaceholders} ON DUPLICATE KEY UPDATE ${updateColumns.map(col => `\`${col}\`=VALUES(\`${col}\`)`).join(', ')}`;
+    const params = chunk.flat();
+    await sqlDb.query(sql, params);
+  }
+};
+
+const bulkInsertOnly = async (tableName, columns, valueRows) => {
+  if (!valueRows || valueRows.length === 0) return;
+  const chunkSize = 100;
+  for (let i = 0; i < valueRows.length; i += chunkSize) {
+    const chunk = valueRows.slice(i, i + chunkSize);
+    const valuePlaceholders = chunk.map(() => `(${columns.map(() => '?').join(', ')})`).join(', ');
+    const sql = `INSERT INTO \`${tableName}\` (${columns.map(col => `\`${col}\``).join(', ')}) VALUES ${valuePlaceholders}`;
+    const params = chunk.flat();
+    await sqlDb.query(sql, params);
+  }
+};
+
 // Asynchronous write dispatcher to MySQL
 export const saveMemoryDbToSql = async (tenantId, db) => {
   const tId = tenantId || 'platform';
@@ -1618,125 +1643,108 @@ export const saveMemoryDbToSql = async (tenantId, db) => {
     try {
       console.log(`[SQL Sync] Initiating async MySQL database update for tenant: ${tId}`);
 
-    // 1. Sync global platforms
-    if (db.schools && Array.isArray(db.schools)) {
-      // Synchronize deleted schools from MySQL
-      const activeSchoolIds = db.schools.map(s => s.id).filter(Boolean);
-      let deletedSubdomains = [];
-      try {
-        if (activeSchoolIds.length > 0) {
-          const rows = await sqlDb.query(`SELECT subdomain FROM schools WHERE id NOT IN (${activeSchoolIds.map(() => '?').join(',')})`, activeSchoolIds);
-          deletedSubdomains = (rows || []).map(r => r.subdomain);
-          await sqlDb.query(`DELETE FROM schools WHERE id NOT IN (${activeSchoolIds.map(() => '?').join(',')})`, activeSchoolIds);
-        } else {
-          const rows = await sqlDb.query(`SELECT subdomain FROM schools`);
-          deletedSubdomains = (rows || []).map(r => r.subdomain);
-          await sqlDb.query('DELETE FROM schools');
-        }
-      } catch (dbErr) {
-        console.error('[SQL Sync delete schools error]', dbErr.message);
-      }
+      const tasks = [];
 
-      // Cleanup deleted tenant subdomains data completely in MySQL
-      if (deletedSubdomains.length > 0) {
-        const tenantTables = [
-          'employees', 'staff', 'students', 'invoices', 'fees', 'expenses', 'payroll',
-          'staff_payments', 'activities', 'exams', 'exam_timetables', 'notices',
-          'holidays', 'events', 'results', 'overall_results', 'subjects', 'timeslots',
-          'fee_structures', 'salary_structures', 'staff_salary_structures', 'income',
-          'attendance', 'roles', 'user_access', 'audit_logs', 'employee_qr_codes',
-          'attendance_records', 'attendance_logs', 'attendance_reports'
-        ];
-        for (const sub of deletedSubdomains) {
-          for (const tbl of tenantTables) {
-            try {
-              await sqlDb.query(`DELETE FROM ${tbl} WHERE tenantId = ?`, [sub]);
-            } catch (tblErr) {
-              // Ignore table/field missing errors
-            }
+      // 1. Sync global platforms
+      if (db.schools && Array.isArray(db.schools)) {
+        tasks.push((async () => {
+          const activeSchoolIds = db.schools.map(s => s.id).filter(Boolean);
+          let deletedSubdomains = [];
+          if (activeSchoolIds.length > 0) {
+            const rows = await sqlDb.query(`SELECT subdomain FROM schools WHERE id NOT IN (${activeSchoolIds.map(() => '?').join(',')})`, activeSchoolIds);
+            deletedSubdomains = (rows || []).map(r => r.subdomain);
+            await sqlDb.query(`DELETE FROM schools WHERE id NOT IN (${activeSchoolIds.map(() => '?').join(',')})`, activeSchoolIds);
+          } else {
+            const rows = await sqlDb.query(`SELECT subdomain FROM schools`);
+            deletedSubdomains = (rows || []).map(r => r.subdomain);
+            await sqlDb.query('DELETE FROM schools');
           }
-        }
-      }
 
-      for (const s of db.schools) {
-        await sqlDb.query(
-          `INSERT INTO schools (
-            id, name, code, subdomain, logo, principalName, email, phone, address, city, state, country, 
-            academicSession, subscriptionPlan, url, status, adminName, adminEmail, adminUsername, adminPassword, 
-            createdAt, updatedAt
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-          ON DUPLICATE KEY UPDATE 
-            name=VALUES(name), logo=VALUES(logo), principalName=VALUES(principalName), email=VALUES(email),
-            phone=VALUES(phone), address=VALUES(address), city=VALUES(city), state=VALUES(state),
-            academicSession=VALUES(academicSession), subscriptionPlan=VALUES(subscriptionPlan),
-            status=VALUES(status), adminName=VALUES(adminName), adminEmail=VALUES(adminEmail),
-            adminUsername=VALUES(adminUsername), adminPassword=VALUES(adminPassword),
-            updatedAt=VALUES(updatedAt)`,
-          [
+          if (deletedSubdomains.length > 0) {
+            const tenantTables = [
+              'employees', 'staff', 'students', 'invoices', 'fees', 'expenses', 'payroll',
+              'staff_payments', 'activities', 'exams', 'exam_timetables', 'notices',
+              'holidays', 'events', 'results', 'overall_results', 'subjects', 'timeslots',
+              'fee_structures', 'salary_structures', 'staff_salary_structures', 'income',
+              'attendance', 'roles', 'user_access', 'audit_logs', 'employee_qr_codes',
+              'attendance_records', 'attendance_logs', 'attendance_reports'
+            ];
+            await Promise.all(deletedSubdomains.flatMap(sub => 
+              tenantTables.map(tbl => 
+                sqlDb.query(`DELETE FROM \`${tbl}\` WHERE tenantId = ?`, [sub]).catch(() => {})
+              )
+            ));
+            deletedSubdomains.forEach(sub => {
+              delete dbCache[sub];
+            });
+          }
+
+          const columns = [
+            'id', 'name', 'code', 'subdomain', 'logo', 'principalName', 'email', 'phone', 'address', 'city', 'state', 'country', 
+            'academicSession', 'subscriptionPlan', 'url', 'status', 'adminName', 'adminEmail', 'adminUsername', 'adminPassword', 
+            'createdAt', 'updatedAt'
+          ];
+          const updateColumns = [
+            'name', 'logo', 'principalName', 'email', 'phone', 'address', 'city', 'state',
+            'academicSession', 'subscriptionPlan', 'status', 'adminName', 'adminEmail',
+            'adminUsername', 'adminPassword', 'updatedAt'
+          ];
+          const valueRows = db.schools.map(s => [
             s.id, s.name, s.code, s.subdomain, s.logo, s.principalName || s.principal || '', s.email, 
             s.phone, s.address, s.city, s.state, s.country || 'India', s.academicSession || '2026-2027', 
             s.subscriptionPlan || 'Starter', s.url, s.status || 'Active', s.adminName || '', s.adminEmail || '', 
             s.adminUsername || '', s.adminPassword || '', 
             s.createdAt, s.updatedAt || s.createdAt || new Date().toISOString()
-          ]
-        );
-      }
-    }
-
-    // 2. Sync school details
-    if (tId !== 'platform' && db.school) {
-      const sch = db.school;
-      await sqlDb.query(
-        `UPDATE schools SET 
-          name = ?, address = ?, city = ?, state = ?, phone = ?, email = ?, 
-          principalName = ?, adminName = ?, adminEmail = ?, adminUsername = ?, adminPassword = ?, ratePerStudent = ?, updatedAt = ?
-         WHERE subdomain = ?`,
-        [
-          sch.name, sch.address, sch.city, sch.state, sch.phone, sch.email, 
-          sch.principal, sch.adminName, sch.adminEmail, sch.adminUsername || '', sch.adminPassword, sch.ratePerStudent || '250.00',
-          sch.updatedAt || new Date().toISOString(), tId
-        ]
-      );
-    }
-
-    // 3. Sync Teachers
-    if (db.teachers && Array.isArray(db.teachers)) {
-      // Clean deleted
-      const activeTeacherIds = db.teachers.map(t => t.id).filter(Boolean);
-      if (activeTeacherIds.length > 0) {
-        await sqlDb.query(`DELETE FROM staff WHERE tenantId = ? AND id NOT IN (${activeTeacherIds.map(() => '?').join(',')})`, [tId, ...activeTeacherIds]);
-      } else {
-        await sqlDb.query('DELETE FROM staff WHERE tenantId = ?', [tId]);
+          ]);
+          await bulkInsertOrUpdate('schools', columns, valueRows, updateColumns);
+        })());
       }
 
-      for (const t of db.teachers) {
-        await sqlDb.query(
-          `INSERT INTO staff (
-            id, name, email, phone, username, password, gender, qualification, experience, dateOfJoining, 
-            salaryGrade, address, city, state, pincode, emergencyContact, emergencyPhone, photo, aadharFile, 
-            certificateFile, status, avatarBg, tenantId,
-            firstName, middleName, lastName, fullName, dob, bloodGroup, nationality, maritalStatus,
-            aadhaarNumber, panNumber, joiningDate, employmentType, designation, department, primarySubject,
-            secondarySubject, alternateMobile, currentAddress, currentCity, currentState, currentCountry,
-            currentPostalCode, permanentAddress, permanentCity, permanentState, permanentCountry,
-            permanentPostalCode, sameAsPermanent, panFile, resumeFile, joiningLetterFile, otherFile, experiences
-          ) VALUES (${new Array(56).fill('?').join(', ')})
-          ON DUPLICATE KEY UPDATE 
-            name=VALUES(name), email=VALUES(email), phone=VALUES(phone), username=VALUES(username),
-            password=VALUES(password), status=VALUES(status), address=VALUES(address),
-            qualification=VALUES(qualification), experience=VALUES(experience),
-            firstName=VALUES(firstName), middleName=VALUES(middleName), lastName=VALUES(lastName),
-            fullName=VALUES(fullName), dob=VALUES(dob), bloodGroup=VALUES(bloodGroup), nationality=VALUES(nationality),
-            maritalStatus=VALUES(maritalStatus), aadhaarNumber=VALUES(aadhaarNumber), panNumber=VALUES(panNumber),
-            joiningDate=VALUES(joiningDate), employmentType=VALUES(employmentType), designation=VALUES(designation),
-            department=VALUES(department), primarySubject=VALUES(primarySubject), secondarySubject=VALUES(secondarySubject),
-            alternateMobile=VALUES(alternateMobile), currentAddress=VALUES(currentAddress), currentCity=VALUES(currentCity),
-            currentState=VALUES(currentState), currentCountry=VALUES(currentCountry), currentPostalCode=VALUES(currentPostalCode),
-            permanentAddress=VALUES(permanentAddress), permanentCity=VALUES(permanentCity), permanentState=VALUES(permanentState),
-            permanentCountry=VALUES(permanentCountry), permanentPostalCode=VALUES(permanentPostalCode),
-            sameAsPermanent=VALUES(sameAsPermanent), panFile=VALUES(panFile), resumeFile=VALUES(resumeFile),
-            joiningLetterFile=VALUES(joiningLetterFile), otherFile=VALUES(otherFile), experiences=VALUES(experiences)`,
+      // 2. Sync school details
+      if (tId !== 'platform' && db.school) {
+        const sch = db.school;
+        tasks.push(sqlDb.query(
+          `UPDATE schools SET 
+            name = ?, address = ?, city = ?, state = ?, phone = ?, email = ?, 
+            principalName = ?, adminName = ?, adminEmail = ?, adminUsername = ?, adminPassword = ?, ratePerStudent = ?, updatedAt = ?
+           WHERE subdomain = ?`,
           [
+            sch.name, sch.address, sch.city, sch.state, sch.phone, sch.email, 
+            sch.principal, sch.adminName, sch.adminEmail, sch.adminUsername || '', sch.adminPassword, sch.ratePerStudent || '250.00',
+            sch.updatedAt || new Date().toISOString(), tId
+          ]
+        ));
+      }
+
+      // 3. Sync Teachers
+      if (db.teachers && Array.isArray(db.teachers)) {
+        tasks.push((async () => {
+          const activeTeacherIds = db.teachers.map(t => t.id).filter(Boolean);
+          if (activeTeacherIds.length > 0) {
+            await sqlDb.query(`DELETE FROM staff WHERE tenantId = ? AND id NOT IN (${activeTeacherIds.map(() => '?').join(',')})`, [tId, ...activeTeacherIds]);
+          } else {
+            await sqlDb.query('DELETE FROM staff WHERE tenantId = ?', [tId]);
+          }
+
+          const columns = [
+            'id', 'name', 'email', 'phone', 'username', 'password', 'gender', 'qualification', 'experience', 'dateOfJoining', 
+            'salaryGrade', 'address', 'city', 'state', 'pincode', 'emergencyContact', 'emergencyPhone', 'photo', 'aadharFile', 
+            'certificateFile', 'status', 'avatarBg', 'tenantId',
+            'firstName', 'middleName', 'lastName', 'fullName', 'dob', 'bloodGroup', 'nationality', 'maritalStatus',
+            'aadhaarNumber', 'panNumber', 'joiningDate', 'employmentType', 'designation', 'department', 'primarySubject',
+            'secondarySubject', 'alternateMobile', 'currentAddress', 'currentCity', 'currentState', 'currentCountry',
+            'currentPostalCode', 'permanentAddress', 'permanentCity', 'permanentState', 'permanentCountry',
+            'permanentPostalCode', 'sameAsPermanent', 'panFile', 'resumeFile', 'joiningLetterFile', 'otherFile', 'experiences'
+          ];
+          const updateColumns = [
+            'name', 'email', 'phone', 'username', 'password', 'status', 'address', 'qualification', 'experience',
+            'firstName', 'middleName', 'lastName', 'fullName', 'dob', 'bloodGroup', 'nationality', 'maritalStatus',
+            'aadhaarNumber', 'panNumber', 'joiningDate', 'employmentType', 'designation', 'department', 'primarySubject',
+            'secondarySubject', 'alternateMobile', 'currentAddress', 'currentCity', 'currentState', 'currentCountry',
+            'currentPostalCode', 'permanentAddress', 'permanentCity', 'permanentState', 'permanentCountry',
+            'permanentPostalCode', 'sameAsPermanent', 'panFile', 'resumeFile', 'joiningLetterFile', 'otherFile', 'experiences'
+          ];
+          const valueRows = db.teachers.map(t => [
             t.id, t.fullName || t.name || '', t.email || '', t.mobile || t.phone || '', t.username || '', t.password || '', t.gender || '', 
             typeof t.qualification === 'object' ? JSON.stringify(t.qualification) : (t.qualification || ''),
             typeof t.experience === 'object' ? JSON.stringify(t.experience) : (t.experience || ''),
@@ -1751,68 +1759,46 @@ export const saveMemoryDbToSql = async (tenantId, db) => {
             t.permanentPostalCode || '', typeof t.sameAsPermanent === 'boolean' ? (t.sameAsPermanent ? 'Yes' : 'No') : (t.sameAsPermanent || 'No'),
             t.panFile || '', t.resumeFile || '', t.joiningLetterFile || '', t.otherFile || '',
             typeof t.experiences === 'object' ? JSON.stringify(t.experiences) : (t.experiences || '')
-          ]
-        );
-      }
-    }
-
-    // 4. Sync Staff
-    if (db.staff && Array.isArray(db.staff)) {
-      const activeStaffIds = db.staff.map(s => s.id).filter(Boolean);
-      if (activeStaffIds.length > 0) {
-        await sqlDb.query(`DELETE FROM employees WHERE tenantId = ? AND id NOT IN (${activeStaffIds.map(() => '?').join(',')})`, [tId, ...activeStaffIds]);
-      } else {
-        await sqlDb.query('DELETE FROM employees WHERE tenantId = ?', [tId]);
+          ]);
+          await bulkInsertOrUpdate('staff', columns, valueRows, updateColumns);
+        })());
       }
 
-      for (const s of db.staff) {
-        if (!s.id) continue;
-        const params = [
-          s.id, s.name, s.fullName, s.role, s.department, s.email, s.phone, s.gender, s.qualification, 
-          s.experience, s.dateOfJoining, s.salaryGrade, s.reportingTo, s.address, s.city, s.state, s.pincode, 
-          s.emergencyContact, s.emergencyPhone, s.photo, s.aadharFile, s.certificateFile, s.status || 'Active', 
-          s.avatarBg, s.password, tId, s.designation || '', s.designationLevel || '', s.employmentType || ''
-        ].map(v => v === undefined ? null : v);
-        await sqlDb.query(
-          `INSERT INTO employees (
-            id, name, fullName, role, department, email, phone, gender, qualification, experience, 
-            dateOfJoining, salaryGrade, reportingTo, address, city, state, pincode, emergencyContact, 
-            emergencyPhone, photo, aadharFile, certificateFile, status, avatarBg, password, tenantId, 
-            designation, designationLevel, employmentType
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-          ON DUPLICATE KEY UPDATE
-            name=VALUES(name), role=VALUES(role), department=VALUES(department), email=VALUES(email),
-            phone=VALUES(phone), status=VALUES(status), password=VALUES(password), designation=VALUES(designation),
-            designationLevel=VALUES(designationLevel), employmentType=VALUES(employmentType)`,
-          params
-        );
-      }
-    }
+      // 4. Sync Staff
+      if (db.staff && Array.isArray(db.staff)) {
+        tasks.push((async () => {
+          const activeStaffIds = db.staff.map(s => s.id).filter(Boolean);
+          if (activeStaffIds.length > 0) {
+            await sqlDb.query(`DELETE FROM employees WHERE tenantId = ? AND id NOT IN (${activeStaffIds.map(() => '?').join(',')})`, [tId, ...activeStaffIds]);
+          } else {
+            await sqlDb.query('DELETE FROM employees WHERE tenantId = ?', [tId]);
+          }
 
-    // 5. Sync Students & Sub-Tables
-    if (db.students && Array.isArray(db.students)) {
-      const activeStudentIds = db.students.map(s => s.id).filter(Boolean);
-      if (activeStudentIds.length > 0) {
-        // Cascade delete will automatically handle enrollments, parents, addresses, medical, documents, fee_assignments, student_accounts, parent_accounts
-        await sqlDb.query(`DELETE FROM students WHERE tenantId = ? AND id NOT IN (${activeStudentIds.map(() => '?').join(',')})`, [tId, ...activeStudentIds]);
-      } else {
-        await sqlDb.query('DELETE FROM students WHERE tenantId = ?', [tId]);
+          const columns = ['id', 'name', 'fullName', 'role', 'department', 'email', 'phone', 'gender', 'qualification', 'experience', 'dateOfJoining', 'salaryGrade', 'reportingTo', 'address', 'city', 'state', 'pincode', 'emergencyContact', 'emergencyPhone', 'photo', 'aadharFile', 'certificateFile', 'status', 'avatarBg', 'password', 'tenantId', 'designation', 'designationLevel', 'employmentType'];
+          const updateColumns = ['name', 'role', 'department', 'email', 'phone', 'status', 'password', 'designation', 'designationLevel', 'employmentType'];
+          const valueRows = db.staff.filter(s => s.id).map(s => [
+            s.id, s.name, s.fullName, s.role, s.department, s.email, s.phone, s.gender, s.qualification, 
+            s.experience, s.dateOfJoining, s.salaryGrade, s.reportingTo, s.address, s.city, s.state, s.pincode, 
+            s.emergencyContact, s.emergencyPhone, s.photo, s.aadharFile, s.certificateFile, s.status || 'Active', 
+            s.avatarBg, s.password, tId, s.designation || '', s.designationLevel || '', s.employmentType || ''
+          ].map(v => v === undefined ? null : v));
+          await bulkInsertOrUpdate('employees', columns, valueRows, updateColumns);
+        })());
       }
 
-      for (const s of db.students) {
-        if (!s.id) continue;
-        // Core student
-        await sqlDb.query(
-          `INSERT INTO students (
-            id, firstName, middleName, lastName, name, fullName, admissionNumber, admissionDate, dob, 
-            gender, bloodGroup, nationality, category, religion, aadhaarNumber, photo, status, photoBg, 
-            email, phone, feeStatus, \`rank\`, createdAt, updatedAt, tenantId, transportRequired, hostelRequired
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-          ON DUPLICATE KEY UPDATE
-            name=VALUES(name), fullName=VALUES(fullName), photo=VALUES(photo), status=VALUES(status),
-            email=VALUES(email), phone=VALUES(phone), feeStatus=VALUES(feeStatus), updatedAt=VALUES(updatedAt),
-            transportRequired=VALUES(transportRequired), hostelRequired=VALUES(hostelRequired)`,
-          [
+      // 5. Sync Students & Sub-Tables (Students first, then child tables concurrently)
+      if (db.students && Array.isArray(db.students)) {
+        tasks.push((async () => {
+          const activeStudentIds = db.students.map(s => s.id).filter(Boolean);
+          if (activeStudentIds.length > 0) {
+            await sqlDb.query(`DELETE FROM students WHERE tenantId = ? AND id NOT IN (${activeStudentIds.map(() => '?').join(',')})`, [tId, ...activeStudentIds]);
+          } else {
+            await sqlDb.query('DELETE FROM students WHERE tenantId = ?', [tId]);
+          }
+
+          const columns = ['id', 'firstName', 'middleName', 'lastName', 'name', 'fullName', 'admissionNumber', 'admissionDate', 'dob', 'gender', 'bloodGroup', 'nationality', 'category', 'religion', 'aadhaarNumber', 'photo', 'status', 'photoBg', 'email', 'phone', 'feeStatus', 'rank', 'createdAt', 'updatedAt', 'tenantId', 'transportRequired', 'hostelRequired'];
+          const updateColumns = ['name', 'fullName', 'photo', 'status', 'email', 'phone', 'feeStatus', 'updatedAt', 'transportRequired', 'hostelRequired'];
+          const valueRows = db.students.filter(s => s.id).map(s => [
             s.id, s.firstName || s.fullName.split(' ')[0], s.middleName || '', s.lastName || s.fullName.split(' ').slice(1).join(' '),
             s.fullName || s.name, s.fullName || s.name, s.admissionNumber || `ADM-${Date.now().toString().slice(-6)}`,
             s.admissionDate || new Date().toISOString().split('T')[0], s.dob, s.gender, s.bloodGroup, 
@@ -1820,998 +1806,824 @@ export const saveMemoryDbToSql = async (tenantId, db) => {
             s.status || 'Active', s.photoBg, s.email, s.phone, s.feeStatus || 'Pending', s.rank || 'N/A', 
             s.createdAt || new Date().toISOString(), s.updatedAt || new Date().toISOString(), tId,
             s.transportRequired || 'No', s.hostelRequired || 'No'
-          ]
-        );
+          ]);
+          await bulkInsertOrUpdate('students', columns, valueRows, updateColumns);
 
-        // Enrollment
-        await sqlDb.query(
-          `INSERT INTO student_enrollments (
-            id, studentId, academicYear, admissionType, studentClass, section, rollNumber, previousSchoolName, 
-            previousSchoolAddress, previousClassStudied, transferCertificateNumber, status, createdAt, updatedAt, tenantId
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-          ON DUPLICATE KEY UPDATE
-            academicYear=VALUES(academicYear), studentClass=VALUES(studentClass), section=VALUES(section),
-            rollNumber=VALUES(rollNumber), previousSchoolName=VALUES(previousSchoolName), status=VALUES(status), updatedAt=VALUES(updatedAt)`,
-          [
+          // Sub-Tables Sync in Parallel (respecting FK constraints after students are written)
+          const childTasks = [];
+
+          // Enrollments
+          const enrColumns = ['id', 'studentId', 'academicYear', 'admissionType', 'studentClass', 'section', 'rollNumber', 'previousSchoolName', 'previousSchoolAddress', 'previousClassStudied', 'transferCertificateNumber', 'status', 'createdAt', 'updatedAt', 'tenantId'];
+          const enrUpdateColumns = ['academicYear', 'studentClass', 'section', 'rollNumber', 'previousSchoolName', 'status', 'updatedAt'];
+          const enrRows = db.students.filter(s => s.id).map(s => [
             s.enrollmentId || `ENR-${Math.floor(100000 + Math.random() * 900000)}`, s.id, s.academicYear || '2026-2027', 
             s.admissionType || 'New Admission', s.studentClass || 'I', s.section || '', s.rollNumber || s.roll || '', 
             s.previousSchoolName || s.previousSchool || '', s.previousSchoolAddress || '', s.previousClassStudied || '', 
             s.transferCertificateNumber || '', s.status || 'Active', new Date().toISOString(), new Date().toISOString(), tId
-          ]
-        );
+          ]);
+          childTasks.push(bulkInsertOrUpdate('student_enrollments', enrColumns, enrRows, enrUpdateColumns));
 
-        // Parent
-        await sqlDb.query(
-          `INSERT INTO parents (
-            id, studentId, fatherName, fatherOccupation, fatherMobile, fatherEmail, motherName, motherOccupation, 
-            motherMobile, motherEmail, guardianName, guardianRelation, guardianContact, parentUsername, parentPassword, 
-            createdAt, updatedAt, tenantId
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-          ON DUPLICATE KEY UPDATE
-            fatherName=VALUES(fatherName), fatherOccupation=VALUES(fatherOccupation), fatherMobile=VALUES(fatherMobile), fatherEmail=VALUES(fatherEmail),
-            motherName=VALUES(motherName), motherOccupation=VALUES(motherOccupation), motherMobile=VALUES(motherMobile), motherEmail=VALUES(motherEmail),
-            guardianName=VALUES(guardianName), guardianRelation=VALUES(guardianRelation), guardianContact=VALUES(guardianContact), parentUsername=VALUES(parentUsername), parentPassword=VALUES(parentPassword), updatedAt=VALUES(updatedAt)`,
-          [
+          // Parents
+          const parColumns = ['id', 'studentId', 'fatherName', 'fatherOccupation', 'fatherMobile', 'fatherEmail', 'motherName', 'motherOccupation', 'motherMobile', 'motherEmail', 'guardianName', 'guardianRelation', 'guardianContact', 'parentUsername', 'parentPassword', 'createdAt', 'updatedAt', 'tenantId'];
+          const parUpdateColumns = ['fatherName', 'fatherOccupation', 'fatherMobile', 'fatherEmail', 'motherName', 'motherOccupation', 'motherMobile', 'motherEmail', 'guardianName', 'guardianRelation', 'guardianContact', 'parentUsername', 'parentPassword', 'updatedAt'];
+          const parRows = db.students.filter(s => s.id).map(s => [
             s.parentId || `PAR-${Math.floor(100000 + Math.random() * 900000)}`, s.id, s.fatherName || '', s.fatherOccupation || '', s.fatherMobile || '', 
             s.fatherEmail || '', s.motherName || '', s.motherOccupation || '', s.motherMobile || '', s.motherEmail || '', s.guardianName || s.guardian || '', 
             s.guardianRelation || '', s.guardianContact || '', s.parentUsername || `parent_${s.admissionNumber}`, s.parentPassword || 'parent123', 
             new Date().toISOString(), new Date().toISOString(), tId
-          ]
-        );
+          ]);
+          childTasks.push(bulkInsertOrUpdate('parents', parColumns, parRows, parUpdateColumns));
 
-        // Address
-        await sqlDb.query(
-          `INSERT INTO addresses (
-            id, studentId, currentAddress, permanentAddress, city, state, country, postalCode, 
-            emergencyContactNumber, isSameAddress, createdAt, updatedAt, tenantId
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-          ON DUPLICATE KEY UPDATE
-            currentAddress=VALUES(currentAddress), permanentAddress=VALUES(permanentAddress), city=VALUES(city),
-            state=VALUES(state), postalCode=VALUES(postalCode), emergencyContactNumber=VALUES(emergencyContactNumber),
-            isSameAddress=VALUES(isSameAddress), updatedAt=VALUES(updatedAt)`,
-          [
+          // Addresses
+          const addrColumns = ['id', 'studentId', 'currentAddress', 'permanentAddress', 'city', 'state', 'country', 'postalCode', 'emergencyContactNumber', 'isSameAddress', 'createdAt', 'updatedAt', 'tenantId'];
+          const addrUpdateColumns = ['currentAddress', 'permanentAddress', 'city', 'state', 'postalCode', 'emergencyContactNumber', 'isSameAddress', 'updatedAt'];
+          const addrRows = db.students.filter(s => s.id).map(s => [
             s.addressId || `ADD-${Math.floor(100000 + Math.random() * 900000)}`, s.id, s.currentAddress || s.address || '', s.permanentAddress || s.address || '', 
             s.city || '', s.state || '', s.country || 'India', s.postalCode || s.pincode || '', s.emergencyContactNumber || s.phone || '', s.isSameAddress !== undefined ? s.isSameAddress : true, 
             new Date().toISOString(), new Date().toISOString(), tId
-          ]
-        );
+          ]);
+          childTasks.push(bulkInsertOrUpdate('addresses', addrColumns, addrRows, addrUpdateColumns));
 
-        // Medical
-        await sqlDb.query(
-          `INSERT INTO medical_records (
-            id, studentId, bloodGroup, medicalConditions, allergies, disabilities, emergencyNotes, 
-            doctorName, doctorContact, createdAt, updatedAt, tenantId
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-          ON DUPLICATE KEY UPDATE
-            bloodGroup=VALUES(bloodGroup), medicalConditions=VALUES(medicalConditions), allergies=VALUES(allergies),
-            disabilities=VALUES(disabilities), emergencyNotes=VALUES(emergencyNotes), doctorName=VALUES(doctorName), doctorContact=VALUES(doctorContact), updatedAt=VALUES(updatedAt)`,
-          [
+          // Medical Records
+          const medColumns = ['id', 'studentId', 'bloodGroup', 'medicalConditions', 'allergies', 'disabilities', 'emergencyNotes', 'doctorName', 'doctorContact', 'createdAt', 'updatedAt', 'tenantId'];
+          const medUpdateColumns = ['bloodGroup', 'medicalConditions', 'allergies', 'disabilities', 'emergencyNotes', 'doctorName', 'doctorContact', 'updatedAt'];
+          const medRows = db.students.filter(s => s.id).map(s => [
             s.medicalId || `MED-${Math.floor(100000 + Math.random() * 900000)}`, s.id, s.bloodGroup || '', s.medicalConditions || '', s.allergies || '', s.disabilities || '', s.emergencyNotes || '', s.doctorName || '', s.doctorContact || '', 
             new Date().toISOString(), new Date().toISOString(), tId
-          ]
-        );
+          ]);
+          childTasks.push(bulkInsertOrUpdate('medical_records', medColumns, medRows, medUpdateColumns));
 
-        // Documents sync (delete old docs metadata and write current ones)
-        await sqlDb.query('DELETE FROM documents WHERE tenantId = ? AND studentId = ?', [tId, s.id]);
-        const docFields = [
-          { type: 'photo', path: s.photo },
-          { type: 'aadhaar', path: s.aadhaarFile },
-          { type: 'birthCertificate', path: s.birthCertificateFile },
-          { type: 'marksheet', path: s.marksheetFile },
-          { type: 'tc', path: s.transferCertificateFile },
-          { type: 'addressProof', path: s.addressProofFile },
-          { type: 'medicalCertificate', path: s.medicalCertificateFile },
-          { type: 'additional', path: s.additionalFile }
-        ];
-        for (const df of docFields) {
-          if (df.path) {
-            await sqlDb.query(
-              'INSERT INTO documents (id, studentId, documentType, fileName, filePath, fileSize, uploadedAt, tenantId) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-              [`DOC-${Math.floor(100000 + Math.random() * 900000)}`, s.id, df.type, df.path.split('/').pop(), df.path, 0, new Date().toISOString(), tId]
-            );
+          // Documents (Delete & Re-insert)
+          if (activeStudentIds.length > 0) {
+            childTasks.push((async () => {
+              await sqlDb.query('DELETE FROM documents WHERE tenantId = ? AND studentId IN (' + activeStudentIds.map(() => '?').join(',') + ')', [tId, ...activeStudentIds]);
+              const docColumns = ['id', 'studentId', 'documentType', 'fileName', 'filePath', 'fileSize', 'uploadedAt', 'tenantId'];
+              const docRows = [];
+              for (const s of db.students) {
+                if (!s.id) continue;
+                const docFields = [
+                  { type: 'photo', path: s.photo },
+                  { type: 'aadhaar', path: s.aadhaarFile },
+                  { type: 'birthCertificate', path: s.birthCertificateFile },
+                  { type: 'marksheet', path: s.marksheetFile },
+                  { type: 'tc', path: s.transferCertificateFile },
+                  { type: 'addressProof', path: s.addressProofFile },
+                  { type: 'medicalCertificate', path: s.medicalCertificateFile },
+                  { type: 'additional', path: s.additionalFile }
+                ];
+                for (const df of docFields) {
+                  if (df.path) {
+                    docRows.push([
+                      `DOC-${Math.floor(100000 + Math.random() * 900000)}`, s.id, df.type, df.path.split('/').pop(), df.path, 0, new Date().toISOString(), tId
+                    ]);
+                  }
+                }
+              }
+              await bulkInsertOnly('documents', docColumns, docRows);
+            })());
           }
-        }
 
-        // Fee Assignment
-        await sqlDb.query(
-          `INSERT INTO fee_assignments (
-            id, studentId, feeStructure, scholarshipDetails, discountType, discountAmount, initialPaymentStatus, assignedAt, tenantId
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-          ON DUPLICATE KEY UPDATE
-            feeStructure=VALUES(feeStructure), scholarshipDetails=VALUES(scholarshipDetails),
-            discountType=VALUES(discountType), discountAmount=VALUES(discountAmount), initialPaymentStatus=VALUES(initialPaymentStatus)`,
-          [
+          // Fee Assignments
+          const feeAsnColumns = ['id', 'studentId', 'feeStructure', 'scholarshipDetails', 'discountType', 'discountAmount', 'initialPaymentStatus', 'assignedAt', 'tenantId'];
+          const feeAsnUpdateColumns = ['feeStructure', 'scholarshipDetails', 'discountType', 'discountAmount', 'initialPaymentStatus'];
+          const feeAsnRows = db.students.filter(s => s.id).map(s => [
             s.feeAssignmentId || `FEE-ASN-${Math.floor(100000 + Math.random() * 900000)}`, s.id, s.feeStructure || '', s.scholarshipDetails || '', s.discountType || '', 
             parseFloat(s.discountAmount || 0), s.feeStatus || s.initialPaymentStatus || 'Pending', new Date().toISOString(), tId
-          ]
-        );
+          ]);
+          childTasks.push(bulkInsertOrUpdate('fee_assignments', feeAsnColumns, feeAsnRows, feeAsnUpdateColumns));
 
-        // Account Logins
-        await sqlDb.query(
-          `INSERT INTO student_accounts (id, studentId, studentUsername, studentPassword, createdAt, tenantId) VALUES (?, ?, ?, ?, ?, ?)
-           ON DUPLICATE KEY UPDATE studentPassword=VALUES(studentPassword)`,
-          [`ACT-S-${s.id}`, s.id, s.studentUsername || s.admissionNumber, s.studentPassword || `stu@${s.fullName.split(' ')[0].toLowerCase()}`, new Date().toISOString(), tId]
-        );
-        await sqlDb.query(
-          `INSERT INTO parent_accounts (id, studentId, parentUsername, parentPassword, createdAt, tenantId) VALUES (?, ?, ?, ?, ?, ?)
-           ON DUPLICATE KEY UPDATE parentPassword=VALUES(parentPassword)`,
-          [`ACT-P-${s.id}`, s.id, s.parentUsername || `parent_${s.admissionNumber}`, s.parentPassword || 'parent123', new Date().toISOString(), tId]
-        );
+          // Logins
+          const loginSColumns = ['id', 'studentId', 'studentUsername', 'studentPassword', 'createdAt', 'tenantId'];
+          const loginSUpdateColumns = ['studentPassword'];
+          const loginSRows = db.students.filter(s => s.id).map(s => [
+            `ACT-S-${s.id}`, s.id, s.studentUsername || s.admissionNumber, s.studentPassword || `stu@${s.fullName.split(' ')[0].toLowerCase()}`, new Date().toISOString(), tId
+          ]);
+          childTasks.push(bulkInsertOrUpdate('student_accounts', loginSColumns, loginSRows, loginSUpdateColumns));
+
+          const loginPColumns = ['id', 'studentId', 'parentUsername', 'parentPassword', 'createdAt', 'tenantId'];
+          const loginPUpdateColumns = ['parentPassword'];
+          const loginPRows = db.students.filter(s => s.id).map(s => [
+            `ACT-P-${s.id}`, s.id, s.parentUsername || `parent_${s.admissionNumber}`, s.parentPassword || 'parent123', new Date().toISOString(), tId
+          ]);
+          childTasks.push(bulkInsertOrUpdate('parent_accounts', loginPColumns, loginPRows, loginPUpdateColumns));
+
+          await Promise.all(childTasks);
+        })());
       }
-    }
 
-    // 6. Sync Timetables
-    if (db.timetables && Array.isArray(db.timetables)) {
-      await sqlDb.query('DELETE FROM timetables WHERE tenantId = ?', [tId]);
-      
-      const weekRows = {};
-      const dayKeyMap = {
-        monday: 'mon', mon: 'mon',
-        tuesday: 'tue', tue: 'tue',
-        wednesday: 'wed', wed: 'wed',
-        thursday: 'thu', thu: 'thu',
-        friday: 'fri', fri: 'fri',
-        saturday: 'sat', sat: 'sat'
-      };
-
-      for (const t of db.timetables) {
-        if (!t.cohort || !t.time) continue;
-        const key = `${t.cohort}_${t.time}`;
-        if (!weekRows[key]) {
-          weekRows[key] = {
-            cohort: t.cohort,
-            time: t.time,
-            mon: null,
-            tue: null,
-            wed: null,
-            thu: null,
-            fri: null,
-            sat: null
+      // 6. Sync Timetables
+      if (db.timetables && Array.isArray(db.timetables)) {
+        tasks.push((async () => {
+          await sqlDb.query('DELETE FROM timetables WHERE tenantId = ?', [tId]);
+          
+          const weekRows = {};
+          const dayKeyMap = {
+            monday: 'mon', mon: 'mon',
+            tuesday: 'tue', tue: 'tue',
+            wednesday: 'wed', wed: 'wed',
+            thursday: 'thu', thu: 'thu',
+            friday: 'fri', fri: 'fri',
+            saturday: 'sat', sat: 'sat'
           };
-        }
 
-        if (t.day) {
-          const dKey = dayKeyMap[t.day.toLowerCase()];
-          if (dKey) {
-            weekRows[key][dKey] = {
-              subject: t.subject || '',
-              teacher: t.teacher || '',
-              room: t.room || ''
-            };
-          }
-        } else {
-          const days = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
-          for (const d of days) {
-            if (t[d]) {
-              let val = t[d];
-              if (typeof val === 'string') {
-                try { val = JSON.parse(val); } catch (e) { val = null; }
+          for (const t of db.timetables) {
+            if (!t.cohort || !t.time) continue;
+            const key = `${t.cohort}_${t.time}`;
+            if (!weekRows[key]) {
+              weekRows[key] = {
+                cohort: t.cohort,
+                time: t.time,
+                mon: null,
+                tue: null,
+                wed: null,
+                thu: null,
+                fri: null,
+                sat: null
+              };
+            }
+
+            if (t.day) {
+              const dKey = dayKeyMap[t.day.toLowerCase()];
+              if (dKey) {
+                weekRows[key][dKey] = {
+                  subject: t.subject || '',
+                  teacher: t.teacher || '',
+                  room: t.room || ''
+                };
               }
-              if (val) {
-                weekRows[key][d] = val;
+            } else {
+              const days = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+              for (const d of days) {
+                if (t[d]) {
+                  let val = t[d];
+                  if (typeof val === 'string') {
+                    try { val = JSON.parse(val); } catch (e) { val = null; }
+                  }
+                  if (val) {
+                    weekRows[key][d] = val;
+                  }
+                }
               }
             }
           }
-        }
+
+          const columns = ['cohort', 'time', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'tenantId'];
+          const valueRows = Object.keys(weekRows).map(key => {
+            const row = weekRows[key];
+            return [
+              row.cohort,
+              row.time,
+              row.mon ? JSON.stringify(row.mon) : null,
+              row.tue ? JSON.stringify(row.tue) : null,
+              row.wed ? JSON.stringify(row.wed) : null,
+              row.thu ? JSON.stringify(row.thu) : null,
+              row.fri ? JSON.stringify(row.fri) : null,
+              row.sat ? JSON.stringify(row.sat) : null,
+              tId
+            ];
+          });
+          await bulkInsertOnly('timetables', columns, valueRows);
+        })());
       }
 
-      for (const key of Object.keys(weekRows)) {
-        const row = weekRows[key];
-        await sqlDb.query(
-          'INSERT INTO timetables (cohort, time, mon, tue, wed, thu, fri, sat, tenantId) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-          [
-            row.cohort,
-            row.time,
-            row.mon ? JSON.stringify(row.mon) : null,
-            row.tue ? JSON.stringify(row.tue) : null,
-            row.wed ? JSON.stringify(row.wed) : null,
-            row.thu ? JSON.stringify(row.thu) : null,
-            row.fri ? JSON.stringify(row.fri) : null,
-            row.sat ? JSON.stringify(row.sat) : null,
-            tId
-          ]
-        );
-      }
-    }
+      // 7. Sync Invoices
+      if (db.invoices && Array.isArray(db.invoices)) {
+        tasks.push((async () => {
+          const activeInvNos = db.invoices.map(i => i.invoiceNo).filter(Boolean);
+          if (activeInvNos.length > 0) {
+            await sqlDb.query(`DELETE FROM invoices WHERE tenantId = ? AND invoiceNo NOT IN (${activeInvNos.map(() => '?').join(',')})`, [tId, ...activeInvNos]);
+          } else {
+            await sqlDb.query('DELETE FROM invoices WHERE tenantId = ?', [tId]);
+          }
 
-    // 7. Sync Invoices
-    if (db.invoices && Array.isArray(db.invoices)) {
-      const activeInvNos = db.invoices.map(i => i.invoiceNo).filter(Boolean);
-      if (activeInvNos.length > 0) {
-        await sqlDb.query(`DELETE FROM invoices WHERE tenantId = ? AND invoiceNo NOT IN (${activeInvNos.map(() => '?').join(',')})`, [tId, ...activeInvNos]);
-      } else {
-        await sqlDb.query('DELETE FROM invoices WHERE tenantId = ?', [tId]);
+          const columns = ['invoiceNo', 'name', 'grade', 'amount', 'date', 'status', 'method', 'tenantId'];
+          const updateColumns = ['status', 'method'];
+          const valueRows = db.invoices.filter(inv => inv.invoiceNo).map(inv => [
+            inv.invoiceNo, inv.name || '', inv.grade || '', inv.amount || '', inv.date || '', inv.status || 'Pending', inv.method || 'N/A', tId
+          ]);
+          await bulkInsertOrUpdate('invoices', columns, valueRows, updateColumns);
+        })());
       }
 
-      for (const inv of db.invoices) {
-        if (!inv.invoiceNo) continue;
-        await sqlDb.query(
-          `INSERT INTO invoices (invoiceNo, name, grade, amount, date, status, method, tenantId) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-           ON DUPLICATE KEY UPDATE status=VALUES(status), method=VALUES(method)`,
-          [inv.invoiceNo, inv.name || '', inv.grade || '', inv.amount || '', inv.date || '', inv.status || 'Pending', inv.method || 'N/A', tId]
-        );
-      }
-    }
+      // 8. Sync Fees
+      if (db.fees && Array.isArray(db.fees)) {
+        tasks.push((async () => {
+          const activeFeeIds = db.fees.map(f => f.id || f.feeId).filter(Boolean);
+          if (activeFeeIds.length > 0) {
+            await sqlDb.query(`DELETE FROM fees WHERE tenantId = ? AND id NOT IN (${activeFeeIds.map(() => '?').join(',')})`, [tId, ...activeFeeIds]);
+          } else {
+            await sqlDb.query('DELETE FROM fees WHERE tenantId = ?', [tId]);
+          }
 
-    // 8. Sync Fees
-    if (db.fees && Array.isArray(db.fees)) {
-      const activeFeeIds = db.fees.map(f => f.id || f.feeId).filter(Boolean);
-      if (activeFeeIds.length > 0) {
-        await sqlDb.query(`DELETE FROM fees WHERE tenantId = ? AND id NOT IN (${activeFeeIds.map(() => '?').join(',')})`, [tId, ...activeFeeIds]);
-      } else {
-        await sqlDb.query('DELETE FROM fees WHERE tenantId = ?', [tId]);
-      }
-
-      for (const f of db.fees) {
-        const id = f.id || f.feeId;
-        if (!id) continue;
-        const classId = f.classId || f.studentClass || '';
-        const sectionId = f.sectionId || f.section || '';
-        const status = f.status || f.paymentStatus || 'Pending';
-        await sqlDb.query(
-          `INSERT INTO fees (
-            id, studentId, studentName, classId, sectionId, feeType, totalAmount, paidAmount, dueAmount, status, paymentDate, paymentMethod, remarks, createdAt, tenantId,
-            receiptNumber, transactionId, discount, fine, amount, studentClass, section, paymentStatus
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-          ON DUPLICATE KEY UPDATE
-            paidAmount=VALUES(paidAmount), dueAmount=VALUES(dueAmount), status=VALUES(status), paymentDate=VALUES(paymentDate), paymentMethod=VALUES(paymentMethod),
-            receiptNumber=VALUES(receiptNumber), transactionId=VALUES(transactionId), discount=VALUES(discount), fine=VALUES(fine), amount=VALUES(amount),
-            studentClass=VALUES(studentClass), section=VALUES(section), paymentStatus=VALUES(paymentStatus)`,
-          [
-            id, f.studentId || '', f.studentName || '', classId, sectionId, f.feeType || '', parseFloat(f.totalAmount || 0), parseFloat(f.paidAmount || 0), parseFloat(f.dueAmount || 0), status, f.paymentDate || '', f.paymentMethod || '', f.remarks || '', f.createdAt || '', tId,
-            f.receiptNumber || '', f.transactionId || '', parseFloat(f.discount || 0), parseFloat(f.fine || 0), parseFloat(f.amount || 0), f.studentClass || '', f.section || '', f.paymentStatus || status
-          ]
-        );
-      }
-    }
-
-    // 9. Sync Expenses
-    if (db.expenses && Array.isArray(db.expenses)) {
-      const activeExpIds = db.expenses.map(e => e.id).filter(Boolean);
-      if (activeExpIds.length > 0) {
-        await sqlDb.query(`DELETE FROM expenses WHERE tenantId = ? AND id NOT IN (${activeExpIds.map(() => '?').join(',')})`, [tId, ...activeExpIds]);
-      } else {
-        await sqlDb.query('DELETE FROM expenses WHERE tenantId = ?', [tId]);
+          const columns = ['id', 'studentId', 'studentName', 'classId', 'sectionId', 'feeType', 'totalAmount', 'paidAmount', 'dueAmount', 'status', 'paymentDate', 'paymentMethod', 'remarks', 'createdAt', 'tenantId', 'receiptNumber', 'transactionId', 'discount', 'fine', 'amount', 'studentClass', 'section', 'paymentStatus'];
+          const updateColumns = ['paidAmount', 'dueAmount', 'status', 'paymentDate', 'paymentMethod', 'receiptNumber', 'transactionId', 'discount', 'fine', 'amount', 'studentClass', 'section', 'paymentStatus'];
+          const valueRows = db.fees.filter(f => f.id || f.feeId).map(f => {
+            const id = f.id || f.feeId;
+            const classId = f.classId || f.studentClass || '';
+            const sectionId = f.sectionId || f.section || '';
+            const status = f.status || f.paymentStatus || 'Pending';
+            return [
+              id, f.studentId || '', f.studentName || '', classId, sectionId, f.feeType || '', parseFloat(f.totalAmount || 0), parseFloat(f.paidAmount || 0), parseFloat(f.dueAmount || 0), status, f.paymentDate || '', f.paymentMethod || '', f.remarks || '', f.createdAt || '', tId,
+              f.receiptNumber || '', f.transactionId || '', parseFloat(f.discount || 0), parseFloat(f.fine || 0), parseFloat(f.amount || 0), f.studentClass || '', f.section || '', f.paymentStatus || status
+            ];
+          });
+          await bulkInsertOrUpdate('fees', columns, valueRows, updateColumns);
+        })());
       }
 
-      for (const e of db.expenses) {
-        if (!e.id) continue;
-        await sqlDb.query(
-          `INSERT INTO expenses (id, category, subcategory, amount, date, description, status, paidTo, paymentMethod, attachment, createdAt, tenantId, grade, department, expenseType) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-           ON DUPLICATE KEY UPDATE amount=VALUES(amount), status=VALUES(status), subcategory=VALUES(subcategory), grade=VALUES(grade), department=VALUES(department), expenseType=VALUES(expenseType)`,
-          [e.id, e.category || '', e.subcategory || '', parseFloat(e.amount || 0), e.date || '', e.description || '', e.status || 'Approved', e.paidTo || '', e.paymentMethod || '', e.attachment || '', e.createdAt || new Date().toISOString(), tId, e.grade || '', e.department || '', e.expenseType || '']
-        );
-      }
-    }
+      // 9. Sync Expenses
+      if (db.expenses && Array.isArray(db.expenses)) {
+        tasks.push((async () => {
+          const activeExpIds = db.expenses.map(e => e.id).filter(Boolean);
+          if (activeExpIds.length > 0) {
+            await sqlDb.query(`DELETE FROM expenses WHERE tenantId = ? AND id NOT IN (${activeExpIds.map(() => '?').join(',')})`, [tId, ...activeExpIds]);
+          } else {
+            await sqlDb.query('DELETE FROM expenses WHERE tenantId = ?', [tId]);
+          }
 
-    // 10. Sync Payroll
-    if (db.payroll && Array.isArray(db.payroll)) {
-      const activePayIds = db.payroll.map(p => p.id).filter(Boolean);
-      if (activePayIds.length > 0) {
-        await sqlDb.query(`DELETE FROM payroll WHERE tenantId = ? AND id NOT IN (${activePayIds.map(() => '?').join(',')})`, [tId, ...activePayIds]);
-      } else {
-        await sqlDb.query('DELETE FROM payroll WHERE tenantId = ?', [tId]);
-      }
-
-      for (const p of db.payroll) {
-        if (!p.id) continue;
-        await sqlDb.query(
-          `INSERT INTO payroll (id, staffId, staffName, role, month, basicSalary, allowances, deductions, netSalary, paymentStatus, paymentDate, paymentMethod, createdAt, tenantId) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-           ON DUPLICATE KEY UPDATE paymentStatus=VALUES(paymentStatus), paymentDate=VALUES(paymentDate), paymentMethod=VALUES(paymentMethod)`,
-          [p.id, p.staffId || '', p.staffName || '', p.role || '', p.month || '', parseFloat(p.basicSalary || 0), parseFloat(p.allowances || 0), parseFloat(p.deductions || 0), parseFloat(p.netSalary || 0), p.paymentStatus || 'Pending', p.paymentDate || '', p.paymentMethod || '', p.createdAt || new Date().toISOString(), tId]
-        );
-      }
-    }
-
-    // 11. Sync Staff Payments
-    if (db.staffPayments && Array.isArray(db.staffPayments)) {
-      const activeSpIds = db.staffPayments.map(sp => sp.id || sp.paymentId).filter(Boolean);
-      if (activeSpIds.length > 0) {
-        await sqlDb.query(`DELETE FROM staff_payments WHERE tenantId = ? AND id NOT IN (${activeSpIds.map(() => '?').join(',')})`, [tId, ...activeSpIds]);
-      } else {
-        await sqlDb.query('DELETE FROM staff_payments WHERE tenantId = ?', [tId]);
+          const columns = ['id', 'category', 'subcategory', 'amount', 'date', 'description', 'status', 'paidTo', 'paymentMethod', 'attachment', 'createdAt', 'tenantId', 'grade', 'department', 'expenseType'];
+          const updateColumns = ['amount', 'status', 'subcategory', 'grade', 'department', 'expenseType'];
+          const valueRows = db.expenses.filter(e => e.id).map(e => [
+            e.id, e.category || '', e.subcategory || '', parseFloat(e.amount || 0), e.date || '', e.description || '', e.status || 'Approved', e.paidTo || '', e.paymentMethod || '', e.attachment || '', e.createdAt || new Date().toISOString(), tId, e.grade || '', e.department || '', e.expenseType || ''
+          ]);
+          await bulkInsertOrUpdate('expenses', columns, valueRows, updateColumns);
+        })());
       }
 
-      for (const sp of db.staffPayments) {
-        const spId = sp.id || sp.paymentId;
-        if (!spId) continue;
-        const netSal = sp.netSalary || sp.amount || 0;
-        await sqlDb.query(
-          `INSERT INTO staff_payments (
-            id, staffId, amount, paymentDate, paymentMethod, status, remarks, tenantId,
-            staffName, staffRole, basicSalary, allowances, bonus, deductions, pfDeduction, taxDeduction, netSalary
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-           ON DUPLICATE KEY UPDATE 
-            amount=VALUES(amount), status=VALUES(status),
-            staffName=VALUES(staffName), staffRole=VALUES(staffRole),
-            basicSalary=VALUES(basicSalary), allowances=VALUES(allowances), bonus=VALUES(bonus),
-            deductions=VALUES(deductions), pfDeduction=VALUES(pfDeduction), taxDeduction=VALUES(taxDeduction),
-            netSalary=VALUES(netSalary)`,
-          [
-            spId, sp.staffId || '', parseFloat(netSal), sp.paymentDate || '', sp.paymentMethod || '', 
-            sp.status || sp.paymentStatus || 'Paid', sp.remarks || '', tId,
-            sp.staffName || '', sp.staffRole || '',
-            parseFloat(sp.basicSalary || 0), parseFloat(sp.allowances || 0), parseFloat(sp.bonus || 0),
-            parseFloat(sp.deductions || 0), parseFloat(sp.pfDeduction || 0), parseFloat(sp.taxDeduction || 0),
-            parseFloat(netSal)
-          ]
-        );
-      }
-    }
+      // 10. Sync Payroll
+      if (db.payroll && Array.isArray(db.payroll)) {
+        tasks.push((async () => {
+          const activePayIds = db.payroll.map(p => p.id).filter(Boolean);
+          if (activePayIds.length > 0) {
+            await sqlDb.query(`DELETE FROM payroll WHERE tenantId = ? AND id NOT IN (${activePayIds.map(() => '?').join(',')})`, [tId, ...activePayIds]);
+          } else {
+            await sqlDb.query('DELETE FROM payroll WHERE tenantId = ?', [tId]);
+          }
 
-    // 12. Sync Activities
-    if (db.activities && Array.isArray(db.activities)) {
-      // Keep last 50 only in database to match JSON limit
-      const itemsToKeep = db.activities.slice(0, 50);
-      const activeActIds = itemsToKeep.map(act => act.id).filter(Boolean);
-      if (activeActIds.length > 0) {
-        await sqlDb.query(`DELETE FROM activities WHERE tenantId = ? AND id NOT IN (${activeActIds.map(() => '?').join(',')})`, [tId, ...activeActIds]);
-      } else {
-        await sqlDb.query('DELETE FROM activities WHERE tenantId = ?', [tId]);
+          const columns = ['id', 'staffId', 'staffName', 'role', 'month', 'basicSalary', 'allowances', 'deductions', 'netSalary', 'paymentStatus', 'paymentDate', 'paymentMethod', 'createdAt', 'tenantId'];
+          const updateColumns = ['paymentStatus', 'paymentDate', 'paymentMethod'];
+          const valueRows = db.payroll.filter(p => p.id).map(p => [
+            p.id, p.staffId || '', p.staffName || '', p.role || '', p.month || '', parseFloat(p.basicSalary || 0), parseFloat(p.allowances || 0), parseFloat(p.deductions || 0), parseFloat(p.netSalary || 0), p.paymentStatus || 'Pending', p.paymentDate || '', p.paymentMethod || '', p.createdAt || new Date().toISOString(), tId
+          ]);
+          await bulkInsertOrUpdate('payroll', columns, valueRows, updateColumns);
+        })());
       }
 
-      for (const act of itemsToKeep) {
-        if (!act.id) continue;
-        await sqlDb.query(
-          `INSERT INTO activities (id, type, title, description, time, timestamp, color, bg, tenantId) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-           ON DUPLICATE KEY UPDATE time=VALUES(time)`,
-          [act.id, act.type || '', act.title || '', act.desc || act.description || '', act.time || 'Just now', act.timestamp || '', act.color || '', act.bg || '', tId]
-        );
-      }
-    }
+      // 11. Sync Staff Payments
+      if (db.staffPayments && Array.isArray(db.staffPayments)) {
+        tasks.push((async () => {
+          const activeSpIds = db.staffPayments.map(sp => sp.id || sp.paymentId).filter(Boolean);
+          if (activeSpIds.length > 0) {
+            await sqlDb.query(`DELETE FROM staff_payments WHERE tenantId = ? AND id NOT IN (${activeSpIds.map(() => '?').join(',')})`, [tId, ...activeSpIds]);
+          } else {
+            await sqlDb.query('DELETE FROM staff_payments WHERE tenantId = ?', [tId]);
+          }
 
-    // 13. Sync Exams & Results
-    if (db.exams && Array.isArray(db.exams)) {
-      const activeExamIds = db.exams.map(ex => ex.id).filter(Boolean);
-      if (activeExamIds.length > 0) {
-        await sqlDb.query(`DELETE FROM exams WHERE tenantId = ? AND id NOT IN (${activeExamIds.map(() => '?').join(',')})`, [tId, ...activeExamIds]);
-      } else {
-        await sqlDb.query('DELETE FROM exams WHERE tenantId = ?', [tId]);
-      }
-
-      for (const ex of db.exams) {
-        if (!ex.id) continue;
-        const earliestStart = ex.startDate || (ex.gradeSections && ex.gradeSections.length > 0 
-          ? ex.gradeSections.map(g => g.startDate).filter(Boolean).sort()[0] 
-          : '') || '';
-        const latestEnd = ex.endDate || (ex.gradeSections && ex.gradeSections.length > 0 
-          ? ex.gradeSections.map(g => g.endDate).filter(Boolean).sort().reverse()[0] 
-          : '') || '';
-
-        await sqlDb.query(
-          `INSERT INTO exams (
-            id, name, term, startDate, endDate, status, tenantId,
-            description, totalMarks, gradeSections, subjectIncluded, subjectMarks, createdAt, timetablePublished
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-           ON DUPLICATE KEY UPDATE 
-            name=VALUES(name), term=VALUES(term), status=VALUES(status), 
-            startDate=VALUES(startDate), endDate=VALUES(endDate),
-            description=VALUES(description), totalMarks=VALUES(totalMarks),
-            gradeSections=VALUES(gradeSections), subjectIncluded=VALUES(subjectIncluded),
-            subjectMarks=VALUES(subjectMarks), createdAt=VALUES(createdAt),
-            timetablePublished=VALUES(timetablePublished)`,
-          [
-            ex.id,
-            ex.examName || ex.name || '',
-            ex.term || ex.examType || '',
-            earliestStart,
-            latestEnd,
-            ex.status || 'Draft',
-            tId,
-            ex.description || '',
-            ex.totalMarks || 100,
-            ex.gradeSections ? JSON.stringify(ex.gradeSections) : '[]',
-            ex.subjectIncluded ? JSON.stringify(ex.subjectIncluded) : '{}',
-            ex.subjectMarks ? JSON.stringify(ex.subjectMarks) : '{}',
-            ex.createdAt || new Date().toISOString(),
-            ex.timetablePublished ? 1 : 0
-          ]
-        );
-      }
-    }
-
-    if (db.examTimetables && Array.isArray(db.examTimetables)) {
-      const activeEtIds = db.examTimetables.map(et => et.id).filter(Boolean);
-      if (activeEtIds.length > 0) {
-        await sqlDb.query(`DELETE FROM exam_timetables WHERE tenantId = ? AND id NOT IN (${activeEtIds.map(() => '?').join(',')})`, [tId, ...activeEtIds]);
-      } else {
-        await sqlDb.query('DELETE FROM exam_timetables WHERE tenantId = ?', [tId]);
+          const columns = ['id', 'staffId', 'amount', 'paymentDate', 'paymentMethod', 'status', 'remarks', 'tenantId', 'staffName', 'staffRole', 'basicSalary', 'allowances', 'bonus', 'deductions', 'pfDeduction', 'taxDeduction', 'netSalary'];
+          const updateColumns = ['amount', 'status', 'staffName', 'staffRole', 'basicSalary', 'allowances', 'bonus', 'deductions', 'pfDeduction', 'taxDeduction', 'netSalary'];
+          const valueRows = db.staffPayments.filter(sp => sp.id || sp.paymentId).map(sp => {
+            const spId = sp.id || sp.paymentId;
+            const netSal = sp.netSalary || sp.amount || 0;
+            return [
+              spId, sp.staffId || '', parseFloat(netSal), sp.paymentDate || '', sp.paymentMethod || '', 
+              sp.status || sp.paymentStatus || 'Paid', sp.remarks || '', tId,
+              sp.staffName || '', sp.staffRole || '',
+              parseFloat(sp.basicSalary || 0), parseFloat(sp.allowances || 0), parseFloat(sp.bonus || 0),
+              parseFloat(sp.deductions || 0), parseFloat(sp.pfDeduction || 0), parseFloat(sp.taxDeduction || 0),
+              parseFloat(netSal)
+            ];
+          });
+          await bulkInsertOrUpdate('staff_payments', columns, valueRows, updateColumns);
+        })());
       }
 
-      for (const et of db.examTimetables) {
-        if (!et.id) continue;
-        await sqlDb.query(
-          `INSERT INTO exam_timetables (
-            id, examId, examName, classId, subject, date, timeSlot, room, maxMarks, tenantId,
-            startTime, endTime, duration, invigilator, cohort, grade, section, examDate
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-           ON DUPLICATE KEY UPDATE
-            examId=VALUES(examId), examName=VALUES(examName), classId=VALUES(classId), subject=VALUES(subject),
-            date=VALUES(date), timeSlot=VALUES(timeSlot), room=VALUES(room), maxMarks=VALUES(maxMarks),
-            startTime=VALUES(startTime), endTime=VALUES(endTime), duration=VALUES(duration),
-            invigilator=VALUES(invigilator), cohort=VALUES(cohort), grade=VALUES(grade), section=VALUES(section), examDate=VALUES(examDate)`,
-          [
-            et.id,
-            et.examId || '',
-            et.examName || '',
-            et.classId || et.cohort || '',
-            et.subject || '',
-            et.date || et.examDate || '',
+      // 12. Sync Activities
+      if (db.activities && Array.isArray(db.activities)) {
+        tasks.push((async () => {
+          const itemsToKeep = db.activities.slice(0, 50);
+          const activeActIds = itemsToKeep.map(act => act.id).filter(Boolean);
+          if (activeActIds.length > 0) {
+            await sqlDb.query(`DELETE FROM activities WHERE tenantId = ? AND id NOT IN (${activeActIds.map(() => '?').join(',')})`, [tId, ...activeActIds]);
+          } else {
+            await sqlDb.query('DELETE FROM activities WHERE tenantId = ?', [tId]);
+          }
+
+          const columns = ['id', 'type', 'title', 'description', 'time', 'timestamp', 'color', 'bg', 'tenantId'];
+          const updateColumns = ['time'];
+          const valueRows = itemsToKeep.filter(act => act.id).map(act => [
+            act.id, act.type || '', act.title || '', act.desc || act.description || '', act.time || 'Just now', act.timestamp || '', act.color || '', act.bg || '', tId
+          ]);
+          await bulkInsertOrUpdate('activities', columns, valueRows, updateColumns);
+        })());
+      }
+
+      // 13. Sync Exams
+      if (db.exams && Array.isArray(db.exams)) {
+        tasks.push((async () => {
+          const activeExamIds = db.exams.map(ex => ex.id).filter(Boolean);
+          if (activeExamIds.length > 0) {
+            await sqlDb.query(`DELETE FROM exams WHERE tenantId = ? AND id NOT IN (${activeExamIds.map(() => '?').join(',')})`, [tId, ...activeExamIds]);
+          } else {
+            await sqlDb.query('DELETE FROM exams WHERE tenantId = ?', [tId]);
+          }
+
+          const columns = ['id', 'name', 'term', 'startDate', 'endDate', 'status', 'tenantId', 'description', 'totalMarks', 'gradeSections', 'subjectIncluded', 'subjectMarks', 'createdAt', 'timetablePublished'];
+          const updateColumns = ['name', 'term', 'status', 'startDate', 'endDate', 'description', 'totalMarks', 'gradeSections', 'subjectIncluded', 'subjectMarks', 'createdAt', 'timetablePublished'];
+          const valueRows = db.exams.filter(ex => ex.id).map(ex => {
+            const earliestStart = ex.startDate || (ex.gradeSections && ex.gradeSections.length > 0 
+              ? ex.gradeSections.map(g => g.startDate).filter(Boolean).sort()[0] 
+              : '') || '';
+            const latestEnd = ex.endDate || (ex.gradeSections && ex.gradeSections.length > 0 
+              ? ex.gradeSections.map(g => g.endDate).filter(Boolean).sort().reverse()[0] 
+              : '') || '';
+            return [
+              ex.id, ex.examName || ex.name || '', ex.term || ex.examType || '', earliestStart, latestEnd, ex.status || 'Draft', tId,
+              ex.description || '', ex.totalMarks || 100,
+              ex.gradeSections ? JSON.stringify(ex.gradeSections) : '[]',
+              ex.subjectIncluded ? JSON.stringify(ex.subjectIncluded) : '{}',
+              ex.subjectMarks ? JSON.stringify(ex.subjectMarks) : '{}',
+              ex.createdAt || new Date().toISOString(), ex.timetablePublished ? 1 : 0
+            ];
+          });
+          await bulkInsertOrUpdate('exams', columns, valueRows, updateColumns);
+        })());
+      }
+
+      // 13b. Sync Exam Timetables
+      if (db.examTimetables && Array.isArray(db.examTimetables)) {
+        tasks.push((async () => {
+          const activeEtIds = db.examTimetables.map(et => et.id).filter(Boolean);
+          if (activeEtIds.length > 0) {
+            await sqlDb.query(`DELETE FROM exam_timetables WHERE tenantId = ? AND id NOT IN (${activeEtIds.map(() => '?').join(',')})`, [tId, ...activeEtIds]);
+          } else {
+            await sqlDb.query('DELETE FROM exam_timetables WHERE tenantId = ?', [tId]);
+          }
+
+          const columns = ['id', 'examId', 'examName', 'classId', 'subject', 'date', 'timeSlot', 'room', 'maxMarks', 'tenantId', 'startTime', 'endTime', 'duration', 'invigilator', 'cohort', 'grade', 'section', 'examDate'];
+          const updateColumns = ['examId', 'examName', 'classId', 'subject', 'date', 'timeSlot', 'room', 'maxMarks', 'startTime', 'endTime', 'duration', 'invigilator', 'cohort', 'grade', 'section', 'examDate'];
+          const valueRows = db.examTimetables.filter(et => et.id).map(et => [
+            et.id, et.examId || '', et.examName || '', et.classId || et.cohort || '', et.subject || '', et.date || et.examDate || '',
             et.timeSlot || (et.startTime && et.endTime ? `${et.startTime} - ${et.endTime}` : et.duration || ''),
-            et.room || et.roomAllocation || '',
-            et.maxMarks || 100,
-            tId,
-            et.startTime || '',
-            et.endTime || '',
-            et.duration || '',
-            et.invigilator || '',
-            et.cohort || '',
-            et.grade || '',
-            et.section || '',
-            et.examDate || ''
-          ]
-        );
-      }
-    }
-
-    if (db.results && Array.isArray(db.results)) {
-      const activeResIds = db.results.map(r => r.id).filter(Boolean);
-      if (activeResIds.length > 0) {
-        await sqlDb.query(`DELETE FROM results WHERE tenantId = ? AND id NOT IN (${activeResIds.map(() => '?').join(',')})`, [tId, ...activeResIds]);
-      } else {
-        await sqlDb.query('DELETE FROM results WHERE tenantId = ?', [tId]);
+            et.room || et.roomAllocation || '', et.maxMarks || 100, tId,
+            et.startTime || '', et.endTime || '', et.duration || '', et.invigilator || '', et.cohort || '', et.grade || '', et.section || '', et.examDate || ''
+          ]);
+          await bulkInsertOrUpdate('exam_timetables', columns, valueRows, updateColumns);
+        })());
       }
 
-      for (const r of db.results) {
-        if (!r.id) continue;
-        const marksObt = r.obtainedMarks !== undefined ? r.obtainedMarks : (r.marksObtained !== undefined ? r.marksObtained : 0);
-        const maxM = r.totalMarks !== undefined ? r.totalMarks : (r.maxMarks !== undefined ? r.maxMarks : 100);
-        const isL = r.locked !== undefined ? r.locked : (r.isLocked !== undefined ? r.isLocked : false);
-        const isP = r.published !== undefined ? r.published : (r.isPublished !== undefined ? r.isPublished : false);
+      // 13c. Sync Results
+      if (db.results && Array.isArray(db.results)) {
+        tasks.push((async () => {
+          const activeResIds = db.results.map(r => r.id).filter(Boolean);
+          if (activeResIds.length > 0) {
+            await sqlDb.query(`DELETE FROM results WHERE tenantId = ? AND id NOT IN (${activeResIds.map(() => '?').join(',')})`, [tId, ...activeResIds]);
+          } else {
+            await sqlDb.query('DELETE FROM results WHERE tenantId = ?', [tId]);
+          }
 
-        await sqlDb.query(
-          `INSERT INTO results (
-            id, studentId, studentName, examId, examName, subject, marksObtained, maxMarks, grade, remarks, isLocked, isPublished, tenantId,
-            term, percentage, gpa, \`rank\`, status
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-           ON DUPLICATE KEY UPDATE marksObtained=VALUES(marksObtained), grade=VALUES(grade), isLocked=VALUES(isLocked), isPublished=VALUES(isPublished), status=VALUES(status)`,
-          [
-            r.id,
-            r.studentId || '',
-            r.studentName || '',
-            r.examId || '',
-            r.examName || '',
-            r.subject || '',
-            marksObt,
-            maxM,
-            r.grade || '',
-            r.remarks || '',
-            isL ? 1 : 0,
-            isP ? 1 : 0,
-            tId,
-            r.term || '',
-            r.percentage !== undefined ? r.percentage : 0,
-            r.gpa !== undefined ? parseFloat(r.gpa) : 0.0,
-            r.rank !== undefined ? String(r.rank) : '-',
-            r.status || 'Draft'
-          ]
-        );
-      }
-    }
-
-    if (db.overallResults && Array.isArray(db.overallResults)) {
-      const activeOrIds = db.overallResults.map(o => o.id || `OR-${o.studentId}`).filter(Boolean);
-      if (activeOrIds.length > 0) {
-        await sqlDb.query(`DELETE FROM overall_results WHERE tenantId = ? AND id NOT IN (${activeOrIds.map(() => '?').join(',')})`, [tId, ...activeOrIds]);
-      } else {
-        await sqlDb.query('DELETE FROM overall_results WHERE tenantId = ?', [tId]);
+          const columns = ['id', 'studentId', 'studentName', 'examId', 'examName', 'subject', 'marksObtained', 'maxMarks', 'grade', 'remarks', 'isLocked', 'isPublished', 'tenantId', 'term', 'percentage', 'gpa', 'rank', 'status'];
+          const updateColumns = ['marksObtained', 'grade', 'isLocked', 'isPublished', 'status'];
+          const valueRows = db.results.filter(r => r.id).map(r => {
+            const marksObt = r.obtainedMarks !== undefined ? r.obtainedMarks : (r.marksObtained !== undefined ? r.marksObtained : 0);
+            const maxM = r.totalMarks !== undefined ? r.totalMarks : (r.maxMarks !== undefined ? r.maxMarks : 100);
+            const isL = r.locked !== undefined ? r.locked : (r.isLocked !== undefined ? r.isLocked : false);
+            const isP = r.published !== undefined ? r.published : (r.isPublished !== undefined ? r.isPublished : false);
+            return [
+              r.id, r.studentId || '', r.studentName || '', r.examId || '', r.examName || '', r.subject || '', marksObt, maxM, r.grade || '', r.remarks || '', isL ? 1 : 0, isP ? 1 : 0, tId,
+              r.term || '', r.percentage !== undefined ? r.percentage : 0, r.gpa !== undefined ? parseFloat(r.gpa) : 0.0, r.rank !== undefined ? String(r.rank) : '-', r.status || 'Draft'
+            ];
+          });
+          await bulkInsertOrUpdate('results', columns, valueRows, updateColumns);
+        })());
       }
 
-      for (const o of db.overallResults) {
-        const studentId = o.studentId || '';
-        if (!studentId) continue;
-        const classId = o.classId || (o.cohort ? o.cohort.split('-')[0] : '');
-        const sectionId = o.sectionId || (o.cohort ? o.cohort.split('-')[1] : '');
-        const passStat = o.status || o.passStatus || '';
+      // 13d. Sync Overall Results
+      if (db.overallResults && Array.isArray(db.overallResults)) {
+        tasks.push((async () => {
+          const activeOrIds = db.overallResults.map(o => o.id || `OR-${o.studentId}`).filter(Boolean);
+          if (activeOrIds.length > 0) {
+            await sqlDb.query(`DELETE FROM overall_results WHERE tenantId = ? AND id NOT IN (${activeOrIds.map(() => '?').join(',')})`, [tId, ...activeOrIds]);
+          } else {
+            await sqlDb.query('DELETE FROM overall_results WHERE tenantId = ?', [tId]);
+          }
 
-        await sqlDb.query(
-          `INSERT INTO overall_results (
-            id, studentId, studentName, classId, sectionId, percentage, grade, status, tenantId,
-            examId, cohort, totalObtained, totalMax, gpa, \`rank\`, subjectsCount, passStatus
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-           ON DUPLICATE KEY UPDATE percentage=VALUES(percentage), grade=VALUES(grade), status=VALUES(status)`,
-          [
-            o.id || `OR-${studentId}`,
-            studentId,
-            o.studentName || '',
-            classId,
-            sectionId,
-            parseFloat(o.percentage || 0),
-            o.grade || '',
-            passStat,
-            tId,
-            o.examId || '',
-            o.cohort || '',
-            o.totalObtained !== undefined ? parseFloat(o.totalObtained) : 0,
-            o.totalMax !== undefined ? parseFloat(o.totalMax) : 0,
-            o.gpa !== undefined ? parseFloat(o.gpa) : 0.0,
-            o.rank !== undefined ? String(o.rank) : '-',
-            o.subjectsCount !== undefined ? parseInt(o.subjectsCount) : 0,
-            passStat
-          ]
-        );
-      }
-    }
-
-    // 14. Sync Notices, Holidays, Events, Subjects
-    if (db.notices && Array.isArray(db.notices)) {
-      const activeNoticeIds = db.notices.map(n => n.id).filter(Boolean);
-      if (activeNoticeIds.length > 0) {
-        await sqlDb.query(`DELETE FROM notices WHERE tenantId = ? AND id NOT IN (${activeNoticeIds.map(() => '?').join(',')})`, [tId, ...activeNoticeIds]);
-      } else {
-        await sqlDb.query('DELETE FROM notices WHERE tenantId = ?', [tId]);
+          const columns = ['id', 'studentId', 'studentName', 'classId', 'sectionId', 'percentage', 'grade', 'status', 'tenantId', 'examId', 'cohort', 'totalObtained', 'totalMax', 'gpa', 'rank', 'subjectsCount', 'passStatus'];
+          const updateColumns = ['percentage', 'grade', 'status'];
+          const valueRows = db.overallResults.filter(o => o.studentId).map(o => {
+            const studentId = o.studentId || '';
+            const classId = o.classId || (o.cohort ? o.cohort.split('-')[0] : '');
+            const sectionId = o.sectionId || (o.cohort ? o.cohort.split('-')[1] : '');
+            const passStat = o.status || o.passStatus || '';
+            return [
+              o.id || `OR-${studentId}`, studentId, o.studentName || '', classId, sectionId, parseFloat(o.percentage || 0), o.grade || '', passStat, tId,
+              o.examId || '', o.cohort || '', o.totalObtained !== undefined ? parseFloat(o.totalObtained) : 0, o.totalMax !== undefined ? parseFloat(o.totalMax) : 0,
+              o.gpa !== undefined ? parseFloat(o.gpa) : 0.0, o.rank !== undefined ? String(o.rank) : '-', o.subjectsCount !== undefined ? parseInt(o.subjectsCount) : 0, passStat
+            ];
+          });
+          await bulkInsertOrUpdate('overall_results', columns, valueRows, updateColumns);
+        })());
       }
 
-      for (const n of db.notices) {
-        if (!n.id) continue;
-        await sqlDb.query(
-          `INSERT INTO notices (id, title, content, date, audience, createdBy, tenantId) VALUES (?, ?, ?, ?, ?, ?, ?)
-           ON DUPLICATE KEY UPDATE title=VALUES(title), content=VALUES(content), audience=VALUES(audience)`,
-          [n.id, n.title || '', n.content || '', n.date || '', n.audience || 'All', n.createdBy || '', tId]
-        );
-      }
-    }
+      // 14. Sync Notices
+      if (db.notices && Array.isArray(db.notices)) {
+        tasks.push((async () => {
+          const activeNoticeIds = db.notices.map(n => n.id).filter(Boolean);
+          if (activeNoticeIds.length > 0) {
+            await sqlDb.query(`DELETE FROM notices WHERE tenantId = ? AND id NOT IN (${activeNoticeIds.map(() => '?').join(',')})`, [tId, ...activeNoticeIds]);
+          } else {
+            await sqlDb.query('DELETE FROM notices WHERE tenantId = ?', [tId]);
+          }
 
-    if (db.holidays && Array.isArray(db.holidays)) {
-      const activeHolidayIds = db.holidays.map(h => h.id).filter(Boolean);
-      if (activeHolidayIds.length > 0) {
-        await sqlDb.query(`DELETE FROM holidays WHERE tenantId = ? AND id NOT IN (${activeHolidayIds.map(() => '?').join(',')})`, [tId, ...activeHolidayIds]);
-      } else {
-        await sqlDb.query('DELETE FROM holidays WHERE tenantId = ?', [tId]);
-      }
-
-      for (const h of db.holidays) {
-        if (!h.id) continue;
-        await sqlDb.query(
-          `INSERT INTO holidays (id, title, startDate, endDate, description, tenantId) VALUES (?, ?, ?, ?, ?, ?)
-           ON DUPLICATE KEY UPDATE title=VALUES(title), startDate=VALUES(startDate), endDate=VALUES(endDate), description=VALUES(description)`,
-          [h.id, h.title || '', h.startDate || '', h.endDate || '', h.description || '', tId]
-        );
-      }
-    }
-
-    if (db.events && Array.isArray(db.events)) {
-      const activeEventIds = db.events.map(ev => ev.id).filter(Boolean);
-      if (activeEventIds.length > 0) {
-        await sqlDb.query(`DELETE FROM events WHERE tenantId = ? AND id NOT IN (${activeEventIds.map(() => '?').join(',')})`, [tId, ...activeEventIds]);
-      } else {
-        await sqlDb.query('DELETE FROM events WHERE tenantId = ?', [tId]);
+          const columns = ['id', 'title', 'content', 'date', 'audience', 'createdBy', 'tenantId'];
+          const updateColumns = ['title', 'content', 'audience'];
+          const valueRows = db.notices.filter(n => n.id).map(n => [
+            n.id, n.title || '', n.content || '', n.date || '', n.audience || 'All', n.createdBy || '', tId
+          ]);
+          await bulkInsertOrUpdate('notices', columns, valueRows, updateColumns);
+        })());
       }
 
-      for (const ev of db.events) {
-        if (!ev.id) continue;
-        await sqlDb.query(
-          `INSERT INTO events (id, title, description, date, time, venue, audience, tenantId) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-           ON DUPLICATE KEY UPDATE title=VALUES(title), description=VALUES(description), date=VALUES(date), time=VALUES(time), venue=VALUES(venue), audience=VALUES(audience)`,
-          [ev.id, ev.title || '', ev.description || '', ev.date || '', ev.time || '', ev.venue || '', ev.audience || 'All', tId]
-        );
-      }
-    }
+      // 14b. Sync Holidays
+      if (db.holidays && Array.isArray(db.holidays)) {
+        tasks.push((async () => {
+          const activeHolidayIds = db.holidays.map(h => h.id).filter(Boolean);
+          if (activeHolidayIds.length > 0) {
+            await sqlDb.query(`DELETE FROM holidays WHERE tenantId = ? AND id NOT IN (${activeHolidayIds.map(() => '?').join(',')})`, [tId, ...activeHolidayIds]);
+          } else {
+            await sqlDb.query('DELETE FROM holidays WHERE tenantId = ?', [tId]);
+          }
 
-    if (db.subjects && Array.isArray(db.subjects)) {
-      const activeSubjectIds = db.subjects.map(sub => sub.id).filter(Boolean);
-      if (activeSubjectIds.length > 0) {
-        await sqlDb.query(`DELETE FROM subjects WHERE tenantId = ? AND id NOT IN (${activeSubjectIds.map(() => '?').join(',')})`, [tId, ...activeSubjectIds]);
-      } else {
-        await sqlDb.query('DELETE FROM subjects WHERE tenantId = ?', [tId]);
-      }
-
-      for (const sub of db.subjects) {
-        if (!sub.id) continue;
-        await sqlDb.query(
-          `INSERT INTO subjects (id, name, code, classId, teacherId, teacherName, tenantId) VALUES (?, ?, ?, ?, ?, ?, ?)
-           ON DUPLICATE KEY UPDATE name=VALUES(name), teacherId=VALUES(teacherId), teacherName=VALUES(teacherName)`,
-          [sub.id, sub.subjectName || sub.name || '', sub.code || '', sub.grade || sub.classId || '', sub.teacherId || '', sub.teacherName || '', tId]
-        );
-      }
-    }
-
-    // 15. Sync Timeslots
-    if (db.timeslots && Array.isArray(db.timeslots)) {
-      await sqlDb.query('DELETE FROM timeslots WHERE tenantId = ?', [tId]);
-      for (const slot of db.timeslots) {
-        await sqlDb.query('INSERT INTO timeslots (slotTime, tenantId) VALUES (?, ?)', [slot, tId]);
-      }
-    }
-
-    // 16. Sync structures: feeStructures, salaryStructures, staffSalaryStructures, income, attendance
-    if (db.feeStructures && Array.isArray(db.feeStructures)) {
-      const activeFsIds = db.feeStructures.map(fsItem => fsItem.id || `FS-${fsItem.grade || fsItem.studentClass}`);
-      if (activeFsIds.length > 0) {
-        await sqlDb.query(`DELETE FROM fee_structures WHERE tenantId = ? AND id NOT IN (${activeFsIds.map(() => '?').join(',')})`, [tId, ...activeFsIds]);
-      } else {
-        await sqlDb.query('DELETE FROM fee_structures WHERE tenantId = ?', [tId]);
+          const columns = ['id', 'title', 'startDate', 'endDate', 'description', 'tenantId'];
+          const updateColumns = ['title', 'startDate', 'endDate', 'description'];
+          const valueRows = db.holidays.filter(h => h.id).map(h => [
+            h.id, h.title || '', h.startDate || '', h.endDate || '', h.description || '', tId
+          ]);
+          await bulkInsertOrUpdate('holidays', columns, valueRows, updateColumns);
+        })());
       }
 
-      for (const fsItem of db.feeStructures) {
-        const classVal = fsItem.grade || fsItem.studentClass;
-        const totalVal = parseFloat(fsItem.totalFee || fsItem.amount || 0);
-        await sqlDb.query(
-          `INSERT INTO fee_structures (
-             id, classId, amount, frequency, tenantId,
-             studentClass, admissionFee, tuitionFee, examFee, transportFee, hostelFee, libraryFee, otherCharges, totalFee
-           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-           ON DUPLICATE KEY UPDATE 
-             amount=VALUES(amount), frequency=VALUES(frequency),
-             studentClass=VALUES(studentClass), admissionFee=VALUES(admissionFee), tuitionFee=VALUES(tuitionFee),
-             examFee=VALUES(examFee), transportFee=VALUES(transportFee), hostelFee=VALUES(hostelFee),
-             libraryFee=VALUES(libraryFee), otherCharges=VALUES(otherCharges), totalFee=VALUES(totalFee)`,
-          [
-            fsItem.id || `FS-${classVal}`, classVal, totalVal, fsItem.frequency || 'Yearly', tId,
-            fsItem.studentClass || classVal,
-            parseFloat(fsItem.admissionFee || 0),
-            parseFloat(fsItem.tuitionFee || 0),
-            parseFloat(fsItem.examFee || 0),
-            parseFloat(fsItem.transportFee || 0),
-            parseFloat(fsItem.hostelFee || 0),
-            parseFloat(fsItem.libraryFee || 0),
-            parseFloat(fsItem.otherCharges || 0),
-            totalVal
-          ]
-        );
-      }
-    }
+      // 14c. Sync Events
+      if (db.events && Array.isArray(db.events)) {
+        tasks.push((async () => {
+          const activeEventIds = db.events.map(ev => ev.id).filter(Boolean);
+          if (activeEventIds.length > 0) {
+            await sqlDb.query(`DELETE FROM events WHERE tenantId = ? AND id NOT IN (${activeEventIds.map(() => '?').join(',')})`, [tId, ...activeEventIds]);
+          } else {
+            await sqlDb.query('DELETE FROM events WHERE tenantId = ?', [tId]);
+          }
 
-    if (db.salaryStructures && Array.isArray(db.salaryStructures)) {
-      const activeSsIds = db.salaryStructures.map(ss => ss.id || `SS-${ss.gradeName || ss.designation}`);
-      if (activeSsIds.length > 0) {
-        await sqlDb.query(`DELETE FROM salary_structures WHERE tenantId = ? AND id NOT IN (${activeSsIds.map(() => '?').join(',')})`, [tId, ...activeSsIds]);
-      } else {
-        await sqlDb.query('DELETE FROM salary_structures WHERE tenantId = ?', [tId]);
+          const columns = ['id', 'title', 'description', 'date', 'time', 'venue', 'audience', 'tenantId'];
+          const updateColumns = ['title', 'description', 'date', 'time', 'venue', 'audience'];
+          const valueRows = db.events.filter(ev => ev.id).map(ev => [
+            ev.id, ev.title || '', ev.description || '', ev.date || '', ev.time || '', ev.venue || '', ev.audience || 'All', tId
+          ]);
+          await bulkInsertOrUpdate('events', columns, valueRows, updateColumns);
+        })());
       }
 
-      for (const ss of db.salaryStructures) {
-        const gradeVal = ss.gradeName || ss.designation;
-        const basicVal = parseFloat(ss.basicSalary || 0);
-        const allowVal = parseFloat(ss.allowances || 0);
-        const dedVal = parseFloat(ss.deductions || 0);
-        const netVal = parseFloat(ss.netSalary || (basicVal + allowVal - dedVal));
-        await sqlDb.query(
-          `INSERT INTO salary_structures (
-             id, gradeName, basicSalary, allowances, deductions, tenantId,
-             designation, pfDeduction, taxDeduction, netSalary
-           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-           ON DUPLICATE KEY UPDATE 
-             basicSalary=VALUES(basicSalary), allowances=VALUES(allowances), deductions=VALUES(deductions),
-             designation=VALUES(designation), pfDeduction=VALUES(pfDeduction), taxDeduction=VALUES(taxDeduction), netSalary=VALUES(netSalary)`,
-          [
-            ss.id || `SS-${gradeVal}`, gradeVal, basicVal, allowVal, dedVal, tId,
-            ss.designation || gradeVal,
-            parseFloat(ss.pfDeduction || 0),
-            parseFloat(ss.taxDeduction || 0),
-            netVal
-          ]
-        );
-      }
-    }
+      // 14d. Sync Subjects
+      if (db.subjects && Array.isArray(db.subjects)) {
+        tasks.push((async () => {
+          const activeSubjectIds = db.subjects.map(sub => sub.id).filter(Boolean);
+          if (activeSubjectIds.length > 0) {
+            await sqlDb.query(`DELETE FROM subjects WHERE tenantId = ? AND id NOT IN (${activeSubjectIds.map(() => '?').join(',')})`, [tId, ...activeSubjectIds]);
+          } else {
+            await sqlDb.query('DELETE FROM subjects WHERE tenantId = ?', [tId]);
+          }
 
-    if (db.staffSalaryStructures && Array.isArray(db.staffSalaryStructures)) {
-      const activeSssIds = db.staffSalaryStructures.map(sss => sss.id || `SSS-${sss.position || sss.designation}`);
-      if (activeSssIds.length > 0) {
-        await sqlDb.query(`DELETE FROM staff_salary_structures WHERE tenantId = ? AND id NOT IN (${activeSssIds.map(() => '?').join(',')})`, [tId, ...activeSssIds]);
-      } else {
-        await sqlDb.query('DELETE FROM staff_salary_structures WHERE tenantId = ?', [tId]);
+          const columns = ['id', 'name', 'code', 'classId', 'teacherId', 'teacherName', 'tenantId'];
+          const updateColumns = ['name', 'teacherId', 'teacherName'];
+          const valueRows = db.subjects.filter(sub => sub.id).map(sub => [
+            sub.id, sub.subjectName || sub.name || '', sub.code || '', sub.grade || sub.classId || '', sub.teacherId || '', sub.teacherName || '', tId
+          ]);
+          await bulkInsertOrUpdate('subjects', columns, valueRows, updateColumns);
+        })());
       }
 
-      for (const sss of db.staffSalaryStructures) {
-        const posVal = sss.position || sss.designation;
-        const basicVal = parseFloat(sss.basicSalary || 0);
-        const allowVal = parseFloat(sss.allowances || 0);
-        const dedVal = parseFloat(sss.deductions || 0);
-        const bonusVal = parseFloat(sss.bonus || 0);
-        const netVal = parseFloat(sss.netSalary || (basicVal + allowVal + bonusVal - dedVal));
-        await sqlDb.query(
-          `INSERT INTO staff_salary_structures (
-             id, position, basicSalary, allowances, deductions, tenantId,
-             designation, bonus, pfDeduction, taxDeduction, netSalary, designationLevel, employmentType
-           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-           ON DUPLICATE KEY UPDATE 
-             basicSalary=VALUES(basicSalary), allowances=VALUES(allowances), deductions=VALUES(deductions),
-             designation=VALUES(designation), bonus=VALUES(bonus), pfDeduction=VALUES(pfDeduction), taxDeduction=VALUES(taxDeduction), 
-             netSalary=VALUES(netSalary), designationLevel=VALUES(designationLevel), employmentType=VALUES(employmentType)`,
-          [
-            sss.id || `SSS-${posVal}`, posVal, basicVal, allowVal, dedVal, tId,
-            sss.designation || posVal,
-            bonusVal,
-            parseFloat(sss.pfDeduction || 0),
-            parseFloat(sss.taxDeduction || 0),
-            netVal,
-            sss.designationLevel || '',
-            sss.employmentType || ''
-          ]
-        );
-      }
-    }
-
-    if (db.income && Array.isArray(db.income)) {
-      const activeIncIds = db.income.map(inc => inc.id);
-      if (activeIncIds.length > 0) {
-        await sqlDb.query(`DELETE FROM income WHERE tenantId = ? AND id NOT IN (${activeIncIds.map(() => '?').join(',')})`, [tId, ...activeIncIds]);
-      } else {
-        await sqlDb.query('DELETE FROM income WHERE tenantId = ?', [tId]);
+      // 15. Sync Timeslots
+      if (db.timeslots && Array.isArray(db.timeslots)) {
+        tasks.push((async () => {
+          await sqlDb.query('DELETE FROM timeslots WHERE tenantId = ?', [tId]);
+          const columns = ['slotTime', 'tenantId'];
+          const valueRows = db.timeslots.map(slot => [slot, tId]);
+          await bulkInsertOnly('timeslots', columns, valueRows);
+        })());
       }
 
-      for (const inc of db.income) {
-        await sqlDb.query(
-          `INSERT INTO income (id, source, amount, date, description, tenantId) VALUES (?, ?, ?, ?, ?, ?)
-           ON DUPLICATE KEY UPDATE source=VALUES(source), amount=VALUES(amount), date=VALUES(date), description=VALUES(description)`,
-          [inc.id, inc.source, parseFloat(inc.amount || 0), inc.date || inc.paymentDate, inc.description || '', tId]
-        );
-      }
-    }
+      // 16. Sync Fee Structures
+      if (db.feeStructures && Array.isArray(db.feeStructures)) {
+        tasks.push((async () => {
+          const activeFsIds = db.feeStructures.map(fsItem => fsItem.id || `FS-${fsItem.grade || fsItem.studentClass}`);
+          if (activeFsIds.length > 0) {
+            await sqlDb.query(`DELETE FROM fee_structures WHERE tenantId = ? AND id NOT IN (${activeFsIds.map(() => '?').join(',')})`, [tId, ...activeFsIds]);
+          } else {
+            await sqlDb.query('DELETE FROM fee_structures WHERE tenantId = ?', [tId]);
+          }
 
-    if (db.attendance && Array.isArray(db.attendance)) {
-      const activeAttIds = db.attendance.map(att => att.attendanceId);
-      if (activeAttIds.length > 0) {
-        await sqlDb.query(`DELETE FROM attendance WHERE tenantId = ? AND attendanceId NOT IN (${activeAttIds.map(() => '?').join(',')})`, [tId, ...activeAttIds]);
-      } else {
-        await sqlDb.query('DELETE FROM attendance WHERE tenantId = ?', [tId]);
-      }
-
-      for (const att of db.attendance) {
-        await sqlDb.query(
-          `INSERT INTO attendance (
-            attendanceId, studentId, classId, sectionId, attendanceDate, attendanceStatus, remarks, markedBy, createdAt, updatedAt, tenantId
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-          ON DUPLICATE KEY UPDATE attendanceStatus=VALUES(attendanceStatus), remarks=VALUES(remarks), updatedAt=VALUES(updatedAt)`,
-          [att.attendanceId, att.studentId, att.classId, att.sectionId, att.attendanceDate, att.attendanceStatus, att.remarks || '', att.markedBy || '', att.createdAt, att.updatedAt, tId]
-        );
-      }
-    }
-
-    // 17. Sync Roles
-    if (db.roles && Array.isArray(db.roles)) {
-      const activeRoleIds = db.roles.map(r => r.id).filter(Boolean);
-      if (activeRoleIds.length > 0) {
-        await sqlDb.query(`DELETE FROM roles WHERE tenantId = ? AND id NOT IN (${activeRoleIds.map(() => '?').join(',')})`, [tId, ...activeRoleIds]);
-      } else {
-        await sqlDb.query('DELETE FROM roles WHERE tenantId = ?', [tId]);
+          const columns = ['id', 'classId', 'amount', 'frequency', 'tenantId', 'studentClass', 'admissionFee', 'tuitionFee', 'examFee', 'transportFee', 'hostelFee', 'libraryFee', 'otherCharges', 'totalFee'];
+          const updateColumns = ['amount', 'frequency', 'studentClass', 'admissionFee', 'tuitionFee', 'examFee', 'transportFee', 'hostelFee', 'libraryFee', 'otherCharges', 'totalFee'];
+          const valueRows = db.feeStructures.map(fsItem => {
+            const classVal = fsItem.grade || fsItem.studentClass;
+            const totalVal = parseFloat(fsItem.totalFee || fsItem.amount || 0);
+            return [
+              fsItem.id || `FS-${classVal}`, classVal, totalVal, fsItem.frequency || 'Yearly', tId,
+              fsItem.studentClass || classVal,
+              parseFloat(fsItem.admissionFee || 0), parseFloat(fsItem.tuitionFee || 0), parseFloat(fsItem.examFee || 0),
+              parseFloat(fsItem.transportFee || 0), parseFloat(fsItem.hostelFee || 0), parseFloat(fsItem.libraryFee || 0),
+              parseFloat(fsItem.otherCharges || 0), totalVal
+            ];
+          });
+          await bulkInsertOrUpdate('fee_structures', columns, valueRows, updateColumns);
+        })());
       }
 
-      for (const r of db.roles) {
-        if (!r.id) continue;
-        await sqlDb.query(
-          `INSERT INTO roles (id, name, description, active, isSystem, permissions, createdAt, tenantId) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-           ON DUPLICATE KEY UPDATE name=VALUES(name), description=VALUES(description), active=VALUES(active), permissions=VALUES(permissions)`,
-          [
-            r.id,
-            r.name,
-            r.description || '',
-            r.active ? 1 : 0,
-            r.isSystem ? 1 : 0,
+      // 16b. Sync Salary Structures
+      if (db.salaryStructures && Array.isArray(db.salaryStructures)) {
+        tasks.push((async () => {
+          const activeSsIds = db.salaryStructures.map(ss => ss.id || `SS-${ss.gradeName || ss.designation}`);
+          if (activeSsIds.length > 0) {
+            await sqlDb.query(`DELETE FROM salary_structures WHERE tenantId = ? AND id NOT IN (${activeSsIds.map(() => '?').join(',')})`, [tId, ...activeSsIds]);
+          } else {
+            await sqlDb.query('DELETE FROM salary_structures WHERE tenantId = ?', [tId]);
+          }
+
+          const columns = ['id', 'gradeName', 'basicSalary', 'allowances', 'deductions', 'tenantId', 'designation', 'pfDeduction', 'taxDeduction', 'netSalary'];
+          const updateColumns = ['basicSalary', 'allowances', 'deductions', 'designation', 'pfDeduction', 'taxDeduction', 'netSalary'];
+          const valueRows = db.salaryStructures.map(ss => {
+            const gradeVal = ss.gradeName || ss.designation;
+            const basicVal = parseFloat(ss.basicSalary || 0);
+            const allowVal = parseFloat(ss.allowances || 0);
+            const dedVal = parseFloat(ss.deductions || 0);
+            const netVal = parseFloat(ss.netSalary || (basicVal + allowVal - dedVal));
+            return [
+              ss.id || `SS-${gradeVal}`, gradeVal, basicVal, allowVal, dedVal, tId,
+              ss.designation || gradeVal,
+              parseFloat(ss.pfDeduction || 0), parseFloat(ss.taxDeduction || 0), netVal
+            ];
+          });
+          await bulkInsertOrUpdate('salary_structures', columns, valueRows, updateColumns);
+        })());
+      }
+
+      // 16c. Sync Staff Salary Structures
+      if (db.staffSalaryStructures && Array.isArray(db.staffSalaryStructures)) {
+        tasks.push((async () => {
+          const activeSssIds = db.staffSalaryStructures.map(sss => sss.id || `SSS-${sss.position || sss.designation}`);
+          if (activeSssIds.length > 0) {
+            await sqlDb.query(`DELETE FROM staff_salary_structures WHERE tenantId = ? AND id NOT IN (${activeSssIds.map(() => '?').join(',')})`, [tId, ...activeSssIds]);
+          } else {
+            await sqlDb.query('DELETE FROM staff_salary_structures WHERE tenantId = ?', [tId]);
+          }
+
+          const columns = ['id', 'position', 'basicSalary', 'allowances', 'deductions', 'tenantId', 'designation', 'bonus', 'pfDeduction', 'taxDeduction', 'netSalary', 'designationLevel', 'employmentType'];
+          const updateColumns = ['basicSalary', 'allowances', 'deductions', 'designation', 'bonus', 'pfDeduction', 'taxDeduction', 'netSalary', 'designationLevel', 'employmentType'];
+          const valueRows = db.staffSalaryStructures.map(sss => {
+            const posVal = sss.position || sss.designation;
+            const basicVal = parseFloat(sss.basicSalary || 0);
+            const allowVal = parseFloat(sss.allowances || 0);
+            const dedVal = parseFloat(sss.deductions || 0);
+            const bonusVal = parseFloat(sss.bonus || 0);
+            const netVal = parseFloat(sss.netSalary || (basicVal + allowVal + bonusVal - dedVal));
+            return [
+              sss.id || `SSS-${posVal}`, posVal, basicVal, allowVal, dedVal, tId,
+              sss.designation || posVal,
+              bonusVal, parseFloat(sss.pfDeduction || 0), parseFloat(sss.taxDeduction || 0), netVal,
+              sss.designationLevel || '', sss.employmentType || ''
+            ];
+          });
+          await bulkInsertOrUpdate('staff_salary_structures', columns, valueRows, updateColumns);
+        })());
+      }
+
+      // 16d. Sync Income
+      if (db.income && Array.isArray(db.income)) {
+        tasks.push((async () => {
+          const activeIncIds = db.income.map(inc => inc.id);
+          if (activeIncIds.length > 0) {
+            await sqlDb.query(`DELETE FROM income WHERE tenantId = ? AND id NOT IN (${activeIncIds.map(() => '?').join(',')})`, [tId, ...activeIncIds]);
+          } else {
+            await sqlDb.query('DELETE FROM income WHERE tenantId = ?', [tId]);
+          }
+
+          const columns = ['id', 'source', 'amount', 'date', 'description', 'tenantId'];
+          const updateColumns = ['source', 'amount', 'date', 'description'];
+          const valueRows = db.income.map(inc => [
+            inc.id, inc.source, parseFloat(inc.amount || 0), inc.date || inc.paymentDate, inc.description || '', tId
+          ]);
+          await bulkInsertOrUpdate('income', columns, valueRows, updateColumns);
+        })());
+      }
+
+      // 16e. Sync Attendance
+      if (db.attendance && Array.isArray(db.attendance)) {
+        tasks.push((async () => {
+          const activeAttIds = db.attendance.map(att => att.attendanceId);
+          if (activeAttIds.length > 0) {
+            await sqlDb.query(`DELETE FROM attendance WHERE tenantId = ? AND attendanceId NOT IN (${activeAttIds.map(() => '?').join(',')})`, [tId, ...activeAttIds]);
+          } else {
+            await sqlDb.query('DELETE FROM attendance WHERE tenantId = ?', [tId]);
+          }
+
+          const columns = ['attendanceId', 'studentId', 'classId', 'sectionId', 'attendanceDate', 'attendanceStatus', 'remarks', 'markedBy', 'createdAt', 'updatedAt', 'tenantId'];
+          const updateColumns = ['attendanceStatus', 'remarks', 'updatedAt'];
+          const valueRows = db.attendance.map(att => [
+            att.attendanceId, att.studentId, att.classId, att.sectionId, att.attendanceDate, att.attendanceStatus, att.remarks || '', att.markedBy || '', att.createdAt, att.updatedAt, tId
+          ]);
+          await bulkInsertOrUpdate('attendance', columns, valueRows, updateColumns);
+        })());
+      }
+
+      // 17. Sync Roles
+      if (db.roles && Array.isArray(db.roles)) {
+        tasks.push((async () => {
+          const activeRoleIds = db.roles.map(r => r.id).filter(Boolean);
+          if (activeRoleIds.length > 0) {
+            await sqlDb.query(`DELETE FROM roles WHERE tenantId = ? AND id NOT IN (${activeRoleIds.map(() => '?').join(',')})`, [tId, ...activeRoleIds]);
+          } else {
+            await sqlDb.query('DELETE FROM roles WHERE tenantId = ?', [tId]);
+          }
+
+          const columns = ['id', 'name', 'description', 'active', 'isSystem', 'permissions', 'createdAt', 'tenantId'];
+          const updateColumns = ['name', 'description', 'active', 'permissions'];
+          const valueRows = db.roles.filter(r => r.id).map(r => [
+            r.id, r.name, r.description || '', r.active ? 1 : 0, r.isSystem ? 1 : 0,
             typeof r.permissions === 'object' ? JSON.stringify(r.permissions) : (r.permissions || '{}'),
-            r.createdAt || new Date().toISOString(),
-            tId
-          ]
-        );
-      }
-    }
-
-    // 18. Sync User Access
-    if (db.userAccess && Array.isArray(db.userAccess)) {
-      const activeUaIds = db.userAccess.map(ua => ua.id).filter(Boolean);
-      if (activeUaIds.length > 0) {
-        await sqlDb.query(`DELETE FROM user_access WHERE tenantId = ? AND id NOT IN (${activeUaIds.map(() => '?').join(',')})`, [tId, ...activeUaIds]);
-      } else {
-        await sqlDb.query('DELETE FROM user_access WHERE tenantId = ?', [tId]);
+            r.createdAt || new Date().toISOString(), tId
+          ]);
+          await bulkInsertOrUpdate('roles', columns, valueRows, updateColumns);
+        })());
       }
 
-      for (const ua of db.userAccess) {
-        if (!ua.id) continue;
-        await sqlDb.query(
-          `INSERT INTO user_access (id, userId, userName, userType, roleId, status, overrides, updatedAt, tenantId) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-           ON DUPLICATE KEY UPDATE roleId=VALUES(roleId), status=VALUES(status), overrides=VALUES(overrides), userName=VALUES(userName), updatedAt=VALUES(updatedAt)`,
-          [
-            ua.id,
-            ua.userId,
-            ua.userName,
-            ua.userType,
-            ua.roleId || null,
-            ua.status || 'Active',
+      // 18. Sync User Access
+      if (db.userAccess && Array.isArray(db.userAccess)) {
+        tasks.push((async () => {
+          const activeUaIds = db.userAccess.map(ua => ua.id).filter(Boolean);
+          if (activeUaIds.length > 0) {
+            await sqlDb.query(`DELETE FROM user_access WHERE tenantId = ? AND id NOT IN (${activeUaIds.map(() => '?').join(',')})`, [tId, ...activeUaIds]);
+          } else {
+            await sqlDb.query('DELETE FROM user_access WHERE tenantId = ?', [tId]);
+          }
+
+          const columns = ['id', 'userId', 'userName', 'userType', 'roleId', 'status', 'overrides', 'updatedAt', 'tenantId'];
+          const updateColumns = ['roleId', 'status', 'overrides', 'userName', 'updatedAt'];
+          const valueRows = db.userAccess.filter(ua => ua.id).map(ua => [
+            ua.id, ua.userId, ua.userName, ua.userType, ua.roleId || null, ua.status || 'Active',
             typeof ua.overrides === 'object' ? JSON.stringify(ua.overrides) : (ua.overrides || '{}'),
-            ua.updatedAt || new Date().toISOString(),
-            tId
-          ]
-        );
-      }
-    }
-
-    // 19. Sync Audit Logs
-    if (db.auditLogs && Array.isArray(db.auditLogs)) {
-      const activeLogIds = db.auditLogs.map(l => l.id).filter(Boolean);
-      if (activeLogIds.length > 0) {
-        await sqlDb.query(`DELETE FROM audit_logs WHERE tenantId = ? AND id NOT IN (${activeLogIds.map(() => '?').join(',')})`, [tId, ...activeLogIds]);
-      } else {
-        await sqlDb.query('DELETE FROM audit_logs WHERE tenantId = ?', [tId]);
+            ua.updatedAt || new Date().toISOString(), tId
+          ]);
+          await bulkInsertOrUpdate('user_access', columns, valueRows, updateColumns);
+        })());
       }
 
-      for (const l of db.auditLogs) {
-        if (!l.id) continue;
-        await sqlDb.query(
-          `INSERT INTO audit_logs (id, userId, userName, userRole, action, details, ipAddress, timestamp, tenantId) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-           ON DUPLICATE KEY UPDATE action=VALUES(action)`,
-          [
-            l.id,
-            l.userId || null,
-            l.userName || '',
-            l.userRole || '',
-            l.action,
-            l.details || '',
-            l.ipAddress || '',
-            l.timestamp || new Date().toISOString(),
-            tId
-          ]
-        );
-      }
-    }
+      // 19. Sync Audit Logs
+      if (db.auditLogs && Array.isArray(db.auditLogs)) {
+        tasks.push((async () => {
+          const activeLogIds = db.auditLogs.map(l => l.id).filter(Boolean);
+          if (activeLogIds.length > 0) {
+            await sqlDb.query(`DELETE FROM audit_logs WHERE tenantId = ? AND id NOT IN (${activeLogIds.map(() => '?').join(',')})`, [tId, ...activeLogIds]);
+          } else {
+            await sqlDb.query('DELETE FROM audit_logs WHERE tenantId = ?', [tId]);
+          }
 
-    // 20. Sync Employee QR Codes
-    if (db.employeeQrCodes && Array.isArray(db.employeeQrCodes)) {
-      const activeQrIds = db.employeeQrCodes.map(q => q.id).filter(Boolean);
-      if (activeQrIds.length > 0) {
-        await sqlDb.query(`DELETE FROM employee_qr_codes WHERE tenantId = ? AND id NOT IN (${activeQrIds.map(() => '?').join(',')})`, [tId, ...activeQrIds]);
-      } else {
-        await sqlDb.query('DELETE FROM employee_qr_codes WHERE tenantId = ?', [tId]);
+          const columns = ['id', 'userId', 'userName', 'userRole', 'action', 'details', 'ipAddress', 'timestamp', 'tenantId'];
+          const updateColumns = ['action'];
+          const valueRows = db.auditLogs.filter(l => l.id).map(l => [
+            l.id, l.userId || null, l.userName || '', l.userRole || '', l.action, l.details || '', l.ipAddress || '', l.timestamp || new Date().toISOString(), tId
+          ]);
+          await bulkInsertOrUpdate('audit_logs', columns, valueRows, updateColumns);
+        })());
       }
-      for (const q of db.employeeQrCodes) {
-        if (!q.id) continue;
-        // Skip orphan QR records to prevent foreign key constraint violations
-        if (q.employeeType === 'Teacher') {
-          const teacherExists = db.teachers && db.teachers.some(t => t.id === q.employeeId || t.employeeId === q.employeeId);
-          if (!teacherExists) {
-            console.warn(`[SQL Sync WARNING] Skipping orphan employee_qr_code record for non-existent teacher: ${q.employeeId}`);
-            continue;
-          }
-        } else if (q.employeeType === 'Staff') {
-          const staffExists = db.staff && db.staff.some(s => s.id === q.employeeId);
-          if (!staffExists) {
-            console.warn(`[SQL Sync WARNING] Skipping orphan employee_qr_code record for non-existent staff: ${q.employeeId}`);
-            continue;
-          }
-        }
-        await sqlDb.query(
-          `INSERT INTO employee_qr_codes (id, employeeId, employeeType, qrPath, createdAt, tenantId, teacherId, staffId)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-           ON DUPLICATE KEY UPDATE qrPath=VALUES(qrPath)`,
-          [
-            q.id, q.employeeId, q.employeeType, q.qrPath, q.createdAt || new Date().toISOString(), tId,
-            q.employeeType === 'Teacher' ? q.employeeId : null,
-            q.employeeType === 'Staff' ? q.employeeId : null
-          ]
-        );
-      }
-    }
 
-    // 21. Sync Attendance Records
-    if (db.attendanceRecords && Array.isArray(db.attendanceRecords)) {
-      const activeAttIds = db.attendanceRecords.map(a => a.id).filter(Boolean);
-      if (activeAttIds.length > 0) {
-        await sqlDb.query(`DELETE FROM attendance_records WHERE tenantId = ? AND id NOT IN (${activeAttIds.map(() => '?').join(',')})`, [tId, ...activeAttIds]);
-      } else {
-        await sqlDb.query('DELETE FROM attendance_records WHERE tenantId = ?', [tId]);
-      }
-      for (const a of db.attendanceRecords) {
-        if (!a.id) continue;
-        // Skip orphan attendance records to prevent foreign key constraint violations
-        if (a.employeeType === 'Teacher') {
-          const teacherExists = db.teachers && db.teachers.some(t => t.id === a.employeeId || t.employeeId === a.employeeId);
-          if (!teacherExists) {
-            console.warn(`[SQL Sync WARNING] Skipping orphan attendance record for non-existent teacher: ${a.employeeId}`);
-            continue;
+      // 20. Sync Employee QR Codes
+      if (db.employeeQrCodes && Array.isArray(db.employeeQrCodes)) {
+        tasks.push((async () => {
+          const activeQrIds = db.employeeQrCodes.map(q => q.id).filter(Boolean);
+          if (activeQrIds.length > 0) {
+            await sqlDb.query(`DELETE FROM employee_qr_codes WHERE tenantId = ? AND id NOT IN (${activeQrIds.map(() => '?').join(',')})`, [tId, ...activeQrIds]);
+          } else {
+            await sqlDb.query('DELETE FROM employee_qr_codes WHERE tenantId = ?', [tId]);
           }
-        } else if (a.employeeType === 'Staff') {
-          const staffExists = db.staff && db.staff.some(s => s.id === a.employeeId);
-          if (!staffExists) {
-            console.warn(`[SQL Sync WARNING] Skipping orphan attendance record for non-existent staff: ${a.employeeId}`);
-            continue;
-          }
-        }
-        await sqlDb.query(
-          `INSERT INTO attendance_records (id, employeeId, employeeType, name, department, designation, date, checkIn, checkOut, workingHours, status, createdAt, tenantId, teacherId, staffId)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-           ON DUPLICATE KEY UPDATE checkIn=VALUES(checkIn), checkOut=VALUES(checkOut), workingHours=VALUES(workingHours), status=VALUES(status)`,
-          [
-            a.id, a.employeeId, a.employeeType, a.name, a.department || '', a.designation || '', a.date, a.checkIn || null, a.checkOut || null, parseFloat(a.workingHours || 0), a.status || 'Present', a.createdAt || new Date().toISOString(), tId,
-            a.employeeType === 'Teacher' ? a.employeeId : null,
-            a.employeeType === 'Staff' ? a.employeeId : null
-          ]
-        );
-      }
-    }
 
-    // 22. Sync Attendance Logs
-    if (db.attendanceLogs && Array.isArray(db.attendanceLogs)) {
-      const activeLogIds = db.attendanceLogs.map(l => l.id).filter(Boolean);
-      if (activeLogIds.length > 0) {
-        await sqlDb.query(`DELETE FROM attendance_logs WHERE tenantId = ? AND id NOT IN (${activeLogIds.map(() => '?').join(',')})`, [tId, ...activeLogIds]);
-      } else {
-        await sqlDb.query('DELETE FROM attendance_logs WHERE tenantId = ?', [tId]);
-      }
-      for (const l of db.attendanceLogs) {
-        if (!l.id) continue;
-        // Skip orphan attendance logs to prevent foreign key constraint violations
-        if (l.employeeType === 'Teacher') {
-          const teacherExists = db.teachers && db.teachers.some(t => t.id === l.employeeId || t.employeeId === l.employeeId);
-          if (!teacherExists) {
-            console.warn(`[SQL Sync WARNING] Skipping orphan attendance log for non-existent teacher: ${l.employeeId}`);
-            continue;
+          const columns = ['id', 'employeeId', 'employeeType', 'qrPath', 'createdAt', 'tenantId', 'teacherId', 'staffId'];
+          const updateColumns = ['qrPath'];
+          const valueRows = [];
+          for (const q of db.employeeQrCodes) {
+            if (!q.id) continue;
+            if (q.employeeType === 'Teacher') {
+              const teacherExists = db.teachers && db.teachers.some(t => t.id === q.employeeId || t.employeeId === q.employeeId);
+              if (!teacherExists) continue;
+            } else if (q.employeeType === 'Staff') {
+              const staffExists = db.staff && db.staff.some(s => s.id === q.employeeId);
+              if (!staffExists) continue;
+            }
+            valueRows.push([
+              q.id, q.employeeId, q.employeeType, q.qrPath, q.createdAt || new Date().toISOString(), tId,
+              q.employeeType === 'Teacher' ? q.employeeId : null,
+              q.employeeType === 'Staff' ? q.employeeId : null
+            ]);
           }
-        } else if (l.employeeType === 'Staff') {
-          const staffExists = db.staff && db.staff.some(s => s.id === l.employeeId);
-          if (!staffExists) {
-            console.warn(`[SQL Sync WARNING] Skipping orphan attendance log for non-existent staff: ${l.employeeId}`);
-            continue;
-          }
-        }
-        await sqlDb.query(
-          `INSERT INTO attendance_logs (id, employeeId, employeeType, scanTime, scanType, status, tenantId, teacherId, staffId)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-           ON DUPLICATE KEY UPDATE scanTime=VALUES(scanTime), scanType=VALUES(scanType), status=VALUES(status)`,
-          [
-            l.id, l.employeeId, l.employeeType, l.scanTime, l.scanType, l.status, tId,
-            l.employeeType === 'Teacher' ? l.employeeId : null,
-            l.employeeType === 'Staff' ? l.employeeId : null
-          ]
-        );
+          await bulkInsertOrUpdate('employee_qr_codes', columns, valueRows, updateColumns);
+        })());
       }
-    }
 
-    // 23. Sync Attendance Reports
-    if (db.attendanceReports && Array.isArray(db.attendanceReports)) {
-      const activeRepIds = db.attendanceReports.map(r => r.id).filter(Boolean);
-      if (activeRepIds.length > 0) {
-        await sqlDb.query(`DELETE FROM attendance_reports WHERE tenantId = ? AND id NOT IN (${activeRepIds.map(() => '?').join(',')})`, [tId, ...activeRepIds]);
-      } else {
-        await sqlDb.query('DELETE FROM attendance_reports WHERE tenantId = ?', [tId]);
+      // 21. Sync Attendance Records
+      if (db.attendanceRecords && Array.isArray(db.attendanceRecords)) {
+        tasks.push((async () => {
+          const activeAttIds = db.attendanceRecords.map(a => a.id).filter(Boolean);
+          if (activeAttIds.length > 0) {
+            await sqlDb.query(`DELETE FROM attendance_records WHERE tenantId = ? AND id NOT IN (${activeAttIds.map(() => '?').join(',')})`, [tId, ...activeAttIds]);
+          } else {
+            await sqlDb.query('DELETE FROM attendance_records WHERE tenantId = ?', [tId]);
+          }
+
+          const columns = ['id', 'employeeId', 'employeeType', 'name', 'department', 'designation', 'date', 'checkIn', 'checkOut', 'workingHours', 'status', 'createdAt', 'tenantId', 'teacherId', 'staffId'];
+          const updateColumns = ['checkIn', 'checkOut', 'workingHours', 'status'];
+          const valueRows = [];
+          for (const a of db.attendanceRecords) {
+            if (!a.id) continue;
+            if (a.employeeType === 'Teacher') {
+              const teacherExists = db.teachers && db.teachers.some(t => t.id === a.employeeId || t.employeeId === a.employeeId);
+              if (!teacherExists) continue;
+            } else if (a.employeeType === 'Staff') {
+              const staffExists = db.staff && db.staff.some(s => s.id === a.employeeId);
+              if (!staffExists) continue;
+            }
+            valueRows.push([
+              a.id, a.employeeId, a.employeeType, a.name, a.department || '', a.designation || '', a.date, a.checkIn || null, a.checkOut || null, parseFloat(a.workingHours || 0), a.status || 'Present', a.createdAt || new Date().toISOString(), tId,
+              a.employeeType === 'Teacher' ? a.employeeId : null,
+              a.employeeType === 'Staff' ? a.employeeId : null
+            ]);
+          }
+          await bulkInsertOrUpdate('attendance_records', columns, valueRows, updateColumns);
+        })());
       }
-      for (const r of db.attendanceReports) {
-        if (!r.id) continue;
-        await sqlDb.query(
-          `INSERT INTO attendance_reports (id, reportName, reportType, generatedAt, filters, filePath, tenantId)
-           VALUES (?, ?, ?, ?, ?, ?, ?)
-           ON DUPLICATE KEY UPDATE reportName=VALUES(reportName), filePath=VALUES(filePath)`,
-          [
+
+      // 22. Sync Attendance Logs
+      if (db.attendanceLogs && Array.isArray(db.attendanceLogs)) {
+        tasks.push((async () => {
+          const activeLogIds = db.attendanceLogs.map(l => l.id).filter(Boolean);
+          if (activeLogIds.length > 0) {
+            await sqlDb.query(`DELETE FROM attendance_logs WHERE tenantId = ? AND id NOT IN (${activeLogIds.map(() => '?').join(',')})`, [tId, ...activeLogIds]);
+          } else {
+            await sqlDb.query('DELETE FROM attendance_logs WHERE tenantId = ?', [tId]);
+          }
+
+          const columns = ['id', 'employeeId', 'employeeType', 'scanTime', 'scanType', 'status', 'tenantId', 'teacherId', 'staffId'];
+          const updateColumns = ['scanTime', 'scanType', 'status'];
+          const valueRows = [];
+          for (const l of db.attendanceLogs) {
+            if (!l.id) continue;
+            if (l.employeeType === 'Teacher') {
+              const teacherExists = db.teachers && db.teachers.some(t => t.id === l.employeeId || t.employeeId === l.employeeId);
+              if (!teacherExists) continue;
+            } else if (l.employeeType === 'Staff') {
+              const staffExists = db.staff && db.staff.some(s => s.id === l.employeeId);
+              if (!staffExists) continue;
+            }
+            valueRows.push([
+              l.id, l.employeeId, l.employeeType, l.scanTime, l.scanType, l.status, tId,
+              l.employeeType === 'Teacher' ? l.employeeId : null,
+              l.employeeType === 'Staff' ? l.employeeId : null
+            ]);
+          }
+          await bulkInsertOrUpdate('attendance_logs', columns, valueRows, updateColumns);
+        })());
+      }
+
+      // 23. Sync Attendance Reports
+      if (db.attendanceReports && Array.isArray(db.attendanceReports)) {
+        tasks.push((async () => {
+          const activeRepIds = db.attendanceReports.map(r => r.id).filter(Boolean);
+          if (activeRepIds.length > 0) {
+            await sqlDb.query(`DELETE FROM attendance_reports WHERE tenantId = ? AND id NOT IN (${activeRepIds.map(() => '?').join(',')})`, [tId, ...activeRepIds]);
+          } else {
+            await sqlDb.query('DELETE FROM attendance_reports WHERE tenantId = ?', [tId]);
+          }
+
+          const columns = ['id', 'reportName', 'reportType', 'generatedAt', 'filters', 'filePath', 'tenantId'];
+          const updateColumns = ['reportName', 'filePath'];
+          const valueRows = db.attendanceReports.filter(r => r.id).map(r => [
             r.id, r.reportName, r.reportType, r.generatedAt,
             typeof r.filters === 'object' ? JSON.stringify(r.filters) : (r.filters || '{}'),
             r.filePath, tId
-          ]
-        );
-      }
-    }
-
-    // 24. Sync Academic Calendar Events
-    if (db.academicCalendarEvents && Array.isArray(db.academicCalendarEvents)) {
-      const activeEventIds = db.academicCalendarEvents.map(e => e.id).filter(Boolean);
-      if (activeEventIds.length > 0) {
-        await sqlDb.query(`DELETE FROM academic_calendar_events WHERE tenantId = ? AND id NOT IN (${activeEventIds.map(() => '?').join(',')})`, [tId, ...activeEventIds]);
-      } else {
-        await sqlDb.query('DELETE FROM academic_calendar_events WHERE tenantId = ?', [tId]);
+          ]);
+          await bulkInsertOrUpdate('attendance_reports', columns, valueRows, updateColumns);
+        })());
       }
 
-      for (const e of db.academicCalendarEvents) {
-        if (!e.id) continue;
-        await sqlDb.query(
-          `INSERT INTO academic_calendar_events (
-            id, eventDate, title, eventType, description, applicableClasses, startTime, endTime, session, color, audience, recurring, reminders, attachments, notifications, tenantId, createdAt, updatedAt
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-          ON DUPLICATE KEY UPDATE 
-            eventDate=VALUES(eventDate), title=VALUES(title), eventType=VALUES(eventType), 
-            description=VALUES(description), applicableClasses=VALUES(applicableClasses), 
-            startTime=VALUES(startTime), endTime=VALUES(endTime), session=VALUES(session),
-            color=VALUES(color), audience=VALUES(audience), recurring=VALUES(recurring),
-            reminders=VALUES(reminders), attachments=VALUES(attachments), notifications=VALUES(notifications),
-            updatedAt=VALUES(updatedAt)`,
-          [
+      // 24. Sync Academic Calendar Events
+      if (db.academicCalendarEvents && Array.isArray(db.academicCalendarEvents)) {
+        tasks.push((async () => {
+          const activeEventIds = db.academicCalendarEvents.map(e => e.id).filter(Boolean);
+          if (activeEventIds.length > 0) {
+            await sqlDb.query(`DELETE FROM academic_calendar_events WHERE tenantId = ? AND id NOT IN (${activeEventIds.map(() => '?').join(',')})`, [tId, ...activeEventIds]);
+          } else {
+            await sqlDb.query('DELETE FROM academic_calendar_events WHERE tenantId = ?', [tId]);
+          }
+
+          const columns = ['id', 'eventDate', 'title', 'eventType', 'description', 'applicableClasses', 'startTime', 'endTime', 'session', 'color', 'audience', 'recurring', 'reminders', 'attachments', 'notifications', 'tenantId', 'createdAt', 'updatedAt'];
+          const updateColumns = ['eventDate', 'title', 'eventType', 'description', 'applicableClasses', 'startTime', 'endTime', 'session', 'color', 'audience', 'recurring', 'reminders', 'attachments', 'notifications', 'updatedAt'];
+          const valueRows = db.academicCalendarEvents.filter(e => e.id).map(e => [
             e.id, e.eventDate, e.title, e.eventType, e.description || '', e.applicableClasses || '',
             e.startTime || '', e.endTime || '', e.session, e.color || '#6366f1', e.audience || 'All',
             e.recurring || 'None',
@@ -2819,121 +2631,118 @@ export const saveMemoryDbToSql = async (tenantId, db) => {
             e.attachments ? (typeof e.attachments === 'string' ? e.attachments : JSON.stringify(e.attachments)) : null,
             e.notifications ? (typeof e.notifications === 'string' ? e.notifications : JSON.stringify(e.notifications)) : null,
             tId, e.createdAt || new Date().toISOString(), e.updatedAt || new Date().toISOString()
-          ]
-        );
-      }
-    }
-
-    // 25. Sync Academic Calendar Imports
-    if (db.academicCalendarImports && Array.isArray(db.academicCalendarImports)) {
-      const activeImportIds = db.academicCalendarImports.map(i => i.id).filter(Boolean);
-      if (activeImportIds.length > 0) {
-        await sqlDb.query(`DELETE FROM academic_calendar_imports WHERE tenantId = ? AND id NOT IN (${activeImportIds.map(() => '?').join(',')})`, [tId, ...activeImportIds]);
-      } else {
-        await sqlDb.query('DELETE FROM academic_calendar_imports WHERE tenantId = ?', [tId]);
+          ]);
+          await bulkInsertOrUpdate('academic_calendar_events', columns, valueRows, updateColumns);
+        })());
       }
 
-      for (const i of db.academicCalendarImports) {
-        if (!i.id) continue;
-        await sqlDb.query(
-          `INSERT INTO academic_calendar_imports (
-            id, fileName, importDate, importedBy, totalRecords, session, tenantId
-          ) VALUES (?, ?, ?, ?, ?, ?, ?)
-          ON DUPLICATE KEY UPDATE 
-            fileName=VALUES(fileName), importDate=VALUES(importDate), 
-            importedBy=VALUES(importedBy), totalRecords=VALUES(totalRecords), session=VALUES(session)`,
-          [
+      // 25. Sync Academic Calendar Imports
+      if (db.academicCalendarImports && Array.isArray(db.academicCalendarImports)) {
+        tasks.push((async () => {
+          const activeImportIds = db.academicCalendarImports.map(i => i.id).filter(Boolean);
+          if (activeImportIds.length > 0) {
+            await sqlDb.query(`DELETE FROM academic_calendar_imports WHERE tenantId = ? AND id NOT IN (${activeImportIds.map(() => '?').join(',')})`, [tId, ...activeImportIds]);
+          } else {
+            await sqlDb.query('DELETE FROM academic_calendar_imports WHERE tenantId = ?', [tId]);
+          }
+
+          const columns = ['id', 'fileName', 'importDate', 'importedBy', 'totalRecords', 'session', 'tenantId'];
+          const updateColumns = ['fileName', 'importDate', 'importedBy', 'totalRecords', 'session'];
+          const valueRows = db.academicCalendarImports.filter(i => i.id).map(i => [
             i.id, i.fileName, i.importDate, i.importedBy, i.totalRecords || 0, i.session, tId
-          ]
-        );
-      }
-    }
-
-    // 26. Sync Published Calendar Events
-    if (db.publishedCalendarEvents && Array.isArray(db.publishedCalendarEvents)) {
-      const activePublishedIds = db.publishedCalendarEvents.filter(Boolean);
-      if (activePublishedIds.length > 0) {
-        await sqlDb.query(`DELETE FROM published_calendar_events WHERE tenantId = ? AND eventId NOT IN (${activePublishedIds.map(() => '?').join(',')})`, [tId, ...activePublishedIds]);
-      } else {
-        await sqlDb.query('DELETE FROM published_calendar_events WHERE tenantId = ?', [tId]);
+          ]);
+          await bulkInsertOrUpdate('academic_calendar_imports', columns, valueRows, updateColumns);
+        })());
       }
 
-      for (const eventId of db.publishedCalendarEvents) {
-        if (!eventId) continue;
-        await sqlDb.query(
-          `INSERT IGNORE INTO published_calendar_events (eventId, tenantId) VALUES (?, ?)`,
-          [eventId, tId]
-        );
-      }
-    }
+      // 26. Sync Published Calendar Events
+      if (db.publishedCalendarEvents && Array.isArray(db.publishedCalendarEvents)) {
+        tasks.push((async () => {
+          const activePublishedIds = db.publishedCalendarEvents.filter(Boolean);
+          if (activePublishedIds.length > 0) {
+            await sqlDb.query(`DELETE FROM published_calendar_events WHERE tenantId = ? AND eventId NOT IN (${activePublishedIds.map(() => '?').join(',')})`, [tId, ...activePublishedIds]);
+          } else {
+            await sqlDb.query('DELETE FROM published_calendar_events WHERE tenantId = ?', [tId]);
+          }
 
-    // Sync central grades
-    if (db.grades && Array.isArray(db.grades)) {
-      const activeGradeIds = db.grades.map(g => g.id).filter(Boolean);
-      if (activeGradeIds.length > 0) {
-        await sqlDb.query(`DELETE FROM grades WHERE tenantId = ? AND id NOT IN (${activeGradeIds.map(() => '?').join(',')})`, [tId, ...activeGradeIds]);
-      } else {
-        await sqlDb.query('DELETE FROM grades WHERE tenantId = ?', [tId]);
+          const valueRows = db.publishedCalendarEvents.filter(Boolean).map(eventId => [eventId, tId]);
+          if (valueRows.length > 0) {
+            const placeholders = valueRows.map(() => '(?, ?)').join(', ');
+            await sqlDb.query(`INSERT IGNORE INTO published_calendar_events (eventId, tenantId) VALUES ${placeholders}`, valueRows.flat());
+          }
+        })());
       }
-      for (const g of db.grades) {
-        if (!g.id) continue;
-        await sqlDb.query(
-          `INSERT INTO grades (id, name, status, createdAt, updatedAt, tenantId)
-           VALUES (?, ?, ?, ?, ?, ?)
-           ON DUPLICATE KEY UPDATE name=VALUES(name), status=VALUES(status), updatedAt=VALUES(updatedAt)`,
-          [g.id, g.name, g.status || 'Active', g.createdAt || new Date().toISOString(), g.updatedAt || new Date().toISOString(), tId]
-        );
-      }
-    }
 
-    // Sync central departments
-    if (db.departments && Array.isArray(db.departments)) {
-      const activeDeptIds = db.departments.map(d => d.id).filter(Boolean);
-      if (activeDeptIds.length > 0) {
-        await sqlDb.query(`DELETE FROM departments WHERE tenantId = ? AND id NOT IN (${activeDeptIds.map(() => '?').join(',')})`, [tId, ...activeDeptIds]);
-      } else {
-        await sqlDb.query('DELETE FROM departments WHERE tenantId = ?', [tId]);
-      }
-      for (const d of db.departments) {
-        if (!d.id) continue;
-        await sqlDb.query(
-          `INSERT INTO departments (id, name, status, createdAt, updatedAt, tenantId)
-           VALUES (?, ?, ?, ?, ?, ?)
-           ON DUPLICATE KEY UPDATE name=VALUES(name), status=VALUES(status), updatedAt=VALUES(updatedAt)`,
-          [d.id, d.name, d.status || 'Active', d.createdAt || new Date().toISOString(), d.updatedAt || new Date().toISOString(), tId]
-        );
-      }
-    }
+      // Sync central grades
+      if (db.grades && Array.isArray(db.grades)) {
+        tasks.push((async () => {
+          const activeGradeIds = db.grades.map(g => g.id).filter(Boolean);
+          if (activeGradeIds.length > 0) {
+            await sqlDb.query(`DELETE FROM grades WHERE tenantId = ? AND id NOT IN (${activeGradeIds.map(() => '?').join(',')})`, [tId, ...activeGradeIds]);
+          } else {
+            await sqlDb.query('DELETE FROM grades WHERE tenantId = ?', [tId]);
+          }
 
-    // Sync central grade mappings
-    if (db.gradeDepartments && Array.isArray(db.gradeDepartments)) {
-      const activeMappingIds = db.gradeDepartments.map(gd => gd.id).filter(Boolean);
-      if (activeMappingIds.length > 0) {
-        await sqlDb.query(`DELETE FROM grade_departments WHERE tenantId = ? AND id NOT IN (${activeMappingIds.map(() => '?').join(',')})`, [tId, ...activeMappingIds]);
-      } else {
-        await sqlDb.query('DELETE FROM grade_departments WHERE tenantId = ?', [tId]);
+          const columns = ['id', 'name', 'status', 'createdAt', 'updatedAt', 'tenantId'];
+          const updateColumns = ['name', 'status', 'updatedAt'];
+          const valueRows = db.grades.filter(g => g.id).map(g => [
+            g.id, g.name, g.status || 'Active', g.createdAt || new Date().toISOString(), g.updatedAt || new Date().toISOString(), tId
+          ]);
+          await bulkInsertOrUpdate('grades', columns, valueRows, updateColumns);
+        })());
       }
-      for (const gd of db.gradeDepartments) {
-        if (!gd.id) continue;
-        await sqlDb.query(
-          `INSERT INTO grade_departments (id, gradeId, departmentId, status, tenantId, createdAt, updatedAt)
-           VALUES (?, ?, ?, ?, ?, ?, ?)
-           ON DUPLICATE KEY UPDATE status=VALUES(status), updatedAt=VALUES(updatedAt)`,
-          [gd.id, gd.gradeId, gd.departmentId, gd.status || 'Active', tId, gd.createdAt || new Date().toISOString(), gd.updatedAt || new Date().toISOString()]
-        );
-      }
-    }
 
-    // 27. Update schools.updatedAt timestamp to trigger cache validation for other instances
-    if (tId !== 'platform') {
-      const nowStr = new Date().toISOString();
-      await sqlDb.query("UPDATE schools SET updatedAt = ? WHERE subdomain = ?", [nowStr, tId]);
-      if (dbCache[tId]) {
-        dbCache[tId]._updatedAt = nowStr;
-      }
-    }
+      // Sync central departments
+      if (db.departments && Array.isArray(db.departments)) {
+        tasks.push((async () => {
+          const activeDeptIds = db.departments.map(d => d.id).filter(Boolean);
+          if (activeDeptIds.length > 0) {
+            await sqlDb.query(`DELETE FROM departments WHERE tenantId = ? AND id NOT IN (${activeDeptIds.map(() => '?').join(',')})`, [tId, ...activeDeptIds]);
+          } else {
+            await sqlDb.query('DELETE FROM departments WHERE tenantId = ?', [tId]);
+          }
 
-    console.log(`[SQL Sync SUCCESS] Finished database sync for tenant: ${tId}`);
+          const columns = ['id', 'name', 'status', 'createdAt', 'updatedAt', 'tenantId'];
+          const updateColumns = ['name', 'status', 'updatedAt'];
+          const valueRows = db.departments.filter(d => d.id).map(d => [
+            d.id, d.name, d.status || 'Active', d.createdAt || new Date().toISOString(), d.updatedAt || new Date().toISOString(), tId
+          ]);
+          await bulkInsertOrUpdate('departments', columns, valueRows, updateColumns);
+        })());
+      }
+
+      // Sync central grade mappings
+      if (db.gradeDepartments && Array.isArray(db.gradeDepartments)) {
+        tasks.push((async () => {
+          const activeMappingIds = db.gradeDepartments.map(gd => gd.id).filter(Boolean);
+          if (activeMappingIds.length > 0) {
+            await sqlDb.query(`DELETE FROM grade_departments WHERE tenantId = ? AND id NOT IN (${activeMappingIds.map(() => '?').join(',')})`, [tId, ...activeMappingIds]);
+          } else {
+            await sqlDb.query('DELETE FROM grade_departments WHERE tenantId = ?', [tId]);
+          }
+
+          const columns = ['id', 'gradeId', 'departmentId', 'status', 'tenantId', 'createdAt', 'updatedAt'];
+          const updateColumns = ['status', 'updatedAt'];
+          const valueRows = db.gradeDepartments.filter(gd => gd.id).map(gd => [
+            gd.id, gd.gradeId, gd.departmentId, gd.status || 'Active', tId, gd.createdAt || new Date().toISOString(), gd.updatedAt || new Date().toISOString()
+          ]);
+          await bulkInsertOrUpdate('grade_departments', columns, valueRows, updateColumns);
+        })());
+      }
+
+      // Execute all synchronization tasks concurrently!
+      await Promise.all(tasks);
+
+      // 27. Update schools.updatedAt timestamp to trigger cache validation for other instances
+      if (tId !== 'platform') {
+        const nowStr = new Date().toISOString();
+        await sqlDb.query("UPDATE schools SET updatedAt = ? WHERE subdomain = ?", [nowStr, tId]);
+        if (dbCache[tId]) {
+          dbCache[tId]._updatedAt = nowStr;
+        }
+      }
+
+      console.log(`[SQL Sync SUCCESS] Finished database sync for tenant: ${tId}`);
     } catch (err) {
       console.error(`[SQL Sync ERROR] Sync query failed for tenant ${tId || 'platform'}:`, err);
     }
