@@ -19,6 +19,7 @@ import {
   RefreshCw
 } from 'lucide-react';
 import SkeletonLoader from '../components/SkeletonLoader';
+import KeepAlive from '../components/KeepAlive';
 import { fetchActiveGrades, fetchActiveSections } from '../utils/grades';
 
 // Lazy load sub-components (Default Exports)
@@ -300,51 +301,27 @@ export default function AdminPanel({ setActiveView, onLogout, adminView, setAdmi
   };
 
   const renderAdminContent = () => {
-    if (adminView && adminView.startsWith('expense-')) {
-      const subView = adminView.replace('expense-', '');
-      return (
-        <ExpensePanel
-          setActiveView={setActiveView}
-          onLogout={() => setAdminView('students')}
-          expenseView={subView}
-          setExpenseView={(v) => setAdminView('expense-' + v)}
-          hideHeader={true}
-        />
-      );
-    }
+    const isAcademicView = [
+      'academic-manager', 'academic-class-timetable', 'academic-teacher-timetable',
+      'academic-exams', 'academic-exams-history', 'academic-exam-timetable',
+      'academic-published-timetable', 'academic-published-exam', 'academic-activities',
+      'academic-events', 'academic-notices', 'academic-holidays', 'academic-calendar',
+      'academic-results', 'academic-reports', 'academic-grade-subjects',
+      'results-manager', 'results-analytics', 'results-marks-entry',
+      'results-report-cards', 'results-history'
+    ].includes(adminView);
 
-    switch (adminView) {
-      case 'academic-manager':
-      case 'academic-class-timetable':
-      case 'academic-teacher-timetable':
-      case 'academic-exams':
-      case 'academic-exams-history':
-      case 'academic-exam-timetable':
-      case 'academic-published-timetable':
-      case 'academic-published-exam':
-      case 'academic-activities':
-      case 'academic-events':
-      case 'academic-notices':
-      case 'academic-holidays':
-      case 'academic-calendar':
-      case 'academic-results':
-      case 'academic-reports':
-      case 'academic-grade-subjects':
-      case 'results-manager':
-      case 'results-analytics':
-      case 'results-marks-entry':
-      case 'results-report-cards':
-      case 'results-history':
-        return <AcademicPanel subView={adminView} setAdminView={setAdminView} />;
-      case 'grade-list':
-      case 'add-grade':
-      case 'grade-departments':
-      case 'grade-dept-mapping':
-      case 'grade-academic-settings':
-      case 'section-utility':
-        return <GradeManagement currentSubView={adminView} setAdminView={setAdminView} showToast={showToast} />;
-      case 'overview':
-        return (
+    const isGradeView = [
+      'grade-list', 'add-grade', 'grade-departments', 'grade-dept-mapping',
+      'grade-academic-settings', 'section-utility'
+    ].includes(adminView);
+
+    const isExpenseView = adminView && adminView.startsWith('expense-');
+    const expenseSubView = isExpenseView ? adminView.replace('expense-', '') : '';
+
+    return (
+      <>
+        <KeepAlive active={adminView === 'overview'}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}>
 
             {/* Section Header */}
@@ -556,11 +533,10 @@ export default function AdminPanel({ setActiveView, onLogout, adminView, setAdmi
             </div>
 
           </div>
-        );
-      case 'students':
-        return (
+        </KeepAlive>
+
+        <KeepAlive active={adminView === 'students' || (!adminView || adminView === 'default')} key={`students-${directoryKey}`}>
           <StudentDirectory 
-            key={`students-${directoryKey}`} 
             readOnly={false} 
             onAddClick={() => {
               setEditingStudentForRegister(null);
@@ -571,34 +547,57 @@ export default function AdminPanel({ setActiveView, onLogout, adminView, setAdmi
               setAdminView('register-student');
             }}
           />
-        );
-      case 'teachers':
-        return <TeacherList key={`teachers-${directoryKey}`} setActiveView={setActiveView} readOnly={false} onAddClick={() => setAdminView('add-teacher')} />;
-      case 'staff':
-        return <StaffDirectory key={directoryKey} readOnly={false} onAddClick={() => setAdminView('add-staff')} />;
-      case 'employee-attendance':
-        return <AttendanceManager />;
+        </KeepAlive>
 
-      case 'collect-fees':
-        return <CollectFeesView showToast={showToast} />;
-      case 'fee-structure':
-        return <FeeStructureView showToast={showToast} />;
-      case 'payroll':
-        return <PayrollView showToast={showToast} />;
-      case 'teacher-pay-structure':
-        return <TeacherSalaryStructureView showToast={showToast} />;
-      case 'staff-pay':
-        return <StaffPaymentsView showToast={showToast} />;
-      case 'staff-pay-structure':
-        return <StaffPaymentStructureView showToast={showToast} />;
-      case 'expenses':
-        return <ExpensesView showToast={showToast} />;
-      case 'income':
-        return <IncomeView showToast={showToast} />;
-      case 'reports':
-        return <ReportsView showToast={showToast} />;
-      case 'register-student':
-        return (
+        <KeepAlive active={adminView === 'teachers'} key={`teachers-${directoryKey}`}>
+          <TeacherList setActiveView={setActiveView} readOnly={false} onAddClick={() => setAdminView('add-teacher')} />
+        </KeepAlive>
+
+        <KeepAlive active={adminView === 'staff'} key={directoryKey}>
+          <StaffDirectory readOnly={false} onAddClick={() => setAdminView('add-staff')} />
+        </KeepAlive>
+
+        <KeepAlive active={adminView === 'employee-attendance'}>
+          <AttendanceManager />
+        </KeepAlive>
+
+        <KeepAlive active={adminView === 'collect-fees'}>
+          <CollectFeesView showToast={showToast} />
+        </KeepAlive>
+
+        <KeepAlive active={adminView === 'fee-structure'}>
+          <FeeStructureView showToast={showToast} />
+        </KeepAlive>
+
+        <KeepAlive active={adminView === 'payroll'}>
+          <PayrollView showToast={showToast} />
+        </KeepAlive>
+
+        <KeepAlive active={adminView === 'teacher-pay-structure'}>
+          <TeacherSalaryStructureView showToast={showToast} />
+        </KeepAlive>
+
+        <KeepAlive active={adminView === 'staff-pay'}>
+          <StaffPaymentsView showToast={showToast} />
+        </KeepAlive>
+
+        <KeepAlive active={adminView === 'staff-pay-structure'}>
+          <StaffPaymentStructureView showToast={showToast} />
+        </KeepAlive>
+
+        <KeepAlive active={adminView === 'expenses'}>
+          <ExpensesView showToast={showToast} />
+        </KeepAlive>
+
+        <KeepAlive active={adminView === 'income'}>
+          <IncomeView showToast={showToast} />
+        </KeepAlive>
+
+        <KeepAlive active={adminView === 'reports'}>
+          <ReportsView showToast={showToast} />
+        </KeepAlive>
+
+        {adminView === 'register-student' && (
           <RegisterStudent 
             editData={editingStudentForRegister}
             setActiveView={(view) => { 
@@ -610,27 +609,32 @@ export default function AdminPanel({ setActiveView, onLogout, adminView, setAdmi
               }
             }} 
           />
-        );
-      case 'student-manager':
-        return <StudentManager showToast={showToast} />;
-      case 'add-teacher':
-        return <AddTeacher setActiveView={(view) => { if (view === 'teachers' || view === 'teacher-list') { setDirectoryKey(k => k + 1); setAdminView('teachers'); } else setActiveView(view); }} />;
-      case 'add-staff':
-        return <AddStaff setActiveView={(view) => { if (view === 'staff') { setDirectoryKey(k => k + 1); setAdminView('staff'); } else setActiveView(view); }} />;
+        )}
 
-      case 'attendance-history':
-        return (
+        <KeepAlive active={adminView === 'student-manager'}>
+          <StudentManager showToast={showToast} />
+        </KeepAlive>
+
+        {adminView === 'add-teacher' && (
+          <AddTeacher setActiveView={(view) => { if (view === 'teachers' || view === 'teacher-list') { setDirectoryKey(k => k + 1); setAdminView('teachers'); } else setActiveView(view); }} />
+        )}
+
+        {adminView === 'add-staff' && (
+          <AddStaff setActiveView={(view) => { if (view === 'staff') { setDirectoryKey(k => k + 1); setAdminView('staff'); } else setActiveView(view); }} />
+        )}
+
+        <KeepAlive active={adminView === 'attendance-history'}>
           <AttendanceHistoryView 
             date={selectedDate}
             showToast={showToast}
           />
-        );
-      case 'class-reports':
-        return (
+        </KeepAlive>
+
+        <KeepAlive active={adminView === 'class-reports'}>
           <ClassReportsView showToast={showToast} />
-        );
-      case 'attendance':
-        return (
+        </KeepAlive>
+
+        <KeepAlive active={adminView === 'attendance'}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
             
             {/* Sub-Tab Bar for Admin Attendance */}
@@ -731,26 +735,35 @@ export default function AdminPanel({ setActiveView, onLogout, adminView, setAdmi
               <MonthlyCalendarView showToast={showToast} />
             )}
           </div>
-        );
-      case 'roles-permissions':
-        return <RolesPermissions />;
-      case 'profile':
-        return <UserProfile onProfileUpdate={setUserProfile} showToast={showToast} onLogout={onLogout} />;
-      default:
-        return (
-          <StudentDirectory 
-            readOnly={false} 
-            onAddClick={() => {
-              setEditingStudentForRegister(null);
-              setAdminView('register-student');
-            }} 
-            onEditClick={(student) => {
-              setEditingStudentForRegister(student);
-              setAdminView('register-student');
-            }}
+        </KeepAlive>
+
+        <KeepAlive active={isAcademicView}>
+          <AcademicPanel subView={adminView} setAdminView={setAdminView} />
+        </KeepAlive>
+
+        <KeepAlive active={isGradeView}>
+          <GradeManagement currentSubView={adminView} setAdminView={setAdminView} showToast={showToast} />
+        </KeepAlive>
+
+        <KeepAlive active={isExpenseView}>
+          <ExpensePanel
+            setActiveView={setActiveView}
+            onLogout={() => setAdminView('students')}
+            expenseView={expenseSubView}
+            setExpenseView={(v) => setAdminView('expense-' + v)}
+            hideHeader={true}
           />
-        );
-    }
+        </KeepAlive>
+
+        <KeepAlive active={adminView === 'roles-permissions'}>
+          <RolesPermissions />
+        </KeepAlive>
+
+        <KeepAlive active={adminView === 'profile'}>
+          <UserProfile onProfileUpdate={setUserProfile} showToast={showToast} onLogout={onLogout} />
+        </KeepAlive>
+      </>
+    );
   };
 
   return (

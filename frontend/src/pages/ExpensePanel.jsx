@@ -28,7 +28,9 @@ export default function ExpensePanel({ setActiveView, onLogout, expenseView, set
   };
 
   const fetchExpenses = () => {
-    setLoading(true);
+    if (expenses.length === 0 && income.length === 0) {
+      setLoading(true);
+    }
     setError(null);
     Promise.all([
       fetch('/api/account-management/expenses').then(res => {

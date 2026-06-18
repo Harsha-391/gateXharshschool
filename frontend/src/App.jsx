@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
 import SkeletonLoader from './components/SkeletonLoader';
+import KeepAlive from './components/KeepAlive';
 import { CheckCircle, AlertCircle } from 'lucide-react';
 
 import './App.css';
@@ -574,32 +575,53 @@ export default function App() {
       return <AdminPanel setActiveView={setActiveView} onLogout={handleLogout} adminView={adminView} setAdminView={setAdminView} onBackToMain={handleBackToMain} userProfile={userProfile} setUserProfile={setUserProfile} />;
     }
 
-    switch (activeView) {
-      case 'profile':
-        return <UserProfile onProfileUpdate={setUserProfile} showToast={showToast} onLogout={handleLogout} />;
-      case 'students':
-        return <StudentDirectory readOnly={true} onAddClick={() => setActiveView('register-student')} />;
-      case 'register-student':
-        return <RegisterStudent setActiveView={setActiveView} />;
-      case 'add-teacher':
-        return <AddTeacher setActiveView={setActiveView} />;
-      case 'teachers':
-      case 'teacher-list':
-        return <TeacherList setActiveView={setActiveView} readOnly={true} onAddClick={() => setActiveView('add-teacher')} />;
-      case 'add-staff':
-        return <AddStaff setActiveView={setActiveView} />;
-      case 'staff':
-        return <StaffDirectory readOnly={true} onAddClick={() => setActiveView('add-staff')} />;
-      case 'finance':
-        return <AccountManagementPortal />;
-      case 'employee-attendance':
-        return <AttendanceManager />;
-      case 'school':
-        return <SchoolProfile schoolDetails={schoolDetails} fetchSchoolDetails={fetchSchoolDetails} isDeveloperAdmin={isDeveloperAdmin} />;
-      case 'academic-calendar':
-        return <AcademicPanel subView="academic-calendar" setAdminView={setActiveView} />;
-      case 'admin-login':
-        return (
+    return (
+      <>
+        <KeepAlive active={activeView === 'profile'}>
+          <UserProfile onProfileUpdate={setUserProfile} showToast={showToast} onLogout={handleLogout} />
+        </KeepAlive>
+
+        <KeepAlive active={activeView === 'students' || activeView === 'default'}>
+          <StudentDirectory readOnly={true} onAddClick={() => setActiveView('register-student')} />
+        </KeepAlive>
+
+        {activeView === 'register-student' && (
+          <RegisterStudent setActiveView={setActiveView} />
+        )}
+
+        {activeView === 'add-teacher' && (
+          <AddTeacher setActiveView={setActiveView} />
+        )}
+
+        <KeepAlive active={activeView === 'teachers' || activeView === 'teacher-list'}>
+          <TeacherList setActiveView={setActiveView} readOnly={true} onAddClick={() => setActiveView('add-teacher')} />
+        </KeepAlive>
+
+        {activeView === 'add-staff' && (
+          <AddStaff setActiveView={setActiveView} />
+        )}
+
+        <KeepAlive active={activeView === 'staff'}>
+          <StaffDirectory readOnly={true} onAddClick={() => setActiveView('add-staff')} />
+        </KeepAlive>
+
+        <KeepAlive active={activeView === 'finance'}>
+          <AccountManagementPortal />
+        </KeepAlive>
+
+        <KeepAlive active={activeView === 'employee-attendance'}>
+          <AttendanceManager />
+        </KeepAlive>
+
+        <KeepAlive active={activeView === 'school'}>
+          <SchoolProfile schoolDetails={schoolDetails} fetchSchoolDetails={fetchSchoolDetails} isDeveloperAdmin={isDeveloperAdmin} />
+        </KeepAlive>
+
+        <KeepAlive active={activeView === 'academic-calendar'}>
+          <AcademicPanel subView="academic-calendar" setAdminView={setActiveView} />
+        </KeepAlive>
+
+        {activeView === 'admin-login' && (
           <AdminLogin 
             onLogin={() => {
               sessionStorage.setItem('role', 'Admin Dashboard');
@@ -610,11 +632,9 @@ export default function App() {
             }} 
             onCancel={() => setActiveView('students')} 
           />
-        );
-
-      default:
-        return <StudentDirectory readOnly={true} onAddClick={() => setActiveView('register-student')} />;
-    }
+        )}
+      </>
+    );
   };
 
   const isLoggedIn = isDeveloperAdmin || isAdmin || isSchoolAdmin;
