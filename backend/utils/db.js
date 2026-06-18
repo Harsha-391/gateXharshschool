@@ -722,6 +722,15 @@ export const initSqlDb = async () => {
     await createTablesFromSchema();
     // 2. Run data migration
     await migrateJsonToSql();
+    
+    // 3. Ensure live database admin username matches local seed/fallback settings
+    try {
+      await sqlDb.query("UPDATE schools SET adminUsername = 'school_admin' WHERE subdomain = 'greenvalley' AND adminUsername = 'greenvalley_admin'");
+      console.log('[SQL Init] Ensured greenvalley adminUsername is updated to school_admin.');
+    } catch (err) {
+      console.warn('[SQL Init WARNING] Failed to run school_admin username update query:', err.message);
+    }
+
     isSqlInitialized = true;
     console.log('[SQL Init] MySQL Caching Adapter is active and running.');
   } else {
