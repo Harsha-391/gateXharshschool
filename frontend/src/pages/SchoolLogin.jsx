@@ -243,7 +243,10 @@ export default function SchoolLogin({ tenantSubdomain, onLoginSuccess }) {
             }}
           >
             {loading ? (
-              <span className="spinner-border" style={{ width: '18px', height: '18px' }} />
+              <>
+                <span className="admin-login-spinner" style={{ width: '18px', height: '18px', marginRight: '8px' }} />
+                Signing In...
+              </>
             ) : (
               <>
                 Sign In <ChevronRight size={16} />
