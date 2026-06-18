@@ -1,30 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { 
   User, 
-  Lock, 
   Shield, 
-  Check, 
-  AlertCircle, 
-  Eye,
-  EyeOff,
-  LogOut
+  AlertCircle,
+  LogOut,
+  Mail,
+  Phone
 } from 'lucide-react';
 
 export default function UserProfile({ onProfileUpdate, showToast, onLogout }) {
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
-
-  // Form states for password changes
-  const [oldPassword, setOldPassword] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  
-  // Password visibility
-  const [showOldPass, setShowOldPass] = useState(false);
-  const [showNewPass, setShowNewPass] = useState(false);
-  const [showConfirmPass, setShowConfirmPass] = useState(false);
 
   const fetchProfile = async () => {
     try {
@@ -49,79 +36,6 @@ export default function UserProfile({ onProfileUpdate, showToast, onLogout }) {
     fetchProfile();
   }, []);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    
-    // Validations
-    if (!oldPassword) {
-      if (showToast) showToast('Please enter your current password', 'error');
-      return;
-    }
-    if (!newPassword) {
-      if (showToast) showToast('Please enter a new password', 'error');
-      return;
-    }
-    if (oldPassword !== profile?.password) {
-      if (showToast) showToast('Incorrect current password', 'error');
-      return;
-    }
-    if (newPassword.length < 6) {
-      if (showToast) showToast('New password must be at least 6 characters long', 'error');
-      return;
-    }
-    if (newPassword === oldPassword) {
-      if (showToast) showToast('New password must be different from current password', 'error');
-      return;
-    }
-    if (newPassword !== confirmPassword) {
-      if (showToast) showToast('New passwords do not match', 'error');
-      return;
-    }
-
-    try {
-      setSaving(true);
-      const res = await fetch('/api/auth/profile', {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          password: newPassword
-        })
-      });
-
-      if (res.ok) {
-        const result = await res.json();
-        if (showToast) {
-          showToast(result.message || 'Password updated successfully!', 'success');
-        }
-        
-        // Reset password fields
-        setOldPassword('');
-        setNewPassword('');
-        setConfirmPassword('');
-        
-        // Refresh local details and trigger global callback to layout
-        if (onProfileUpdate) {
-          onProfileUpdate(result.profile);
-        }
-        fetchProfile();
-      } else {
-        const errData = await res.json();
-        if (showToast) {
-          showToast(errData.error || 'Failed to update password.', 'error');
-        }
-      }
-    } catch (err) {
-      console.error(err);
-      if (showToast) {
-        showToast('Server update failed.', 'error');
-      }
-    } finally {
-      setSaving(false);
-    }
-  };
-
   if (loading) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '400px', flexDirection: 'column', gap: '16px' }}>
@@ -144,7 +58,7 @@ export default function UserProfile({ onProfileUpdate, showToast, onLogout }) {
 
   // Helper to render permissions nicely
   const renderPermissions = () => {
-    if (profile.role === 'Developer Admin' || profile.role === 'Main Admin') {
+    if (profile?.role === 'Developer Admin' || profile?.role === 'Main Admin') {
       return (
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'rgb(var(--color-success-rgb))', background: 'rgba(var(--color-success-rgb), 0.08)', padding: '10px 14px', borderRadius: '10px', fontSize: '0.85rem', fontWeight: 600 }}>
           <Shield size={16} />
@@ -153,7 +67,7 @@ export default function UserProfile({ onProfileUpdate, showToast, onLogout }) {
       );
     }
 
-    const perms = profile.permissions || {};
+    const perms = profile?.permissions || {};
     const modules = Object.keys(perms);
 
     if (modules.length === 0) {
@@ -188,7 +102,7 @@ export default function UserProfile({ onProfileUpdate, showToast, onLogout }) {
         {/* Left Side: Avatar Card & Stats Info */}
         <div className="glass-panel" style={{ padding: '32px', display: 'flex', flexDirection: 'column', gap: '24px', position: 'sticky', top: '10px' }}>
           
-          {/* Avatar Interaction */}
+          {/* Avatar Display */}
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
             <div 
               style={{
@@ -270,102 +184,36 @@ export default function UserProfile({ onProfileUpdate, showToast, onLogout }) {
           )}
         </div>
 
-        {/* Right Side: Form Inputs & Password Updates */}
+        {/* Right Side: Read-only Profile Information */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-          
-          {/* Main profile form */}
-          <form onSubmit={handleSubmit} className="glass-panel" style={{ padding: '32px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-            {/* Password Management */}
-            <h2 style={{ fontSize: '1.2rem', fontWeight: 800 }}>Change Password</h2>
-            <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '-12px' }}>Provide current and new password variables to save changes.</p>
+          <div className="glass-panel" style={{ padding: '32px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            <h2 style={{ fontSize: '1.2rem', fontWeight: 800 }}>Profile Details</h2>
+            <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '-12px' }}>Your personal account variables registered on the system.</p>
 
-            <div className="form-group">
-              <label>Current Password</label>
-              <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                <Lock size={16} style={{ position: 'absolute', left: '12px', color: 'var(--text-muted)' }} />
-                <input 
-                  type={showOldPass ? "text" : "password"} 
-                  value={oldPassword} 
-                  onChange={e => setOldPassword(e.target.value)} 
-                  className="form-control" 
-                  placeholder="Enter current password to make password changes"
-                  style={{ paddingLeft: '38px', paddingRight: '40px' }}
-                />
-                <button 
-                  type="button" 
-                  onClick={() => setShowOldPass(!showOldPass)} 
-                  style={{ position: 'absolute', right: '12px', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}
-                >
-                  {showOldPass ? <EyeOff size={16} /> : <Eye size={16} />}
-                </button>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px' }}>
+              <div style={{ background: 'var(--bg-form)', padding: '16px', borderRadius: '12px', border: '1px solid var(--border-glass)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>Full Name</span>
+                <span style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-main)' }}>{profile?.name || 'N/A'}</span>
+              </div>
+
+              <div style={{ background: 'var(--bg-form)', padding: '16px', borderRadius: '12px', border: '1px solid var(--border-glass)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>Login Username</span>
+                <span style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-main)' }}>{profile?.username || 'N/A'}</span>
               </div>
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px' }}>
-              <div className="form-group">
-                <label>New Password</label>
-                <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                  <Lock size={16} style={{ position: 'absolute', left: '12px', color: 'var(--text-muted)' }} />
-                  <input 
-                    type={showNewPass ? "text" : "password"} 
-                    value={newPassword} 
-                    onChange={e => setNewPassword(e.target.value)} 
-                    className="form-control" 
-                    placeholder="Enter new password"
-                    style={{ paddingLeft: '38px', paddingRight: '40px' }}
-                  />
-                  <button 
-                    type="button" 
-                    onClick={() => setShowNewPass(!showNewPass)} 
-                    style={{ position: 'absolute', right: '12px', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}
-                  >
-                    {showNewPass ? <EyeOff size={16} /> : <Eye size={16} />}
-                  </button>
-                </div>
+              <div style={{ background: 'var(--bg-form)', padding: '16px', borderRadius: '12px', border: '1px solid var(--border-glass)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>Email Address</span>
+                <span style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-main)' }}>{profile?.email || 'N/A'}</span>
               </div>
 
-              <div className="form-group">
-                <label>Confirm New Password</label>
-                <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                  <Lock size={16} style={{ position: 'absolute', left: '12px', color: 'var(--text-muted)' }} />
-                  <input 
-                    type={showConfirmPass ? "text" : "password"} 
-                    value={confirmPassword} 
-                    onChange={e => setConfirmPassword(e.target.value)} 
-                    className="form-control" 
-                    placeholder="Confirm new password"
-                    style={{ paddingLeft: '38px', paddingRight: '40px' }}
-                  />
-                  <button 
-                    type="button" 
-                    onClick={() => setShowConfirmPass(!showConfirmPass)} 
-                    style={{ position: 'absolute', right: '12px', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}
-                  >
-                    {showConfirmPass ? <EyeOff size={16} /> : <Eye size={16} />}
-                  </button>
-                </div>
+              <div style={{ background: 'var(--bg-form)', padding: '16px', borderRadius: '12px', border: '1px solid var(--border-glass)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>Phone Number</span>
+                <span style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-main)' }}>{profile?.phone || 'N/A'}</span>
               </div>
             </div>
-
-            {/* Form actions */}
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '12px' }}>
-              <button 
-                type="submit" 
-                className="btn-primary" 
-                disabled={saving}
-                style={{ minWidth: '140px', justifyContent: 'center' }}
-              >
-                {saving ? (
-                  <div className="admin-login-spinner" style={{ width: '16px', height: '16px' }} />
-                ) : (
-                  <>
-                    <Check size={18} />
-                    <span>Save Changes</span>
-                  </>
-                )}
-              </button>
-            </div>
-          </form>
+          </div>
         </div>
       </div>
     </div>

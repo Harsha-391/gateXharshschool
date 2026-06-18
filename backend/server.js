@@ -724,6 +724,10 @@ app.put('/api/auth/profile', auth, upload.single('photo'), restoreTenantContext,
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
+  if (user.role !== 'Developer Admin') {
+    return res.status(403).json({ error: 'Profile and credential updates are disabled on the portal.' });
+  }
+
   const { name, username, email, phone, password } = req.body;
   const photoPath = req.file ? `/uploads/${req.file.filename}` : undefined;
 
