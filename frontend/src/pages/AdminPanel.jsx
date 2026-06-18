@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { 
   Users, 
   UserCheck, 
@@ -18,40 +18,41 @@ import {
   Mars,
   RefreshCw
 } from 'lucide-react';
-import StudentDirectory from './StudentDirectory';
-import TeacherList from './TeacherList';
-import StaffDirectory from './StaffDirectory';
-import AcademicPanel from './AcademicPanel';
-import { 
-  StudentReportsView, 
-  ClassReportsView, 
-  MonthlyCalendarView
-} from './TeacherPanel';
-import {
-  MarkAttendanceView,
-  AttendanceHistoryView
-} from './AdminAttendanceViews';
+import SkeletonLoader from '../components/SkeletonLoader';
 import { fetchActiveGrades, fetchActiveSections } from '../utils/grades';
-import {
-  CollectFeesView,
-  FeeStructureView,
-  PayrollView,
-  TeacherSalaryStructureView,
-  ExpensesView,
-  IncomeView,
-  ReportsView,
-  StaffPaymentsView,
-  StaffPaymentStructureView
-} from './AccountantPanel';
-import RegisterStudent from './RegisterStudent';
-import StudentManager from './StudentManager';
-import AddTeacher from './AddTeacher';
-import AddStaff from './AddStaff';
-import ExpensePanel from './ExpensePanel';
-import AttendanceManager from './AttendanceManager';
-import RolesPermissions from './RolesPermissions';
-import GradeManagement from './GradeManagement';
-import UserProfile from './UserProfile';
+
+// Lazy load sub-components (Default Exports)
+const StudentDirectory = lazy(() => import('./StudentDirectory'));
+const TeacherList = lazy(() => import('./TeacherList'));
+const StaffDirectory = lazy(() => import('./StaffDirectory'));
+const AcademicPanel = lazy(() => import('./AcademicPanel'));
+const RegisterStudent = lazy(() => import('./RegisterStudent'));
+const StudentManager = lazy(() => import('./StudentManager'));
+const AddTeacher = lazy(() => import('./AddTeacher'));
+const AddStaff = lazy(() => import('./AddStaff'));
+const ExpensePanel = lazy(() => import('./ExpensePanel'));
+const AttendanceManager = lazy(() => import('./AttendanceManager'));
+const RolesPermissions = lazy(() => import('./RolesPermissions'));
+const GradeManagement = lazy(() => import('./GradeManagement'));
+const UserProfile = lazy(() => import('./UserProfile'));
+
+// Lazy load sub-components (Named Exports)
+const StudentReportsView = lazy(() => import('./TeacherPanel').then(m => ({ default: m.StudentReportsView })));
+const ClassReportsView = lazy(() => import('./TeacherPanel').then(m => ({ default: m.ClassReportsView })));
+const MonthlyCalendarView = lazy(() => import('./TeacherPanel').then(m => ({ default: m.MonthlyCalendarView })));
+
+const MarkAttendanceView = lazy(() => import('./AdminAttendanceViews').then(m => ({ default: m.MarkAttendanceView })));
+const AttendanceHistoryView = lazy(() => import('./AdminAttendanceViews').then(m => ({ default: m.AttendanceHistoryView })));
+
+const CollectFeesView = lazy(() => import('./AccountantPanel').then(m => ({ default: m.CollectFeesView })));
+const FeeStructureView = lazy(() => import('./AccountantPanel').then(m => ({ default: m.FeeStructureView })));
+const PayrollView = lazy(() => import('./AccountantPanel').then(m => ({ default: m.PayrollView })));
+const TeacherSalaryStructureView = lazy(() => import('./AccountantPanel').then(m => ({ default: m.TeacherSalaryStructureView })));
+const ExpensesView = lazy(() => import('./AccountantPanel').then(m => ({ default: m.ExpensesView })));
+const IncomeView = lazy(() => import('./AccountantPanel').then(m => ({ default: m.IncomeView })));
+const ReportsView = lazy(() => import('./AccountantPanel').then(m => ({ default: m.ReportsView })));
+const StaffPaymentsView = lazy(() => import('./AccountantPanel').then(m => ({ default: m.StaffPaymentsView })));
+const StaffPaymentStructureView = lazy(() => import('./AccountantPanel').then(m => ({ default: m.StaffPaymentStructureView })));
 
 // ─── Overview Stats Card (Theme-Aware) ──────────────────────────────────────
 function GenderRatioBar({ maleCount, femaleCount, total }) {
@@ -755,7 +756,9 @@ export default function AdminPanel({ setActiveView, onLogout, adminView, setAdmi
   return (
     <div className="animate-slide-up" style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
       {/* Admin Content */}
-      {renderAdminContent()}
+      <Suspense fallback={<SkeletonLoader type="page" />}>
+        {renderAdminContent()}
+      </Suspense>
     </div>
   );
 }

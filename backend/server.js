@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import compression from 'compression';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -25,6 +26,7 @@ const GLOBAL_DB_FILE = path.join(__dirname, 'db.json');
 const app = express();
 const PORT = 5000;
 
+app.use(compression());
 app.use(cors());
 app.use(express.json());
 

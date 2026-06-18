@@ -329,6 +329,62 @@ const createTablesFromSchema = async () => {
         }
       }
     }
+
+    // Performance Optimization: DB Indices on tenantId fields for multi-tenant query speedups
+    const indexQueries = [
+      "CREATE INDEX idx_students_tenant ON students (tenantId)",
+      "CREATE INDEX idx_enrollments_tenant ON student_enrollments (tenantId)",
+      "CREATE INDEX idx_parents_tenant ON parents (tenantId)",
+      "CREATE INDEX idx_addresses_tenant ON addresses (tenantId)",
+      "CREATE INDEX idx_medical_tenant ON medical_records (tenantId)",
+      "CREATE INDEX idx_documents_tenant ON documents (tenantId)",
+      "CREATE INDEX idx_fee_assign_tenant ON fee_assignments (tenantId)",
+      "CREATE INDEX idx_student_acct_tenant ON student_accounts (tenantId)",
+      "CREATE INDEX idx_parent_acct_tenant ON parent_accounts (tenantId)",
+      "CREATE INDEX idx_employees_tenant ON employees (tenantId)",
+      "CREATE INDEX idx_staff_tenant ON staff (tenantId)",
+      "CREATE INDEX idx_timetables_tenant ON timetables (tenantId)",
+      "CREATE INDEX idx_invoices_tenant ON invoices (tenantId)",
+      "CREATE INDEX idx_fees_tenant ON fees (tenantId)",
+      "CREATE INDEX idx_expenses_tenant ON expenses (tenantId)",
+      "CREATE INDEX idx_payroll_tenant ON payroll (tenantId)",
+      "CREATE INDEX idx_staff_pay_tenant ON staff_payments (tenantId)",
+      "CREATE INDEX idx_activities_tenant ON activities (tenantId)",
+      "CREATE INDEX idx_exams_tenant ON exams (tenantId)",
+      "CREATE INDEX idx_exam_time_tenant ON exam_timetables (tenantId)",
+      "CREATE INDEX idx_notices_tenant ON notices (tenantId)",
+      "CREATE INDEX idx_holidays_tenant ON holidays (tenantId)",
+      "CREATE INDEX idx_events_tenant ON events (tenantId)",
+      "CREATE INDEX idx_calendar_events_tenant ON academic_calendar_events (tenantId)",
+      "CREATE INDEX idx_calendar_imports_tenant ON academic_calendar_imports (tenantId)",
+      "CREATE INDEX idx_results_tenant ON results (tenantId)",
+      "CREATE INDEX idx_overall_results_tenant ON overall_results (tenantId)",
+      "CREATE INDEX idx_subjects_tenant ON subjects (tenantId)",
+      "CREATE INDEX idx_fee_struct_tenant ON fee_structures (tenantId)",
+      "CREATE INDEX idx_salary_struct_tenant ON salary_structures (tenantId)",
+      "CREATE INDEX idx_staff_sal_tenant ON staff_salary_structures (tenantId)",
+      "CREATE INDEX idx_income_tenant ON income (tenantId)",
+      "CREATE INDEX idx_attendance_tenant ON attendance (tenantId)",
+      "CREATE INDEX idx_roles_tenant ON roles (tenantId)",
+      "CREATE INDEX idx_user_access_tenant ON user_access (tenantId)",
+      "CREATE INDEX idx_audit_logs_tenant ON audit_logs (tenantId)",
+      "CREATE INDEX idx_emp_qr_tenant ON employee_qr_codes (tenantId)",
+      "CREATE INDEX idx_grades_tenant ON grades (tenantId)",
+      "CREATE INDEX idx_departments_tenant ON departments (tenantId)",
+      "CREATE INDEX idx_grade_dept_tenant ON grade_departments (tenantId)"
+    ];
+
+    console.log(`[SQL Init] Constructing performance optimization indexes...`);
+    for (const sql of indexQueries) {
+      try {
+        await sqlDb.query(sql);
+      } catch (err) {
+        if (err.code !== 'ER_DUP_KEYNAME' && err.code !== 'ER_DUP_UNIQUE') {
+          // Ignore duplicate index name warnings (MySQL code 1061 / ER_DUP_KEYNAME)
+        }
+      }
+    }
+
   } catch (err) {
     console.error('[SQL Init ERROR] Failed to run schema DDL:', err);
   }

@@ -57,6 +57,12 @@ export default function Sidebar({
   onBackToMain,
   userProfile
 }) {
+  const prefetchApi = (url) => {
+    const token = sessionStorage.getItem('token');
+    if (!token) return;
+    fetch(url).catch(() => {});
+  };
+
   const [adminCoreOpen, setAdminCoreOpen] = useState(false);
   const [adminAttendanceOpen, setAdminAttendanceOpen] = useState(() => {
     return typeof adminView === 'string' && (adminView === 'employee-attendance' || adminView === 'attendance' || adminView === 'attendance-history');
@@ -88,7 +94,7 @@ export default function Sidebar({
     { id: 'school', label: 'School', icon: School },
     { id: 'academic-calendar', label: 'Academic Calendar', icon: Calendar }
   ];
-
+    
   return (
     <aside className={`app-sidebar ${isCollapsed ? 'sidebar-collapsed' : ''} ${mobileOpen ? 'mobile-open' : ''}`}>
       <div className="sidebar-brand" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
@@ -194,6 +200,11 @@ export default function Sidebar({
                     {hasPermission('student-directory', 'view') && (
                       <button
                         onClick={() => { setAdminView('students'); setMobileOpen(false); }}
+                        onMouseEnter={() => {
+                          prefetchApi('/api/students?limit=8&page=1&status=All&class=All');
+                          prefetchApi('/api/grades/active-options');
+                          prefetchApi('/api/grades/sections');
+                        }}
                         className={`nav-item ${adminView === 'students' ? 'active' : ''}`}
                         style={{ padding: '10px 12px', fontSize: '0.88rem', position: 'relative' }}
                       >
@@ -204,6 +215,11 @@ export default function Sidebar({
                     {hasPermission('teacher-directory', 'view') && (
                       <button
                         onClick={() => { setAdminView('teachers'); setMobileOpen(false); }}
+                        onMouseEnter={() => {
+                          prefetchApi('/api/teachers?limit=8&page=1&status=All');
+                          prefetchApi('/api/rbac/roles');
+                          prefetchApi('/api/grades/departments');
+                        }}
                         className={`nav-item ${adminView === 'teachers' ? 'active' : ''}`}
                         style={{ padding: '10px 12px', fontSize: '0.88rem', position: 'relative' }}
                       >
@@ -214,6 +230,9 @@ export default function Sidebar({
                     {hasPermission('staff-directory', 'view') && (
                       <button
                         onClick={() => { setAdminView('staff'); setMobileOpen(false); }}
+                        onMouseEnter={() => {
+                          prefetchApi('/api/staff');
+                        }}
                         className={`nav-item ${adminView === 'staff' ? 'active' : ''}`}
                         style={{ padding: '10px 12px', fontSize: '0.88rem', position: 'relative' }}
                       >
@@ -323,6 +342,9 @@ export default function Sidebar({
             {hasPermission('student-manager', 'view') && (
               <button
                 onClick={() => { setAdminView('student-manager'); setMobileOpen(false); }}
+                onMouseEnter={() => {
+                  prefetchApi('/api/grades/active-options');
+                }}
                 className={`nav-item ${adminView === 'student-manager' ? 'active' : ''}`}
               >
                 <UserPlus2 size={20} className="flex-shrink-0" />
@@ -675,6 +697,11 @@ export default function Sidebar({
             {(isSuperAdmin() || hasPermission('roles-permissions', 'view')) && (
               <button
                 onClick={() => { setAdminView('roles-permissions'); setMobileOpen(false); }}
+                onMouseEnter={() => {
+                  prefetchApi('/api/rbac/roles');
+                  prefetchApi('/api/rbac/users');
+                  prefetchApi('/api/rbac/audit-logs');
+                }}
                 className={`nav-item ${adminView === 'roles-permissions' ? 'active' : ''}`}
               >
                 <Shield size={20} className="flex-shrink-0" />
@@ -693,6 +720,18 @@ export default function Sidebar({
                   onClick={() => {
                     setActiveView(item.id);
                     setMobileOpen(false);
+                  }}
+                  onMouseEnter={() => {
+                    if (item.id === 'students') {
+                      prefetchApi('/api/students?limit=8&page=1&status=All&class=All');
+                      prefetchApi('/api/grades/active-options');
+                      prefetchApi('/api/grades/sections');
+                    } else if (item.id === 'academic-calendar') {
+                      prefetchApi('/api/academics/timetables');
+                      prefetchApi('/api/academics/timeslots');
+                    } else if (item.id === 'school') {
+                      prefetchApi('/api/school');
+                    }
                   }}
                   className={`nav-item ${activeView === item.id ? 'active' : ''}`}
                 >

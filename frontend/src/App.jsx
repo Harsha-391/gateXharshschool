@@ -1,37 +1,51 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
-import StudentDirectory from './pages/StudentDirectory';
-import AddTeacher from './pages/AddTeacher';
-import TeacherList from './pages/TeacherList';
-import AddStaff from './pages/AddStaff';
-import StaffDirectory from './pages/StaffDirectory';
-import AccountManagementPortal from './pages/AccountManagementPortal';
-import SchoolProfile from './pages/SchoolProfile';
-import AttendanceManager from './pages/AttendanceManager';
-import RegisterStudent from './pages/RegisterStudent';
-import AdminPanel from './pages/AdminPanel';
-import SchoolLogin from './pages/SchoolLogin';
-import AdminLogin from './pages/AdminLogin';
-import AcademicPanel from './pages/AcademicPanel';
-import UserProfile from './pages/UserProfile';
-import SuspendedScreen from './pages/SuspendedScreen';
+import SkeletonLoader from './components/SkeletonLoader';
 import { CheckCircle, AlertCircle } from 'lucide-react';
 
 import './App.css';
 
-// Global Fetch Interceptor for Tenant ID & Auth Token
+// Lazy load page components
+const StudentDirectory = lazy(() => import('./pages/StudentDirectory'));
+const AddTeacher = lazy(() => import('./pages/AddTeacher'));
+const TeacherList = lazy(() => import('./pages/TeacherList'));
+const AddStaff = lazy(() => import('./pages/AddStaff'));
+const StaffDirectory = lazy(() => import('./pages/StaffDirectory'));
+const AccountManagementPortal = lazy(() => import('./pages/AccountManagementPortal'));
+const SchoolProfile = lazy(() => import('./pages/SchoolProfile'));
+const AttendanceManager = lazy(() => import('./pages/AttendanceManager'));
+const RegisterStudent = lazy(() => import('./pages/RegisterStudent'));
+const AdminPanel = lazy(() => import('./pages/AdminPanel'));
+const SchoolLogin = lazy(() => import('./pages/SchoolLogin'));
+const AdminLogin = lazy(() => import('./pages/AdminLogin'));
+const AcademicPanel = lazy(() => import('./pages/AcademicPanel'));
+const UserProfile = lazy(() => import('./pages/UserProfile'));
+const SuspendedScreen = lazy(() => import('./pages/SuspendedScreen'));
+
+// Global Fetch Interceptor with SWR caching and request promise coalescing
 const originalFetch = window.fetch;
+const apiCache = new Map();
+const pendingRequests = new Map();
+
+function getCacheKey(url, options) {
+  const method = (options.method || 'GET').toUpperCase();
+  const headers = options.headers || {};
+  const tenantId = headers['x-tenant-id'] || '';
+  const auth = headers['Authorization'] || '';
+  return `${method}:${tenantId}:${auth}:${url}`;
+}
+
 window.fetch = function (url, options = {}) {
   let targetUrl = typeof url === 'string' ? url : (url.url || '');
+  options.headers = options.headers || {};
+
+  // 1. Context / headers injection (preserving original functionality)
   if (targetUrl.startsWith('/') || targetUrl.includes('/api/')) {
-    options.headers = options.headers || {};
-    // Skip tenant header for platform-level API calls
     if (targetUrl.startsWith('/api/platform/')) {
       delete options.headers['x-tenant-id'];
     } else if (!options.headers['x-tenant-id']) {
       const host = window.location.hostname;
-      // Skip tenant parsing for IP addresses (e.g. 127.0.0.1)
       const isIp = /^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$/.test(host);
       let tenant = null;
       if (!isIp) {
@@ -53,21 +67,100 @@ window.fetch = function (url, options = {}) {
       options.headers['Authorization'] = `Bearer ${token}`;
     }
   }
-  return originalFetch(url, options).then(async (response) => {
-    if (response.status === 403) {
-      try {
-        const clone = response.clone();
-        const data = await clone.json();
-        if (data.error === 'Suspended') {
-          window.dispatchEvent(new CustomEvent('tenant-suspended', { detail: data }));
-        }
-      } catch (e) {
-        // Response not JSON or doesn't have error: 'Suspended'
+
+  const method = (options.method || 'GET').toUpperCase();
+  const isApiCall = targetUrl.startsWith('/') || targetUrl.includes('/api/');
+
+  // For mutations (POST, PUT, DELETE, PATCH), invalidate the cache
+  if (isApiCall && ['POST', 'PUT', 'DELETE', 'PATCH'].includes(method)) {
+    apiCache.clear();
+    return originalFetch(url, options).then(async (response) => {
+      if (response.status === 403) {
+        try {
+          const clone = response.clone();
+          const data = await clone.json();
+          if (data.error === 'Suspended') {
+            window.dispatchEvent(new CustomEvent('tenant-suspended', { detail: data }));
+          }
+        } catch (e) {}
       }
+      return response;
+    });
+  }
+
+  // Only apply caching to API GET requests
+  if (method !== 'GET' || !isApiCall) {
+    return originalFetch(url, options);
+  }
+
+  const cacheKey = getCacheKey(targetUrl, options);
+  const now = Date.now();
+  const cached = apiCache.get(cacheKey);
+
+  // Return fresh cache (within 5 seconds)
+  if (cached && (now - cached.timestamp < 5000)) {
+    return Promise.resolve(cached.response.clone());
+  }
+
+  // Return stale cache (between 5s and 5m) and trigger background revalidation (SWR)
+  if (cached && (now - cached.timestamp < 300000)) {
+    if (!pendingRequests.has(cacheKey)) {
+      const revalidatePromise = originalFetch(url, options)
+        .then(async (response) => {
+          pendingRequests.delete(cacheKey);
+          if (response.ok) {
+            apiCache.set(cacheKey, {
+              response: response.clone(),
+              timestamp: Date.now()
+            });
+            window.dispatchEvent(new CustomEvent('api-cache-updated', { detail: { url: targetUrl } }));
+          }
+          return response;
+        })
+        .catch((err) => {
+          pendingRequests.delete(cacheKey);
+        });
+      pendingRequests.set(cacheKey, revalidatePromise);
     }
-    return response;
-  });
-};
+    return Promise.resolve(cached.response.clone());
+  }
+
+  // Check if identical request is already in-flight
+  if (pendingRequests.has(cacheKey)) {
+    return pendingRequests.get(cacheKey).then(res => res.clone());
+  }
+
+  // Perform full fresh fetch
+  const fetchPromise = originalFetch(url, options)
+    .then(async (response) => {
+      pendingRequests.delete(cacheKey);
+      
+      if (response.status === 403) {
+        try {
+          const clone = response.clone();
+          const data = await clone.json();
+          if (data.error === 'Suspended') {
+            window.dispatchEvent(new CustomEvent('tenant-suspended', { detail: data }));
+          }
+        } catch (e) {}
+      }
+
+      if (response.ok) {
+        apiCache.set(cacheKey, {
+          response: response.clone(),
+          timestamp: Date.now()
+        });
+      }
+      return response;
+    })
+    .catch((err) => {
+      pendingRequests.delete(cacheKey);
+      throw err;
+    });
+
+  pendingRequests.set(cacheKey, fetchPromise);
+  return fetchPromise.then(res => res.clone());
+}
 
 const getInitialAuthState = (targetRole) => {
   const path = window.location.pathname;
@@ -528,13 +621,15 @@ export default function App() {
 
   if (isSuspended && !isDeveloperAdmin) {
     return (
-      <SuspendedScreen 
-        schoolDetails={schoolDetails} 
-        onUnsuspended={() => {
-          setIsSuspended(false);
-          fetchSchoolDetails();
-        }} 
-      />
+      <Suspense fallback={<SkeletonLoader type="page" />}>
+        <SuspendedScreen 
+          schoolDetails={schoolDetails} 
+          onUnsuspended={() => {
+            setIsSuspended(false);
+            fetchSchoolDetails();
+          }} 
+        />
+      </Suspense>
     );
   }
 
@@ -554,10 +649,12 @@ export default function App() {
     }
 
     return (
-      <SchoolLogin 
-        tenantSubdomain={loginTenant} 
-        onLoginSuccess={handleLoginSuccess} 
-      />
+      <Suspense fallback={<SkeletonLoader type="page" />}>
+        <SchoolLogin 
+          tenantSubdomain={loginTenant} 
+          onLoginSuccess={handleLoginSuccess} 
+        />
+      </Suspense>
     );
   }
 
@@ -574,17 +671,19 @@ export default function App() {
         overflowY: 'auto'
       }}>
         {activeSubadminLogin === 'admin' && (
-          <AdminLogin 
-            onLogin={() => {
-              sessionStorage.setItem('role', 'Admin Dashboard');
-              sessionStorage.setItem('portal_role', 'Admin Dashboard');
-              setIsAdmin(true);
-              setIsSchoolAdmin(false);
-              setAdminView('dashboard');
-              setActiveSubadminLogin(null);
-            }} 
-            onCancel={() => setActiveSubadminLogin(null)} 
-          />
+          <Suspense fallback={<SkeletonLoader type="page" />}>
+            <AdminLogin 
+              onLogin={() => {
+                sessionStorage.setItem('role', 'Admin Dashboard');
+                sessionStorage.setItem('portal_role', 'Admin Dashboard');
+                setIsAdmin(true);
+                setIsSchoolAdmin(false);
+                setAdminView('dashboard');
+                setActiveSubadminLogin(null);
+              }} 
+              onCancel={() => setActiveSubadminLogin(null)} 
+            />
+          </Suspense>
         )}
       </div>
     );
@@ -645,7 +744,9 @@ export default function App() {
         />
 
         <main style={{ flex: 1, marginTop: '10px' }}>
-          {renderCurrentView()}
+          <Suspense fallback={<SkeletonLoader type="page" />}>
+            {renderCurrentView()}
+          </Suspense>
         </main>
       </div>
 
