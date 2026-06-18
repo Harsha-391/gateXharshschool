@@ -6,7 +6,6 @@ import {
   LogOut,
   Mail,
   Phone,
-  Hash,
   Globe
 } from 'lucide-react';
 
@@ -99,8 +98,24 @@ export default function UserProfile({ onProfileUpdate, showToast, onLogout }) {
   };
 
   return (
-    <div style={{ maxWidth: '600px', margin: '40px auto', padding: '20px' }}>
-      <div className="glass-panel" style={{ padding: '40px', display: 'flex', flexDirection: 'column', gap: '28px', boxShadow: '0 20px 40px rgba(0,0,0,0.15)' }}>
+    <div style={{ 
+      display: 'flex', 
+      justifyContent: 'center', 
+      alignItems: 'center', 
+      minHeight: '75vh', 
+      padding: '20px' 
+    }}>
+      <div className="glass-panel" style={{ 
+        width: '100%',
+        maxWidth: '520px', 
+        padding: '40px', 
+        display: 'flex', 
+        flexDirection: 'column', 
+        gap: '28px', 
+        boxShadow: '0 24px 50px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(255, 255, 255, 0.08)',
+        borderRadius: '24px',
+        position: 'relative'
+      }}>
         
         {/* Avatar Display */}
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
@@ -145,10 +160,6 @@ export default function UserProfile({ onProfileUpdate, showToast, onLogout }) {
 
         {/* Session & Contact Details */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px dashed var(--border-glass)' }}>
-            <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><Hash size={16} /> User ID:</span>
-            <span style={{ fontWeight: 700, color: 'var(--text-main)' }}>{profile?.id || 'N/A'}</span>
-          </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px dashed var(--border-glass)' }}>
             <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><User size={16} /> Login Username:</span>
             <span style={{ fontWeight: 700, color: 'var(--text-main)' }}>{profile?.username || 'N/A'}</span>
