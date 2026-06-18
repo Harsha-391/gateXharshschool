@@ -48,6 +48,20 @@ app.use((req, res, next) => {
   }
   
   if (tenantId) {
+    if (req.path.startsWith('/api/')) {
+      const globalDb = tenantStorage.run(null, () => readDb());
+      const schoolRecord = (globalDb.schools || []).find(s => slugify(s.subdomain) === slugify(tenantId));
+      if (schoolRecord && schoolRecord.status === 'Suspended') {
+        return res.status(403).json({ 
+          error: 'Suspended', 
+          message: 'This school account has been suspended. Please contact platform support.',
+          school: {
+            name: schoolRecord.name,
+            logo: schoolRecord.logo || ''
+          }
+        });
+      }
+    }
     tenantStorage.run(slugify(tenantId), () => {
       next();
     });
@@ -440,6 +454,22 @@ app.post('/api/platform/schools/:id/suspend', (req, res) => {
 
   school.status = 'Suspended';
   writeDb(db);
+
+  // Sync to tenant DB
+  const tenantDbPath = path.join(__dirname, 'tenants', `db_${school.subdomain}.json`);
+  if (fs.existsSync(tenantDbPath)) {
+    try {
+      const raw = fs.readFileSync(tenantDbPath, 'utf8');
+      const tenantData = JSON.parse(raw);
+      if (tenantData.school) {
+        tenantData.school.status = 'Suspended';
+      }
+      fs.writeFileSync(tenantDbPath, JSON.stringify(tenantData, null, 2), 'utf8');
+    } catch (e) {
+      console.error('Failed to sync suspend to tenant DB:', e);
+    }
+  }
+
   res.json(school);
 });
 
@@ -451,6 +481,22 @@ app.post('/api/platform/schools/:id/activate', (req, res) => {
 
   school.status = 'Active';
   writeDb(db);
+
+  // Sync to tenant DB
+  const tenantDbPath = path.join(__dirname, 'tenants', `db_${school.subdomain}.json`);
+  if (fs.existsSync(tenantDbPath)) {
+    try {
+      const raw = fs.readFileSync(tenantDbPath, 'utf8');
+      const tenantData = JSON.parse(raw);
+      if (tenantData.school) {
+        tenantData.school.status = 'Active';
+      }
+      fs.writeFileSync(tenantDbPath, JSON.stringify(tenantData, null, 2), 'utf8');
+    } catch (e) {
+      console.error('Failed to sync activate to tenant DB:', e);
+    }
+  }
+
   res.json(school);
 });
 // Delete school

@@ -864,7 +864,7 @@ export default function SchoolProfile({ schoolDetails, fetchSchoolDetails, isDev
                       <button 
                         onClick={() => handleToggleSuspend(school)} 
                         className="btn-secondary" 
-                        title={school.status === 'Active' ? 'Suspend School' : 'Activate School'} 
+                        title={school.status === 'Active' ? 'Suspend School' : 'Unsuspend School'} 
                         style={{ padding: '5px', border: 'none', background: 'none', cursor: 'pointer', color: school.status === 'Active' ? '#ef4444' : '#10b981' }}
                       >
                         {school.status === 'Active' ? <AlertTriangle size={15} /> : <CheckCircle size={15} />}

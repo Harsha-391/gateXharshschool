@@ -15,6 +15,7 @@ import SchoolLogin from './pages/SchoolLogin';
 import AdminLogin from './pages/AdminLogin';
 import AcademicPanel from './pages/AcademicPanel';
 import UserProfile from './pages/UserProfile';
+import SuspendedScreen from './pages/SuspendedScreen';
 import { CheckCircle, AlertCircle } from 'lucide-react';
 
 import './App.css';
@@ -52,7 +53,20 @@ window.fetch = function (url, options = {}) {
       options.headers['Authorization'] = `Bearer ${token}`;
     }
   }
-  return originalFetch(url, options);
+  return originalFetch(url, options).then(async (response) => {
+    if (response.status === 403) {
+      try {
+        const clone = response.clone();
+        const data = await clone.json();
+        if (data.error === 'Suspended') {
+          window.dispatchEvent(new CustomEvent('tenant-suspended', { detail: data }));
+        }
+      } catch (e) {
+        // Response not JSON or doesn't have error: 'Suspended'
+      }
+    }
+    return response;
+  });
 };
 
 const getInitialAuthState = (targetRole) => {
@@ -74,6 +88,7 @@ export default function App() {
   const [activeView, setActiveViewState] = useState('students');
   const [activeSubadminLogin, setActiveSubadminLogin] = useState(null);
   const [notification, setNotification] = useState(null);
+  const [isSuspended, setIsSuspended] = useState(false);
 
   const showToast = (message, type = 'success') => {
     setNotification({ message, type });
@@ -154,6 +169,15 @@ export default function App() {
       if (res.ok) {
         const data = await res.json();
         setSchoolDetails(data);
+        setIsSuspended(false);
+      } else if (res.status === 403) {
+        const data = await res.json().catch(() => ({}));
+        if (data.error === 'Suspended') {
+          setIsSuspended(true);
+          if (data.school) {
+            setSchoolDetails(data.school);
+          }
+        }
       }
     } catch (err) {
       console.error('Error loading school details:', err);
@@ -179,6 +203,17 @@ export default function App() {
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
   }, [theme]);
+
+  useEffect(() => {
+    const handleTenantSuspended = (e) => {
+      setIsSuspended(true);
+      if (e.detail && e.detail.school) {
+        setSchoolDetails(e.detail.school);
+      }
+    };
+    window.addEventListener('tenant-suspended', handleTenantSuspended);
+    return () => window.removeEventListener('tenant-suspended', handleTenantSuspended);
+  }, []);
 
   const checkRoutePath = () => {
     return false;
@@ -486,6 +521,18 @@ export default function App() {
   };
 
   const isLoggedIn = isDeveloperAdmin || isAdmin || isSchoolAdmin;
+
+  if (isSuspended && !isDeveloperAdmin) {
+    return (
+      <SuspendedScreen 
+        schoolDetails={schoolDetails} 
+        onUnsuspended={() => {
+          setIsSuspended(false);
+          fetchSchoolDetails();
+        }} 
+      />
+    );
+  }
 
   if (!isLoggedIn) {
     const host = window.location.hostname;
