@@ -5,7 +5,9 @@ import {
   AlertCircle,
   LogOut,
   Mail,
-  Phone
+  Phone,
+  Hash,
+  Globe
 } from 'lucide-react';
 
 export default function UserProfile({ onProfileUpdate, showToast, onLogout }) {
@@ -97,124 +99,100 @@ export default function UserProfile({ onProfileUpdate, showToast, onLogout }) {
   };
 
   return (
-    <div style={{ maxWidth: '1100px', margin: '0 auto', padding: '20px' }}>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '32px', alignItems: 'start' }}>
-        {/* Left Side: Avatar Card & Stats Info */}
-        <div className="glass-panel" style={{ padding: '32px', display: 'flex', flexDirection: 'column', gap: '24px', position: 'sticky', top: '10px' }}>
+    <div style={{ maxWidth: '600px', margin: '40px auto', padding: '20px' }}>
+      <div className="glass-panel" style={{ padding: '40px', display: 'flex', flexDirection: 'column', gap: '28px', boxShadow: '0 20px 40px rgba(0,0,0,0.15)' }}>
+        
+        {/* Avatar Display */}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
+          <div 
+            style={{
+              width: '130px',
+              height: '130px',
+              borderRadius: '50%',
+              overflow: 'hidden',
+              position: 'relative',
+              border: '4px solid hsl(var(--color-primary))',
+              background: 'var(--bg-form)',
+              boxShadow: '0 8px 25px rgba(hsl(var(--color-primary)), 0.25)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              transition: 'all 0.3s ease'
+            }}
+          >
+            {profile?.photo ? (
+              <img src={profile.photo} alt="User Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            ) : (
+              <User size={56} style={{ color: 'var(--text-muted)' }} />
+            )}
+          </div>
           
-          {/* Avatar Display */}
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
-            <div 
-              style={{
-                width: '120px',
-                height: '120px',
-                borderRadius: '50%',
-                overflow: 'hidden',
-                position: 'relative',
-                border: '3px solid hsl(var(--color-primary))',
-                background: 'var(--bg-form)',
-                boxShadow: '0 8px 20px rgba(hsl(var(--color-primary)), 0.2)',
+          <div style={{ textAlign: 'center' }}>
+            <h2 style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--text-main)' }}>{profile?.name || 'User Profile'}</h2>
+            <span className="badge badge-info" style={{ marginTop: '8px', fontSize: '0.8rem', padding: '6px 12px', borderRadius: '20px' }}>{profile?.role}</span>
+          </div>
+        </div>
+
+        <hr style={{ border: 'none', height: '1px', background: 'var(--border-glass)' }} />
+
+        {/* User Session / System details */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+          <h3 style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Account Role Matrix</h3>
+          {renderPermissions()}
+        </div>
+
+        <hr style={{ border: 'none', height: '1px', background: 'var(--border-glass)' }} />
+
+        {/* Session & Contact Details */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px dashed var(--border-glass)' }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><Hash size={16} /> User ID:</span>
+            <span style={{ fontWeight: 700, color: 'var(--text-main)' }}>{profile?.id || 'N/A'}</span>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px dashed var(--border-glass)' }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><User size={16} /> Login Username:</span>
+            <span style={{ fontWeight: 700, color: 'var(--text-main)' }}>{profile?.username || 'N/A'}</span>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px dashed var(--border-glass)' }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><Mail size={16} /> Email Address:</span>
+            <span style={{ fontWeight: 700, color: 'var(--text-main)' }}>{profile?.email || 'N/A'}</span>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px dashed var(--border-glass)' }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><Phone size={16} /> Phone Number:</span>
+            <span style={{ fontWeight: 700, color: 'var(--text-main)' }}>{profile?.phone || 'N/A'}</span>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0' }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><Globe size={16} /> Current Status:</span>
+            <span style={{ color: 'rgb(var(--color-success-rgb))', fontWeight: 700, background: 'rgba(var(--color-success-rgb), 0.1)', padding: '2px 10px', borderRadius: '20px' }}>Active</span>
+          </div>
+        </div>
+        
+        {onLogout && (
+          <>
+            <hr style={{ border: 'none', height: '1px', background: 'var(--border-glass)' }} />
+            <button
+              onClick={onLogout}
+              className="btn-danger"
+              style={{ 
+                width: '100%', 
+                justifyContent: 'center', 
+                padding: '14px', 
+                borderRadius: '12px',
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'center',
-                transition: 'all 0.3s ease'
+                gap: '8px',
+                fontSize: '0.95rem',
+                fontWeight: 600,
+                border: 'none',
+                cursor: 'pointer',
+                boxShadow: '0 4px 12px rgba(var(--color-danger-rgb), 0.2)'
               }}
             >
-              {profile?.photo ? (
-                <img src={profile.photo} alt="User Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-              ) : (
-                <User size={48} style={{ color: 'var(--text-muted)' }} />
-              )}
-            </div>
-            
-            <div style={{ textAlign: 'center' }}>
-              <h2 style={{ fontSize: '1.25rem', fontWeight: 800 }}>{profile?.name || 'User Profile'}</h2>
-              <span className="badge badge-info" style={{ marginTop: '6px' }}>{profile?.role}</span>
-            </div>
-          </div>
-
-          <hr style={{ border: 'none', height: '1px', background: 'var(--border-glass)' }} />
-
-          {/* User Session / System details */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-            <h3 style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Account Role Matrix</h3>
-            {renderPermissions()}
-          </div>
-
-          <hr style={{ border: 'none', height: '1px', background: 'var(--border-glass)' }} />
-
-          {/* Session Details */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span>User ID:</span>
-              <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>{profile?.id || 'N/A'}</span>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span>Login Username:</span>
-              <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>{profile?.username || 'N/A'}</span>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span>Current Status:</span>
-              <span style={{ color: 'rgb(var(--color-success-rgb))', fontWeight: 700 }}>Active</span>
-            </div>
-          </div>
-          {onLogout && (
-            <>
-              <hr style={{ border: 'none', height: '1px', background: 'var(--border-glass)' }} />
-              <button
-                onClick={onLogout}
-                className="btn-danger"
-                style={{ 
-                  width: '100%', 
-                  justifyContent: 'center', 
-                  padding: '12px', 
-                  borderRadius: '12px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  fontSize: '0.9rem',
-                  border: 'none',
-                  cursor: 'pointer'
-                }}
-              >
-                <LogOut size={16} />
-                <span>Sign Out</span>
-              </button>
-            </>
-          )}
-        </div>
-
-        {/* Right Side: Read-only Profile Information */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-          <div className="glass-panel" style={{ padding: '32px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-            <h2 style={{ fontSize: '1.2rem', fontWeight: 800 }}>Profile Details</h2>
-            <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '-12px' }}>Your personal account variables registered on the system.</p>
-
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px' }}>
-              <div style={{ background: 'var(--bg-form)', padding: '16px', borderRadius: '12px', border: '1px solid var(--border-glass)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>Full Name</span>
-                <span style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-main)' }}>{profile?.name || 'N/A'}</span>
-              </div>
-
-              <div style={{ background: 'var(--bg-form)', padding: '16px', borderRadius: '12px', border: '1px solid var(--border-glass)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>Login Username</span>
-                <span style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-main)' }}>{profile?.username || 'N/A'}</span>
-              </div>
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px' }}>
-              <div style={{ background: 'var(--bg-form)', padding: '16px', borderRadius: '12px', border: '1px solid var(--border-glass)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>Email Address</span>
-                <span style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-main)' }}>{profile?.email || 'N/A'}</span>
-              </div>
-
-              <div style={{ background: 'var(--bg-form)', padding: '16px', borderRadius: '12px', border: '1px solid var(--border-glass)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>Phone Number</span>
-                <span style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-main)' }}>{profile?.phone || 'N/A'}</span>
-              </div>
-            </div>
-          </div>
-        </div>
+              <LogOut size={18} />
+              <span>Sign Out</span>
+            </button>
+          </>
+        )}
       </div>
     </div>
   );
