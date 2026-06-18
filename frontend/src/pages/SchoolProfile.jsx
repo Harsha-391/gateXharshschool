@@ -197,9 +197,7 @@ export default function SchoolProfile({ schoolDetails, fetchSchoolDetails, isDev
   const [modalMode, setModalMode] = useState('add'); // 'add' | 'edit'
   const [selectedSchool, setSelectedSchool] = useState(null);
   
-  const [showPasswordModal, setShowPasswordModal] = useState(false);
-  const [passwordResetSchool, setPasswordResetSchool] = useState(null);
-  const [newAdminPassword, setNewAdminPassword] = useState('');
+
 
   // Form State
   const [formData, setFormData] = useState({
@@ -418,30 +416,7 @@ export default function SchoolProfile({ schoolDetails, fetchSchoolDetails, isDev
     }
   };
 
-  const handleResetPasswordSubmit = async (e) => {
-    e.preventDefault();
-    if (!newAdminPassword.trim()) {
-      alert('Password cannot be empty.');
-      return;
-    }
 
-    try {
-      const res = await fetch(`/api/platform/schools/${passwordResetSchool.id}/reset-password`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ password: newAdminPassword })
-      });
-      if (res.ok) {
-        showToast(`Administrator password reset for ${passwordResetSchool.name}.`, 'success');
-        setShowPasswordModal(false);
-        setNewAdminPassword('');
-      } else {
-        showToast('Failed to reset administrator password.', 'error');
-      }
-    } catch (err) {
-      showToast('Network error.', 'error');
-    }
-  };
 
   // Launch School Portal - opens in a new tab without ending superadmin session
   const handleLaunchPortal = (school) => {
@@ -885,18 +860,7 @@ export default function SchoolProfile({ schoolDetails, fetchSchoolDetails, isDev
                       <button onClick={() => handleOpenEditModal(school)} className="btn-secondary" title="Edit School" style={{ padding: '5px', border: 'none', background: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}>
                         <Edit2 size={15} />
                       </button>
-                      <button 
-                        onClick={() => {
-                          setPasswordResetSchool(school);
-                          setNewAdminPassword('');
-                          setShowPasswordModal(true);
-                        }} 
-                        className="btn-secondary" 
-                        title="Reset School Admin Password" 
-                        style={{ padding: '5px', border: 'none', background: 'none', cursor: 'pointer', color: '#f59e0b' }}
-                      >
-                        <KeyRound size={15} />
-                      </button>
+
                       <button 
                         onClick={() => handleToggleSuspend(school)} 
                         className="btn-secondary" 
@@ -1152,64 +1116,7 @@ export default function SchoolProfile({ schoolDetails, fetchSchoolDetails, isDev
         document.body
       )}
 
-      {/* 2. RESET PASSWORD MODAL */}
-      {showPasswordModal && createPortal(
-        <div style={{
-          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-          background: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(4px)',
-          display: 'flex', justifyContent: 'center', alignItems: 'center',
-          zIndex: 999999, padding: '20px'
-        }}>
-          <div className="animate-scale-up" style={{
-            width: '100%', maxWidth: '440px', padding: '24px 32px',
-            borderRadius: '16px', background: 'var(--bg-glass)',
-            border: '1px solid var(--border-glass)', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)',
-            display: 'flex', flexDirection: 'column', gap: '20px'
-          }}>
-            
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-main)', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Lock size={16} style={{ color: '#f59e0b' }} /> Reset Admin Password
-              </h3>
-              <button 
-                type="button" 
-                onClick={() => setShowPasswordModal(false)}
-                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
-              >
-                <X size={18} />
-              </button>
-            </div>
 
-            <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: 0 }}>
-              Specify a new administrative password for the school: <strong style={{ color: 'var(--text-main)' }}>{passwordResetSchool?.name}</strong>.
-            </p>
-
-            <form onSubmit={handleResetPasswordSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              <div className="form-group">
-                <label>New Password</label>
-                <input 
-                  type="password" 
-                  className="form-control" 
-                  placeholder="Enter new password"
-                  value={newAdminPassword}
-                  onChange={(e) => setNewAdminPassword(e.target.value)}
-                  required
-                />
-              </div>
-
-              <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', marginTop: '10px' }}>
-                <button type="button" onClick={() => setShowPasswordModal(false)} className="btn-secondary" style={{ borderRadius: '8px' }}>
-                  Cancel
-                </button>
-                <button type="submit" className="btn-primary" style={{ borderRadius: '8px', background: '#f59e0b', borderColor: '#f59e0b' }}>
-                  Reset Password
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>,
-        document.body
-      )}
 
     </div>
   );

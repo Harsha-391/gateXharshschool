@@ -453,37 +453,6 @@ app.post('/api/platform/schools/:id/activate', (req, res) => {
   writeDb(db);
   res.json(school);
 });
-
-// Reset school admin password
-app.post('/api/platform/schools/:id/reset-password', (req, res) => {
-  const { password } = req.body;
-  if (!password) return res.status(400).json({ error: 'Password is required.' });
-
-  const db = readDb();
-  const school = db.schools.find(s => s.id === req.params.id);
-  if (!school) return res.status(404).json({ error: 'School not found.' });
-
-  school.adminPassword = password;
-  writeDb(db);
-
-  // Sync to tenant DB
-  const tenantDbPath = path.join(__dirname, 'tenants', `db_${school.subdomain}.json`);
-  if (fs.existsSync(tenantDbPath)) {
-    try {
-      const raw = fs.readFileSync(tenantDbPath, 'utf8');
-      const tenantData = JSON.parse(raw);
-      if (tenantData.school) {
-        tenantData.school.adminPassword = password;
-      }
-      fs.writeFileSync(tenantDbPath, JSON.stringify(tenantData, null, 2), 'utf8');
-    } catch (e) {
-      console.error('Failed to sync reset password to tenant DB:', e);
-    }
-  }
-
-  res.json({ success: true, message: 'Admin password reset successfully.' });
-});
-
 // Delete school
 app.delete('/api/platform/schools/:id', (req, res) => {
   const db = readDb();

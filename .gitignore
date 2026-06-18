@@ -34,3 +34,7 @@ Thumbs.db
 
 # Git backups
 .git_backup/
+
+# Scratch files
+backend/scratch/
+
