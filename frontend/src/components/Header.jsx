@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { 
   Menu,
-  Search, 
   Bell, 
   Sun, 
   Moon, 
@@ -139,16 +138,6 @@ export default function Header({
       </div>
 
       <div className="header-right">
-        {/* Search bar */}
-        <div className="search-bar-container">
-          <Search size={18} className="search-bar-icon" />
-          <input 
-            type="text" 
-            placeholder="Search student, staff ID..." 
-            className="search-bar-input" 
-          />
-        </div>
-
         {/* Theme Toggler */}
         <button onClick={toggleTheme} className="action-btn" title="Toggle color scheme">
           {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
