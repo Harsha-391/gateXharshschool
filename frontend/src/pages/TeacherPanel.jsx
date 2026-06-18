@@ -1058,7 +1058,7 @@ export function AttendanceHistoryView({ showToast }) {
             border: activeTab === 'all' ? 'none' : '1px solid var(--border-glass)'
           }}
         >
-          Attendance History
+          Student Attendance History
         </button>
         <button
           onClick={() => setActiveTab('submitted')}

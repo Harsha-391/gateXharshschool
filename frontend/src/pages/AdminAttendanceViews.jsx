@@ -818,7 +818,7 @@ export function AttendanceHistoryView({ date, showToast }) {
       }
     } catch (err) {
       console.error(err);
-      showToast('Error loading attendance history.', 'error');
+      showToast('Error loading student attendance history.', 'error');
     } finally {
       setLoading(false);
     }
@@ -981,7 +981,7 @@ export function AttendanceHistoryView({ date, showToast }) {
         {loading ? (
           <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '300px', flexDirection: 'column', gap: '16px' }}>
             <Loader2 className="animate-spin" size={36} style={{ color: 'hsl(var(--color-primary))' }} />
-            <p style={{ color: 'var(--text-muted)' }}>Loading attendance history...</p>
+            <p style={{ color: 'var(--text-muted)' }}>Loading student attendance history...</p>
           </div>
         ) : roster.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '60px 20px', color: 'var(--text-muted)' }}>

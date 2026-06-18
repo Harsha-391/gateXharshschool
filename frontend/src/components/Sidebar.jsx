@@ -353,7 +353,7 @@ export default function Sidebar({
                         style={{ padding: '10px 12px', fontSize: '0.88rem', position: 'relative' }}
                       >
                         <QrCode size={18} className="flex-shrink-0" />
-                        <span className="nav-label">Attendance Manager</span>
+                        <span className="nav-label">Staff/Employee Attendance</span>
                       </button>
                     )}
                     {hasPermission('attendance', 'view') && (
@@ -363,7 +363,7 @@ export default function Sidebar({
                         style={{ padding: '10px 12px', fontSize: '0.88rem', position: 'relative' }}
                       >
                         <ClipboardCheck size={18} className="flex-shrink-0" />
-                        <span className="nav-label">School Attendance</span>
+                        <span className="nav-label">Student Attendance</span>
                       </button>
                     )}
                     {hasPermission('attendance-history', 'view') && (
@@ -373,7 +373,7 @@ export default function Sidebar({
                         style={{ padding: '10px 12px', fontSize: '0.88rem', position: 'relative' }}
                       >
                         <History size={18} className="flex-shrink-0" />
-                        <span className="nav-label">Attendance History</span>
+                        <span className="nav-label">Student Attendance History</span>
                       </button>
                     )}
                   </div>

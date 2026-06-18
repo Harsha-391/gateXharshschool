@@ -321,7 +321,7 @@ export default function AttendanceManager() {
           </style>
         </head>
         <body>
-          <h2>Aether Academy QR Attendance History</h2>
+          <h2>Aether Academy QR Staff/Employee Attendance History</h2>
           <div class="meta">Generated on ${dateStr} | Department: ${filterDept} | Month: ${filterMonth}/${filterYear}</div>
           <table>
             <thead>
@@ -370,7 +370,7 @@ export default function AttendanceManager() {
             <QrCode size={28} />
           </div>
           <div>
-            <h2 style={{ fontSize: '1.4rem', fontWeight: 800, margin: 0 }}>QR Attendance Manager</h2>
+            <h2 style={{ fontSize: '1.4rem', fontWeight: 800, margin: 0 }}>QR Staff/Employee Attendance</h2>
             <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', margin: '4px 0 0 0' }}>Camera-based instant scanning, real-time analytics, and detailed compliance reporting.</p>
           </div>
         </div>

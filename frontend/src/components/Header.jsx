@@ -49,7 +49,7 @@ export default function Header({
     // Admin Dashboard Specific Views
     overview: { title: 'Admin Overview', desc: 'System rollups, database metrics, and admin dashboard statistics.' },
     teachers: { title: 'Faculty Registry', desc: 'Review and manage all teacher profiles, credentials, and employment records.' },
-    'employee-attendance': { title: 'Attendance Manager', desc: 'Check in/out dashboard and employee attendance log.' },
+    'employee-attendance': { title: 'Staff/Employee Attendance', desc: 'Check in/out dashboard and employee attendance log.' },
     'collect-fees': { title: 'Collect Fees', desc: 'Process and record student tuition fee payments.' },
     'fee-structure': { title: 'Fee Structure', desc: 'Configure academic term fee templates.' },
     payroll: { title: 'Manage Payroll', desc: 'Calculate and disburse staff salaries.' },
@@ -64,7 +64,7 @@ export default function Header({
     'roles-permissions': { title: 'Roles & Permissions', desc: 'Control user permissions and security roles.' },
     'grade-list': { title: 'Grade Management', desc: 'Configure academic classes and sections.' },
     attendance: { title: 'Student Attendance', desc: 'Record daily classroom attendance.' },
-    'attendance-history': { title: 'Attendance History', desc: 'Review history records of student attendance.' },
+    'attendance-history': { title: 'Student Attendance History', desc: 'Review history records of student attendance.' },
     
     // Academics subviews
     'academic-grade-subjects': { title: 'Academic Management', desc: 'Map subjects and courses to grades.' },

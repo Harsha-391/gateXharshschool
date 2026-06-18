@@ -427,7 +427,7 @@ export default function StaffDirectory({ readOnly = true, onAddClick, onEditClic
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', flex: 1, minWidth: '180px' }}>
                   <div style={{ fontSize: '0.82rem', fontWeight: 600 }}>ID Badge Access QR</div>
                   <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', lineHeight: '1.4' }}>
-                    Contains unique Employee ID & Type. Use the camera scanner in the Attendance Manager to record daily check-ins and check-outs.
+                    Contains unique Employee ID & Type. Use the camera scanner in the Staff/Employee Attendance to record daily check-ins and check-outs.
                   </div>
                   <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '4px' }}>
                     {s.qrCodePath ? (
