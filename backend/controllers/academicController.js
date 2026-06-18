@@ -1,4 +1,4 @@
-import { readDb, writeDb, addActivity } from '../utils/db.js';
+import { readDb, writeDb, addActivity, convertToRoman } from '../utils/db.js';
 import * as XLSX from 'xlsx';
 import { PDFParse } from 'pdf-parse';
 
@@ -981,11 +981,13 @@ export const createSubject = (req, res) => {
     return res.status(400).json({ error: 'Grade level and Subject Name are required.' });
   }
 
+  const formattedGrade = convertToRoman(grade);
+
   const db = readDb();
   if (!db.subjects) db.subjects = [];
 
   const exists = db.subjects.some(
-    s => s.grade.toUpperCase() === grade.toUpperCase() && s.subjectName.toLowerCase() === subjectName.toLowerCase()
+    s => s.grade.toUpperCase() === formattedGrade.toUpperCase() && s.subjectName.toLowerCase() === subjectName.toLowerCase()
   );
   if (exists) {
     return res.status(400).json({ error: 'Subject already registered for this grade.' });
@@ -993,7 +995,7 @@ export const createSubject = (req, res) => {
 
   const newSubject = {
     id: `SUB-${Date.now()}`,
-    grade,
+    grade: formattedGrade,
     subjectName
   };
 
@@ -1024,6 +1026,8 @@ export const createSubjectBulk = (req, res) => {
     return res.status(400).json({ error: 'Grade level and subjectNames list are required.' });
   }
 
+  const formattedGrade = convertToRoman(grade);
+
   const db = readDb();
   if (!db.subjects) db.subjects = [];
 
@@ -1035,12 +1039,12 @@ export const createSubjectBulk = (req, res) => {
     if (!cleanName) return;
 
     const exists = db.subjects.some(
-      s => s.grade.toUpperCase() === grade.toUpperCase() && s.subjectName.toLowerCase() === cleanName.toLowerCase()
+      s => s.grade.toUpperCase() === formattedGrade.toUpperCase() && s.subjectName.toLowerCase() === cleanName.toLowerCase()
     );
     if (!exists) {
       const newSub = {
         id: `SUB-${Date.now()}-${index}-${Math.random().toString(36).substr(2, 4)}`,
-        grade,
+        grade: formattedGrade,
         subjectName: cleanName
       };
       db.subjects.push(newSub);

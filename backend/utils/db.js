@@ -30,6 +30,40 @@ export const slugify = (text) => {
     .replace(/\-\-+/g, '-');        // Replace multiple - with single -
 };
 
+// Roman numeral conversion helper
+export const convertToRoman = (str) => {
+  if (!str) return '';
+  const clean = str.trim().toUpperCase();
+  
+  if (['LKG', 'UKG', 'NURSERY'].includes(clean)) {
+    return clean;
+  }
+  
+  const match = clean.match(/\d+/);
+  if (match) {
+    const num = parseInt(match[0], 10);
+    const lookup = {
+      1: 'I', 2: 'II', 3: 'III', 4: 'IV', 5: 'V', 6: 'VI', 7: 'VII', 8: 'VIII', 9: 'IX', 10: 'X', 11: 'XI', 12: 'XII'
+    };
+    if (lookup[num]) {
+      return lookup[num];
+    }
+  }
+  
+  const wordsLookup = {
+    'FIRST': 'I', 'SECOND': 'II', 'THIRD': 'III', 'FOURTH': 'IV', 'FIFTH': 'V', 'SIXTH': 'VI',
+    'SEVENTH': 'VII', 'EIGHTH': 'VIII', 'NINTH': 'IX', 'TENTH': 'X', 'ELEVENTH': 'XI', 'TWELFTH': 'XII',
+    '1ST': 'I', '2ND': 'II', '3RD': 'III', '4TH': 'IV', '5TH': 'V', '6TH': 'VI', '7TH': 'VII',
+    '8TH': 'VIII', '9TH': 'IX', '10TH': 'X', '11TH': 'XI', '12TH': 'XII'
+  };
+  
+  if (wordsLookup[clean]) {
+    return wordsLookup[clean];
+  }
+  
+  return str;
+};
+
 // Middleware to restore tenant context lost during async processing
 export const restoreTenantContext = (req, res, next) => {
   let tenantId = req.headers['x-tenant-id'] || req.query.tenantId;
@@ -729,6 +763,25 @@ export const initSqlDb = async () => {
       console.log('[SQL Init] Ensured greenvalley adminUsername is updated to school_admin.');
     } catch (err) {
       console.warn('[SQL Init WARNING] Failed to run school_admin username update query:', err.message);
+    }
+
+    // 4. Ensure subjects' classId (grade) are normalized to Roman numerals
+    try {
+      const subjectsRows = await sqlDb.query("SELECT id, classId FROM subjects");
+
+      if (subjectsRows && subjectsRows.length > 0) {
+        for (const sub of subjectsRows) {
+          if (sub.classId) {
+            const formatted = convertToRoman(sub.classId);
+            if (formatted !== sub.classId) {
+              await sqlDb.query("UPDATE subjects SET classId = ? WHERE id = ?", [formatted, sub.id]);
+              console.log(`[SQL Init] Normalized MySQL subject ID ${sub.id} grade from '${sub.classId}' to '${formatted}'`);
+            }
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('[SQL Init WARNING] Failed to normalize subjects table:', err.message);
     }
 
     isSqlInitialized = true;
@@ -2888,6 +2941,14 @@ export const readDb = () => {
         '01:00 PM - 02:00 PM',
         '02:00 PM - 03:00 PM'
       ];
+    }
+    // Defensive normalization of subjects' grades
+    if (db.subjects && Array.isArray(db.subjects)) {
+      db.subjects.forEach(sub => {
+        if (sub.grade) {
+          sub.grade = convertToRoman(sub.grade);
+        }
+      });
     }
     return db;
   } catch (error) {

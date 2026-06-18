@@ -1,5 +1,5 @@
 import express from 'express';
-import { readDb, writeDb, slugify } from '../utils/db.js';
+import { readDb, writeDb, slugify, convertToRoman } from '../utils/db.js';
 import { auth } from '../middleware/auth.js';
 
 const router = express.Router();
@@ -75,42 +75,6 @@ const checkGradeUsage = (db, gradeName, deptName = null) => {
 
 // Apply auth to all endpoints
 router.use(auth);
-
-// ==========================================
-// 1. DYNAMIC ACTIVE GRADE OPTIONS FOR ERP
-// ==========================================
-const convertToRoman = (str) => {
-  if (!str) return '';
-  const clean = str.trim().toUpperCase();
-  
-  if (['LKG', 'UKG', 'NURSERY'].includes(clean)) {
-    return clean;
-  }
-  
-  const match = clean.match(/\d+/);
-  if (match) {
-    const num = parseInt(match[0], 10);
-    const lookup = {
-      1: 'I', 2: 'II', 3: 'III', 4: 'IV', 5: 'V', 6: 'VI', 7: 'VII', 8: 'VIII', 9: 'IX', 10: 'X', 11: 'XI', 12: 'XII'
-    };
-    if (lookup[num]) {
-      return lookup[num];
-    }
-  }
-  
-  const wordsLookup = {
-    'FIRST': 'I', 'SECOND': 'II', 'THIRD': 'III', 'FOURTH': 'IV', 'FIFTH': 'V', 'SIXTH': 'VI',
-    'SEVENTH': 'VII', 'EIGHTH': 'VIII', 'NINTH': 'IX', 'TENTH': 'X', 'ELEVENTH': 'XI', 'TWELFTH': 'XII',
-    '1ST': 'I', '2ND': 'II', '3RD': 'III', '4TH': 'IV', '5TH': 'V', '6TH': 'VI', '7TH': 'VII',
-    '8TH': 'VIII', '9TH': 'IX', '10TH': 'X', '11TH': 'XI', '12TH': 'XII'
-  };
-  
-  if (wordsLookup[clean]) {
-    return wordsLookup[clean];
-  }
-  
-  return str;
-};
 
 // Helper to check if a grade is 11 or 12
 const isGrade11or12 = (name) => {
