@@ -56,7 +56,8 @@ import {
   CreditCard,
   Building,
   KeyRound,
-  Copy
+  Copy,
+  Play
 } from 'lucide-react';
 
 export default function SchoolProfile({ schoolDetails, fetchSchoolDetails, isDeveloperAdmin, devActiveTab }) {
@@ -867,7 +868,7 @@ export default function SchoolProfile({ schoolDetails, fetchSchoolDetails, isDev
                         title={school.status === 'Active' ? 'Suspend School' : 'Unsuspend School'} 
                         style={{ padding: '5px', border: 'none', background: 'none', cursor: 'pointer', color: school.status === 'Active' ? '#ef4444' : '#10b981' }}
                       >
-                        {school.status === 'Active' ? <AlertTriangle size={15} /> : <CheckCircle size={15} />}
+                        {school.status === 'Active' ? <AlertTriangle size={15} /> : <Play size={15} />}
                       </button>
                       <button onClick={() => handleDeleteSchool(school)} className="btn-secondary" title="Delete Tenant" style={{ padding: '5px', border: 'none', background: 'none', cursor: 'pointer', color: 'rgb(var(--color-danger-rgb))' }}>
                         <Trash2 size={15} />
