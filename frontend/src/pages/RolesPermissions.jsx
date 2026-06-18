@@ -93,7 +93,7 @@ export default function RolesPermissions() {
   }, [showRoleModal]);
 
   const modules = [
-    { id: 'overview', label: 'Admin Panel' },
+    { id: 'overview', label: 'Panel' },
     { id: 'student-directory', label: 'Student Directory' },
     { id: 'teacher-directory', label: 'Staff Directory' },
     { id: 'staff-directory', label: 'Employee Directory' },

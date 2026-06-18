@@ -171,7 +171,7 @@ export default function Sidebar({
                 className={`nav-item ${adminView === 'overview' ? 'active' : ''}`}
               >
                 <List size={20} className="flex-shrink-0" />
-                <span className="nav-label">Admin Panel</span>
+                <span className="nav-label">Panel</span>
               </button>
             )}
 
