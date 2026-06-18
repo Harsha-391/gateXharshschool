@@ -344,7 +344,8 @@ app.post('/api/platform/schools', (req, res) => {
     adminEmail,
     adminUsername,
     adminPassword,
-    createdAt: new Date().toISOString()
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
   };
 
   db.schools.push(newSchool);
@@ -365,8 +366,10 @@ app.post('/api/platform/schools', (req, res) => {
       ratePerStudent: '250.00',
       adminName: adminName || 'Admin',
       adminEmail,
+      adminUsername,
       adminPassword,
-      principal: principalName || 'Principal'
+      principal: principalName || 'Principal',
+      updatedAt: new Date().toISOString()
     },
     students: [],
     teachers: [],
@@ -416,7 +419,8 @@ app.put('/api/platform/schools/:id', (req, res) => {
     state: state || currentSchool.state,
     country: country || currentSchool.country,
     academicSession: academicSession || currentSchool.academicSession,
-    subscriptionPlan: subscriptionPlan || currentSchool.subscriptionPlan
+    subscriptionPlan: subscriptionPlan || currentSchool.subscriptionPlan,
+    updatedAt: new Date().toISOString()
   };
 
   writeDb(db);
@@ -435,7 +439,9 @@ app.put('/api/platform/schools/:id', (req, res) => {
         state: db.schools[index].state,
         phone: db.schools[index].phone,
         email: db.schools[index].email,
-        principal: db.schools[index].principalName
+        principal: db.schools[index].principalName,
+        adminUsername: db.schools[index].adminUsername,
+        updatedAt: new Date().toISOString()
       };
       fs.writeFileSync(tenantDbPath, JSON.stringify(tenantData, null, 2), 'utf8');
     } catch (e) {
@@ -453,6 +459,7 @@ app.post('/api/platform/schools/:id/suspend', (req, res) => {
   if (!school) return res.status(404).json({ error: 'School not found.' });
 
   school.status = 'Suspended';
+  school.updatedAt = new Date().toISOString();
   writeDb(db);
 
   // Sync to tenant DB
@@ -463,6 +470,7 @@ app.post('/api/platform/schools/:id/suspend', (req, res) => {
       const tenantData = JSON.parse(raw);
       if (tenantData.school) {
         tenantData.school.status = 'Suspended';
+        tenantData.school.updatedAt = new Date().toISOString();
       }
       fs.writeFileSync(tenantDbPath, JSON.stringify(tenantData, null, 2), 'utf8');
     } catch (e) {
@@ -480,6 +488,7 @@ app.post('/api/platform/schools/:id/activate', (req, res) => {
   if (!school) return res.status(404).json({ error: 'School not found.' });
 
   school.status = 'Active';
+  school.updatedAt = new Date().toISOString();
   writeDb(db);
 
   // Sync to tenant DB
@@ -490,6 +499,7 @@ app.post('/api/platform/schools/:id/activate', (req, res) => {
       const tenantData = JSON.parse(raw);
       if (tenantData.school) {
         tenantData.school.status = 'Active';
+        tenantData.school.updatedAt = new Date().toISOString();
       }
       fs.writeFileSync(tenantDbPath, JSON.stringify(tenantData, null, 2), 'utf8');
     } catch (e) {
@@ -768,6 +778,7 @@ app.put('/api/auth/profile', auth, upload.single('photo'), restoreTenantContext,
       return res.status(404).json({ error: 'School domain registration not found.' });
     }
     const currentSchool = platformDb.schools[index];
+    const nowStr = new Date().toISOString();
     platformDb.schools[index] = {
       ...currentSchool,
       adminName: name || currentSchool.adminName,
@@ -776,7 +787,8 @@ app.put('/api/auth/profile', auth, upload.single('photo'), restoreTenantContext,
       adminEmail: email || currentSchool.adminEmail,
       phone: phone || currentSchool.phone,
       logo: photoPath || currentSchool.logo,
-      adminPassword: password || currentSchool.adminPassword
+      adminPassword: password || currentSchool.adminPassword,
+      updatedAt: nowStr
     };
     tenantStorage.run(null, () => writeDb(platformDb));
 
@@ -792,8 +804,10 @@ app.put('/api/auth/profile', auth, upload.single('photo'), restoreTenantContext,
         phone: platformDb.schools[index].phone,
         email: platformDb.schools[index].adminEmail,
         adminName: platformDb.schools[index].adminName,
+        adminUsername: platformDb.schools[index].adminUsername,
         adminPassword: platformDb.schools[index].adminPassword,
-        principal: platformDb.schools[index].principalName
+        principal: platformDb.schools[index].principalName,
+        updatedAt: nowStr
       };
       writeDb(tenantDb);
     }
@@ -812,8 +826,10 @@ app.put('/api/auth/profile', auth, upload.single('photo'), restoreTenantContext,
           phone: platformDb.schools[index].phone,
           email: platformDb.schools[index].adminEmail,
           adminName: platformDb.schools[index].adminName,
+          adminUsername: platformDb.schools[index].adminUsername,
           adminPassword: platformDb.schools[index].adminPassword,
-          principal: platformDb.schools[index].principalName
+          principal: platformDb.schools[index].principalName,
+          updatedAt: nowStr
         };
         fs.writeFileSync(tenantDbPath, JSON.stringify(tenantData, null, 2), 'utf8');
       } catch (e) {

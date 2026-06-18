@@ -1507,11 +1507,12 @@ export const ensureTenantSqlLoaded = async (req, res, next) => {
   
   try {
     if (activeTenant === 'platform') {
-      // Platform cache validation: check count of schools
-      const dbRows = await sqlDb.query('SELECT COUNT(*) as count, MAX(id) as maxId FROM schools');
+      // Platform cache validation: check count of schools, max id, and max updatedAt timestamp
+      const dbRows = await sqlDb.query('SELECT COUNT(*) as count, MAX(id) as maxId, MAX(updatedAt) as maxUpdatedAt FROM schools');
       const count = dbRows[0]?.count || 0;
       const maxId = dbRows[0]?.maxId || '';
-      const cacheSignature = `${count}-${maxId}`;
+      const maxUpdatedAt = dbRows[0]?.maxUpdatedAt || '';
+      const cacheSignature = `${count}-${maxId}-${maxUpdatedAt}`;
       if (!dbCache[activeTenant] || dbCache[activeTenant]._signature !== cacheSignature) {
         const data = await loadTenantSqlIntoMemory(activeTenant);
         if (data) {
@@ -1599,20 +1600,21 @@ export const saveMemoryDbToSql = async (tenantId, db) => {
           `INSERT INTO schools (
             id, name, code, subdomain, logo, principalName, email, phone, address, city, state, country, 
             academicSession, subscriptionPlan, url, status, adminName, adminEmail, adminUsername, adminPassword, 
-            createdAt
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            createdAt, updatedAt
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           ON DUPLICATE KEY UPDATE 
             name=VALUES(name), logo=VALUES(logo), principalName=VALUES(principalName), email=VALUES(email),
             phone=VALUES(phone), address=VALUES(address), city=VALUES(city), state=VALUES(state),
             academicSession=VALUES(academicSession), subscriptionPlan=VALUES(subscriptionPlan),
             status=VALUES(status), adminName=VALUES(adminName), adminEmail=VALUES(adminEmail),
-            adminUsername=VALUES(adminUsername), adminPassword=VALUES(adminPassword)`,
+            adminUsername=VALUES(adminUsername), adminPassword=VALUES(adminPassword),
+            updatedAt=VALUES(updatedAt)`,
           [
             s.id, s.name, s.code, s.subdomain, s.logo, s.principalName || s.principal || '', s.email, 
             s.phone, s.address, s.city, s.state, s.country || 'India', s.academicSession || '2026-2027', 
             s.subscriptionPlan || 'Starter', s.url, s.status || 'Active', s.adminName || '', s.adminEmail || '', 
             s.adminUsername || '', s.adminPassword || '', 
-            s.createdAt
+            s.createdAt, s.updatedAt || s.createdAt || new Date().toISOString()
           ]
         );
       }
@@ -1624,11 +1626,12 @@ export const saveMemoryDbToSql = async (tenantId, db) => {
       await sqlDb.query(
         `UPDATE schools SET 
           name = ?, address = ?, city = ?, state = ?, phone = ?, email = ?, 
-          principalName = ?, adminName = ?, adminEmail = ?, adminPassword = ?, ratePerStudent = ?
+          principalName = ?, adminName = ?, adminEmail = ?, adminUsername = ?, adminPassword = ?, ratePerStudent = ?, updatedAt = ?
          WHERE subdomain = ?`,
         [
           sch.name, sch.address, sch.city, sch.state, sch.phone, sch.email, 
-          sch.principal, sch.adminName, sch.adminEmail, sch.adminPassword, sch.ratePerStudent || '250.00', tId
+          sch.principal, sch.adminName, sch.adminEmail, sch.adminUsername || '', sch.adminPassword, sch.ratePerStudent || '250.00',
+          sch.updatedAt || new Date().toISOString(), tId
         ]
       );
     }
