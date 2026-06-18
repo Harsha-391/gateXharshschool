@@ -1767,5 +1767,4 @@ app.use((err, req, res, next) => {
 app.listen(PORT, () => {
   console.log(`Aether Server running at http://localhost:${PORT}`);
 });
-// Trigger restart to sync database cache and reload server state
-
+// Trigger restart to sync database cache and reload server state v2
