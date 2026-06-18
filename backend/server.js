@@ -627,7 +627,8 @@ app.get('/api/auth/profile', auth, restoreTenantContext, (req, res) => {
   }
 
   if (user.role === 'Main Admin') {
-    const schoolRecord = (globalDb.schools || []).find(s => s.subdomain === tenantId);
+    const platformDb = tenantStorage.run(null, () => readDb());
+    const schoolRecord = (platformDb.schools || []).find(s => slugify(s.subdomain) === slugify(tenantId));
     if (!schoolRecord) {
       return res.status(404).json({ error: 'School domain registration not found.' });
     }
@@ -761,12 +762,13 @@ app.put('/api/auth/profile', auth, upload.single('photo'), restoreTenantContext,
   }
 
   if (user.role === 'Main Admin') {
-    const index = (globalDb.schools || []).findIndex(s => s.subdomain === tenantId);
+    const platformDb = tenantStorage.run(null, () => readDb());
+    const index = (platformDb.schools || []).findIndex(s => slugify(s.subdomain) === slugify(tenantId));
     if (index === -1) {
       return res.status(404).json({ error: 'School domain registration not found.' });
     }
-    const currentSchool = globalDb.schools[index];
-    globalDb.schools[index] = {
+    const currentSchool = platformDb.schools[index];
+    platformDb.schools[index] = {
       ...currentSchool,
       adminName: name || currentSchool.adminName,
       principalName: name || currentSchool.principalName,
@@ -776,9 +778,26 @@ app.put('/api/auth/profile', auth, upload.single('photo'), restoreTenantContext,
       logo: photoPath || currentSchool.logo,
       adminPassword: password || currentSchool.adminPassword
     };
-    writeDb(globalDb);
+    tenantStorage.run(null, () => writeDb(platformDb));
 
-    // Sync to tenant db
+    // Sync to tenant db object
+    const tenantDb = readDb();
+    if (tenantDb.school) {
+      tenantDb.school = {
+        ...tenantDb.school,
+        name: platformDb.schools[index].name,
+        address: platformDb.schools[index].address,
+        city: platformDb.schools[index].city,
+        state: platformDb.schools[index].state,
+        phone: platformDb.schools[index].phone,
+        email: platformDb.schools[index].adminEmail,
+        adminName: platformDb.schools[index].adminName,
+        adminPassword: platformDb.schools[index].adminPassword,
+        principal: platformDb.schools[index].principalName
+      };
+      writeDb(tenantDb);
+    }
+
     const tenantDbPath = path.join(__dirname, 'tenants', `db_${currentSchool.subdomain}.json`);
     if (fs.existsSync(tenantDbPath)) {
       try {
@@ -786,15 +805,15 @@ app.put('/api/auth/profile', auth, upload.single('photo'), restoreTenantContext,
         const tenantData = JSON.parse(raw);
         tenantData.school = {
           ...tenantData.school,
-          name: globalDb.schools[index].name,
-          address: globalDb.schools[index].address,
-          city: globalDb.schools[index].city,
-          state: globalDb.schools[index].state,
-          phone: globalDb.schools[index].phone,
-          email: globalDb.schools[index].adminEmail,
-          adminName: globalDb.schools[index].adminName,
-          adminPassword: globalDb.schools[index].adminPassword,
-          principal: globalDb.schools[index].principalName
+          name: platformDb.schools[index].name,
+          address: platformDb.schools[index].address,
+          city: platformDb.schools[index].city,
+          state: platformDb.schools[index].state,
+          phone: platformDb.schools[index].phone,
+          email: platformDb.schools[index].adminEmail,
+          adminName: platformDb.schools[index].adminName,
+          adminPassword: platformDb.schools[index].adminPassword,
+          principal: platformDb.schools[index].principalName
         };
         fs.writeFileSync(tenantDbPath, JSON.stringify(tenantData, null, 2), 'utf8');
       } catch (e) {
@@ -807,11 +826,11 @@ app.put('/api/auth/profile', auth, upload.single('photo'), restoreTenantContext,
       message: 'School admin profile updated successfully.',
       profile: {
         role: 'Main Admin',
-        name: globalDb.schools[index].adminName,
-        username: globalDb.schools[index].adminUsername,
-        email: globalDb.schools[index].adminEmail,
-        phone: globalDb.schools[index].phone,
-        photo: globalDb.schools[index].logo
+        name: platformDb.schools[index].adminName,
+        username: platformDb.schools[index].adminUsername,
+        email: platformDb.schools[index].adminEmail,
+        phone: platformDb.schools[index].phone,
+        photo: platformDb.schools[index].logo
       }
     });
   }
@@ -1424,6 +1443,28 @@ app.post('/api/school', (req, res) => {
 
   addActivity(db, 'alert', 'School Profile Modified', `Global branding variables updated manually`, 'hsl(var(--color-primary))', 'rgba(hsl(var(--color-primary)), 0.1)');
   writeDb(db);
+
+  // Sync to global platform list too
+  const tenantId = tenantStorage.getStore();
+  if (tenantId) {
+    const platformDb = tenantStorage.run(null, () => readDb());
+    const index = (platformDb.schools || []).findIndex(s => slugify(s.subdomain) === slugify(tenantId));
+    if (index !== -1) {
+      platformDb.schools[index] = {
+        ...platformDb.schools[index],
+        name: db.school.name,
+        address: db.school.address,
+        city: db.school.city,
+        state: db.school.state,
+        phone: db.school.phone,
+        adminEmail: db.school.adminEmail || db.school.email,
+        adminName: db.school.adminName,
+        adminPassword: db.school.adminPassword,
+        principalName: db.school.principal
+      };
+      tenantStorage.run(null, () => writeDb(platformDb));
+    }
+  }
 
   res.json(db.school);
 });
