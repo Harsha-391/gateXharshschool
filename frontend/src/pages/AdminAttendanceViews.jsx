@@ -511,7 +511,6 @@ export function MarkAttendanceView({ date, setDate, studentClass, setClass, sect
                                     style={{
                                       padding: '6px 12px',
                                       borderRadius: '6px',
-                                      border: 'none',
                                       fontSize: '0.75rem',
                                       fontWeight: 700,
                                       cursor: 'pointer',
@@ -537,7 +536,6 @@ export function MarkAttendanceView({ date, setDate, studentClass, setClass, sect
                               style={{
                                 padding: '6px 12px',
                                 borderRadius: '6px',
-                                border: 'none',
                                 fontSize: '0.75rem',
                                 fontWeight: 700,
                                 cursor: 'pointer',
@@ -556,7 +554,6 @@ export function MarkAttendanceView({ date, setDate, studentClass, setClass, sect
                               style={{
                                 padding: '6px 12px',
                                 borderRadius: '6px',
-                                border: 'none',
                                 fontSize: '0.75rem',
                                 fontWeight: 700,
                                 cursor: 'pointer',
@@ -575,7 +572,6 @@ export function MarkAttendanceView({ date, setDate, studentClass, setClass, sect
                               style={{
                                 padding: '6px 12px',
                                 borderRadius: '6px',
-                                border: 'none',
                                 fontSize: '0.75rem',
                                 fontWeight: 700,
                                 cursor: 'pointer',
@@ -594,7 +590,6 @@ export function MarkAttendanceView({ date, setDate, studentClass, setClass, sect
                               style={{
                                 padding: '6px 12px',
                                 borderRadius: '6px',
-                                border: 'none',
                                 fontSize: '0.75rem',
                                 fontWeight: 700,
                                 cursor: 'pointer',
