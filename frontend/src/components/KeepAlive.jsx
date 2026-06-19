@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import './KeepAlive.css';
 
 export default function KeepAlive({ active, children }) {
   const [hasRendered, setHasRendered] = useState(false);

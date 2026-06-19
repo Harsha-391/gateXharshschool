@@ -1,0 +1,33 @@
+/* Account Management Portal Styling Overrides */
+
+/* Overwrite hardcoded white backgrounds in modals and result card boxes for Dark Theme compatibility */
+[data-theme='dark'] div[style*="background: '#ffffff'"],
+[data-theme='dark'] div[style*='background: "#ffffff"'],
+[data-theme='dark'] div[style*="background: rgb(255, 255, 255)"],
+[data-theme='dark'] div[style*="background-color: rgb(255, 255, 255)"] {
+  background: var(--bg-elevated) !important;
+  color: var(--text-main) !important;
+  border-color: var(--border-glass) !important;
+  box-shadow: var(--shadow-lg) !important;
+}
+
+/* Translucent border rules for dark mode lists */
+[data-theme='dark'] td[style*="border-bottom: '1px solid rgba(0,0,0,0.04)'"] {
+  border-color: var(--border-glass) !important;
+}
+
+/* Interactive fees card layout styling details */
+.fee-payment-card {
+  padding: 24px;
+  border-radius: 16px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-glass);
+  box-shadow: var(--shadow-sm);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.fee-payment-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-md);
+  border-color: rgba(hsl(var(--color-primary)), 0.35);
+}

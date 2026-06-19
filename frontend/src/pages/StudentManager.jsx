@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import './StudentManager.css';
 import { 
   Users, 
   Search, 
@@ -132,11 +133,7 @@ export default function StudentManager({ showToast }) {
       });
 
       if (res.ok) {
-        if (showToast) {
-          showToast('Student successfully activated and section allocated!', 'success');
-        } else {
-          alert('Student successfully activated!');
-        }
+        // Silent success on activation
         
         if (statusFilter === 'Pending') {
           // Remove from list if we are viewing pending registrations only

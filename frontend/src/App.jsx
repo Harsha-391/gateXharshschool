@@ -325,6 +325,124 @@ export default function App() {
     return () => window.removeEventListener('tenant-suspended', handleTenantSuspended);
   }, []);
 
+  // Global Input Validation Handler for all inputs and textareas in the application
+  useEffect(() => {
+    const handleInputValidation = (e) => {
+      if (e._simulated) return;
+      const target = e.target;
+      if (!target) return;
+
+      const isInput = target.tagName === 'INPUT';
+      const isTextarea = target.tagName === 'TEXTAREA';
+      if (!isInput && !isTextarea) return;
+
+      // Bypass validation entirely for login forms, login pages, and password fields
+      const isLoginForm = target.closest('[class*="login"]') || 
+                           target.closest('[id*="login"]') || 
+                           target.closest('form') && (
+                             (target.closest('form').className || '').toLowerCase().includes('login') ||
+                             (target.closest('form').getAttribute('id') || '').toLowerCase().includes('login')
+                           );
+      
+      const isLoginView = !isDeveloperAdmin && !isAdmin && !isSchoolAdmin;
+      const isSubadminLoginActive = !!activeSubadminLogin;
+      
+      const isPasswordField = target.getAttribute('type') === 'password' || 
+                              (target.getAttribute('name') || target.name || '').toLowerCase().includes('password') || 
+                              (target.getAttribute('id') || target.id || '').toLowerCase().includes('password');
+
+      if (isLoginForm || isLoginView || isSubadminLoginActive || isPasswordField) {
+        return;
+      }
+
+      const type = target.getAttribute('type') || 'text';
+      const name = (target.getAttribute('name') || target.name || '').toLowerCase();
+      const id = (target.getAttribute('id') || target.id || '').toLowerCase();
+      const placeholder = (target.getAttribute('placeholder') || '').toLowerCase();
+      const label = target.labels && target.labels.length > 0 ? target.labels[0].textContent.toLowerCase() : '';
+
+      // Check if it is a phone number, pin number, or PAN card field:
+      const isPhone = name.includes('phone') || name.includes('contact') || name.includes('mobile') || id.includes('phone') || id.includes('contact') || id.includes('mobile') || placeholder.includes('phone') || placeholder.includes('contact') || placeholder.includes('mobile');
+      const isPin = name.includes('pin') || id.includes('pin') || placeholder.includes('pin') || placeholder.includes('postal') || name.includes('postal') || id.includes('postal') || name.includes('zip') || id.includes('zip');
+      const isPan = name.includes('pan') || id.includes('pan') || placeholder.includes('pan') || label.includes('pan');
+
+      const isNumericType = type === 'number' || target.getAttribute('inputmode') === 'numeric';
+      const isNumericField = isNumericType || name.includes('amount') || name.includes('salary') || name.includes('marks') || name.includes('roll') || name.includes('price') || name.includes('fee') || name.includes('budget') || name.includes('rate') || name.includes('count') || name.includes('limit') || name.includes('percentage');
+
+      const isEmail = type === 'email' || name.includes('email');
+      const isPassword = type === 'password' || name.includes('password');
+      const isUsername = name.includes('username') || name.includes('user') || id.includes('username') || id.includes('user');
+      const isSubdomain = name.includes('subdomain') || id.includes('subdomain');
+      const isUrl = type === 'url' || name.includes('url') || name.includes('logo') || name.includes('website') || name.includes('attachment') || name.includes('photo') || name.includes('file');
+      const isDocFile = type === 'file';
+
+      const isBypassedString = isEmail || isPassword || isUsername || isSubdomain || isUrl || isDocFile;
+
+      let val = target.value;
+      let originalVal = val;
+
+      if (isPhone) {
+        // Enforce phone number format: allow only digits, +, -, spaces, parentheses, and max length of 15
+        val = val.replace(/[^0-9+\-\s()]/g, '');
+        if (val.length > 15) val = val.substring(0, 15);
+      } else if (isPin) {
+        // Enforce pin code format: only digits, max length 10
+        val = val.replace(/[^0-9]/g, '');
+        if (val.length > 10) val = val.substring(0, 10);
+      } else if (isPan) {
+        // Enforce PAN card format: only letters and digits, max length 10
+        val = val.replace(/[^a-zA-Z0-9]/g, '');
+        if (val.length > 10) val = val.substring(0, 10);
+      } else if (isNumericField) {
+        // Enforce numeric field: allow only digits and optional decimal point
+        val = val.replace(/[^0-9.]/g, '');
+        // prevent double decimals
+        const parts = val.split('.');
+        if (parts.length > 2) {
+          val = parts[0] + '.' + parts.slice(1).join('');
+        }
+        if (val.length > 25) val = val.substring(0, 25);
+      } else if (isBypassedString) {
+        // Bypassed strings (email, password, etc.) - keep whatever characters, but limit standard input length to 100 (except passwords / URLs which can be 200)
+        const maxLengthLimit = (isUrl || isPassword) ? 200 : 100;
+        if (val.length > maxLengthLimit) val = val.substring(0, maxLengthLimit);
+      } else {
+        // String section (Names, generic titles, etc.)
+        // Limit to string/letters only (A-Z, a-z and spaces) and max 50 characters
+        val = val.replace(/[^a-zA-Z\s]/g, '');
+        if (val.length > 50) val = val.substring(0, 50);
+      }
+
+      // Check if it's a description section (descriptions, textareas, addresses, remarks, notes)
+      const isDescriptionField = name.includes('description') || name.includes('remarks') || name.includes('notes') || name.includes('address') || isTextarea;
+      if (isDescriptionField) {
+        // Allow any characters but limit to 2000 characters validation
+        if (originalVal.length > 2000) {
+          val = originalVal.substring(0, 2000);
+        } else {
+          val = originalVal; // restore original characters for descriptions (we don't strip text)
+        }
+      }
+
+      if (originalVal !== val) {
+        target.value = val;
+        // Trigger React's internal fiber state re-render
+        const prototype = target.tagName === 'TEXTAREA' ? window.HTMLTextAreaElement.prototype : window.HTMLInputElement.prototype;
+        const valueSetter = Object.getOwnPropertyDescriptor(prototype, 'value')?.set;
+        if (valueSetter) {
+          valueSetter.call(target, val);
+        }
+        const event = new Event('input', { bubbles: true });
+        event._simulated = true;
+        target.dispatchEvent(event);
+      }
+    };
+
+    document.addEventListener('input', handleInputValidation, true);
+    return () => document.removeEventListener('input', handleInputValidation, true);
+  }, []);
+
+
   const checkRoutePath = () => {
     return false;
   };

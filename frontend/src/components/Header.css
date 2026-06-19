@@ -1,0 +1,180 @@
+/* Header Component */
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 30px;
+  gap: 20px;
+  position: relative;
+  z-index: 100;
+  padding: 12px 0;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.sidebar-toggle-btn {
+  background: var(--bg-glass);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--webkit-glass-blur);
+  border: 1px solid var(--border-glass);
+  color: var(--text-main);
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: var(--shadow-sm);
+}
+
+.sidebar-toggle-btn:hover {
+  background: var(--bg-glass-active);
+  transform: scale(1.04) translateY(-1px);
+  border-color: rgba(hsl(var(--color-primary)), 0.3);
+  color: hsl(var(--color-primary));
+}
+
+.header-title h1 {
+  font-size: 1.85rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+  background: linear-gradient(135deg, var(--text-main) 40%, hsl(var(--color-primary)) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.header-title p {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  font-weight: 500;
+  margin-top: 2px;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.search-bar-container {
+  position: relative;
+  width: 260px;
+  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.search-bar-container:focus-within {
+  width: 320px;
+}
+
+.search-bar-input {
+  width: 100%;
+  padding: 10px 16px 10px 42px;
+  background: var(--bg-form);
+  border: 1.5px solid var(--border-glass);
+  border-radius: 14px;
+  color: var(--text-main);
+  font-family: var(--font-primary);
+  font-size: 0.9rem;
+  transition: all 0.25s ease;
+  outline: none;
+}
+
+.search-bar-input::placeholder {
+  color: var(--text-muted);
+  opacity: 0.6;
+}
+
+.search-bar-input:focus {
+  outline: none;
+  border-color: hsl(var(--color-primary));
+  box-shadow: 0 0 0 4px rgba(hsl(var(--color-primary)), 0.12);
+  background: var(--bg-elevated);
+}
+
+[data-theme='dark'] .search-bar-input {
+  background: var(--bg-form);
+  border: 1.5px solid var(--border-glass);
+}
+
+[data-theme='dark'] .search-bar-input::placeholder {
+  color: var(--text-muted);
+  opacity: 0.55;
+}
+
+[data-theme='dark'] .search-bar-input:focus {
+  background: var(--bg-elevated);
+  box-shadow: 0 0 0 4px rgba(hsl(var(--color-primary)), 0.16);
+}
+
+.search-bar-icon {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+  pointer-events: none;
+  transition: color 0.2s;
+}
+
+.search-bar-container:focus-within .search-bar-icon {
+  color: hsl(var(--color-primary));
+}
+
+.action-btn {
+  background: var(--bg-glass);
+  backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--border-glass);
+  color: var(--text-main);
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  position: relative;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: var(--shadow-sm);
+}
+
+.action-btn:hover {
+  background: var(--bg-glass-active);
+  transform: translateY(-2px);
+  color: hsl(var(--color-primary));
+  border-color: rgba(hsl(var(--color-primary)), 0.35);
+  box-shadow: var(--shadow-md);
+}
+
+.badge-dot {
+  position: absolute;
+  top: 11px;
+  right: 11px;
+  width: 8px;
+  height: 8px;
+  background-color: rgb(var(--color-secondary-rgb));
+  border-radius: 50%;
+  border: 2px solid var(--bg-app);
+  animation: pulse-dot 2s infinite;
+}
+
+@keyframes pulse-dot {
+  0% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(var(--color-secondary-rgb), 0.5);
+  }
+  70% {
+    transform: scale(1);
+    box-shadow: 0 0 0 5px rgba(var(--color-secondary-rgb), 0);
+  }
+  100% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(var(--color-secondary-rgb), 0);
+  }
+}

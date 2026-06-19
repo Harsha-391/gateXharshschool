@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import './ResultManagementPanel.css';
 import { createPortal } from 'react-dom';
 import { fetchActiveGrades } from '../utils/grades';
 import {

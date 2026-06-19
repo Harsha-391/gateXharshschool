@@ -1,0 +1,69 @@
+/* Academic Panel Styling Overrides for SaaS Visuals */
+
+/* Overwrite hardcoded white backgrounds in modals and form wrappers for Dark Theme compatibility */
+[data-theme='dark'] div[style*="background: '#ffffff'"],
+[data-theme='dark'] div[style*='background: "#ffffff"'],
+[data-theme='dark'] div[style*="background: rgb(255, 255, 255)"],
+[data-theme='dark'] div[style*="background-color: rgb(255, 255, 255)"] {
+  background: var(--bg-elevated) !important;
+  color: var(--text-main) !important;
+  border-color: var(--border-glass) !important;
+  box-shadow: var(--shadow-lg) !important;
+}
+
+/* Academic dashboard info blocks */
+.academic-notice-card {
+  padding: 16px;
+  border-radius: 12px;
+  background: var(--bg-card-subtle);
+  border-left: 4px solid hsl(var(--color-primary));
+  transition: all 0.2s ease;
+}
+
+.academic-notice-card:hover {
+  background: var(--bg-glass-active);
+  transform: translateX(4px);
+}
+
+/* Event status indicators */
+.academic-event-chip {
+  padding: 4px 10px;
+  border-radius: 99px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+/* Timetable matrix layout fixes */
+.timetable-builder-slot {
+  border: 1px solid var(--border-glass);
+  border-radius: 10px;
+  padding: 10px;
+  transition: border-color 0.2s;
+}
+
+.timetable-builder-slot:hover {
+  border-color: hsl(var(--color-primary));
+}
+
+/* Printable calendar overrides */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  #printable-calendar-view, #printable-calendar-view * {
+    visibility: visible;
+  }
+  #printable-calendar-view {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    background: #ffffff !important;
+    color: #0f172a !important;
+    box-shadow: none !important;
+  }
+  .no-print {
+    display: none !important;
+  }
+}

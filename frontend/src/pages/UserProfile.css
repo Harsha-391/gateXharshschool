@@ -1,0 +1,35 @@
+/* User Profile Panel Overrides for SaaS Visuals */
+
+/* Overwrite hardcoded white backgrounds in modals and result card boxes for Dark Theme compatibility */
+[data-theme='dark'] div[style*="background: '#ffffff'"],
+[data-theme='dark'] div[style*='background: "#ffffff"'],
+[data-theme='dark'] div[style*="background: rgb(255, 255, 255)"],
+[data-theme='dark'] div[style*="background-color: rgb(255, 255, 255)"] {
+  background: var(--bg-elevated) !important;
+  color: var(--text-main) !important;
+  border-color: var(--border-glass) !important;
+  box-shadow: var(--shadow-lg) !important;
+}
+
+/* User profile card box shadows */
+.profile-box-card {
+  padding: 30px;
+  border-radius: 20px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-glass);
+  box-shadow: var(--shadow-lg);
+  transition: all 0.3s ease;
+}
+
+.profile-box-card:hover {
+  border-color: rgba(hsl(var(--color-primary)), 0.3);
+}
+
+/* Information item separator */
+.profile-item-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px dashed var(--border-glass);
+}

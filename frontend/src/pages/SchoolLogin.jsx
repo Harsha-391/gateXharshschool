@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import './SchoolLogin.css';
 import { Shield, Mail, Lock, Eye, EyeOff, AlertCircle, School, ChevronRight, UserCheck } from 'lucide-react';
 
 export default function SchoolLogin({ tenantSubdomain, onLoginSuccess }) {

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import './RolesPermissions.css';
 import { createPortal } from 'react-dom';
 import { 
   Shield, 
@@ -47,8 +48,8 @@ const LEGACY_MODULE_MAP = {
   'expense-history': 'expenses'
 };
 
-export default function RolesPermissions() {
-  const [activeTab, setActiveTab] = useState('dashboard'); // dashboard, roles, matrix, audit
+export default function RolesPermissions({ initialTab = 'dashboard', hideTabs = false }) {
+  const [activeTab, setActiveTab] = useState(initialTab);
   const [roles, setRoles] = useState([]);
   const [users, setUsers] = useState([]);
   const [auditLogs, setAuditLogs] = useState([]);
@@ -134,8 +135,7 @@ export default function RolesPermissions() {
 
   const showToast = (message, type = 'success') => {
     if (type === 'success') {
-      setSuccess(message);
-      setTimeout(() => setSuccess(''), 4000);
+      return;
     } else {
       setError(message);
       setTimeout(() => setError(''), 5000);
@@ -391,11 +391,23 @@ export default function RolesPermissions() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
         <div>
           <h1 style={{ fontSize: '1.8rem', fontWeight: 800, margin: 0, display: 'flex', alignItems: 'center', gap: '12px', letterSpacing: '-0.02em', color: 'var(--text-main)' }}>
-            <Shield size={28} style={{ color: 'hsl(var(--color-primary))' }} />
-            Role & Permission Management
+            {hideTabs ? (
+              <>
+                <ClipboardList size={28} style={{ color: 'hsl(var(--color-primary))' }} />
+                Security Audit Ledger
+              </>
+            ) : (
+              <>
+                <Shield size={28} style={{ color: 'hsl(var(--color-primary))' }} />
+                Role & Permission Management
+              </>
+            )}
           </h1>
           <p style={{ margin: '4px 0 0 0', color: 'var(--text-muted)', fontSize: '0.88rem' }}>
-            System-wide Role-Based Access Control (RBAC) and Audit Ledger configurations.
+            {hideTabs 
+              ? 'System-wide security ledger tracking actions and operational audits.'
+              : 'System-wide Role-Based Access Control (RBAC) and Audit Ledger configurations.'
+            }
           </p>
         </div>
         <button 
@@ -408,33 +420,34 @@ export default function RolesPermissions() {
       </div>
 
       {/* Navigation tabs */}
-      <div style={{ display: 'flex', borderBottom: '1px solid var(--border-glass)', paddingBottom: '2px', gap: '24px', overflowX: 'auto' }}>
-        {[
-          { id: 'dashboard', label: 'Dashboard Overview', icon: Activity },
-          { id: 'roles', label: 'Roles Management', icon: Shield },
-          { id: 'matrix', label: 'Permissions Matrix', icon: Sliders },
-          { id: 'audit', label: 'Security Audit Ledger', icon: ClipboardList }
-        ].map(tab => {
-          const Icon = tab.icon;
-          const isActive = activeTab === tab.id;
-          return (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              style={{
-                background: 'none', border: 'none', padding: '12px 4px', fontSize: '0.92rem', fontWeight: isActive ? 700 : 500,
-                color: isActive ? 'hsl(var(--color-primary))' : 'var(--text-muted)', cursor: 'pointer', display: 'flex',
-                alignItems: 'center', gap: '8px', position: 'relative', outline: 'none', transition: 'all 0.2s ease',
-                borderBottom: isActive ? '2px solid hsl(var(--color-primary))' : '2px solid transparent',
-                marginBottom: '-2px', whiteSpace: 'nowrap'
-              }}
-            >
-              <Icon size={18} />
-              {tab.label}
-            </button>
-          );
-        })}
-      </div>
+      {!hideTabs && (
+        <div style={{ display: 'flex', borderBottom: '1px solid var(--border-glass)', paddingBottom: '2px', gap: '24px', overflowX: 'auto' }}>
+          {[
+            { id: 'dashboard', label: 'Dashboard Overview', icon: Activity },
+            { id: 'roles', label: 'Roles Management', icon: Shield },
+            { id: 'matrix', label: 'Permissions Matrix', icon: Sliders }
+          ].map(tab => {
+            const Icon = tab.icon;
+            const isActive = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                style={{
+                  background: 'none', border: 'none', padding: '12px 4px', fontSize: '0.92rem', fontWeight: isActive ? 700 : 500,
+                  color: isActive ? 'hsl(var(--color-primary))' : 'var(--text-muted)', cursor: 'pointer', display: 'flex',
+                  alignItems: 'center', gap: '8px', position: 'relative', outline: 'none', transition: 'all 0.2s ease',
+                  borderBottom: isActive ? '2px solid hsl(var(--color-primary))' : '2px solid transparent',
+                  marginBottom: '-2px', whiteSpace: 'nowrap'
+                }}
+              >
+                <Icon size={18} />
+                {tab.label}
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {/* TAB CONTENT: 1. DASHBOARD OVERVIEW */}
       {activeTab === 'dashboard' && (

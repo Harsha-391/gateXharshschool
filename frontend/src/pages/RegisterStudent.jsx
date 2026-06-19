@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import './RegisterStudent.css';
 import { fetchActiveGrades, fetchActiveSections } from '../utils/grades';
 import { 
   User, 
@@ -71,7 +72,7 @@ function SearchableSelect({ options, value, onChange, placeholder, className, st
           marginTop: '6px',
           maxHeight: '200px',
           overflowY: 'auto',
-          background: 'var(--bg-elevated)',
+          background: 'var(--bg-dropdown)',
           padding: '8px',
           boxShadow: 'var(--shadow-lg)'
         }}>
@@ -788,8 +789,8 @@ export default function RegisterStudent({ setActiveView, editData }) {
         setActiveStep(1);
         setLoading(false);
         isSubmitting.current = false;
-        setSuccessToast(true);
-        setTimeout(() => setSuccessToast(false), 5000);
+        // setSuccessToast(true);
+        // setTimeout(() => setSuccessToast(false), 5000);
         if (editData) {
           setActiveView('students');
         }
@@ -865,7 +866,7 @@ export default function RegisterStudent({ setActiveView, editData }) {
       )}
 
       {/* Success Success Toast */}
-      {successToast && (
+      {false && successToast && (
         <div className="glass-panel" style={{
           position: 'fixed',
           top: '20px',

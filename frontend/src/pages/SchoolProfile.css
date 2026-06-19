@@ -1,0 +1,57 @@
+/* School Profile (Platform Admin) Page SaaS Styling */
+
+/* Overwrite hardcoded white backgrounds in modals and result card boxes for Dark Theme compatibility */
+[data-theme='dark'] div[style*="background: '#ffffff'"],
+[data-theme='dark'] div[style*='background: "#ffffff"'],
+[data-theme='dark'] div[style*="background: rgb(255, 255, 255)"],
+[data-theme='dark'] div[style*="background-color: rgb(255, 255, 255)"] {
+  background: var(--bg-elevated) !important;
+  color: var(--text-main) !important;
+  border-color: var(--border-glass) !important;
+  box-shadow: var(--shadow-lg) !important;
+}
+
+/* School Cards grid */
+.school-grid-layout {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 24px;
+  margin-top: 20px;
+}
+
+/* Sleek interactive school tenant card */
+.school-card-box {
+  border-radius: 20px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-glass);
+  box-shadow: var(--shadow-sm);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  position: relative;
+  overflow: hidden;
+}
+
+.school-card-box:hover {
+  transform: translateY(-5px);
+  box-shadow: var(--shadow-md);
+  border-color: rgba(hsl(var(--color-primary)), 0.3);
+}
+
+/* Subscription plan badge overlays */
+.subscription-badge-tag {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  padding: 4px 12px;
+  border-radius: 99px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  background: rgba(hsl(var(--color-primary)), 0.1);
+  color: hsl(var(--color-primary));
+  border: 1px solid rgba(hsl(var(--color-primary)), 0.2);
+}

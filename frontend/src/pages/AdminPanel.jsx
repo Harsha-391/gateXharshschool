@@ -1,4 +1,5 @@
 import React, { useState, useEffect, lazy, Suspense } from 'react';
+import './AdminPanel.css';
 import { 
   Users, 
   UserCheck, 
@@ -31,7 +32,7 @@ const RegisterStudent = lazy(() => import('./RegisterStudent'));
 const StudentManager = lazy(() => import('./StudentManager'));
 const AddTeacher = lazy(() => import('./AddTeacher'));
 const AddStaff = lazy(() => import('./AddStaff'));
-const ExpensePanel = lazy(() => import('./ExpensePanel'));
+import ExpensePanel from './ExpensePanel';
 const AttendanceManager = lazy(() => import('./AttendanceManager'));
 const RolesPermissions = lazy(() => import('./RolesPermissions'));
 const GradeManagement = lazy(() => import('./GradeManagement'));
@@ -296,6 +297,7 @@ export default function AdminPanel({ setActiveView, onLogout, adminView, setAdmi
 
   // Toast Notification helper
   const showToast = (message, type = 'success') => {
+    if (type === 'success' || type === 'info') return;
     setNotification({ message, type });
     setTimeout(() => setNotification(null), 3500);
   };
@@ -757,6 +759,10 @@ export default function AdminPanel({ setActiveView, onLogout, adminView, setAdmi
 
         <KeepAlive active={adminView === 'roles-permissions'}>
           <RolesPermissions />
+        </KeepAlive>
+
+        <KeepAlive active={adminView === 'security-audit'}>
+          <RolesPermissions key="security-audit-ledger" initialTab="audit" hideTabs={true} />
         </KeepAlive>
 
         <KeepAlive active={adminView === 'profile'}>

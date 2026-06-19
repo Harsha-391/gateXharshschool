@@ -1579,6 +1579,8 @@ export const loadTenantSqlIntoMemory = async (tenantId) => {
   }
 };
 
+const activeLoads = {};
+
 // Express middleware to ensure SQL cache is loaded on incoming requests
 export const ensureTenantSqlLoaded = async (req, res, next) => {
   if (sqlInitPromise) {
@@ -1615,12 +1617,25 @@ export const ensureTenantSqlLoaded = async (req, res, next) => {
     const [schoolRows, tenantRows] = await Promise.all(promises);
 
     const platformSignature = schoolRows.map(s => `${s.id}-${s.name || ''}-${s.code || ''}-${s.subdomain || ''}-${s.logo || ''}-${s.principalName || ''}-${s.email || ''}-${s.phone || ''}-${s.address || ''}-${s.city || ''}-${s.state || ''}-${s.country || ''}-${s.academicSession || ''}-${s.subscriptionPlan || ''}-${s.url || ''}-${s.status || ''}-${s.adminName || ''}-${s.adminEmail || ''}-${s.adminUsername || ''}-${s.adminPassword || ''}-${s.createdAt || ''}`).join('|');
+    
+    // Check if platform cache needs invalidation
     if (!dbCache['platform'] || dbCache['platform']._signature !== platformSignature) {
-      console.log(`[SQL Cache] Invalidating platform cache (Local: ${dbCache['platform']?._signature || 'None'} != SQL: ${platformSignature})`);
-      const data = await loadTenantSqlIntoMemory('platform');
-      if (data) {
-        data._signature = platformSignature;
-        dbCache['platform'] = data;
+      if (activeLoads['platform']) {
+        await activeLoads['platform'];
+      } else {
+        console.log(`[SQL Cache] Invalidating platform cache (Local: ${dbCache['platform']?._signature || 'None'} != SQL: ${platformSignature})`);
+        activeLoads['platform'] = (async () => {
+          const data = await loadTenantSqlIntoMemory('platform');
+          if (data) {
+            data._signature = platformSignature;
+            dbCache['platform'] = data;
+          }
+        })();
+        try {
+          await activeLoads['platform'];
+        } finally {
+          delete activeLoads['platform'];
+        }
       }
     }
 
@@ -1634,11 +1649,22 @@ export const ensureTenantSqlLoaded = async (req, res, next) => {
         : '';
 
       if (!dbCache[activeTenant] || localUpdatedAtStr !== dbUpdatedAtStr) {
-        console.log(`[SQL Cache] Invalidating cache for tenant: ${activeTenant} (Local: ${localUpdatedAtStr} != SQL: ${dbUpdatedAtStr})`);
-        const data = await loadTenantSqlIntoMemory(activeTenant);
-        if (data) {
-          data._updatedAt = dbUpdatedAt;
-          dbCache[activeTenant] = data;
+        if (activeLoads[activeTenant]) {
+          await activeLoads[activeTenant];
+        } else {
+          console.log(`[SQL Cache] Invalidating cache for tenant: ${activeTenant} (Local: ${localUpdatedAtStr} != SQL: ${dbUpdatedAtStr})`);
+          activeLoads[activeTenant] = (async () => {
+            const data = await loadTenantSqlIntoMemory(activeTenant);
+            if (data) {
+              data._updatedAt = dbUpdatedAt;
+              dbCache[activeTenant] = data;
+            }
+          })();
+          try {
+            await activeLoads[activeTenant];
+          } finally {
+            delete activeLoads[activeTenant];
+          }
         }
       }
     }
@@ -3011,6 +3037,13 @@ export const writeDb = (data) => {
 
   if (isSqlActive()) {
     const previousData = dbCache[activeTenant];
+    
+    // Preserve cache validation tokens when updating cache
+    if (previousData) {
+      if (previousData._updatedAt) data._updatedAt = previousData._updatedAt;
+      if (previousData._signature) data._signature = previousData._signature;
+    }
+
     // 1. Update memory cache instantly
     dbCache[activeTenant] = data;
     // 2. Dispatch MySQL sync asynchronously in the background

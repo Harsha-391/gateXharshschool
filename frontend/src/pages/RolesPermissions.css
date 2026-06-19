@@ -1,0 +1,37 @@
+/* Roles & Permissions Styling Overrides for SaaS Visuals */
+
+/* Overwrite hardcoded white backgrounds in modals and result card boxes for Dark Theme compatibility */
+[data-theme='dark'] div[style*="background: '#ffffff'"],
+[data-theme='dark'] div[style*='background: "#ffffff"'],
+[data-theme='dark'] div[style*="background: rgb(255, 255, 255)"],
+[data-theme='dark'] div[style*="background-color: rgb(255, 255, 255)"] {
+  background: var(--bg-elevated) !important;
+  color: var(--text-main) !important;
+  border-color: var(--border-glass) !important;
+  box-shadow: var(--shadow-lg) !important;
+}
+
+/* Custom Role Matrix toggle grids */
+.permission-matrix-row {
+  display: grid;
+  grid-template-columns: 180px 1fr;
+  gap: 16px;
+  align-items: center;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-glass);
+}
+
+/* Auditing trail table styling details */
+.audit-trail-logs {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.audit-trail-row {
+  border-bottom: 1px dashed var(--border-subtle);
+  transition: background 0.2s ease;
+}
+
+.audit-trail-row:hover {
+  background: var(--bg-card-subtle);
+}

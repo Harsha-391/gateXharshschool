@@ -1,0 +1,55 @@
+/* Result Management Panel Overrides for SaaS Visuals */
+
+/* Overwrite hardcoded white backgrounds in modals and result card boxes for Dark Theme compatibility */
+[data-theme='dark'] div[style*="background: '#ffffff'"],
+[data-theme='dark'] div[style*='background: "#ffffff"'],
+[data-theme='dark'] div[style*="background: rgb(255, 255, 255)"],
+[data-theme='dark'] div[style*="background-color: rgb(255, 255, 255)"] {
+  background: var(--bg-elevated) !important;
+  color: var(--text-main) !important;
+  border-color: var(--border-glass) !important;
+  box-shadow: var(--shadow-lg) !important;
+}
+
+/* Translucent border overrides for Dark Mode */
+[data-theme='dark'] th[style*="border-bottom: '1px solid rgba(0,0,0,0.04)'"],
+[data-theme='dark'] td[style*="border-bottom: '1px solid rgba(0,0,0,0.03)'"] {
+  border-color: var(--border-glass) !important;
+}
+
+/* Tab button selector customization */
+.tab-btn-custom {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.tab-btn-custom:hover {
+  color: var(--text-main);
+  background: var(--bg-card-subtle);
+}
+
+.tab-btn-custom.active {
+  color: var(--text-inverse);
+  background: linear-gradient(135deg, hsl(var(--color-primary)) 0%, hsl(var(--color-secondary)) 100%);
+  box-shadow: 0 4px 10px rgba(hsl(var(--color-primary)), 0.2);
+}
+
+/* Printable report card styling details */
+@media print {
+  body {
+    background: #ffffff !important;
+    color: #0f172a !important;
+  }
+  .no-print {
+    display: none !important;
+  }
+  .print-page-break {
+    page-break-after: always;
+  }
+}

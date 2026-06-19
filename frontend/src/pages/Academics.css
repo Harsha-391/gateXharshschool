@@ -1,0 +1,85 @@
+/* Timetable matrix */
+.timetable-grid {
+  display: grid;
+  grid-template-columns: 90px repeat(5, 1fr);
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.timetable-header-cell {
+  padding: 14px 12px;
+  text-align: center;
+  font-weight: 700;
+  background: rgba(hsl(var(--color-primary)), 0.06);
+  border: 1px solid var(--border-glass);
+  border-radius: 12px;
+  font-size: 0.85rem;
+  color: hsl(var(--color-primary));
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.timetable-time-cell {
+  padding: 16px 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  background: var(--bg-card-subtle);
+  border-radius: 10px;
+  border: 1px dashed var(--border-glass);
+}
+
+.timetable-slot {
+  padding: 14px;
+  border-radius: 14px;
+  background: var(--bg-glass);
+  border: 1px solid var(--border-glass);
+  font-size: 0.8rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 6px;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: var(--shadow-sm);
+}
+
+.timetable-slot:hover {
+  transform: translateY(-2px);
+  border-color: rgba(hsl(var(--color-primary)), 0.35);
+  background: var(--bg-glass-active);
+  box-shadow: var(--shadow-md);
+}
+
+.timetable-subject-name {
+  font-weight: 700;
+  color: var(--text-main);
+  font-size: 0.85rem;
+  letter-spacing: -0.01em;
+}
+
+.timetable-teacher-name {
+  font-size: 0.725rem;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.timetable-room {
+  font-size: 0.675rem;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: rgba(hsl(var(--color-primary)), 0.08);
+  color: hsl(var(--color-primary));
+  align-self: flex-start;
+  font-weight: 700;
+}
+
+@media (max-width: 900px) {
+  .timetable-grid {
+    grid-template-columns: 80px repeat(5, 130px);
+    overflow-x: auto;
+    padding-bottom: 12px;
+  }
+}

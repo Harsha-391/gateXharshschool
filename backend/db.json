@@ -9,30 +9,7 @@
   "expenses": [],
   "payroll": [],
   "staffPayments": [],
-  "activities": [
-    {
-      "id": "ACT-1781783736776",
-      "type": "alert",
-      "title": "New School Onboarded",
-      "description": "School \"Test Automation Academy\" registered on the platform.",
-      "time": "Just now",
-      "timestamp": "2026-06-18T11:55:36.776Z",
-      "color": "hsl(var(--color-primary))",
-      "bg": "rgba(hsl(var(--color-primary)), 0.1)",
-      "tenantId": "platform"
-    },
-    {
-      "id": "ACT-1781783798871",
-      "type": "alert",
-      "title": "New School Onboarded",
-      "description": "School \"Test Automation Academy\" registered on the platform.",
-      "time": "Just now",
-      "timestamp": "2026-06-18T11:56:38.871Z",
-      "color": "hsl(var(--color-primary))",
-      "bg": "rgba(hsl(var(--color-primary)), 0.1)",
-      "tenantId": "platform"
-    }
-  ],
+  "activities": [],
   "exams": [],
   "examTimetables": [],
   "notices": [],

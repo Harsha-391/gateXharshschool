@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import './AccountManagementPortal.css';
 import { createPortal } from 'react-dom';
 import { 
   DollarSign, 

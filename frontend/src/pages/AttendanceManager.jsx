@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import './AttendanceManager.css';
 import jsQR from 'jsqr';
 import { 
   QrCode, 
@@ -856,14 +857,7 @@ export default function AttendanceManager() {
         </div>
       )}
 
-      {/* Embedded CSS Scanner Line Animation */}
-      <style>{`
-        @keyframes scannerLine {
-          0% { top: 0%; }
-          50% { top: 100%; }
-          100% { top: 0%; }
-        }
-      `}</style>
+
 
     </div>
   );

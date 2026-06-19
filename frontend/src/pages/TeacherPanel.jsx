@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import './TeacherPanel.css';
 import { 
   Users, 
   LogOut, 
@@ -95,6 +96,7 @@ export default function TeacherPanel({ setActiveView, onLogout, teacherView, set
 
   // Trigger notification helper
   const showToast = (message, type = 'success') => {
+    if (type === 'success' || type === 'info') return;
     setNotification({ message, type });
     setTimeout(() => setNotification(null), 3500);
   };
@@ -173,6 +175,7 @@ export default function TeacherPanel({ setActiveView, onLogout, teacherView, set
       case 'attendance-history':
         return (
           <AttendanceHistoryView 
+            date={selectedDate}
             showToast={showToast}
           />
         );
@@ -867,7 +870,9 @@ export function MarkAttendanceView({ date, setDate, studentClass, setClass, sect
 // ============================================================================
 // TAB B: ATTENDANCE HISTORY LOG VIEW
 // ============================================================================
-export function AttendanceHistoryView({ showToast }) {
+export function AttendanceHistoryView({ date, showToast }) {
+  const todayStr = new Date().toISOString().split('T')[0];
+  const [historyDate, setHistoryDate] = useState(date || todayStr);
   const [studentClass, setClass] = useState('');
   const [section, setSection] = useState('A');
   const [search, setSearch] = useState('');
@@ -908,10 +913,16 @@ export function AttendanceHistoryView({ showToast }) {
   });
 
   // Compute departments for the currently selected baseClass
-  const departmentsForSelectedGrade = activeGrades
-    .filter(g => parseGradeName(g.name).baseGrade === baseClass)
-    .map(g => parseGradeName(g.name).department)
-    .filter(Boolean);
+  const departmentsForSelectedGrade = React.useMemo(() => {
+    const depts = activeGrades
+      .filter(g => parseGradeName(g.name).baseGrade === baseClass)
+      .map(g => parseGradeName(g.name).department)
+      .filter(Boolean);
+    if (depts.length === 0 && isHighGrade) {
+      return ['Science', 'Commerce', 'Arts'];
+    }
+    return depts;
+  }, [activeGrades, baseClass, isHighGrade]);
 
   const handleBaseClassChange = (newBaseClass) => {
     if (isGrade11or12(newBaseClass)) {
@@ -919,12 +930,9 @@ export function AttendanceHistoryView({ showToast }) {
         .filter(g => parseGradeName(g.name).baseGrade === newBaseClass)
         .map(g => parseGradeName(g.name).department)
         .filter(Boolean);
-      if (depts.length > 0) {
-        const targetDept = depts.includes(selectedDept) ? selectedDept : depts[0];
-        setClass(`${newBaseClass} (${targetDept})`);
-      } else {
-        setClass(newBaseClass);
-      }
+      const activeDepts = depts.length > 0 ? depts : ['Science', 'Commerce', 'Arts'];
+      const targetDept = activeDepts.includes(selectedDept) ? selectedDept : activeDepts[0];
+      setClass(`${newBaseClass} (${targetDept})`);
     } else {
       setClass(newBaseClass);
     }
@@ -975,7 +983,7 @@ export function AttendanceHistoryView({ showToast }) {
     try {
       setLoading(true);
       const queryParams = new URLSearchParams({
-        date,
+        date: historyDate,
         studentClass,
         section,
         search
@@ -1005,7 +1013,7 @@ export function AttendanceHistoryView({ showToast }) {
     } else {
       loadSubmittedView();
     }
-  }, [date, studentClass, section, search, activeTab]);
+  }, [historyDate, studentClass, section, search, activeTab]);
 
   const handleStatusToggle = (stuId, status) => {
     setRoster(prev => prev.map(s => {
@@ -1040,7 +1048,7 @@ export function AttendanceHistoryView({ showToast }) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          date,
+          date: historyDate,
           studentClass,
           section,
           records: recordsToSave,
@@ -1078,7 +1086,7 @@ export function AttendanceHistoryView({ showToast }) {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `Attendance_Report_Grade${studentClass}_Section${section}_${date}.csv`;
+    a.download = `Attendance_Report_Grade${studentClass}_Section${section}_${historyDate}.csv`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -1163,14 +1171,13 @@ export function AttendanceHistoryView({ showToast }) {
             <label style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)' }}>Past Date</label>
             <input 
               type="date" 
-              value={date} 
+              value={historyDate} 
               onChange={(e) => {
                 const val = e.target.value;
-                const todayStr = new Date().toLocaleDateString('en-CA');
                 if (val > todayStr) return;
-                setDate(val);
+                setHistoryDate(val);
               }}
-              max={new Date().toLocaleDateString('en-CA')}
+              max={todayStr}
               className="form-control"
               style={{ height: '38px', borderRadius: '8px', padding: '8px 12px' }}
             />

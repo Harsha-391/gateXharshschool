@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import './AccountantPanel.css';
 import { createPortal } from 'react-dom';
 import {
   LayoutDashboard, DollarSign, CreditCard, Users, UserCheck, TrendingUp, TrendingDown,
@@ -49,6 +50,7 @@ import AddStaff from './AddStaff';
 export default function AccountantPanel({ setActiveView, onLogout, accountantView, setAccountantView, onBackToMain }) {
   const [notification, setNotification] = useState(null);
   const showToast = (message, type = 'success') => {
+    if (type === 'success' || type === 'info') return;
     setNotification({ message, type });
     setTimeout(() => setNotification(null), 3500);
   };

@@ -1,0 +1,65 @@
+/* Accountant Panel Styling Overrides for SaaS Aesthetics */
+
+/* Dashboard layout grid overrides */
+.finance-subadmin {
+  color: var(--text-main) !important;
+}
+
+/* Card and Grid modern spacing */
+.finance-subadmin div[style*="display: 'grid'"] {
+  gap: 20px !important;
+}
+
+/* Override hardcoded #ffffff background card divs for Dark Theme compatibility */
+[data-theme='dark'] .finance-subadmin div[style*="background: '#ffffff'"],
+[data-theme='dark'] .finance-subadmin div[style*='background: "#ffffff"'],
+[data-theme='dark'] .finance-subadmin div[style*="background: rgb(255, 255, 255)"],
+[data-theme='dark'] .finance-subadmin div[style*="background-color: rgb(255, 255, 255)"] {
+  background: var(--bg-elevated) !important;
+  color: var(--text-main) !important;
+  border-color: var(--border-glass) !important;
+  box-shadow: var(--shadow-md) !important;
+}
+
+/* Soft inline border rules for dark mode list items */
+[data-theme='dark'] .finance-subadmin div[style*="border-bottom: '1px solid rgba(0,0,0,0.05)'"],
+[data-theme='dark'] .finance-subadmin div[style*="border-top: '1px solid rgba(0,0,0,0.05)'"] {
+  border-color: var(--border-glass) !important;
+}
+
+/* Clean Accountant Stats widgets with hover translation */
+.finance-stat-card {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+.finance-stat-card:hover {
+  transform: translateY(-4px) !important;
+  border-color: rgba(hsl(var(--color-primary)), 0.3) !important;
+  box-shadow: var(--shadow-lg) !important;
+}
+
+/* Custom Invoices list layout and zebra highlights */
+.finance-invoice-row {
+  transition: background 0.2s ease !important;
+}
+
+.finance-invoice-row:hover {
+  background: var(--bg-glass-active) !important;
+}
+
+/* Modal form layouts in financial logs */
+.finance-modal-box {
+  background: var(--bg-elevated) !important;
+  border: 1px solid var(--border-glass) !important;
+  backdrop-filter: var(--glass-blur);
+  border-radius: 20px !important;
+  box-shadow: var(--shadow-lg) !important;
+}
+
+/* Print Slip dashed borders theme-responsive settings */
+.receipt-dashed-box {
+  border: 2px dashed var(--border-glass) !important;
+  background: var(--bg-card-subtle) !important;
+  border-radius: 12px;
+  padding: 24px;
+}

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import './AddTeacher.css';
 import { 
   User, 
   Briefcase, 
@@ -70,7 +71,7 @@ function SearchableSelect({ options, value, onChange, placeholder, className, st
           marginTop: '6px',
           maxHeight: '200px',
           overflowY: 'auto',
-          background: 'var(--bg-elevated)',
+          background: 'var(--bg-dropdown)',
           padding: '8px',
           boxShadow: 'var(--shadow-lg)'
         }}>
@@ -323,8 +324,7 @@ export default function AddTeacher({ setActiveView, editData }) {
 
   const statusOptions = [
     { value: 'Active', label: 'Active' },
-    { value: 'Inactive', label: 'Inactive' },
-    { value: 'On Leave', label: 'On Leave' }
+    { value: 'Inactive', label: 'Inactive' }
   ];
 
   const [existingFiles, setExistingFiles] = useState({});
@@ -570,10 +570,12 @@ export default function AddTeacher({ setActiveView, editData }) {
   const handleSelectChange = (fieldName, value) => {
     setFormData(prev => {
       const updated = { ...prev, [fieldName]: value };
-      if (fieldName === 'designation' && value !== 'Teacher') {
+      if (fieldName === 'designation' && !['Teacher', 'Subject Teacher'].includes(value)) {
         updated.department = '';
         updated.primarySubject = '';
         updated.secondarySubject = '';
+      } else if (fieldName === 'designation') {
+        updated.department = '';
       }
       return updated;
     });
@@ -772,8 +774,8 @@ export default function AddTeacher({ setActiveView, editData }) {
         setActiveStep(1);
         setLoading(false);
         isSubmitting.current = false;
-        setSuccessToast(true);
-        setTimeout(() => setSuccessToast(false), 5000);
+        // setSuccessToast(true);
+        // setTimeout(() => setSuccessToast(false), 5000);
       } else {
         const errData = await res.json();
         alert(errData.error || 'Server error occurred during teacher registration.');
@@ -830,7 +832,7 @@ export default function AddTeacher({ setActiveView, editData }) {
       )}
 
       {/* Success Toast */}
-      {successToast && (
+      {false && successToast && (
         <div className="glass-panel" style={{
           position: 'fixed', top: '20px', right: '20px', zIndex: 99999,
           background: 'rgba(16, 185, 129, 0.95)', color: 'white',
@@ -1156,19 +1158,8 @@ export default function AddTeacher({ setActiveView, editData }) {
                 />
               </div>
 
-              {formData.designation === 'Teacher' && (
+              {['Teacher', 'Subject Teacher'].includes(formData.designation) && (
                 <>
-                  <div className="form-group animate-slide-down">
-                    <label>Department *</label>
-                    <SearchableSelect 
-                      options={departmentOptions}
-                      value={formData.department}
-                      onChange={(val) => handleSelectChange('department', val)}
-                      placeholder="Choose Department"
-                      className="form-control"
-                    />
-                  </div>
-
                   <div className="form-group animate-slide-down">
                     <label>Primary Subject</label>
                     <input 
@@ -1751,9 +1742,8 @@ export default function AddTeacher({ setActiveView, editData }) {
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '0.85rem' }}>
                   <div><strong>Role:</strong> {formData.designation || 'N/A'}</div>
-                  {formData.designation === 'Teacher' && (
+                  {['Teacher', 'Subject Teacher'].includes(formData.designation) && (
                     <>
-                      <div><strong>Department:</strong> {formData.department || 'N/A'}</div>
                       <div><strong>Subjects:</strong> {formData.primarySubject || 'N/A'} {formData.secondarySubject ? `, ${formData.secondarySubject}` : ''}</div>
                     </>
                   )}

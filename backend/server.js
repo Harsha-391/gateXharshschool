@@ -587,20 +587,22 @@ app.delete('/api/platform/schools/:id', async (req, res) => {
         console.error('Failed to update local db.json fallback during delete:', err);
       }
     }
+  }
 
-    // Also attempt deletion directly from MySQL database if active
-    const { isSqlActive } = await import('./utils/db.js');
-    if (isSqlActive()) {
-      try {
-        const sqlDb = await import('./utils/sqlDb.js');
+  // Also attempt deletion directly from MySQL database if active
+  const { isSqlActive } = await import('./utils/db.js');
+  if (isSqlActive()) {
+    try {
+      const sqlDb = await import('./utils/sqlDb.js');
+      if (!subdomainToDelete) {
         const rows = await sqlDb.query('SELECT subdomain FROM schools WHERE id = ?', [req.params.id]);
         if (rows && rows.length > 0) {
           subdomainToDelete = rows[0].subdomain;
         }
-        await sqlDb.query('DELETE FROM schools WHERE id = ?', [req.params.id]);
-      } catch (err) {
-        console.error('Failed to delete school from SQL directly:', err);
       }
+      await sqlDb.query('DELETE FROM schools WHERE id = ?', [req.params.id]);
+    } catch (err) {
+      console.error('Failed to delete school from SQL directly:', err);
     }
   }
 

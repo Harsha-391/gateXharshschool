@@ -1,0 +1,41 @@
+/* Admin Attendance Views Overrides for SaaS Visuals */
+
+/* Overwrite hardcoded white backgrounds in modals and result card boxes for Dark Theme compatibility */
+[data-theme='dark'] div[style*="background: '#ffffff'"],
+[data-theme='dark'] div[style*='background: "#ffffff"'],
+[data-theme='dark'] div[style*="background: rgb(255, 255, 255)"],
+[data-theme='dark'] div[style*="background-color: rgb(255, 255, 255)"] {
+  background: var(--bg-elevated) !important;
+  color: var(--text-main) !important;
+  border-color: var(--border-glass) !important;
+  box-shadow: var(--shadow-lg) !important;
+}
+
+/* Translucent border rules for dark mode lists */
+[data-theme='dark'] td[style*="border-bottom: '1px solid rgba(0,0,0,0.04)'"] {
+  border-color: var(--border-glass) !important;
+}
+
+/* Custom calendar attendance grid cells */
+.admin-attendance-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 8px;
+}
+
+.admin-attendance-cell {
+  aspect-ratio: 1;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  font-weight: 600;
+  transition: all 0.2s ease;
+  border: 1px solid var(--border-glass);
+}
+
+.admin-attendance-cell:hover {
+  transform: scale(1.05);
+  box-shadow: var(--shadow-sm);
+}

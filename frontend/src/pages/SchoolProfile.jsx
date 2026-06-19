@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import './SchoolProfile.css';
 import { createPortal } from 'react-dom';
 
 // Local slugify helper (mirrors backend utility)
@@ -222,6 +223,7 @@ export default function SchoolProfile({ schoolDetails, fetchSchoolDetails, isDev
   const [formErrors, setFormErrors] = useState({});
 
   const showToast = (message, type = 'success') => {
+    if (type === 'success' || type === 'info') return;
     setNotification({ message, type });
     setTimeout(() => setNotification(null), 4000);
   };

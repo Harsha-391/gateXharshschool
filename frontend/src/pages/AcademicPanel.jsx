@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import './AcademicPanel.css';
 import { createPortal } from 'react-dom';
 import { 
   Clock, 
@@ -230,6 +231,7 @@ export default function AcademicPanel({ subView, setAdminView }) {
   ];
 
   const showToast = (message, type = 'success') => {
+    if (type === 'success' || type === 'info') return;
     setNotification({ message, type });
     setTimeout(() => setNotification(null), 4000);
   };
@@ -5047,29 +5049,7 @@ export default function AcademicPanel({ subView, setAdminView }) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
         
-        {/* Printable View Styling Wrapper */}
-        <style>{`
-          @media print {
-            body * {
-              visibility: hidden;
-            }
-            #printable-calendar-view, #printable-calendar-view * {
-              visibility: visible;
-            }
-            #printable-calendar-view {
-              position: absolute;
-              left: 0;
-              top: 0;
-              width: 100%;
-              background: #fff !important;
-              color: #000 !important;
-              box-shadow: none !important;
-            }
-            .no-print {
-              display: none !important;
-            }
-          }
-        `}</style>
+
 
         {/* Master Control Header */}
         <div className="glass-panel no-print" style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>

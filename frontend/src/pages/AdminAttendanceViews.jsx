@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import './AdminAttendanceViews.css';
 import { 
   Search, 
   CheckCircle, 
@@ -802,10 +803,16 @@ export function AttendanceHistoryView({ date, showToast }) {
   });
 
   // Compute departments for the currently selected baseClass
-  const departmentsForSelectedGrade = activeGrades
-    .filter(g => parseGradeName(g.name).baseGrade === baseClass)
-    .map(g => parseGradeName(g.name).department)
-    .filter(Boolean);
+  const departmentsForSelectedGrade = React.useMemo(() => {
+    const depts = activeGrades
+      .filter(g => parseGradeName(g.name).baseGrade === baseClass)
+      .map(g => parseGradeName(g.name).department)
+      .filter(Boolean);
+    if (depts.length === 0 && isHighGrade) {
+      return ['Science', 'Commerce', 'Arts'];
+    }
+    return depts;
+  }, [activeGrades, baseClass, isHighGrade]);
 
   const handleBaseClassChange = (newBaseClass) => {
     if (isGrade11or12(newBaseClass)) {
@@ -813,12 +820,9 @@ export function AttendanceHistoryView({ date, showToast }) {
         .filter(g => parseGradeName(g.name).baseGrade === newBaseClass)
         .map(g => parseGradeName(g.name).department)
         .filter(Boolean);
-      if (depts.length > 0) {
-        const targetDept = depts.includes(selectedDept) ? selectedDept : depts[0];
-        setClass(`${newBaseClass} (${targetDept})`);
-      } else {
-        setClass(newBaseClass);
-      }
+      const activeDepts = depts.length > 0 ? depts : ['Science', 'Commerce', 'Arts'];
+      const targetDept = activeDepts.includes(selectedDept) ? selectedDept : activeDepts[0];
+      setClass(`${newBaseClass} (${targetDept})`);
     } else {
       setClass(newBaseClass);
     }

@@ -1,0 +1,53 @@
+/* Expense Panel Styling Overrides for SaaS Visuals */
+
+/* Overwrite hardcoded white backgrounds in modals and forms for Dark Mode */
+[data-theme='dark'] div[style*="background: '#ffffff'"],
+[data-theme='dark'] div[style*='background: "#ffffff"'],
+[data-theme='dark'] div[style*="background: rgb(255, 255, 255)"],
+[data-theme='dark'] div[style*="background-color: rgb(255, 255, 255)"] {
+  background: var(--bg-elevated) !important;
+  color: var(--text-main) !important;
+  border-color: var(--border-glass) !important;
+  box-shadow: var(--shadow-lg) !important;
+}
+
+/* Translucent border rules */
+[data-theme='dark'] div[style*="border-top: '1px solid rgba(0,0,0,0.06)'"],
+[data-theme='dark'] div[style*="border-bottom: '1px solid rgba(0,0,0,0.06)'"] {
+  border-color: var(--border-glass) !important;
+}
+
+/* Custom styles for Expense Metrics grid */
+.expense-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 20px;
+}
+
+/* Hover scales on transaction items */
+.expense-item-card {
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 1px solid var(--border-glass) !important;
+}
+
+.expense-item-card:hover {
+  transform: translateY(-3px);
+  border-color: rgba(hsl(var(--color-primary)), 0.25) !important;
+  box-shadow: var(--shadow-md) !important;
+}
+
+/* Budget tracker bar container */
+.budget-limit-bar {
+  height: 8px;
+  background: var(--bg-card-subtle);
+  border-radius: 99px;
+  overflow: hidden;
+  position: relative;
+}
+
+.budget-limit-progress {
+  height: 100%;
+  border-radius: 99px;
+  background: linear-gradient(90deg, hsl(var(--color-primary)) 0%, hsl(var(--color-secondary)) 100%);
+  transition: width 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}

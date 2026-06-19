@@ -1,0 +1,45 @@
+/* Student Directory Styling Overrides for SaaS Visuals */
+
+/* Overwrite hardcoded white backgrounds in modals and result card boxes for Dark Theme compatibility */
+[data-theme='dark'] div[style*="background: '#ffffff'"],
+[data-theme='dark'] div[style*='background: "#ffffff"'],
+[data-theme='dark'] div[style*="background: rgb(255, 255, 255)"],
+[data-theme='dark'] div[style*="background-color: rgb(255, 255, 255)"] {
+  background: var(--bg-elevated) !important;
+  color: var(--text-main) !important;
+  border-color: var(--border-glass) !important;
+  box-shadow: var(--shadow-lg) !important;
+}
+
+/* Translucent border rules for dark mode lists */
+[data-theme='dark'] td[style*="border-bottom: '1px solid rgba(0,0,0,0.04)'"] {
+  border-color: var(--border-glass) !important;
+}
+
+/* Modal form controls padding */
+.directory-modal-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* Document download buttons list container */
+.document-link-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.72rem !important;
+  font-weight: 600 !important;
+  padding: 6px 12px !important;
+  border-radius: 8px !important;
+  background: var(--bg-card-subtle) !important;
+  border: 1px solid var(--border-glass) !important;
+  color: var(--text-muted) !important;
+  transition: all 0.2s ease;
+}
+
+.document-link-btn:hover {
+  background: var(--bg-glass-active) !important;
+  color: hsl(var(--color-primary)) !important;
+  border-color: rgba(hsl(var(--color-primary)), 0.35) !important;
+}

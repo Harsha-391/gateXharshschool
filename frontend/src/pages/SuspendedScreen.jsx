@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import './SuspendedScreen.css';
 import { ShieldAlert, RefreshCw } from 'lucide-react';
 
 export default function SuspendedScreen({ schoolDetails, onUnsuspended }) {

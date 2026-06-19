@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import './ExpensePanel.css';
 import {
   LayoutDashboard, DollarSign, Wallet, ClipboardList, BarChart3, Bell, CheckCircle,
   AlertTriangle, Plus, Search, Filter, Download, ArrowUpRight, ArrowDownRight,
@@ -23,6 +24,7 @@ export default function ExpensePanel({ setActiveView, onLogout, expenseView, set
   const [budgetLimit] = useState(600000); // Default monthly budget limit
 
   const showToast = (message, type = 'success') => {
+    if (type === 'success' || type === 'info') return;
     setNotification({ message, type });
     setTimeout(() => setNotification(null), 3500);
   };

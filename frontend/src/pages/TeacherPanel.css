@@ -1,0 +1,82 @@
+/* TeacherPanel Page Styling Overrides & Custom Components */
+
+/* Roster Table Modernization */
+.student-table {
+  border-collapse: separate !important;
+  border-spacing: 0 8px !important;
+}
+
+.student-table th {
+  padding: 14px 18px !important;
+  font-size: 0.72rem !important;
+  font-weight: 700 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.05em !important;
+  color: var(--text-muted) !important;
+  border-bottom: 2px solid var(--border-glass) !important;
+}
+
+.table-row-hover {
+  background: var(--bg-card-subtle) !important;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  border-radius: 12px;
+}
+
+.table-row-hover:hover {
+  background: var(--bg-glass-active) !important;
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-sm);
+}
+
+.table-row-hover td {
+  padding: 16px 18px !important;
+  border-bottom: 1px solid var(--border-subtle) !important;
+}
+
+.table-row-hover td:first-child {
+  border-top-left-radius: 12px;
+  border-bottom-left-radius: 12px;
+}
+
+.table-row-hover td:last-child {
+  border-top-right-radius: 12px;
+  border-bottom-right-radius: 12px;
+}
+
+/* Custom Status Chips for Attendance */
+.attendance-status-badge {
+  font-size: 0.75rem !important;
+  font-weight: 700 !important;
+  padding: 6px 14px !important;
+  border-radius: 99px !important;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+/* Grade Metrics Stat Cards */
+.grade-stat-card {
+  padding: 24px !important;
+  border-radius: 16px !important;
+  background: var(--bg-card) !important;
+  border: 1px solid var(--border-glass) !important;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: var(--shadow-sm);
+}
+
+.grade-stat-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-md);
+  border-color: rgba(hsl(var(--color-primary)), 0.3);
+}
+
+/* Dark theme specific inline style overrides */
+[data-theme='dark'] div[style*="background: '#ffffff'"],
+[data-theme='dark'] div[style*="background: rgb(255, 255, 255)"],
+[data-theme='dark'] div[style*="background-color: rgb(255, 255, 255)"] {
+  background: var(--bg-elevated) !important;
+  color: var(--text-main) !important;
+  border-color: var(--border-glass) !important;
+}

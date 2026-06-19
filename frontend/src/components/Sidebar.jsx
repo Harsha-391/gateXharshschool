@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import './Sidebar.css';
 import { hasPermission, isSuperAdmin } from '../utils/permissions';
 import { 
   GraduationCap, 
@@ -186,7 +187,7 @@ export default function Sidebar({
                 <button
                   type="button"
                   onClick={() => setAdminCoreOpen(!adminCoreOpen)}
-                  className={`nav-item ${['students', 'teachers', 'staff'].includes(adminView) ? 'active' : ''}`}
+                  className={`nav-item ${['students', 'teachers', 'staff'].includes(adminView) ? 'parent-active' : ''}`}
                   style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', cursor: 'pointer' }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
@@ -326,7 +327,7 @@ export default function Sidebar({
                 <button
                   type="button"
                   onClick={() => setAdminAttendanceOpen(!adminAttendanceOpen)}
-                  className={`nav-item ${['employee-attendance', 'attendance', 'attendance-history'].includes(adminView) ? 'active' : ''}`}
+                  className={`nav-item ${['employee-attendance', 'attendance', 'attendance-history'].includes(adminView) ? 'parent-active' : ''}`}
                   style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', cursor: 'pointer' }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: '16px', minWidth: 0, overflow: 'hidden' }}>
@@ -377,7 +378,7 @@ export default function Sidebar({
                 <button
                   type="button"
                   onClick={() => setAdminAcademicOpen(!adminAcademicOpen)}
-                  className={`nav-item ${['academic-manager', 'academic-class-timetable', 'academic-teacher-timetable', 'academic-exams', 'academic-exams-history', 'academic-published-timetable', 'academic-published-exam'].includes(adminView) ? 'active' : ''}`}
+                  className={`nav-item ${['academic-manager', 'academic-class-timetable', 'academic-teacher-timetable', 'academic-exams', 'academic-exams-history', 'academic-published-timetable', 'academic-published-exam'].includes(adminView) ? 'parent-active' : ''}`}
                   style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', cursor: 'pointer' }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: '16px', minWidth: 0, overflow: 'hidden' }}>
@@ -428,7 +429,7 @@ export default function Sidebar({
                 <button
                   type="button"
                   onClick={() => setAdminAcademicActivitiesOpen(!adminAcademicActivitiesOpen)}
-                  className={`nav-item ${['academic-activities', 'academic-events', 'academic-notices', 'academic-holidays', 'academic-calendar'].includes(adminView) ? 'active' : ''}`}
+                  className={`nav-item ${['academic-activities', 'academic-events', 'academic-notices', 'academic-holidays', 'academic-calendar'].includes(adminView) ? 'parent-active' : ''}`}
                   style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', cursor: 'pointer' }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: '16px', minWidth: 0, overflow: 'hidden' }}>
@@ -469,7 +470,7 @@ export default function Sidebar({
                 <button
                   type="button"
                   onClick={() => setAdminResultsOpen(!adminResultsOpen)}
-                  className={`nav-item ${['results-manager', 'results-analytics', 'results-marks-entry', 'results-report-cards', 'academic-results', 'results-history'].includes(adminView) ? 'active' : ''}`}
+                  className={`nav-item ${['results-manager', 'results-analytics', 'results-marks-entry', 'results-report-cards', 'academic-results', 'results-history'].includes(adminView) ? 'parent-active' : ''}`}
                   style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', cursor: 'pointer' }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: '16px', minWidth: 0, overflow: 'hidden' }}>
@@ -513,7 +514,7 @@ export default function Sidebar({
                   className={`nav-item ${[
                     'collect-fees', 'fee-structure', 
                     'payroll', 'teacher-pay-structure', 'staff-pay', 'staff-pay-structure'
-                  ].includes(adminView) ? 'active' : ''}`}
+                  ].includes(adminView) ? 'parent-active' : ''}`}
                   style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', cursor: 'pointer' }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
@@ -587,7 +588,7 @@ export default function Sidebar({
                 <button
                   type="button"
                   onClick={() => setAdminExpensesOpen(!adminExpensesOpen)}
-                  className={`nav-item ${['expense-dashboard', 'expense-all-expenses', 'expense-tracker', 'expense-history'].includes(adminView) ? 'active' : ''}`}
+                  className={`nav-item ${['expense-dashboard', 'expense-all-expenses', 'expense-tracker', 'expense-history'].includes(adminView) ? 'parent-active' : ''}`}
                   style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', cursor: 'pointer' }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
@@ -660,6 +661,19 @@ export default function Sidebar({
               >
                 <List size={20} className="flex-shrink-0" />
                 <span className="nav-label">Financial Reports</span>
+              </button>
+            )}
+
+            {(isSuperAdmin() || hasPermission('roles-permissions', 'view')) && (
+              <button
+                onClick={() => { setAdminView('security-audit'); setMobileOpen(false); }}
+                onMouseEnter={() => {
+                  prefetchApi('/api/rbac/audit-logs');
+                }}
+                className={`nav-item ${adminView === 'security-audit' ? 'active' : ''}`}
+              >
+                <ClipboardList size={20} className="flex-shrink-0" />
+                <span className="nav-label">Security Audit Ledger</span>
               </button>
             )}
 

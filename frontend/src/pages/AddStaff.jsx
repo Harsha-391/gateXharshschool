@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import './AddStaff.css';
 import { 
   User, 
   Briefcase, 
@@ -188,10 +189,10 @@ function CustomSelect({ options, value, onChange, placeholder, name, className, 
         </svg>
       </div>
       {isOpen && (
-        <div style={{
+        <div className="glass-panel" style={{
           position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 1000,
           marginTop: '6px', maxHeight: '220px', overflowY: 'auto',
-          background: 'var(--bg-card)', border: '1px solid var(--border-glass)',
+          background: 'var(--bg-dropdown)', border: '1px solid var(--border-glass)',
           borderRadius: '12px', boxShadow: '0 12px 40px rgba(0,0,0,0.25)',
           padding: '6px'
         }}>
@@ -409,13 +410,15 @@ export default function AddStaff({ setActiveView, editData }) {
     setFormData(prev => ({
       ...prev,
       designation: value,
-      department: details.department || prev.department
+      department: details.department || prev.department,
+      staffCategory: details.category || prev.staffCategory
     }));
     
-    if (validationErrors.designation) {
+    if (validationErrors.designation || validationErrors.staffCategory) {
       setValidationErrors(prev => ({
         ...prev,
-        designation: ''
+        designation: '',
+        staffCategory: ''
       }));
     }
   };
@@ -489,7 +492,6 @@ export default function AddStaff({ setActiveView, editData }) {
       }
     }
     if (step === 2) {
-      if (!formData.staffCategory) errors.staffCategory = 'Role is required';
       if (!formData.designation) errors.designation = 'Designation is required';
     }
     setValidationErrors(errors);
@@ -568,11 +570,16 @@ export default function AddStaff({ setActiveView, editData }) {
   // ============================================================
   const handleSubmit = async () => {
     if (isSubmitting.current) return;
-    if (!validateStep(2)) {
-      setCurrentStep(2);
-      alert('Please fill in all mandatory fields on Step 2 (Designation).');
-      return;
+    
+    let isValid = true;
+    for (let step = 1; step <= 2; step++) {
+      if (!validateStep(step)) {
+        setCurrentStep(step);
+        isValid = false;
+        break;
+      }
     }
+    if (!isValid) return;
     isSubmitting.current = true;
     setLoading(true);
     try {
@@ -580,7 +587,14 @@ export default function AddStaff({ setActiveView, editData }) {
       const fd = new FormData();
 
       // Append all form data
-      Object.keys(formData).forEach(k => fd.append(k, formData[k]));
+      Object.keys(formData).forEach(k => {
+        if (k === 'staffCategory' && !formData.staffCategory && formData.designation) {
+          const details = DESIGNATION_DETAILS[formData.designation];
+          fd.append(k, details ? details.category : '');
+        } else {
+          fd.append(k, formData[k]);
+        }
+      });
       fd.append('fullName', fullName);
       fd.append('staffId', staffId);
       fd.append('qualification', JSON.stringify(qualifications));
@@ -598,8 +612,8 @@ export default function AddStaff({ setActiveView, editData }) {
         setCurrentStep(1);
         setLoading(false);
         isSubmitting.current = false;
-        setSuccessToast(true);
-        setTimeout(() => setSuccessToast(false), 5000);
+        // setSuccessToast(true);
+        // setTimeout(() => setSuccessToast(false), 5000);
       } else {
         const err = await res.json();
         alert(err.error || 'Failed to register staff.');
@@ -617,9 +631,13 @@ export default function AddStaff({ setActiveView, editData }) {
   const nextStep = () => {
     if (validateStep(currentStep)) {
       setCurrentStep(prev => Math.min(prev + 1, STEPS.length));
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };
-  const prevStep = () => setCurrentStep(prev => Math.max(prev - 1, 1));
+  const prevStep = () => {
+    setCurrentStep(prev => Math.max(prev - 1, 1));
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   // ============================================================
   // SHARED STYLES
@@ -768,10 +786,6 @@ export default function AddStaff({ setActiveView, editData }) {
         <div className="form-group">
           <label>Date of Birth</label>
           <input type="date" name="dob" value={formData.dob} onChange={handleChange} max={new Date().toLocaleDateString('en-CA')} className="form-control" style={inputStyle} />
-        </div>
-        <div className="form-group">
-          <label>Employee Status</label>
-          <CustomSelect name="employeeStatus" value={formData.employeeStatus} onChange={handleChange} options={EMPLOYEE_STATUSES} placeholder="Select Status" className="form-control" style={inputStyle} />
         </div>
       </div>
     </div>
@@ -1054,7 +1068,6 @@ export default function AddStaff({ setActiveView, editData }) {
                 <div><strong>Department:</strong> {formData.department || '—'}</div>
                 <div><strong>Type:</strong> {formData.employmentType || '—'}</div>
                 <div><strong>Joining:</strong> {formData.joiningDate || '—'}</div>
-                <div><strong>Status:</strong> {formData.employeeStatus}</div>
               </div>
             </div>
 
@@ -1089,7 +1102,7 @@ export default function AddStaff({ setActiveView, editData }) {
     <div className="animate-slide-up no-card-form" style={{ display: 'flex', flexDirection: 'column', gap: '24px', paddingBottom: '40px' }}>
       
       {/* Success Toast */}
-      {successToast && (
+      {false && successToast && (
         <div className="glass-panel" style={{
           position: 'fixed', top: '20px', right: '20px', zIndex: 99999,
           background: 'rgba(var(--color-success-rgb), 0.95)', color: 'white',
@@ -1116,13 +1129,8 @@ export default function AddStaff({ setActiveView, editData }) {
               <button
                 type="button"
                 onClick={() => {
-                  if (step.id > currentStep) {
-                    if (validateStep(currentStep)) {
-                      setCurrentStep(step.id);
-                    }
-                  } else {
-                    setCurrentStep(step.id);
-                  }
+                  setCurrentStep(step.id);
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
                 }}
                 style={{
                   display: 'flex', alignItems: 'center', gap: '8px',

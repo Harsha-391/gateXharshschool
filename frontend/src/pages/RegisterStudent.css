@@ -1,0 +1,27 @@
+/* Register Student Form Page Styling Overrides */
+
+/* Overwrite hardcoded white backgrounds in modals and result card boxes for Dark Theme compatibility */
+[data-theme='dark'] div[style*="background: '#ffffff'"],
+[data-theme='dark'] div[style*='background: "#ffffff"'],
+[data-theme='dark'] div[style*="background: rgb(255, 255, 255)"],
+[data-theme='dark'] div[style*="background-color: rgb(255, 255, 255)"] {
+  background: var(--bg-elevated) !important;
+  color: var(--text-main) !important;
+  border-color: var(--border-glass) !important;
+  box-shadow: var(--shadow-lg) !important;
+}
+
+/* Translucent border rules for dark mode lists */
+[data-theme='dark'] td[style*="border-bottom: '1px solid rgba(0,0,0,0.04)'"] {
+  border-color: var(--border-glass) !important;
+}
+
+/* Form container visuals */
+.form-step-container {
+  background: var(--bg-card);
+  border: 1px solid var(--border-glass);
+  border-radius: 20px;
+  padding: 30px;
+  box-shadow: var(--shadow-md);
+  margin-top: 20px;
+}
