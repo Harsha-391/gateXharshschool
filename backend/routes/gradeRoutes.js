@@ -101,7 +101,8 @@ router.get('/active-options', (req, res) => {
               gradeId: g.id,
               gradeName: g.name,
               departmentId: dept.id,
-              departmentName: dept.name
+              departmentName: dept.name,
+              sections: g.sections || []
             });
           });
         } else {
@@ -111,7 +112,8 @@ router.get('/active-options', (req, res) => {
             gradeId: g.id,
             gradeName: g.name,
             departmentId: null,
-            departmentName: null
+            departmentName: null,
+            sections: g.sections || []
           });
         }
       } else {
@@ -121,7 +123,8 @@ router.get('/active-options', (req, res) => {
           gradeId: g.id,
           gradeName: g.name,
           departmentId: null,
-          departmentName: null
+          departmentName: null,
+          sections: g.sections || []
         });
       }
     });
@@ -203,7 +206,7 @@ router.post('/', (req, res) => {
 router.put('/:id', (req, res) => {
   try {
     const { id } = req.params;
-    const { name, status } = req.body;
+    const { name, status, sections } = req.body;
 
     const db = readDb();
     const index = db.grades.findIndex(g => g.id === id);
@@ -227,6 +230,10 @@ router.put('/:id', (req, res) => {
 
     if (status) {
       currentGrade.status = status;
+    }
+
+    if (sections !== undefined) {
+      currentGrade.sections = sections;
     }
 
     currentGrade.updatedAt = new Date().toISOString();
@@ -590,38 +597,6 @@ router.delete('/sections/:id', (req, res) => {
     res.json({ success: true, message: `Section ${section.name} deleted successfully.` });
   } catch (error) {
     res.status(500).json({ error: 'Failed to delete section: ' + error.message });
-  }
-});
-
-// ==========================================
-// 6. ACADEMIC STRUCTURE SETTINGS
-// ==========================================
-router.get('/settings', (req, res) => {
-  try {
-    const db = readDb();
-    const school = db.school || {};
-    res.json({
-      academicSession: school.academicSession || '2026-2027',
-      defaultSections: ['A', 'B', 'C', 'D', 'E']
-    });
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to fetch structure settings: ' + error.message });
-  }
-});
-
-router.post('/settings', (req, res) => {
-  try {
-    const { academicSession } = req.body;
-    const db = readDb();
-    if (!db.school) db.school = {};
-    
-    db.school.academicSession = academicSession || db.school.academicSession || '2026-2027';
-    logAudit(db, req, 'Update Structure Settings', `Updated academic session to: ${academicSession}`);
-    writeDb(db);
-
-    res.json({ success: true, academicSession: db.school.academicSession });
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to update structure settings: ' + error.message });
   }
 });
 

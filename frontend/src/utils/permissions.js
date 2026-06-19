@@ -14,6 +14,7 @@ const LEGACY_MODULE_MAP = {
   // Grade Management
   'grade-settings': 'grade-management',
   'grade-subjects': 'grade-management',
+  'grade-management': 'grade-settings',
 
   // Registry Admissions
   'register-student': 'registry-admissions',
@@ -111,6 +112,19 @@ export function hasPermission(module, action) {
     }
     if (permissions && permissions[legacyModule] && permissions[legacyModule][action] !== undefined) {
       return !!permissions[legacyModule][action];
+    }
+  }
+
+  // Backward compatibility fallback for grade-management checking legacy parameters
+  if (module === 'grade-management') {
+    const fallbacks = ['grade-settings', 'grade-subjects'];
+    for (const fb of fallbacks) {
+      if (overrides && overrides[fb] && overrides[fb][action] !== undefined) {
+        if (overrides[fb][action]) return true;
+      }
+      if (permissions && permissions[fb] && permissions[fb][action] !== undefined) {
+        if (permissions[fb][action]) return true;
+      }
     }
   }
 

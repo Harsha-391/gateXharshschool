@@ -76,7 +76,8 @@ export async function fetchActiveGrades() {
         gradeId: opt.gradeId,
         gradeName: opt.gradeName,
         departmentId: opt.departmentId,
-        departmentName: opt.departmentName
+        departmentName: opt.departmentName,
+        sections: opt.sections || []
       }));
       return sortGradeObjects(mapped);
     }

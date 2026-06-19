@@ -245,45 +245,14 @@ export default function Sidebar({
               </div>
             )}
 
-            {(hasPermission('grade-settings', 'view') || hasPermission('grade-subjects', 'view')) && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                <button
-                  type="button"
-                  onClick={() => setAdminGradeOpen(!adminGradeOpen)}
-                  className={`nav-item ${['grade-list', 'add-grade', 'grade-departments', 'grade-dept-mapping', 'grade-academic-settings', 'section-utility', 'academic-grade-subjects'].includes(adminView) ? 'active' : ''}`}
-                  style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', cursor: 'pointer' }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '16px', minWidth: 0, overflow: 'hidden' }}>
-                    <GraduationCap size={20} className="flex-shrink-0" />
-                    <span className="nav-label" style={{ fontWeight: 600 }}>Grade Management</span>
-                  </div>
-                  {adminGradeOpen ? <ChevronDown size={16} className="flex-shrink-0" /> : <ChevronRight size={16} className="flex-shrink-0" />}
-                </button>
-                {adminGradeOpen && (
-                  <div style={{ display: 'flex', flexDirection: 'column', paddingLeft: '16px', borderLeft: '1px solid rgba(255,255,255,0.06)', marginLeft: '24px', marginTop: '2px', marginBottom: '6px', gap: '4px' }}>
-                    {hasPermission('grade-settings', 'view') && (
-                      <button
-                        onClick={() => { setAdminView('grade-list'); setMobileOpen(false); }}
-                        className={`nav-item ${['grade-list', 'add-grade', 'grade-departments', 'grade-dept-mapping', 'grade-academic-settings', 'section-utility'].includes(adminView) ? 'active' : ''}`}
-                        style={{ padding: '10px 12px', fontSize: '0.88rem', position: 'relative' }}
-                      >
-                        <Settings size={18} className="flex-shrink-0" />
-                        <span className="nav-label">Grade Settings</span>
-                      </button>
-                    )}
-                    {hasPermission('grade-subjects', 'view') && (
-                      <button
-                        onClick={() => { setAdminView('academic-grade-subjects'); setMobileOpen(false); }}
-                        className={`nav-item ${adminView === 'academic-grade-subjects' ? 'active' : ''}`}
-                        style={{ padding: '10px 12px', fontSize: '0.88rem', position: 'relative' }}
-                      >
-                        <BookOpen size={18} className="flex-shrink-0" />
-                        <span className="nav-label">Grade Subjects</span>
-                      </button>
-                    )}
-                  </div>
-                )}
-              </div>
+            {hasPermission('grade-management', 'view') && (
+              <button
+                onClick={() => { setAdminView('grade-list'); setMobileOpen(false); }}
+                className={`nav-item ${['grade-list', 'add-grade', 'grade-departments', 'grade-dept-mapping', 'grade-academic-settings', 'academic-grade-subjects'].includes(adminView) ? 'active' : ''}`}
+              >
+                <GraduationCap size={20} className="flex-shrink-0" />
+                <span className="nav-label">Grade Management</span>
+              </button>
             )}
 
             {(hasPermission('register-student', 'create') || hasPermission('register-student', 'view') || 

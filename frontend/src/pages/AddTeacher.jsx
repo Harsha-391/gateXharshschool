@@ -114,7 +114,7 @@ function SearchableSelect({ options, value, onChange, placeholder, className, st
 }
 
 // Drag & Drop File Upload Component
-function DragAndDropFile({ fieldName, label, file, onFileChange, onRemove, accept = "image/*,application/pdf" }) {
+function DragAndDropFile({ fieldName, label, file, onFileChange, onRemove, accept = "*" }) {
   const [dragOver, setDragOver] = useState(false);
 
   const handleDrag = (e) => {
@@ -134,17 +134,9 @@ function DragAndDropFile({ fieldName, label, file, onFileChange, onRemove, accep
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
       const fileObj = e.dataTransfer.files[0];
       
-      // Validation Check size limit (5MB)
-      if (fileObj.size > 5 * 1024 * 1024) {
-        alert("File size exceeds 5MB limit. Please upload a smaller document.");
-        return;
-      }
-      
-      // Allowed types
-      const allowedExts = ['pdf', 'png', 'jpg', 'jpeg'];
-      const fileExt = fileObj.name.split('.').pop().toLowerCase();
-      if (!allowedExts.includes(fileExt)) {
-        alert("Invalid file format. PDFs and images (JPG, PNG) only.");
+      // Validation Check size limit (50MB)
+      if (fileObj.size > 50 * 1024 * 1024) {
+        alert("File size exceeds 50MB limit. Please upload a smaller document.");
         return;
       }
 
@@ -1658,7 +1650,7 @@ export default function AddTeacher({ setActiveView, editData }) {
         {activeStep === 7 && (
           <div className="glass-panel" style={{ padding: '28px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
             <h3 style={{ fontSize: '1rem', fontWeight: 700, margin: 0, color: 'var(--text-main)', borderBottom: '1px solid var(--border-glass)', paddingBottom: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Upload size={16} style={{ color: 'rgb(245, 158, 11)' }} /> Document Checklist (PDFs or Images under 5MB)
+              <Upload size={16} style={{ color: 'rgb(245, 158, 11)' }} /> Document Checklist (Files under 50MB)
             </h3>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px' }}>

@@ -144,6 +144,22 @@ export default function ResultManagementPanel({ activeTab: propActiveTab = 'anal
     return selectedClass;
   }, [selectedClass, selectedDepartment, activeGrades]);
 
+  const allowedSections = useMemo(() => {
+    if (!targetClass) return [];
+    const matchedGrade = activeGrades.find(g => g.name === targetClass);
+    return matchedGrade ? (matchedGrade.sections || []) : [];
+  }, [targetClass, activeGrades]);
+
+  useEffect(() => {
+    if (allowedSections.length > 0) {
+      if (!allowedSections.includes(selectedSection)) {
+        setSelectedSection(allowedSections[0]);
+      }
+    } else {
+      setSelectedSection('');
+    }
+  }, [allowedSections, selectedSection]);
+
   const hasDepartments = useMemo(() => {
     if (!selectedClass) return false;
     return activeGrades.some(g => g.gradeName === selectedClass && g.departmentName);
@@ -329,6 +345,22 @@ export default function ResultManagementPanel({ activeTab: propActiveTab = 'anal
       .map(g => g.departmentName);
     return [...new Set(depts)].filter(Boolean);
   }, [historyClassFilter, activeGrades]);
+
+  const historyAllowedSections = useMemo(() => {
+    if (!targetHistoryClass) return [];
+    const matchedGrade = activeGrades.find(g => g.name === targetHistoryClass);
+    return matchedGrade ? (matchedGrade.sections || []) : [];
+  }, [targetHistoryClass, activeGrades]);
+
+  useEffect(() => {
+    if (historyAllowedSections.length > 0) {
+      if (historySectionFilter !== '' && !historyAllowedSections.includes(historySectionFilter)) {
+        setHistorySectionFilter('');
+      }
+    } else {
+      setHistorySectionFilter('');
+    }
+  }, [historyAllowedSections, historySectionFilter]);
 
 
 
@@ -1201,7 +1233,8 @@ export default function ResultManagementPanel({ activeTab: propActiveTab = 'anal
                   <div className="form-group" style={{ flex: 1, minWidth: '150px' }}>
                     <label style={{ fontSize: '0.75rem', fontWeight: 600, display: 'block', marginBottom: '4px' }}>Section</label>
                     <select className="select-custom" style={{ width: '100%' }} value={selectedSection} onChange={e => { setSelectedSection(e.target.value); setStudentExamSelections({}); setStudentExamCategories({}); setRosterSearch(''); }}>
-                      {gradesSections.sections.map(s => (
+                      <option value="">Select Section</option>
+                      {allowedSections.map(s => (
                         <option key={s} value={s}>{s}</option>
                       ))}
                     </select>
@@ -1793,7 +1826,7 @@ export default function ResultManagementPanel({ activeTab: propActiveTab = 'anal
                     onChange={e => setHistorySectionFilter(e.target.value)}
                   >
                     <option value="">All Sections</option>
-                    {gradesSections.sections.map(sec => (
+                    {historyAllowedSections.map(sec => (
                       <option key={sec} value={sec}>Section {sec}</option>
                     ))}
                   </select>

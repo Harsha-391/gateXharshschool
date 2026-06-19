@@ -67,6 +67,23 @@ export function MarkAttendanceView({ date, setDate, studentClass, setClass, sect
   const { baseGrade: baseClass, department: selectedDept } = parseGradeName(studentClass);
   const isHighGrade = isGrade11or12(baseClass);
 
+  // Compute allowed sections for the selected studentClass
+  const allowedSections = React.useMemo(() => {
+    const matchedGrade = activeGrades.find(g => g.name === studentClass);
+    return matchedGrade ? (matchedGrade.sections || []) : [];
+  }, [studentClass, activeGrades]);
+
+  // Sync selected section when class selection shifts
+  useEffect(() => {
+    if (allowedSections.length > 0) {
+      if (!allowedSections.includes(section)) {
+        setSection(allowedSections[0]);
+      }
+    } else {
+      setSection('');
+    }
+  }, [allowedSections, section, setSection]);
+
   // Compute unique base grades from activeGrades
   const baseGrades = [];
   const seenBase = new Set();
@@ -349,8 +366,8 @@ export function MarkAttendanceView({ date, setDate, studentClass, setClass, sect
                 onChange={(e) => setSection(e.target.value)}
                 style={{ height: '38px', borderRadius: '8px' }}
               >
-                {activeSections.map(s => (
-                  <option key={s.id || s.name} value={s.name}>Section {s.name}</option>
+                {allowedSections.map(secName => (
+                  <option key={secName} value={secName}>Section {secName}</option>
                 ))}
               </select>
             </div>
@@ -756,6 +773,23 @@ export function AttendanceHistoryView({ date, showToast }) {
   const { baseGrade: baseClass, department: selectedDept } = parseGradeName(studentClass);
   const isHighGrade = isGrade11or12(baseClass);
 
+  // Compute allowed sections for the selected studentClass
+  const allowedSections = React.useMemo(() => {
+    const matchedGrade = activeGrades.find(g => g.name === studentClass);
+    return matchedGrade ? (matchedGrade.sections || []) : [];
+  }, [studentClass, activeGrades]);
+
+  // Sync selected section when class selection shifts
+  useEffect(() => {
+    if (allowedSections.length > 0) {
+      if (!allowedSections.includes(section)) {
+        setSection(allowedSections[0]);
+      }
+    } else {
+      setSection('');
+    }
+  }, [allowedSections, section, setSection]);
+
   // Compute unique base grades from activeGrades
   const baseGrades = [];
   const seenBase = new Set();
@@ -941,8 +975,8 @@ export function AttendanceHistoryView({ date, showToast }) {
               onChange={(e) => setSection(e.target.value)}
               style={{ height: '38px', borderRadius: '8px' }}
             >
-              {activeSections.map(s => (
-                <option key={s.id || s.name} value={s.name}>Section {s.name}</option>
+              {allowedSections.map(secName => (
+                <option key={secName} value={secName}>Section {secName}</option>
               ))}
             </select>
           </div>

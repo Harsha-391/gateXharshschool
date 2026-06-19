@@ -927,7 +927,7 @@ export default function SchoolProfile({ schoolDetails, fetchSchoolDetails, isDev
                   <div className="form-group">
                     <label>School Name *</label>
                     <input 
-                      type="text" name="name" className="form-control"
+                      type="text" name="name" className="form-control" placeholder="e.g. Green Valley High School"
                       value={formData.name} onChange={handleInputChange} required
                     />
                     {formErrors.name && <span style={{ color: '#ef4444', fontSize: '0.72rem', marginTop: '4px', display: 'block' }}>{formErrors.name}</span>}
@@ -936,7 +936,7 @@ export default function SchoolProfile({ schoolDetails, fetchSchoolDetails, isDev
                   <div className="form-group">
                     <label>School Subdomain *</label>
                     <input 
-                      type="text" name="subdomain" className="form-control"
+                      type="text" name="subdomain" className="form-control" placeholder="e.g. greenvalley"
                       value={formData.subdomain} onChange={handleInputChange} required
                       disabled={modalMode === 'edit'} // subdomain cannot be edited
                     />
@@ -953,7 +953,7 @@ export default function SchoolProfile({ schoolDetails, fetchSchoolDetails, isDev
                   <div className="form-group">
                     <label>Principal Name</label>
                     <input 
-                      type="text" name="principalName" className="form-control"
+                      type="text" name="principalName" className="form-control" placeholder="e.g. Dr. John Doe"
                       value={formData.principalName} onChange={handleInputChange}
                     />
                   </div>
@@ -961,7 +961,7 @@ export default function SchoolProfile({ schoolDetails, fetchSchoolDetails, isDev
                   <div className="form-group">
                     <label>School Logo URL</label>
                     <input 
-                      type="text" name="logo" className="form-control"
+                      type="text" name="logo" className="form-control" placeholder="https://domain.com/logo.png"
                       value={formData.logo} onChange={handleInputChange}
                     />
                   </div>
@@ -978,7 +978,7 @@ export default function SchoolProfile({ schoolDetails, fetchSchoolDetails, isDev
                   <div className="form-group">
                     <label>School Email</label>
                     <input 
-                      type="email" name="email" className="form-control"
+                      type="email" name="email" className="form-control" placeholder="contact@school.edu"
                       value={formData.email} onChange={handleInputChange}
                     />
                   </div>
@@ -986,7 +986,7 @@ export default function SchoolProfile({ schoolDetails, fetchSchoolDetails, isDev
                   <div className="form-group">
                     <label>School Phone Number</label>
                     <input 
-                      type="text" name="phone" className="form-control"
+                      type="text" name="phone" className="form-control" placeholder="10-digit phone number"
                       value={formData.phone} onChange={(e) => { const v = e.target.value.replace(/[^0-9]/g, '').slice(0, 10); setFormData(p => ({ ...p, phone: v })); }}
                     />
                   </div>
@@ -995,7 +995,7 @@ export default function SchoolProfile({ schoolDetails, fetchSchoolDetails, isDev
                 <div className="form-group">
                   <label>Street Address</label>
                   <input 
-                    type="text" name="address" className="form-control"
+                    type="text" name="address" className="form-control" placeholder="123 Academic Way"
                     value={formData.address} onChange={handleInputChange}
                   />
                 </div>
@@ -1004,21 +1004,21 @@ export default function SchoolProfile({ schoolDetails, fetchSchoolDetails, isDev
                   <div className="form-group">
                     <label>City</label>
                     <input 
-                      type="text" name="city" className="form-control"
+                      type="text" name="city" className="form-control" placeholder="City"
                       value={formData.city} onChange={handleInputChange}
                     />
                   </div>
                   <div className="form-group">
                     <label>State</label>
                     <input 
-                      type="text" name="state" className="form-control"
+                      type="text" name="state" className="form-control" placeholder="State"
                       value={formData.state} onChange={handleInputChange}
                     />
                   </div>
                   <div className="form-group">
                     <label>Country</label>
                     <input 
-                      type="text" name="country" className="form-control"
+                      type="text" name="country" className="form-control" placeholder="Country"
                       value={formData.country} onChange={handleInputChange}
                     />
                   </div>
@@ -1035,7 +1035,7 @@ export default function SchoolProfile({ schoolDetails, fetchSchoolDetails, isDev
                   <div className="form-group">
                     <label>Academic Session</label>
                     <input 
-                      type="text" name="academicSession" className="form-control"
+                      type="text" name="academicSession" className="form-control" placeholder="e.g. 2026-2027"
                       value={formData.academicSession} onChange={handleInputChange}
                     />
                   </div>
@@ -1062,7 +1062,7 @@ export default function SchoolProfile({ schoolDetails, fetchSchoolDetails, isDev
                     <div className="form-group">
                       <label>Admin Full Name</label>
                       <input 
-                        type="text" name="adminName" className="form-control"
+                        type="text" name="adminName" className="form-control" placeholder="Admin Name"
                         value={formData.adminName} onChange={handleInputChange} required
                       />
                     </div>
@@ -1070,7 +1070,7 @@ export default function SchoolProfile({ schoolDetails, fetchSchoolDetails, isDev
                     <div className="form-group">
                       <label>Admin Email *</label>
                       <input 
-                        type="email" name="adminEmail" className="form-control"
+                        type="email" name="adminEmail" className="form-control" placeholder="admin@domain.com"
                         value={formData.adminEmail} onChange={handleInputChange} required
                       />
                       {formErrors.adminEmail && <span style={{ color: '#ef4444', fontSize: '0.72rem', marginTop: '4px', display: 'block' }}>{formErrors.adminEmail}</span>}
@@ -1081,7 +1081,7 @@ export default function SchoolProfile({ schoolDetails, fetchSchoolDetails, isDev
                     <div className="form-group">
                       <label>Admin Username *</label>
                       <input 
-                        type="text" name="adminUsername" className="form-control"
+                        type="text" name="adminUsername" className="form-control" placeholder="school_admin"
                         value={formData.adminUsername} onChange={handleInputChange} required
                       />
                       {formErrors.adminUsername && <span style={{ color: '#ef4444', fontSize: '0.72rem', marginTop: '4px', display: 'block' }}>{formErrors.adminUsername}</span>}
@@ -1090,7 +1090,7 @@ export default function SchoolProfile({ schoolDetails, fetchSchoolDetails, isDev
                     <div className="form-group">
                       <label>Admin Password *</label>
                       <input 
-                        type="password" name="adminPassword" className="form-control"
+                        type="password" name="adminPassword" className="form-control" placeholder="••••••••"
                         value={formData.adminPassword} onChange={handleInputChange} required
                       />
                       {formErrors.adminPassword && <span style={{ color: '#ef4444', fontSize: '0.72rem', marginTop: '4px', display: 'block' }}>{formErrors.adminPassword}</span>}

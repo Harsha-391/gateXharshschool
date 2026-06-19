@@ -379,6 +379,17 @@ export default function StudentDirectory({ readOnly = true, onAddClick, onEditCl
     setPage(1);
   }, [searchQuery, classFilter, sectionFilter, yearFilter]);
 
+  // Sync section filter with class filter
+  useEffect(() => {
+    if (classFilter !== 'All') {
+      const matchedGrade = activeGrades.find(g => g.name === classFilter);
+      const allowedSections = matchedGrade ? (matchedGrade.sections || []) : [];
+      if (sectionFilter !== 'All' && !allowedSections.includes(sectionFilter)) {
+        setSectionFilter('All');
+      }
+    }
+  }, [classFilter, activeGrades, sectionFilter]);
+
   // Delete Student Profile
   const handleDeleteStudent = async (studentId, studentName) => {
     if (window.confirm(`Are you sure you want to completely dismiss student ${studentName} (${studentId}) from the ERP registry?`)) {
@@ -433,9 +444,14 @@ export default function StudentDirectory({ readOnly = true, onAddClick, onEditCl
               style={{ padding: '8px 12px', borderRadius: '8px', fontSize: '0.85rem' }}
             >
               <option value="All">All Sections</option>
-              {sections.map(sec => (
-                <option key={sec.id} value={sec.name}>Section {sec.name}</option>
-              ))}
+              {(() => {
+                const allowedSections = classFilter !== 'All'
+                  ? (activeGrades.find(g => g.name === classFilter)?.sections || [])
+                  : sections.map(s => s.name);
+                return [...new Set(allowedSections)].map(secName => (
+                  <option key={secName} value={secName}>Section {secName}</option>
+                ));
+              })()}
             </select>
           </div>
 
@@ -1165,8 +1181,17 @@ export default function StudentDirectory({ readOnly = true, onAddClick, onEditCl
 
                 <div className="form-group">
                   <label>Class/Grade</label>
-                  <select value={editFormData.studentClass || ''} onChange={(e) => setEditFormData({ ...editFormData, studentClass: e.target.value })}
-                    className="form-control" style={{ padding: '10px 14px', borderRadius: '10px' }}>
+                  <select 
+                    value={editFormData.studentClass || ''} 
+                    onChange={(e) => {
+                      const newClass = e.target.value;
+                      const matchedGrade = activeGrades.find(g => g.name === newClass);
+                      const allowedSections = matchedGrade ? (matchedGrade.sections || []) : [];
+                      const newSection = allowedSections.includes(editFormData.section) ? editFormData.section : '';
+                      setEditFormData({ ...editFormData, studentClass: newClass, section: newSection });
+                    }}
+                    className="form-control" style={{ padding: '10px 14px', borderRadius: '10px' }}
+                  >
                     <option value="">Select Grade</option>
                     {activeGrades.map(g => g.name).map(grade => (
                       <option key={grade} value={grade}>
@@ -1181,9 +1206,13 @@ export default function StudentDirectory({ readOnly = true, onAddClick, onEditCl
                   <select value={editFormData.section || ''} onChange={(e) => setEditFormData({ ...editFormData, section: e.target.value })}
                     className="form-control" style={{ padding: '10px 14px', borderRadius: '10px' }}>
                     <option value="">-</option>
-                    {sections.map(sec => (
-                      <option key={sec.id} value={sec.name}>{sec.name}</option>
-                    ))}
+                    {(() => {
+                      const matchedGrade = activeGrades.find(g => g.name === editFormData.studentClass);
+                      const allowedSections = matchedGrade ? (matchedGrade.sections || []) : [];
+                      return allowedSections.map(secName => (
+                        <option key={secName} value={secName}>{secName}</option>
+                      ));
+                    })()}
                   </select>
                 </div>
 

@@ -22,6 +22,7 @@ export default function StudentManager({ showToast }) {
   const [statusFilter, setStatusFilter] = useState('All');
   
   const [gradeOptions, setGradeOptions] = useState([]);
+  const [activeGradesList, setActiveGradesList] = useState([]);
   const [sectionOptions, setSectionOptions] = useState([]);
   const [allocations, setAllocations] = useState({});
 
@@ -34,8 +35,10 @@ export default function StudentManager({ showToast }) {
         fetchActiveSections()
       ]);
       if (activeGrades && activeGrades.length > 0) {
+        setActiveGradesList(activeGrades);
         setGradeOptions(activeGrades.map(g => g.name));
       } else {
+        setActiveGradesList([]);
         setGradeOptions([]);
       }
       if (activeSections && activeSections.length > 0) {
@@ -388,9 +391,14 @@ export default function StudentManager({ showToast }) {
                         disabled={isUpdating}
                       >
                         <option value="">-</option>
-                        {sectionOptions.map(sec => (
-                          <option key={sec} value={sec}>Section {sec}</option>
-                        ))}
+                        {(() => {
+                          const targetClass = student.studentClass || classFilter || '';
+                          const matchedGrade = activeGradesList.find(g => g.name === targetClass);
+                          const allowedSections = matchedGrade ? (matchedGrade.sections || []) : [];
+                          return allowedSections.map(sec => (
+                            <option key={sec} value={sec}>Section {sec}</option>
+                          ));
+                        })()}
                       </select>
                     </td>
 

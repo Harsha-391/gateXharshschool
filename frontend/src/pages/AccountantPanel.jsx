@@ -387,6 +387,31 @@ export function CollectFeesView({ showToast }) {
     .map(g => parseGradeName(g.name).department)
     .filter(Boolean);
 
+  const allowedSectionsForForm = React.useMemo(() => {
+    if (!selectedFormGrade) {
+      return activeSections.map(s => s.name);
+    }
+    const matchingGrades = activeGrades.filter(g => {
+      const parsed = parseGradeName(g.name);
+      if (parsed.baseGrade !== selectedFormGrade) return false;
+      if (selectedFormDept && parsed.department !== selectedFormDept) return false;
+      return true;
+    });
+    const sectionsUnion = new Set();
+    matchingGrades.forEach(g => {
+      if (g.sections) {
+        g.sections.forEach(sec => sectionsUnion.add(sec));
+      }
+    });
+    return Array.from(sectionsUnion);
+  }, [selectedFormGrade, selectedFormDept, activeGrades, activeSections]);
+
+  useEffect(() => {
+    if (selectedFormSection && !allowedSectionsForForm.includes(selectedFormSection)) {
+      setSelectedFormSection('');
+    }
+  }, [selectedFormGrade, selectedFormDept, allowedSectionsForForm, selectedFormSection]);
+
   const fetchFees = () => {
     const params = new URLSearchParams();
     if (filterClass !== 'All') {
@@ -786,7 +811,7 @@ export function CollectFeesView({ showToast }) {
                     style={{ ...inputStyle, cursor: 'pointer' }}
                   >
                     <option value="" style={optionStyle}>All Sections</option>
-                    {activeSections.map(s => s.name).map(sec => (
+                    {allowedSectionsForForm.map(sec => (
                       <option key={sec} value={sec} style={optionStyle}>Section {sec}</option>
                     ))}
                   </select>

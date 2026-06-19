@@ -24,23 +24,16 @@ const storage = multer.diskStorage({
   }
 });
 
-// File filter validator (PDF and standard Images only)
+// File filter validator (Allows all file types as requested)
 const fileFilter = (req, file, cb) => {
-  const allowedExtensions = ['.pdf', '.jpg', '.jpeg', '.png'];
-  const ext = path.extname(file.originalname).toLowerCase();
-  
-  if (allowedExtensions.includes(ext)) {
-    cb(null, true);
-  } else {
-    cb(new Error(`Invalid file type. Only PDF and Images (${allowedExtensions.join(', ')}) are allowed.`), false);
-  }
+  cb(null, true);
 };
 
 const upload = multer({
   storage,
   fileFilter,
   limits: {
-    fileSize: 5 * 1024 * 1024 // Strict 5MB limit
+    fileSize: 50 * 1024 * 1024 // 50MB limit
   }
 });
 

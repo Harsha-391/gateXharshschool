@@ -511,9 +511,7 @@ export default function AddStaff({ setActiveView, editData }) {
   const handleFileChange = (e, fieldName) => {
     const file = e.target.files[0];
     if (!file) return;
-    if (file.size > 5 * 1024 * 1024) { alert('File too large. Max 5MB.'); return; }
-    const ext = file.name.split('.').pop().toLowerCase();
-    if (!['pdf', 'png', 'jpg', 'jpeg'].includes(ext)) { alert('Invalid format. Use JPG, PNG or PDF.'); return; }
+    if (file.size > 50 * 1024 * 1024) { alert('File too large. Max 50MB.'); return; }
     setFiles(prev => ({ ...prev, [fieldName]: file }));
     if (fieldName === 'photo' && file.type.startsWith('image/')) {
       const reader = new FileReader();
@@ -680,7 +678,7 @@ export default function AddStaff({ setActiveView, editData }) {
                 </button>
               )}
             </div>
-            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>PNG, JPG only. Max 5MB.</span>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Files under 50MB.</span>
           </div>
         </div>
       </div>
@@ -1006,7 +1004,7 @@ export default function AddStaff({ setActiveView, editData }) {
                     <label htmlFor={doc.key} className="btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '0.8rem', padding: '8px 12px', borderRadius: '8px' }}>
                       <Upload size={14} /> Upload
                     </label>
-                    <input type="file" id={doc.key} accept="image/*,application/pdf" onChange={(e) => handleFileChange(e, doc.key)} style={{ display: 'none' }} />
+                    <input type="file" id={doc.key} accept="*" onChange={(e) => handleFileChange(e, doc.key)} style={{ display: 'none' }} />
                   </div>
                   {fileObj && (
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 10px', background: 'rgba(255,255,255,0.03)', borderRadius: '8px', border: '1px solid var(--border-glass)' }}>

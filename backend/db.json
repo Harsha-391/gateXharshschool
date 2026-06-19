@@ -81,33 +81,6 @@
   ],
   "schools": [
     {
-      "id": "SCH-1781783736776",
-      "name": "Test Automation Academy",
-      "code": "SCH-604",
-      "subdomain": "testschool-1781783736770",
-      "logo": "",
-      "principalName": "Test Principal",
-      "email": "test@automation.com",
-      "phone": "1234567890",
-      "address": "123 Automation Way",
-      "city": "Robot City",
-      "state": "Cyber State",
-      "country": "India",
-      "academicSession": "2026-2027",
-      "subscriptionPlan": "Growth",
-      "url": "https://testschool-1781783736770.myschoolerp.com",
-      "status": "Active",
-      "adminName": "Test Admin",
-      "adminEmail": "test-admin@automation.com",
-      "adminUsername": "test_admin",
-      "adminPassword": "password123",
-      "complexAdminUsername": null,
-      "complexAdminPassword": null,
-      "createdAt": "2026-06-18T11:55:36.776Z",
-      "ratePerStudent": "250.00",
-      "updatedAt": "2026-06-18T11:55:36.776Z"
-    },
-    {
       "id": "SCH-GV-001",
       "name": "Green Valley Public School",
       "code": "SCH-GV-001",
@@ -1744,5 +1717,6 @@
   "attendanceRecords": [],
   "attendanceLogs": [],
   "attendanceReports": [],
-  "_signature": "3-SCH-GV-001-2026-06-18T11:56:38.871Z"
+  "_signature": "3-SCH-GV-001-2026-06-18T11:56:38.871Z",
+  "teacherTimetables": []
 }

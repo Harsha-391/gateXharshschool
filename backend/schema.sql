@@ -766,6 +766,28 @@ CREATE TABLE IF NOT EXISTS grade_departments (
   UNIQUE KEY unique_grade_dept (gradeId, departmentId, tenantId)
 );
 
+-- 46. Sections Table
+CREATE TABLE IF NOT EXISTS sections (
+  id VARCHAR(50) PRIMARY KEY,
+  name VARCHAR(100) NOT NULL,
+  status VARCHAR(50) DEFAULT 'Active',
+  createdAt VARCHAR(100),
+  updatedAt VARCHAR(100),
+  tenantId VARCHAR(100) NOT NULL,
+  UNIQUE KEY unique_sec_name (name, tenantId)
+);
+
+-- 47. Published Timetables Table
+CREATE TABLE IF NOT EXISTS published_timetables (
+  id VARCHAR(50) PRIMARY KEY,
+  type VARCHAR(50) NOT NULL,
+  identifier VARCHAR(100) NOT NULL,
+  slots JSON NOT NULL,
+  publishedAt VARCHAR(100) NOT NULL,
+  tenantId VARCHAR(100) NOT NULL,
+  UNIQUE KEY unique_pub_tt (type, identifier, tenantId)
+);
+
 -- Re-enable foreign key checks
 SET FOREIGN_KEY_CHECKS = 1;
 

@@ -486,6 +486,32 @@ export default function AcademicPanel({ subView, setAdminView }) {
     }
   }, [classesList, activeClass]);
 
+  // Sync activeClass section part with grade's assigned sections
+  useEffect(() => {
+    const currentGrade = activeClass.split('-')[0];
+    const currentSec = activeClass.split('-')[1];
+    if (currentGrade && activeGrades.length > 0) {
+      const matchedG = activeGrades.find(g => g.name === currentGrade);
+      const allowedSecs = matchedG ? (matchedG.sections || []) : [];
+      if (allowedSecs.length > 0) {
+        if (!allowedSecs.includes(currentSec)) {
+          setActiveClass(`${currentGrade}-${allowedSecs[0]}`);
+        }
+      }
+    }
+  }, [activeClass, activeGrades]);
+
+  // Sync timetable list search section filter with search grade
+  useEffect(() => {
+    if (searchGrade !== 'All') {
+      const matchedG = activeGrades.find(g => g.name === searchGrade);
+      const allowedSecs = matchedG ? (matchedG.sections || []) : [];
+      if (searchSection !== 'All' && !allowedSecs.includes(searchSection)) {
+        setSearchSection('All');
+      }
+    }
+  }, [searchGrade, activeGrades, searchSection]);
+
   // Sync activeSubject to match the activeClass grade subjects
   useEffect(() => {
     const grade = activeClass.split('-')[0];
@@ -2080,8 +2106,8 @@ export default function AcademicPanel({ subView, setAdminView }) {
                     }}
                     style={{ width: '100%', marginTop: '4px', background: 'var(--bg-glass-active)', border: '1px solid var(--border-glass)' }}
                   >
-                    {getGradesWithSubjects(subjects).map(g => (
-                      <option key={g} value={g}>Grade {g}</option>
+                    {activeGrades.map(g => (
+                      <option key={g.id} value={g.name}>Grade {g.name}</option>
                     ))}
                   </select>
                 </div>
@@ -2096,9 +2122,14 @@ export default function AcademicPanel({ subView, setAdminView }) {
                     }}
                     style={{ width: '100%', marginTop: '4px', background: 'var(--bg-glass-active)', border: '1px solid var(--border-glass)' }}
                   >
-                    {activeSections.map(s => (
-                      <option key={s.id || s.name} value={s.name}>Section {s.name}</option>
-                    ))}
+                    {(() => {
+                      const targetG = activeClass.split('-')[0] || '';
+                      const matchedG = activeGrades.find(g => g.name === targetG);
+                      const allowedSecs = matchedG ? (matchedG.sections || []) : [];
+                      return allowedSecs.map(secName => (
+                        <option key={secName} value={secName}>Section {secName}</option>
+                      ));
+                    })()}
                   </select>
                 </div>
               </div>
@@ -2144,8 +2175,8 @@ export default function AcademicPanel({ subView, setAdminView }) {
               style={{ padding: '6px 12px', borderRadius: '8px', fontSize: '0.82rem', background: 'var(--bg-glass-active)', border: '1px solid var(--border-glass)', color: 'var(--text-main)' }}
             >
               <option value="All">All Grades</option>
-              {getGradesWithSubjects(subjects).map(g => (
-                <option key={g} value={g}>Grade {g}</option>
+              {activeGrades.map(g => (
+                <option key={g.id} value={g.name}>Grade {g.name}</option>
               ))}
             </select>
 
@@ -2156,9 +2187,14 @@ export default function AcademicPanel({ subView, setAdminView }) {
               style={{ padding: '6px 12px', borderRadius: '8px', fontSize: '0.82rem', background: 'var(--bg-glass-active)', border: '1px solid var(--border-glass)', color: 'var(--text-main)' }}
             >
               <option value="All">All Sections</option>
-              {activeSections.map(s => (
-                <option key={s.id || s.name} value={s.name}>Section {s.name}</option>
-              ))}
+              {(() => {
+                const allowedSecs = searchGrade !== 'All'
+                  ? (activeGrades.find(g => g.name === searchGrade)?.sections || [])
+                  : activeSections.map(s => s.name);
+                return [...new Set(allowedSecs)].map(secName => (
+                  <option key={secName} value={secName}>Section {secName}</option>
+                ));
+              })()}
             </select>
 
             {(searchQuery || searchGrade !== 'All' || searchSection !== 'All') && (
@@ -2681,7 +2717,7 @@ export default function AcademicPanel({ subView, setAdminView }) {
             )}
             <select className="select-custom" value={examGradeFilter} onChange={e => setExamGradeFilter(e.target.value)} style={{ padding: '6px 12px', borderRadius: '8px', fontSize: '0.82rem', background: 'var(--bg-glass-active)', border: '1px solid var(--border-glass)' }}>
               <option value="All">All Grades</option>
-              {getGradesWithSubjects(subjects).map(g => <option key={g} value={g}>Grade {g}</option>)}
+              {activeGrades.map(g => <option key={g.id} value={g.name}>Grade {g.name}</option>)}
             </select>
           </div>
         </div>
@@ -3713,7 +3749,7 @@ export default function AcademicPanel({ subView, setAdminView }) {
             )}
             <select className="select-custom" value={examGradeFilter} onChange={e => setExamGradeFilter(e.target.value)} style={{ padding: '6px 12px', borderRadius: '8px', fontSize: '0.82rem', background: 'var(--bg-glass-active)', border: '1px solid var(--border-glass)' }}>
               <option value="All">All Grades</option>
-              {getGradesWithSubjects(subjects).map(g => <option key={g} value={g}>Grade {g}</option>)}
+              {activeGrades.map(g => <option key={g.id} value={g.name}>Grade {g.name}</option>)}
             </select>
           </div>
         </div>
@@ -7817,14 +7853,14 @@ export default function AcademicPanel({ subView, setAdminView }) {
                   </thead>
                   <tbody>
                     {daysOfWeek.map(day => (
-                      <tr key={day} style={{ borderBottom: '1px solid var(--border-glass)' }}>
+<tr key={day} style={{ borderBottom: '1px solid var(--border-glass)' }}>
                         <td style={{ padding: '16px', fontWeight: 800, color: 'hsl(var(--color-primary))', fontSize: '0.85rem', background: 'rgba(255,255,255,0.01)' }}>
                           {day}
                         </td>
                         {timeslots.map(slot => {
                           const key = `${day}_${slot}`;
                           const cell = teacherBulkGrid[key] || { cohort: '', subject: '' };
-                          const grades = getGradesWithSubjects(subjects);
+                          const grades = activeGrades.map(g => g.name);
                           const sections = activeSections.map(s => s.name);
                           const allCohortsSet = new Set();
                           grades.forEach(g => {

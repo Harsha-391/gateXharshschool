@@ -16,7 +16,9 @@ import {
   Activity, 
   ToggleLeft, 
   ToggleRight, 
-  Save 
+  Save,
+  BookOpen,
+  X
 } from 'lucide-react';
 
 export default function GradeManagement({ currentSubView, setAdminView, showToast }) {
@@ -33,8 +35,6 @@ export default function GradeManagement({ currentSubView, setAdminView, showToas
   const [grades, setGrades] = useState([]);
   const [departments, setDepartments] = useState([]);
   const [mappings, setMappings] = useState([]);
-  const [auditLogs, setAuditLogs] = useState([]);
-  const [settings, setSettings] = useState({ academicSession: '2026-2027' });
   const [loading, setLoading] = useState(true);
 
   // Search, Filtering, Pagination States
@@ -46,10 +46,6 @@ export default function GradeManagement({ currentSubView, setAdminView, showToas
   const [deptPage, setDeptPage] = useState(1);
   const deptLimit = 8;
 
-  const [logSearch, setLogSearch] = useState('');
-  const [logPage, setLogPage] = useState(1);
-  const logLimit = 10;
-
   const [newGrade, setNewGrade] = useState({ name: '', selectedDepts: [] });
   const [editingGrade, setEditingGrade] = useState(null);
   const [newDept, setNewDept] = useState({ name: '' });
@@ -58,6 +54,17 @@ export default function GradeManagement({ currentSubView, setAdminView, showToas
   const [editingSection, setEditingSection] = useState(null);
   const [sections, setSections] = useState([]);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [subjects, setSubjects] = useState([]);
+
+  // Modal States for sections & subjects management
+  const [sectionModalGrade, setSectionModalGrade] = useState(null);
+  const [subjectModalGrade, setSubjectModalGrade] = useState(null);
+  const [selectedModalSections, setSelectedModalSections] = useState([]);
+  const [newGlobalSectionName, setNewGlobalSectionName] = useState('');
+  const [savingSections, setSavingSections] = useState(false);
+  const [newSubjectName, setNewSubjectName] = useState('');
+  const [bulkSubjectNames, setBulkSubjectNames] = useState('');
+  const [addingSubject, setAddingSubject] = useState(false);
 
   // Bulk Action States
   const [selectedGrades, setSelectedGrades] = useState([]);
@@ -68,32 +75,19 @@ export default function GradeManagement({ currentSubView, setAdminView, showToas
     setLoading(true);
     try {
       const headers = { 'Content-Type': 'application/json' };
-      const [gradesRes, deptsRes, mapsRes, logsRes, settingsRes, sectionsRes] = await Promise.all([
+      const [gradesRes, deptsRes, mapsRes, sectionsRes, subjectsRes] = await Promise.all([
         fetch('/api/grades'),
         fetch('/api/grades/departments'),
         fetch('/api/grades/mappings'),
-        fetch('/api/rbac/audit-logs'),
-        fetch('/api/grades/settings'),
-        fetch('/api/grades/sections')
+        fetch('/api/grades/sections'),
+        fetch('/api/academics/subjects')
       ]);
 
       if (gradesRes.ok) setGrades(await gradesRes.json());
       if (deptsRes.ok) setDepartments(await deptsRes.json());
       if (mapsRes.ok) setMappings(await mapsRes.json());
       if (sectionsRes.ok) setSections(await sectionsRes.json());
-      if (logsRes.ok) {
-        const allLogs = await logsRes.json();
-        // Filter logs related to grade management actions
-        const filtered = allLogs.filter(l => 
-          l.action.includes('Grade') || 
-          l.action.includes('Department') || 
-          l.action.includes('Mapping') ||
-          l.action.includes('Structure') ||
-          l.action.includes('Section')
-        );
-        setAuditLogs(filtered);
-      }
-      if (settingsRes.ok) setSettings(await settingsRes.json());
+      if (subjectsRes && subjectsRes.ok) setSubjects(await subjectsRes.json());
     } catch (err) {
       console.error('Failed to preload grade management data:', err);
       showToast('Error loading data from server.', 'danger');
@@ -105,6 +99,186 @@ export default function GradeManagement({ currentSubView, setAdminView, showToas
   useEffect(() => {
     loadData();
   }, []);
+
+  useEffect(() => {
+    if (sectionModalGrade) {
+      setSelectedModalSections(sectionModalGrade.sections || []);
+    } else {
+      setSelectedModalSections([]);
+      setNewGlobalSectionName('');
+    }
+  }, [sectionModalGrade]);
+
+  const handleToggleModalSection = (secName) => {
+    if (selectedModalSections.includes(secName)) {
+      setSelectedModalSections(prev => prev.filter(name => name !== secName));
+    } else {
+      setSelectedModalSections(prev => [...prev, secName]);
+    }
+  };
+
+  const handleCreateAndAssignSection = async () => {
+    const cleanName = newGlobalSectionName.trim();
+    if (!cleanName) return;
+
+    try {
+      const existing = sections.find(s => s.name.toLowerCase() === cleanName.toLowerCase());
+      if (existing) {
+        if (!selectedModalSections.includes(existing.name)) {
+          setSelectedModalSections(prev => [...prev, existing.name]);
+        }
+        setNewGlobalSectionName('');
+        return;
+      }
+
+      const res = await fetch('/api/grades/sections', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: cleanName })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        const sectionsRes = await fetch('/api/grades/sections');
+        if (sectionsRes.ok) {
+          setSections(await sectionsRes.json());
+        }
+        setSelectedModalSections(prev => [...prev, data.name]);
+        setNewGlobalSectionName('');
+        showToast(`Section "${cleanName}" created globally and assigned.`, 'success');
+      } else {
+        showToast(data.error || 'Failed to create section.', 'danger');
+      }
+    } catch (err) {
+      showToast('Network error.', 'danger');
+    }
+  };
+
+  const handleSaveModalSections = async () => {
+    if (!sectionModalGrade) return;
+    setSavingSections(true);
+    try {
+      const res = await fetch(`/api/grades/${sectionModalGrade.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sections: selectedModalSections })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        showToast('Grade sections updated successfully.', 'success');
+        setSectionModalGrade(null);
+        loadData();
+      } else {
+        showToast(data.error || 'Failed to save sections.', 'danger');
+      }
+    } catch (err) {
+      showToast('Network error saving sections.', 'danger');
+    } finally {
+      setSavingSections(false);
+    }
+  };
+
+  const handleRemoveSectionDirectly = async (grade, secName) => {
+    if (!window.confirm(`Are you sure you want to remove Section "${secName}" from ${grade.name}?`)) return;
+    const remainingSections = (grade.sections || []).filter(name => name !== secName);
+    try {
+      const res = await fetch(`/api/grades/${grade.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sections: remainingSections })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        showToast(`Section "${secName}" removed from ${grade.name}.`, 'success');
+        loadData();
+      } else {
+        showToast(data.error || 'Failed to remove section.', 'danger');
+      }
+    } catch (err) {
+      showToast('Network error removing section.', 'danger');
+    }
+  };
+
+  const handleAddModalSubject = async (e) => {
+    e.preventDefault();
+    if (!newSubjectName.trim() || !subjectModalGrade) return;
+    setAddingSubject(true);
+
+    try {
+      const res = await fetch('/api/academics/subjects', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          grade: subjectModalGrade.displayName,
+          subjectName: newSubjectName.trim()
+        })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        showToast(`Subject "${newSubjectName}" added.`, 'success');
+        setNewSubjectName('');
+        loadData();
+      } else {
+        showToast(data.error || 'Failed to add subject.', 'danger');
+      }
+    } catch (err) {
+      showToast('Network error.', 'danger');
+    } finally {
+      setAddingSubject(false);
+    }
+  };
+
+  const handleAddModalSubjectsBulk = async (e) => {
+    e.preventDefault();
+    if (!bulkSubjectNames.trim() || !subjectModalGrade) return;
+    setAddingSubject(true);
+
+    const namesArray = bulkSubjectNames
+      .split(',')
+      .map(name => name.trim())
+      .filter(Boolean);
+
+    try {
+      const res = await fetch('/api/academics/subjects/bulk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          grade: subjectModalGrade.displayName,
+          subjectNames: namesArray
+        })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        showToast(`Successfully added ${namesArray.length} subjects in bulk.`, 'success');
+        setBulkSubjectNames('');
+        loadData();
+      } else {
+        showToast(data.error || 'Failed to add bulk subjects.', 'danger');
+      }
+    } catch (err) {
+      showToast('Network error.', 'danger');
+    } finally {
+      setAddingSubject(false);
+    }
+  };
+
+  const handleDeleteModalSubject = async (subId, subName) => {
+    if (!window.confirm(`Are you sure you want to delete subject "${subName}"?`)) return;
+
+    try {
+      const res = await fetch(`/api/academics/subjects/${subId}`, {
+        method: 'DELETE'
+      });
+      const data = await res.json();
+      if (res.ok) {
+        showToast(`Subject "${subName}" deleted.`, 'success');
+        loadData();
+      } else {
+        showToast(data.error || 'Failed to delete subject.', 'danger');
+      }
+    } catch (err) {
+      showToast('Network error deleting subject.', 'danger');
+    }
+  };
 
   // Sync tab clicks with Admin View router
   const handleTabChange = (tab) => {
@@ -297,92 +471,6 @@ export default function GradeManagement({ currentSubView, setAdminView, showToas
     }
   };
 
-  // Section CRUD Actions
-  const handleCreateSection = async (e) => {
-    e.preventDefault();
-    if (!newSection.name.trim()) return;
-
-    try {
-      const res = await fetch('/api/grades/sections', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: newSection.name.trim() })
-      });
-      const data = await res.json();
-      if (res.ok) {
-        showToast(`Section "${newSection.name}" created.`, 'success');
-        setNewSection({ name: '' });
-        setShowCreateModal(false);
-        loadData();
-      } else {
-        showToast(data.error || 'Failed to create section.', 'danger');
-      }
-    } catch (err) {
-      showToast('Network error.', 'danger');
-    }
-  };
-
-  const handleUpdateSection = async (e) => {
-    e.preventDefault();
-    if (!editingSection.name.trim()) return;
-
-    try {
-      const res = await fetch(`/api/grades/sections/${editingSection.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: editingSection.name.trim(),
-          status: editingSection.status
-        })
-      });
-      const data = await res.json();
-      if (res.ok) {
-        showToast('Section updated successfully.', 'success');
-        setEditingSection(null);
-        loadData();
-      } else {
-        showToast(data.error || 'Failed to update section.', 'danger');
-      }
-    } catch (err) {
-      showToast('Network error.', 'danger');
-    }
-  };
-
-  const handleDeleteSection = async (id, name) => {
-    if (!window.confirm(`Are you sure you want to delete Section "${name}"?`)) return;
-    try {
-      const res = await fetch(`/api/grades/sections/${id}`, { method: 'DELETE' });
-      const data = await res.json();
-      if (res.ok) {
-        showToast(`Section "${name}" deleted.`, 'success');
-        loadData();
-      } else {
-        showToast(data.error || 'Failed to delete section.', 'danger');
-      }
-    } catch (err) {
-      showToast('Network error.', 'danger');
-    }
-  };
-
-  // Academic Settings Action
-  const handleSaveSettings = async (e) => {
-    e.preventDefault();
-    try {
-      const res = await fetch('/api/grades/settings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ academicSession: settings.academicSession })
-      });
-      if (res.ok) {
-        showToast('Academic structure settings updated.', 'success');
-        loadData();
-      } else {
-        showToast('Failed to save settings.', 'danger');
-      }
-    } catch (err) {
-      showToast('Network error.', 'danger');
-    }
-  };
 
   // Filters and sorting computations
   const romanMap = { 'I': 1, 'II': 2, 'III': 3, 'IV': 4, 'V': 5, 'VI': 6, 'VII': 7, 'VIII': 8, 'IX': 9, 'X': 10, 'XI': 11, 'XII': 12, 'LKG': -2, 'UKG': -1, 'NURSERY': -3 };
@@ -489,16 +577,6 @@ export default function GradeManagement({ currentSubView, setAdminView, showToas
   );
   const deptTotalPages = Math.ceil(filteredDepts.length / deptLimit);
 
-  const filteredLogs = auditLogs.filter(l => 
-    l.userName.toLowerCase().includes(logSearch.toLowerCase()) ||
-    l.action.toLowerCase().includes(logSearch.toLowerCase()) ||
-    l.details.toLowerCase().includes(logSearch.toLowerCase())
-  );
-  const paginatedLogs = filteredLogs.slice(
-    (logPage - 1) * logLimit,
-    logPage * logLimit
-  );
-  const logTotalPages = Math.ceil(filteredLogs.length / logLimit);
 
   const handleBulkDeleteGrades = async () => {
     if (selectedGrades.length === 0) return;
@@ -584,32 +662,6 @@ export default function GradeManagement({ currentSubView, setAdminView, showToas
         >
            <Users size={16} /> Departments
          </button>
-
-         <button 
-           onClick={() => handleTabChange('grade-academic-settings')}
-           className={`tab-btn-custom ${activeTab === 'grade-academic-settings' ? 'active' : ''}`}
-           style={{
-             display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px', borderRadius: '8px', fontSize: '0.85rem', fontWeight: 600, border: 'none', cursor: 'pointer',
-             background: activeTab === 'grade-academic-settings' ? 'rgba(99,102,241,0.1)' : 'transparent',
-             color: activeTab === 'grade-academic-settings' ? 'rgb(99,102,241)' : 'var(--text-muted)',
-             transition: 'all 0.2s ease'
-           }}
-         >
-           <Settings size={16} /> Structure Settings
-         </button>
-
-         <button 
-           onClick={() => handleTabChange('section-utility')}
-           className={`tab-btn-custom ${activeTab === 'section-utility' ? 'active' : ''}`}
-           style={{
-             display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px', borderRadius: '8px', fontSize: '0.85rem', fontWeight: 600, border: 'none', cursor: 'pointer',
-             background: activeTab === 'section-utility' ? 'rgba(99,102,241,0.1)' : 'transparent',
-             color: activeTab === 'section-utility' ? 'rgb(99,102,241)' : 'var(--text-muted)',
-             transition: 'all 0.2s ease'
-           }}
-         >
-           <Plus size={16} /> Section Utility
-         </button>
        </div>
 
       {loading ? (
@@ -649,77 +701,193 @@ export default function GradeManagement({ currentSubView, setAdminView, showToas
               </div>
 
               <div className="glass-panel" style={{ padding: '24px' }}>
-                <div className="custom-table-container">
-                  <table className="custom-table">
-                    <thead>
-                      <tr>
-                        <th style={{ width: '40px' }}>
-                          <input 
-                            type="checkbox" 
-                            checked={selectedGrades.length === paginatedGrades.length && paginatedGrades.length > 0} 
-                            onChange={(e) => {
-                              if (e.target.checked) setSelectedGrades(paginatedGrades.map(g => g.displayId || g.id));
-                              else setSelectedGrades([]);
-                            }}
-                          />
-                        </th>
-                        <th>Grade</th>
-                        <th>Department</th>
-                        <th style={{ textAlign: 'right' }}>Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {paginatedGrades.length > 0 ? (
-                        paginatedGrades.map((g) => {
-                          const rowKey = g.displayId || g.id;
-                          return (
-                            <tr key={rowKey}>
-                              <td>
-                                <input 
-                                  type="checkbox" 
-                                  checked={selectedGrades.includes(rowKey)} 
-                                  onChange={(e) => {
-                                    if (e.target.checked) {
-                                      setSelectedGrades(prev => [...prev, rowKey]);
-                                    } else {
-                                      setSelectedGrades(prev => prev.filter(id => id !== rowKey));
-                                    }
-                                  }}
-                                />
-                              </td>
-                              <td style={{ fontWeight: 600 }}>{g.name}</td>
-                              <td>
-                                {g.deptName !== 'None' ? (
-                                  <span style={{ background: 'rgba(99, 102, 241, 0.1)', color: 'rgb(99, 102, 241)', padding: '2px 8px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 600 }}>
-                                    {g.deptName}
-                                  </span>
-                                ) : (
-                                  <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>None</span>
-                                )}
-                              </td>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '24px' }}>
+                  {paginatedGrades.length > 0 ? (
+                    paginatedGrades.map((g) => {
+                      const rowKey = g.displayId || g.id;
+                      const gradeSections = g.sections || [];
+                      const gradeSubjectsList = subjects.filter(sub => sub.grade?.toUpperCase() === g.displayName?.toUpperCase());
 
-                              <td>
-                                <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-                                  <button type="button" onClick={() => setEditingGrade({...g})} className="btn-secondary" style={{ padding: '6px 12px', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}>
-                                    <Edit3 size={12} /> Edit
-                                  </button>
-                                  <button type="button" onClick={() => handleDeleteGrade(g.id, g.name)} className="btn-danger" style={{ padding: '6px 8px', display: 'flex', cursor: 'pointer' }} title="Delete Grade">
-                                    <Trash2 size={14} />
-                                  </button>
-                                </div>
-                              </td>
-                            </tr>
-                          );
-                        })
-                      ) : (
-                        <tr>
-                          <td colSpan="5" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
-                            No grades found.
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
+                      return (
+                        <div key={rowKey} className="glass-panel" style={{ display: 'flex', flexDirection: 'column', padding: '24px', borderRadius: '16px', border: '1px solid var(--border-glass)', background: 'var(--bg-card-subtle)', position: 'relative', transition: 'transform 0.2s ease, box-shadow 0.2s ease', minHeight: '280px' }}>
+                          
+                          {/* Checkbox for bulk delete */}
+                          <div style={{ position: 'absolute', top: '20px', left: '20px', zIndex: 5 }}>
+                            <input 
+                              type="checkbox" 
+                              checked={selectedGrades.includes(rowKey)} 
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setSelectedGrades(prev => [...prev, rowKey]);
+                                } else {
+                                  setSelectedGrades(prev => prev.filter(id => id !== rowKey));
+                                }
+                              }}
+                              style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+                            />
+                          </div>
+
+                          {/* Grade Header */}
+                          <div style={{ paddingLeft: '28px', marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px' }}>
+                            <div>
+                              <h4 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 800, color: 'var(--text-main)' }}>{g.name}</h4>
+                              {g.deptName !== 'None' && (
+                                <span style={{ display: 'inline-block', background: 'rgba(99, 102, 241, 0.1)', color: 'rgb(99, 102, 241)', padding: '2px 8px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 700, marginTop: '4px' }}>
+                                  {g.deptName}
+                                </span>
+                              )}
+                            </div>
+                            <div style={{ display: 'flex', gap: '6px' }}>
+                              <button type="button" onClick={() => setEditingGrade({...g})} className="btn-secondary" style={{ padding: '6px', minWidth: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', borderRadius: '8px' }} title="Edit Grade Name">
+                                <Edit3 size={14} />
+                              </button>
+                              <button type="button" onClick={() => handleDeleteGrade(g.id, g.name)} className="btn-danger" style={{ padding: '6px', minWidth: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', borderRadius: '8px', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: 'none' }} title="Delete Grade">
+                                <Trash2 size={14} />
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Card Sections List */}
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', flex: 1 }}>
+                            <div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-muted)', fontSize: '0.8rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '8px' }}>
+                                <Users size={14} /> Sections ({gradeSections.length})
+                              </div>
+                              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                                {gradeSections.length > 0 ? (
+                                  gradeSections.map((secName, idx) => (
+                                    <span 
+                                      key={idx} 
+                                      style={{ 
+                                        background: 'var(--bg-form)', 
+                                        border: '1px solid var(--border-glass)', 
+                                        padding: '4px 8px 4px 10px', 
+                                        borderRadius: '8px', 
+                                        fontSize: '0.8rem', 
+                                        fontWeight: 600, 
+                                        color: 'var(--text-main)',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '6px'
+                                      }}
+                                    >
+                                      {secName}
+                                      <button
+                                        type="button"
+                                        onClick={() => handleRemoveSectionDirectly(g, secName)}
+                                        style={{
+                                          background: 'none',
+                                          border: 'none',
+                                          padding: 0,
+                                          margin: 0,
+                                          display: 'inline-flex',
+                                          alignItems: 'center',
+                                          justifyContent: 'center',
+                                          cursor: 'pointer',
+                                          color: 'var(--text-muted)',
+                                          transition: 'color 0.2s'
+                                        }}
+                                        onMouseEnter={(e) => e.currentTarget.style.color = '#ef4444'}
+                                        onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text-muted)'}
+                                        title={`Remove Section ${secName}`}
+                                      >
+                                        <X size={10} />
+                                      </button>
+                                    </span>
+                                  ))
+                                ) : (
+                                  <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem', fontStyle: 'italic' }}>No sections assigned</span>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Card Subjects List */}
+                            <div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-muted)', fontSize: '0.8rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '8px' }}>
+                                <BookOpen size={14} /> Subjects ({gradeSubjectsList.length})
+                              </div>
+                              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                                {gradeSubjectsList.length > 0 ? (
+                                  gradeSubjectsList.slice(0, 4).map((sub, idx) => (
+                                    <span 
+                                      key={idx} 
+                                      style={{ 
+                                        background: 'rgba(16, 185, 129, 0.08)', 
+                                        border: '1px solid rgba(16, 185, 129, 0.15)', 
+                                        color: '#10b981', 
+                                        padding: '4px 8px 4px 10px', 
+                                        borderRadius: '8px', 
+                                        fontSize: '0.8rem', 
+                                        fontWeight: 600,
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '6px'
+                                      }}
+                                    >
+                                      {sub.subjectName}
+                                      <button
+                                        type="button"
+                                        onClick={() => handleDeleteModalSubject(sub.id, sub.subjectName)}
+                                        style={{
+                                          background: 'none',
+                                          border: 'none',
+                                          padding: 0,
+                                          margin: 0,
+                                          display: 'inline-flex',
+                                          alignItems: 'center',
+                                          justifyContent: 'center',
+                                          cursor: 'pointer',
+                                          color: '#10b981',
+                                          opacity: 0.6,
+                                          transition: 'all 0.2s'
+                                        }}
+                                        onMouseEnter={(e) => { e.currentTarget.style.color = '#ef4444'; e.currentTarget.style.opacity = 1; }}
+                                        onMouseLeave={(e) => { e.currentTarget.style.color = '#10b981'; e.currentTarget.style.opacity = 0.6; }}
+                                        title={`Delete Subject ${sub.subjectName}`}
+                                      >
+                                        <X size={10} />
+                                      </button>
+                                    </span>
+                                  ))
+                                ) : (
+                                  <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem', fontStyle: 'italic' }}>No subjects registered</span>
+                                )}
+                                {gradeSubjectsList.length > 4 && (
+                                  <span style={{ background: 'var(--bg-form)', border: '1px solid var(--border-glass)', padding: '4px 10px', borderRadius: '8px', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)' }}>
+                                    +{gradeSubjectsList.length - 4} more
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Card Options / Actions Footer */}
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginTop: '20px', borderTop: '1px solid var(--border-glass)', paddingTop: '16px' }}>
+                            <button 
+                              type="button" 
+                              onClick={() => setSectionModalGrade(g)}
+                              className="btn-secondary" 
+                              style={{ padding: '10px', fontSize: '0.85rem', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', cursor: 'pointer', borderRadius: '10px' }}
+                            >
+                              <Plus size={14} /> Add Section
+                            </button>
+                            <button 
+                              type="button" 
+                              onClick={() => setSubjectModalGrade(g)}
+                              className="btn-primary" 
+                              style={{ padding: '10px', fontSize: '0.85rem', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', cursor: 'pointer', borderRadius: '10px', background: 'rgb(99, 102, 241)', color: 'white', border: 'none' }}
+                            >
+                              <BookOpen size={14} /> Grade Subjects
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <div className="glass-panel" style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '60px', color: 'var(--text-muted)' }}>
+                      No grades found.
+                    </div>
+                  )}
                 </div>
 
                 {gradeTotalPages > 1 && (
@@ -892,212 +1060,171 @@ export default function GradeManagement({ currentSubView, setAdminView, showToas
             </div>
           )}
 
-          {/* VIEW 4: SECTION UTILITY */}
-          {activeTab === 'section-utility' && (
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '20px' }}>
-              <div className="glass-panel" style={{ padding: '24px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                  <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 800 }}>Sections Registry</h3>
-                  <button 
-                    onClick={() => setShowCreateModal(true)} 
-                    className="btn-primary" 
-                    style={{ 
-                      display: 'flex', 
-                      alignItems: 'center', 
-                      gap: '8px', 
-                      padding: '8px 16px', 
-                      borderRadius: '8px', 
-                      fontSize: '0.85rem', 
-                      fontWeight: 600, 
-                      cursor: 'pointer' 
-                    }}
-                  >
-                    <Plus size={16} /> Create Section
-                  </button>
-                </div>
 
-                <div className="custom-table-container">
-                  <table className="custom-table">
-                    <thead>
-                      <tr>
-                        <th>Section Name</th>
-                        <th>Status</th>
-                        <th style={{ textAlign: 'right' }}>Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {sections.length > 0 ? (
-                        sections.map(s => (
-                          <tr key={s.id}>
-                            <td style={{ fontWeight: 600 }}>{s.name}</td>
-                            <td>
-                              <span style={{
-                                padding: '2px 8px',
-                                borderRadius: '12px',
-                                fontSize: '0.75rem',
-                                fontWeight: 600,
-                                background: s.status === 'Active' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
-                                color: s.status === 'Active' ? '#10b981' : '#ef4444'
-                              }}>{s.status || 'Active'}</span>
-                            </td>
-                            <td>
-                              <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-                                <button type="button" onClick={() => setEditingSection({...s})} className="btn-secondary" style={{ padding: '4px 8px', fontSize: '0.75rem', cursor: 'pointer' }}>
-                                  Edit
-                                </button>
-                                <button type="button" onClick={() => handleDeleteSection(s.id, s.name)} className="btn-danger" style={{ padding: '4px 6px', display: 'flex', cursor: 'pointer' }}>
-                                  <Trash2 size={12} />
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        ))
-                      ) : (
-                        <tr>
-                          <td colSpan="3" style={{ textAlign: 'center', padding: '30px', color: 'var(--text-muted)' }}>
-                            No sections registered.
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
 
-              {/* Create Section Modal */}
-              {showCreateModal && (
-                <div onClick={() => setShowCreateModal(false)} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', zIndex: 10000000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
-                  <form onSubmit={handleCreateSection} onClick={(e) => e.stopPropagation()} className="glass-panel" style={{ padding: '24px', width: '90%', maxWidth: '400px', display: 'flex', flexDirection: 'column', gap: '16px', background: 'var(--bg-elevated)', borderRadius: '16px', boxShadow: '0 25px 50px rgba(0,0,0,0.3)' }}>
-                    <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 800 }}>Create New Section</h3>
-                    <div>
-                      <label style={{ fontSize: '0.8rem', fontWeight: 600, display: 'block', marginBottom: '6px' }}>Section Name</label>
-                      <input 
-                        type="text" 
-                        placeholder="e.g. A, B, C, Gold"
-                        className="form-control"
-                        value={newSection.name}
-                        onChange={(e) => setNewSection({ ...newSection, name: e.target.value })}
-                        required
-                      />
-                    </div>
+        </div>
+      )}
 
-                    <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '8px' }}>
-                      <button type="button" onClick={() => setShowCreateModal(false)} className="btn-secondary" style={{ padding: '8px 16px', cursor: 'pointer' }}>Cancel</button>
-                      <button type="submit" className="btn-primary" style={{ padding: '8px 16px', cursor: 'pointer' }}>Create</button>
-                    </div>
-                  </form>
-                </div>
-              )}
-
-              {/* Edit Section Modal */}
-              {editingSection && (
-                <div onClick={() => setEditingSection(null)} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', zIndex: 10000000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
-                  <form onSubmit={handleUpdateSection} onClick={(e) => e.stopPropagation()} className="glass-panel" style={{ padding: '24px', width: '90%', maxWidth: '400px', display: 'flex', flexDirection: 'column', gap: '16px', background: 'var(--bg-elevated)', borderRadius: '16px', boxShadow: '0 25px 50px rgba(0,0,0,0.3)' }}>
-                    <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 800 }}>Edit Section</h3>
-                    <div>
-                      <label style={{ fontSize: '0.8rem', fontWeight: 600, display: 'block', marginBottom: '6px' }}>Section Name</label>
-                      <input 
-                        type="text" 
-                        className="form-control" 
-                        value={editingSection.name} 
-                        onChange={(e) => setEditingSection({ ...editingSection, name: e.target.value })}
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label style={{ fontSize: '0.8rem', fontWeight: 600, display: 'block', marginBottom: '6px' }}>Status</label>
-                      <select 
-                        className="form-control" 
-                        value={editingSection.status || 'Active'} 
-                        onChange={(e) => setEditingSection({ ...editingSection, status: e.target.value })}
-                        style={{ background: 'var(--bg-form)', color: 'var(--text-main)' }}
+      {/* Add Section Modal */}
+      {sectionModalGrade && (
+        <div onClick={() => setSectionModalGrade(null)} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', zIndex: 10000000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+          <div onClick={(e) => e.stopPropagation()} className="glass-panel" style={{ padding: '24px', width: '90%', maxWidth: '450px', display: 'flex', flexDirection: 'column', gap: '16px', background: 'var(--bg-elevated)', borderRadius: '16px', boxShadow: '0 25px 50px rgba(0,0,0,0.3)', maxHeight: '90vh', overflowY: 'auto' }}>
+            <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 800 }}>Manage Sections for {sectionModalGrade.displayName}</h3>
+            
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <label style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-muted)' }}>Assigned Sections</label>
+              
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', background: 'var(--bg-form)', padding: '14px', borderRadius: '12px', border: '1px solid var(--border-glass)', minHeight: '60px' }}>
+                {selectedModalSections.length > 0 ? (
+                  selectedModalSections.map(secName => (
+                    <span 
+                      key={secName} 
+                      style={{ 
+                        background: 'rgba(99, 102, 241, 0.08)', 
+                        border: '1px solid rgba(99, 102, 241, 0.2)', 
+                        color: 'rgb(99, 102, 241)', 
+                        padding: '6px 12px', 
+                        borderRadius: '10px', 
+                        fontSize: '0.85rem', 
+                        fontWeight: 600,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px'
+                      }}
+                    >
+                      Section {secName}
+                      <button 
+                        type="button" 
+                        onClick={() => setSelectedModalSections(prev => prev.filter(name => name !== secName))}
+                        style={{ background: 'none', border: 'none', padding: 0, margin: 0, display: 'flex', alignItems: 'center', cursor: 'pointer', color: '#ef4444' }}
+                        title="Remove Section Assignment"
                       >
-                        <option value="Active">Active</option>
-                        <option value="Inactive">Inactive</option>
-                      </select>
-                    </div>
-
-                    <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '8px' }}>
-                      <button type="button" onClick={() => setEditingSection(null)} className="btn-secondary" style={{ padding: '8px 16px', cursor: 'pointer' }}>Cancel</button>
-                      <button type="submit" className="btn-primary" style={{ padding: '8px 16px', cursor: 'pointer' }}>Save Changes</button>
-                    </div>
-                  </form>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* VIEW 5: ACADEMIC SETTINGS */}
-          {activeTab === 'grade-academic-settings' && (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px' }}>
-              {/* Structure Form */}
-              <div className="glass-panel" style={{ padding: '24px' }}>
-                <h3 style={{ margin: '0 0 16px 0', fontSize: '1.1rem', fontWeight: 800 }}>Academic Structure Settings</h3>
-                <form onSubmit={handleSaveSettings} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                  <div>
-                    <label style={{ fontSize: '0.85rem', fontWeight: 700, display: 'block', marginBottom: '6px' }}>Current Active Session</label>
-                    <input 
-                      type="text" 
-                      placeholder="e.g. 2026-2027"
-                      className="form-control"
-                      value={settings.academicSession}
-                      onChange={(e) => setSettings({ ...settings, academicSession: e.target.value })}
-                      required
-                    />
-                  </div>
-                  <button type="submit" className="btn-primary" style={{ padding: '10px', background: 'rgb(99, 102, 241)', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
-                    Save Settings
-                  </button>
-                </form>
-              </div>
-
-              {/* Audit Logs */}
-              <div className="glass-panel" style={{ padding: '24px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                  <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 800 }}>Grade Management Audit Logs</h3>
-                  <div className="search-bar-container" style={{ width: '180px' }}>
-                    <Search size={14} className="search-bar-icon" />
-                    <input 
-                      type="text" 
-                      placeholder="Search log..." 
-                      className="search-bar-input"
-                      value={logSearch}
-                      onChange={(e) => { setLogSearch(e.target.value); setLogPage(1); }}
-                      style={{ fontSize: '0.75rem', padding: '6px 12px 6px 30px' }}
-                    />
-                  </div>
-                </div>
-
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '400px', overflowY: 'auto' }}>
-                  {paginatedLogs.length > 0 ? (
-                    paginatedLogs.map(log => (
-                      <div key={log.id} style={{ borderBottom: '1px solid var(--border-glass)', paddingBottom: '8px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', fontWeight: 600 }}>
-                          <span style={{ color: 'rgb(99, 102, 241)' }}>{log.userName} ({log.userRole})</span>
-                          <span style={{ color: 'var(--text-muted)' }}>{new Date(log.timestamp).toLocaleString()}</span>
-                        </div>
-                        <span style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-main)' }}>{log.action}</span>
-                        <p style={{ margin: 0, fontSize: '0.78rem', color: 'var(--text-muted)' }}>{log.details}</p>
-                      </div>
-                    ))
-                  ) : (
-                    <div style={{ textAlign: 'center', padding: '20px', color: 'var(--text-muted)', fontSize: '0.8rem' }}>No audit trails found.</div>
-                  )}
-                </div>
-
-                {logTotalPages > 1 && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '16px', borderTop: '1px solid var(--border-glass)', paddingTop: '10px' }}>
-                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Page {logPage} of {logTotalPages}</span>
-                    <div style={{ display: 'flex', gap: '4px' }}>
-                      <button disabled={logPage === 1} onClick={() => setLogPage(p => p - 1)} className="btn-secondary" style={{ padding: '4px 8px', fontSize: '0.7rem' }}>Prev</button>
-                      <button disabled={logPage === logTotalPages} onClick={() => setLogPage(p => p + 1)} className="btn-secondary" style={{ padding: '4px 8px', fontSize: '0.7rem' }}>Next</button>
-                    </div>
-                  </div>
+                        <Trash2 size={12} />
+                      </button>
+                    </span>
+                  ))
+                ) : (
+                  <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem', fontStyle: 'italic' }}>No sections assigned to this grade yet.</span>
                 )}
               </div>
             </div>
-          )}
 
+            {/* Quick-create global section */}
+            <div style={{ borderTop: '1px solid var(--border-glass)', paddingTop: '14px', marginTop: '4px' }}>
+              <label style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-muted)', display: 'block', marginBottom: '8px' }}>Create & Assign New Section</label>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <input 
+                  type="text" 
+                  className="form-control" 
+                  placeholder="e.g. D, Gold, Lily"
+                  value={newGlobalSectionName}
+                  onChange={(e) => setNewGlobalSectionName(e.target.value)}
+                  style={{ flex: 1 }}
+                />
+                <button 
+                  type="button" 
+                  onClick={handleCreateAndAssignSection}
+                  className="btn-secondary" 
+                  style={{ padding: '0 16px', fontWeight: 600, fontSize: '0.85rem', cursor: 'pointer', borderRadius: '10px' }}
+                >
+                  Create
+                </button>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '12px', borderTop: '1px solid var(--border-glass)', paddingTop: '14px' }}>
+              <button type="button" onClick={() => setSectionModalGrade(null)} className="btn-secondary" style={{ padding: '8px 16px', cursor: 'pointer', borderRadius: '8px' }}>Cancel</button>
+              <button 
+                type="button" 
+                onClick={handleSaveModalSections} 
+                disabled={savingSections}
+                className="btn-primary" 
+                style={{ padding: '8px 16px', cursor: 'pointer', borderRadius: '8px', background: 'rgb(99, 102, 241)', color: 'white', border: 'none', display: 'flex', alignItems: 'center', gap: '6px' }}
+              >
+                {savingSections && <Loader2 className="animate-spin" size={14} />} Save Changes
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Grade Subjects Modal */}
+      {subjectModalGrade && (
+        <div onClick={() => setSubjectModalGrade(null)} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', zIndex: 10000000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+          <div onClick={(e) => e.stopPropagation()} className="glass-panel" style={{ padding: '24px', width: '95%', maxWidth: '600px', display: 'flex', flexDirection: 'column', gap: '16px', background: 'var(--bg-elevated)', borderRadius: '16px', boxShadow: '0 25px 50px rgba(0,0,0,0.3)', maxHeight: '90vh', overflowY: 'auto' }}>
+            <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 800 }}>Manage Subjects for {subjectModalGrade.displayName}</h3>
+            
+            {/* Display subjects lists */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <label style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-muted)' }}>Registered Subjects</label>
+              
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', background: 'var(--bg-form)', padding: '14px', borderRadius: '12px', border: '1px solid var(--border-glass)', minHeight: '60px' }}>
+                {subjects.filter(sub => sub.grade?.toUpperCase() === subjectModalGrade.displayName?.toUpperCase()).length > 0 ? (
+                  subjects.filter(sub => sub.grade?.toUpperCase() === subjectModalGrade.displayName?.toUpperCase()).map(sub => (
+                    <span 
+                      key={sub.id} 
+                      style={{ 
+                        background: 'rgba(16, 185, 129, 0.08)', 
+                        border: '1px solid rgba(16, 185, 129, 0.2)', 
+                        color: '#10b981', 
+                        padding: '6px 12px', 
+                        borderRadius: '10px', 
+                        fontSize: '0.85rem', 
+                        fontWeight: 600,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px'
+                      }}
+                    >
+                      {sub.subjectName}
+                      <button 
+                        type="button" 
+                        onClick={() => handleDeleteModalSubject(sub.id, sub.subjectName)}
+                        style={{ background: 'none', border: 'none', padding: 0, margin: 0, display: 'flex', alignItems: 'center', cursor: 'pointer', color: '#ef4444' }}
+                        title="Delete Subject"
+                      >
+                        <Trash2 size={12} />
+                      </button>
+                    </span>
+                  ))
+                ) : (
+                  <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem', fontStyle: 'italic' }}>No academic subjects registered for this grade yet.</span>
+                )}
+              </div>
+            </div>
+
+            {/* Forms to add new subjects */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '16px', borderTop: '1px solid var(--border-glass)', paddingTop: '16px' }}>
+              
+              {/* Single subject form */}
+              <form onSubmit={handleAddModalSubject} style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <label style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-muted)' }}>Add Single Subject</label>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <input 
+                    type="text" 
+                    className="form-control" 
+                    placeholder="e.g. Chemistry, History, English II"
+                    value={newSubjectName}
+                    onChange={(e) => setNewSubjectName(e.target.value)}
+                    required
+                    style={{ flex: 1 }}
+                  />
+                  <button 
+                    type="submit" 
+                    disabled={addingSubject}
+                    className="btn-primary" 
+                    style={{ padding: '0 16px', fontWeight: 600, fontSize: '0.85rem', cursor: 'pointer', borderRadius: '10px', background: 'rgb(99, 102, 241)', color: 'white', border: 'none' }}
+                  >
+                    Add
+                  </button>
+                </div>
+              </form>
+             </div>
+
+            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '8px', borderTop: '1px solid var(--border-glass)', paddingTop: '14px' }}>
+              <button type="button" onClick={() => setSubjectModalGrade(null)} className="btn-secondary" style={{ padding: '8px 20px', cursor: 'pointer', borderRadius: '8px', fontWeight: 'bold' }}>Close Panel</button>
+            </div>
+          </div>
         </div>
       )}
 

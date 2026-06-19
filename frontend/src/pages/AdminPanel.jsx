@@ -313,7 +313,7 @@ export default function AdminPanel({ setActiveView, onLogout, adminView, setAdmi
 
     const isGradeView = [
       'grade-list', 'add-grade', 'grade-departments', 'grade-dept-mapping',
-      'grade-academic-settings', 'section-utility'
+      'grade-academic-settings'
     ].includes(adminView);
 
     const isExpenseView = adminView && adminView.startsWith('expense-');

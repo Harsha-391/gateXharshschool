@@ -10,11 +10,6 @@ const GLOBAL_DB_FILE = path.join(__dirname, '..', 'db.json');
 const TENANTS_DIR = path.join(__dirname, '..', 'tenants');
 const SCHEMA_FILE = path.join(__dirname, '..', 'schema.sql');
 
-// Ensure tenants directory exists
-if (!fs.existsSync(TENANTS_DIR)) {
-  fs.mkdirSync(TENANTS_DIR, { recursive: true });
-}
-
 // Global AsyncLocalStorage to store tenant subdomain for the active request context
 export const tenantStorage = new AsyncLocalStorage();
 
@@ -107,6 +102,7 @@ export const getDbPath = () => {
 // Map of tenantId -> database object structure
 const dbCache = {};
 let isSqlInitialized = false;
+let sqlInitPromise = null;
 
 // Helper to check if MySQL is running and active
 export const isSqlActive = () => {
@@ -317,7 +313,10 @@ const createTablesFromSchema = async () => {
       "ALTER TABLE academic_calendar_events ADD COLUMN recurring VARCHAR(50) DEFAULT 'None'",
       "ALTER TABLE academic_calendar_events ADD COLUMN reminders JSON NULL",
       "ALTER TABLE academic_calendar_events ADD COLUMN attachments JSON NULL",
-      "ALTER TABLE academic_calendar_events ADD COLUMN notifications JSON NULL"
+      "ALTER TABLE academic_calendar_events ADD COLUMN notifications JSON NULL",
+      "ALTER TABLE grades ADD COLUMN sections JSON NULL",
+      "CREATE TABLE IF NOT EXISTS sections (id VARCHAR(50) PRIMARY KEY, name VARCHAR(100) NOT NULL, status VARCHAR(50) DEFAULT 'Active', createdAt VARCHAR(100), updatedAt VARCHAR(100), tenantId VARCHAR(100) NOT NULL, UNIQUE KEY unique_sec_name (name, tenantId))",
+      "CREATE TABLE IF NOT EXISTS published_timetables (id VARCHAR(50) PRIMARY KEY, type VARCHAR(50) NOT NULL, identifier VARCHAR(100) NOT NULL, slots JSON NOT NULL, publishedAt VARCHAR(100) NOT NULL, tenantId VARCHAR(100) NOT NULL, UNIQUE KEY unique_pub_tt (type, identifier, tenantId))"
     ];
 
     for (const sql of extraSchemaAlters) {
@@ -848,7 +847,11 @@ export const initSqlDb = async () => {
 };
 
 // Start the init procedure on boot
-initSqlDb();
+export const startSqlDbInit = () => {
+  sqlInitPromise = initSqlDb();
+  return sqlInitPromise;
+};
+startSqlDbInit();
 
 // Default roles and permissions seeder data
 export const getDefaultRoles = () => {
@@ -857,8 +860,7 @@ export const getDefaultRoles = () => {
     'student-directory',
     'teacher-directory',
     'staff-directory',
-    'grade-settings',
-    'grade-subjects',
+    'grade-management',
     'register-student',
     'add-staff',
     'add-employee',
@@ -988,6 +990,7 @@ export const loadTenantSqlIntoMemory = async (tenantId) => {
     
     const isGlobal = !tenantId || tenantId === 'localhost' || tenantId === 'platform';
     const queryTenantId = isGlobal ? 'platform' : tenantId;
+    const tId = queryTenantId;
     
     // Create base data structure
     const data = {
@@ -1029,33 +1032,139 @@ export const loadTenantSqlIntoMemory = async (tenantId) => {
       publishedTeacherTimetables: []
     };
 
-    // Load existing sections and published timetables from local JSON backup file to preserve custom config
+    // 1. Fetch all datasets from MySQL in parallel to minimize network latency roundtrips
+    const [
+      dbSections,
+      dbPubTT,
+      globalSchools,
+      plans,
+      dbTeachers,
+      dbStaff,
+      dbInvoices,
+      rawFees,
+      rawExpenses,
+      rawPayroll,
+      rawStaffPayments,
+      rawIncome,
+      dbActivities,
+      rawExams,
+      rawEt,
+      dbNotices,
+      dbHolidays,
+      dbEvents,
+      dbCalendarEvents,
+      dbCalendarImports,
+      rawPublished,
+      rawResults,
+      dbSubjects,
+      dbAttendance,
+      rawOverall,
+      dbTimeslots,
+      dbSalary,
+      dbStaffSalary,
+      dbFeeStructures,
+      dbTimetables,
+      sqlStudents,
+      sqlEnrollments,
+      sqlParents,
+      sqlAddresses,
+      sqlMedicals,
+      sqlDocs,
+      sqlFeesAssigned,
+      sqlStudentAccounts,
+      sqlParentAccounts,
+      dbRoles,
+      dbUserAccess,
+      dbAuditLogs,
+      dbQrCodes,
+      dbAttRecords,
+      dbAttLogs,
+      dbAttReports,
+      dbGrades,
+      dbDepts,
+      dbGradeDepts
+    ] = await Promise.all([
+      !isGlobal ? sqlDb.query('SELECT * FROM sections WHERE tenantId = ?', [tId]) : Promise.resolve([]),
+      !isGlobal ? sqlDb.query('SELECT * FROM published_timetables WHERE tenantId = ?', [tId]) : Promise.resolve([]),
+      sqlDb.query('SELECT * FROM schools'),
+      sqlDb.query('SELECT * FROM subscription_plans'),
+      sqlDb.query('SELECT * FROM staff WHERE tenantId = ?', [tId]),
+      sqlDb.query('SELECT * FROM employees WHERE tenantId = ?', [tId]),
+      sqlDb.query('SELECT * FROM invoices WHERE tenantId = ?', [tId]),
+      sqlDb.query('SELECT * FROM fees WHERE tenantId = ?', [tId]),
+      sqlDb.query('SELECT * FROM expenses WHERE tenantId = ?', [tId]),
+      sqlDb.query('SELECT * FROM payroll WHERE tenantId = ?', [tId]),
+      sqlDb.query('SELECT * FROM staff_payments WHERE tenantId = ?', [tId]),
+      sqlDb.query('SELECT * FROM income WHERE tenantId = ?', [tId]),
+      sqlDb.query('SELECT * FROM activities WHERE tenantId = ?', [tId]),
+      sqlDb.query('SELECT * FROM exams WHERE tenantId = ?', [tId]),
+      sqlDb.query('SELECT * FROM exam_timetables WHERE tenantId = ?', [tId]),
+      sqlDb.query('SELECT * FROM notices WHERE tenantId = ?', [tId]),
+      sqlDb.query('SELECT * FROM holidays WHERE tenantId = ?', [tId]),
+      sqlDb.query('SELECT * FROM events WHERE tenantId = ?', [tId]),
+      sqlDb.query('SELECT * FROM academic_calendar_events WHERE tenantId = ?', [tId]),
+      sqlDb.query('SELECT * FROM academic_calendar_imports WHERE tenantId = ?', [tId]),
+      sqlDb.query('SELECT eventId FROM published_calendar_events WHERE tenantId = ?', [tId]),
+      sqlDb.query('SELECT * FROM results WHERE tenantId = ?', [tId]),
+      sqlDb.query('SELECT * FROM subjects WHERE tenantId = ?', [tId]),
+      sqlDb.query('SELECT * FROM attendance WHERE tenantId = ?', [tId]),
+      sqlDb.query('SELECT * FROM overall_results WHERE tenantId = ?', [tId]),
+      sqlDb.query('SELECT slotTime FROM timeslots WHERE tenantId = ? ORDER BY id', [tId]),
+      sqlDb.query('SELECT * FROM salary_structures WHERE tenantId = ?', [tId]),
+      sqlDb.query('SELECT * FROM staff_salary_structures WHERE tenantId = ?', [tId]),
+      sqlDb.query('SELECT * FROM fee_structures WHERE tenantId = ?', [tId]),
+      sqlDb.query('SELECT * FROM timetables WHERE tenantId = ?', [tId]),
+      sqlDb.query('SELECT * FROM students WHERE tenantId = ?', [tId]),
+      sqlDb.query('SELECT * FROM student_enrollments WHERE tenantId = ?', [tId]),
+      sqlDb.query('SELECT * FROM parents WHERE tenantId = ?', [tId]),
+      sqlDb.query('SELECT * FROM addresses WHERE tenantId = ?', [tId]),
+      sqlDb.query('SELECT * FROM medical_records WHERE tenantId = ?', [tId]),
+      sqlDb.query('SELECT * FROM documents WHERE tenantId = ?', [tId]),
+      sqlDb.query('SELECT * FROM fee_assignments WHERE tenantId = ?', [tId]),
+      sqlDb.query('SELECT * FROM student_accounts WHERE tenantId = ?', [tId]),
+      sqlDb.query('SELECT * FROM parent_accounts WHERE tenantId = ?', [tId]),
+      sqlDb.query('SELECT * FROM roles WHERE tenantId = ?', [tId]),
+      sqlDb.query('SELECT * FROM user_access WHERE tenantId = ?', [tId]),
+      sqlDb.query('SELECT * FROM audit_logs WHERE tenantId = ?', [tId]),
+      sqlDb.query('SELECT * FROM employee_qr_codes WHERE tenantId = ?', [tId]),
+      sqlDb.query('SELECT * FROM attendance_records WHERE tenantId = ?', [tId]),
+      sqlDb.query('SELECT * FROM attendance_logs WHERE tenantId = ?', [tId]),
+      sqlDb.query('SELECT * FROM attendance_reports WHERE tenantId = ?', [tId]),
+      sqlDb.query('SELECT * FROM grades WHERE tenantId = ?', [tId]),
+      sqlDb.query('SELECT * FROM departments WHERE tenantId = ?', [tId]),
+      sqlDb.query('SELECT * FROM grade_departments WHERE tenantId = ?', [tId])
+    ]);
+
+    // Load custom fields
     if (!isGlobal) {
-      const tenantFile = path.join(TENANTS_DIR, `db_${tenantId}.json`);
-      if (fs.existsSync(tenantFile)) {
-        try {
-          const tenantData = JSON.parse(fs.readFileSync(tenantFile, 'utf8'));
-          if (tenantData.sections) {
-            data.sections = tenantData.sections;
-          }
-          if (tenantData.publishedClassTimetables) {
-            data.publishedClassTimetables = tenantData.publishedClassTimetables;
-          }
-          if (tenantData.publishedTeacherTimetables) {
-            data.publishedTeacherTimetables = tenantData.publishedTeacherTimetables;
-          }
-        } catch (e) {
-          console.error(`Failed to read tenant custom fields from JSON:`, e);
-        }
-      }
+      data.sections = dbSections.map(s => ({
+        id: s.id,
+        name: s.name,
+        status: s.status || 'Active',
+        createdAt: s.createdAt,
+        updatedAt: s.updatedAt
+      }));
+
+      data.publishedClassTimetables = dbPubTT
+        .filter(pt => pt.type === 'class')
+        .map(pt => ({
+          cohort: pt.identifier,
+          slots: typeof pt.slots === 'string' ? JSON.parse(pt.slots) : pt.slots,
+          publishedAt: pt.publishedAt
+        }));
+      data.publishedTeacherTimetables = dbPubTT
+        .filter(pt => pt.type === 'teacher')
+        .map(pt => ({
+          teacher: pt.identifier,
+          slots: typeof pt.slots === 'string' ? JSON.parse(pt.slots) : pt.slots,
+          publishedAt: pt.publishedAt
+        }));
     }
 
-    if (data.sections === undefined) {
-      data.sections = [];
-    }
+    if (data.sections === undefined) data.sections = [];
+    if (data.publishedClassTimetables === undefined) data.publishedClassTimetables = [];
+    if (data.publishedTeacherTimetables === undefined) data.publishedTeacherTimetables = [];
 
-    // 1. Get Global Platform details
-    const globalSchools = await sqlDb.query('SELECT * FROM schools');
     data.schools = globalSchools;
 
     // Load platformOwner from local db.json if exists
@@ -1070,7 +1179,6 @@ export const loadTenantSqlIntoMemory = async (tenantId) => {
       console.error('Failed to load platformOwner from JSON:', e);
     }
 
-    const plans = await sqlDb.query('SELECT * FROM subscription_plans');
     data.subscriptionPlans = plans.map(p => ({
       id: p.id,
       name: p.name,
@@ -1079,7 +1187,6 @@ export const loadTenantSqlIntoMemory = async (tenantId) => {
     }));
 
     if (!isGlobal) {
-      // Find school info
       const matchedSchool = globalSchools.find(s => s.subdomain === tenantId);
       if (matchedSchool) {
         data.school = {
@@ -1099,23 +1206,14 @@ export const loadTenantSqlIntoMemory = async (tenantId) => {
       }
     }
 
-    // 2. Fetch specific tables filtered by tenantId
-    const tId = queryTenantId;
-
-    // Load simple fields
-    const dbTeachers = await sqlDb.query('SELECT * FROM staff WHERE tenantId = ?', [tId]);
     data.teachers = dbTeachers.map(t => {
       let qual = t.qualification;
       if (qual && (qual.startsWith('[') || qual.startsWith('{'))) {
-        try {
-          qual = JSON.parse(qual);
-        } catch (e) {}
+        try { qual = JSON.parse(qual); } catch (e) {}
       }
       let exp = t.experiences;
       if (exp && (exp.startsWith('[') || exp.startsWith('{'))) {
-        try {
-          exp = JSON.parse(exp);
-        } catch (e) {}
+        try { exp = JSON.parse(exp); } catch (e) {}
       }
       return {
         ...t,
@@ -1124,11 +1222,10 @@ export const loadTenantSqlIntoMemory = async (tenantId) => {
         sameAsPermanent: t.sameAsPermanent === 'Yes' ? true : (t.sameAsPermanent === 'No' ? false : t.sameAsPermanent)
       };
     });
-    data.staff = await sqlDb.query('SELECT * FROM employees WHERE tenantId = ?', [tId]);
-    data.invoices = await sqlDb.query('SELECT * FROM invoices WHERE tenantId = ?', [tId]);
+
+    data.staff = dbStaff;
+    data.invoices = dbInvoices;
     
-    // Parse decimals back to floats for finance metrics
-    const rawFees = await sqlDb.query('SELECT * FROM fees WHERE tenantId = ?', [tId]);
     data.fees = rawFees.map(f => ({
       ...f,
       totalAmount: parseFloat(f.totalAmount || 0),
@@ -1139,7 +1236,6 @@ export const loadTenantSqlIntoMemory = async (tenantId) => {
       amount: parseFloat(f.amount || 0)
     }));
 
-    const rawExpenses = await sqlDb.query('SELECT * FROM expenses WHERE tenantId = ?', [tId]);
     data.expenses = rawExpenses.map(e => ({
       ...e,
       amount: parseFloat(e.amount || 0),
@@ -1149,7 +1245,6 @@ export const loadTenantSqlIntoMemory = async (tenantId) => {
       expenseType: e.expenseType || ''
     }));
 
-    const rawPayroll = await sqlDb.query('SELECT * FROM payroll WHERE tenantId = ?', [tId]);
     data.payroll = rawPayroll.map(p => ({
       ...p,
       basicSalary: parseFloat(p.basicSalary || 0),
@@ -1158,7 +1253,6 @@ export const loadTenantSqlIntoMemory = async (tenantId) => {
       netSalary: parseFloat(p.netSalary || 0)
     }));
 
-    const rawStaffPayments = await sqlDb.query('SELECT * FROM staff_payments WHERE tenantId = ?', [tId]);
     data.staffPayments = rawStaffPayments.map(sp => ({
       id: sp.id,
       paymentId: sp.id,
@@ -1180,29 +1274,21 @@ export const loadTenantSqlIntoMemory = async (tenantId) => {
       netSalary: parseFloat(sp.netSalary || sp.amount || 0)
     }));
 
-    const rawIncome = await sqlDb.query('SELECT * FROM income WHERE tenantId = ?', [tId]);
     data.income = rawIncome.map(i => ({ ...i, amount: parseFloat(i.amount || 0) }));
+    data.activities = dbActivities;
 
-    data.activities = await sqlDb.query('SELECT * FROM activities WHERE tenantId = ?', [tId]);
-    const rawExams = await sqlDb.query('SELECT * FROM exams WHERE tenantId = ?', [tId]);
     data.exams = rawExams.map(ex => {
       let gradeSections = [];
       if (ex.gradeSections) {
-        try {
-          gradeSections = typeof ex.gradeSections === 'string' ? JSON.parse(ex.gradeSections) : ex.gradeSections;
-        } catch (e) {}
+        try { gradeSections = typeof ex.gradeSections === 'string' ? JSON.parse(ex.gradeSections) : ex.gradeSections; } catch (e) {}
       }
       let subjectIncluded = {};
       if (ex.subjectIncluded) {
-        try {
-          subjectIncluded = typeof ex.subjectIncluded === 'string' ? JSON.parse(ex.subjectIncluded) : ex.subjectIncluded;
-        } catch (e) {}
+        try { subjectIncluded = typeof ex.subjectIncluded === 'string' ? JSON.parse(ex.subjectIncluded) : ex.subjectIncluded; } catch (e) {}
       }
       let subjectMarks = {};
       if (ex.subjectMarks) {
-        try {
-          subjectMarks = typeof ex.subjectMarks === 'string' ? JSON.parse(ex.subjectMarks) : ex.subjectMarks;
-        } catch (e) {}
+        try { subjectMarks = typeof ex.subjectMarks === 'string' ? JSON.parse(ex.subjectMarks) : ex.subjectMarks; } catch (e) {}
       }
       return {
         id: ex.id,
@@ -1223,36 +1309,31 @@ export const loadTenantSqlIntoMemory = async (tenantId) => {
       };
     });
 
-    const rawEt = await sqlDb.query('SELECT * FROM exam_timetables WHERE tenantId = ?', [tId]);
     data.examTimetables = rawEt.map(et => ({
       ...et,
       roomAllocation: et.room || '',
       maxMarks: parseInt(et.maxMarks || 100)
     }));
 
-    data.notices = await sqlDb.query('SELECT * FROM notices WHERE tenantId = ?', [tId]);
-    data.holidays = await sqlDb.query('SELECT * FROM holidays WHERE tenantId = ?', [tId]);
-    data.events = await sqlDb.query('SELECT * FROM events WHERE tenantId = ?', [tId]);
-    data.academicCalendarEvents = await sqlDb.query('SELECT * FROM academic_calendar_events WHERE tenantId = ?', [tId]);
-    data.academicCalendarImports = await sqlDb.query('SELECT * FROM academic_calendar_imports WHERE tenantId = ?', [tId]);
-    const rawPublished = await sqlDb.query('SELECT eventId FROM published_calendar_events WHERE tenantId = ?', [tId]);
+    data.notices = dbNotices;
+    data.holidays = dbHolidays;
+    data.events = dbEvents;
+    data.academicCalendarEvents = dbCalendarEvents;
+    data.academicCalendarImports = dbCalendarImports;
     data.publishedCalendarEvents = rawPublished.map(p => p.eventId);
 
-    const rawResults = await sqlDb.query('SELECT * FROM results WHERE tenantId = ?', [tId]);
     data.results = rawResults.map(r => ({
       ...r,
-      obtainedMarks: r.marksObtained !== undefined ? r.marksObtained : 0,
+      obtainedMarks: r.obtainedMarks !== undefined ? r.obtainedMarks : 0,
       totalMarks: r.maxMarks !== undefined ? r.maxMarks : 100,
       locked: r.isLocked === 1 || r.isLocked === true,
       published: r.isPublished === 1 || r.isPublished === true,
       status: r.status || 'Draft'
     }));
 
-    data.subjects = (await sqlDb.query('SELECT * FROM subjects WHERE tenantId = ?', [tId]))
-      .map(s => ({ ...s, subjectName: s.name, grade: s.classId }));
-    data.attendance = await sqlDb.query('SELECT * FROM attendance WHERE tenantId = ?', [tId]);
+    data.subjects = dbSubjects.map(s => ({ ...s, subjectName: s.name, grade: s.classId }));
+    data.attendance = dbAttendance;
 
-    const rawOverall = await sqlDb.query('SELECT * FROM overall_results WHERE tenantId = ?', [tId]);
     data.overallResults = rawOverall.map(o => ({
       ...o,
       percentage: parseFloat(o.percentage || 0),
@@ -1261,12 +1342,8 @@ export const loadTenantSqlIntoMemory = async (tenantId) => {
       gpa: parseFloat(o.gpa || 0)
     }));
 
-    // Load timeslots (flat list mapping)
-    const dbTimeslots = await sqlDb.query('SELECT slotTime FROM timeslots WHERE tenantId = ? ORDER BY id', [tId]);
     data.timeslots = dbTimeslots.map(ts => ts.slotTime);
 
-    // Load JSON config tables
-    const dbSalary = await sqlDb.query('SELECT * FROM salary_structures WHERE tenantId = ?', [tId]);
     data.salaryStructures = dbSalary.map(ss => ({
       id: ss.id,
       gradeName: ss.gradeName || ss.designation,
@@ -1279,7 +1356,6 @@ export const loadTenantSqlIntoMemory = async (tenantId) => {
       netSalary: parseFloat(ss.netSalary || 0)
     }));
 
-    const dbStaffSalary = await sqlDb.query('SELECT * FROM staff_salary_structures WHERE tenantId = ?', [tId]);
     data.staffSalaryStructures = dbStaffSalary.map(sss => ({
       id: sss.id,
       position: sss.position || sss.designation,
@@ -1295,7 +1371,6 @@ export const loadTenantSqlIntoMemory = async (tenantId) => {
       employmentType: sss.employmentType || ''
     }));
 
-    const dbFeeStructures = await sqlDb.query('SELECT * FROM fee_structures WHERE tenantId = ?', [tId]);
     data.feeStructures = dbFeeStructures.map(fsItem => ({
       id: fsItem.id,
       grade: fsItem.classId || fsItem.studentClass,
@@ -1312,7 +1387,6 @@ export const loadTenantSqlIntoMemory = async (tenantId) => {
       frequency: fsItem.frequency
     }));
 
-    const dbTimetables = await sqlDb.query('SELECT * FROM timetables WHERE tenantId = ?', [tId]);
     const loadedSlots = [];
     const dayMap = { mon: 'Monday', tue: 'Tuesday', wed: 'Wednesday', thu: 'Thursday', fri: 'Friday', sat: 'Saturday' };
     for (const t of dbTimetables) {
@@ -1320,11 +1394,7 @@ export const loadTenantSqlIntoMemory = async (tenantId) => {
       for (const d of days) {
         let val = t[d];
         if (typeof val === 'string') {
-          try {
-            val = JSON.parse(val);
-          } catch (e) {
-            val = null;
-          }
+          try { val = JSON.parse(val); } catch (e) { val = null; }
         }
         if (val && val.subject && val.subject.trim() !== '') {
           loadedSlots.push({
@@ -1341,17 +1411,6 @@ export const loadTenantSqlIntoMemory = async (tenantId) => {
       }
     }
     data.timetables = loadedSlots;
-
-    // 3. Reconstruct students (Joining Normalized Tables in memory)
-    const sqlStudents = await sqlDb.query('SELECT * FROM students WHERE tenantId = ?', [tId]);
-    const sqlEnrollments = await sqlDb.query('SELECT * FROM student_enrollments WHERE tenantId = ?', [tId]);
-    const sqlParents = await sqlDb.query('SELECT * FROM parents WHERE tenantId = ?', [tId]);
-    const sqlAddresses = await sqlDb.query('SELECT * FROM addresses WHERE tenantId = ?', [tId]);
-    const sqlMedicals = await sqlDb.query('SELECT * FROM medical_records WHERE tenantId = ?', [tId]);
-    const sqlDocs = await sqlDb.query('SELECT * FROM documents WHERE tenantId = ?', [tId]);
-    const sqlFeesAssigned = await sqlDb.query('SELECT * FROM fee_assignments WHERE tenantId = ?', [tId]);
-    const sqlStudentAccounts = await sqlDb.query('SELECT * FROM student_accounts WHERE tenantId = ?', [tId]);
-    const sqlParentAccounts = await sqlDb.query('SELECT * FROM parent_accounts WHERE tenantId = ?', [tId]);
 
     data.students = sqlStudents.map(s => {
       const enrollment = sqlEnrollments.find(e => e.studentId === s.id) || {};
@@ -1374,14 +1433,12 @@ export const loadTenantSqlIntoMemory = async (tenantId) => {
 
       return {
         ...s,
-        // Record primary key IDs to keep synchronization unique and prevent duplications
         enrollmentId: enrollment.id || '',
         parentId: parent.id || '',
         addressId: address.id || '',
         medicalId: medical.id || '',
         feeAssignmentId: fee.id || '',
 
-        // Academic
         academicYear: enrollment.academicYear || '2026-2027',
         admissionType: enrollment.admissionType || 'New Admission',
         studentClass: enrollment.studentClass || 'I',
@@ -1395,7 +1452,6 @@ export const loadTenantSqlIntoMemory = async (tenantId) => {
         previousClassStudied: enrollment.previousClassStudied || '',
         transferCertificateNumber: enrollment.transferCertificateNumber || '',
 
-        // Parent
         fatherName: parent.fatherName || '',
         fatherOccupation: parent.fatherOccupation || '',
         fatherMobile: parent.fatherMobile || '',
@@ -1410,7 +1466,6 @@ export const loadTenantSqlIntoMemory = async (tenantId) => {
         guardian: parent.guardianName || parent.fatherName || parent.motherName || '',
         phone: parent.guardianContact || parent.fatherMobile || parent.motherMobile || '',
 
-        // Address
         currentAddress: address.currentAddress || '',
         permanentAddress: address.permanentAddress || '',
         address: address.currentAddress || '',
@@ -1422,7 +1477,6 @@ export const loadTenantSqlIntoMemory = async (tenantId) => {
         emergencyContactNumber: address.emergencyContactNumber || '',
         isSameAddress: address.isSameAddress !== undefined ? address.isSameAddress : true,
 
-        // Medical
         bloodGroup: medical.bloodGroup || s.bloodGroup || '',
         medicalConditions: medical.medicalConditions || '',
         allergies: medical.allergies || '',
@@ -1431,7 +1485,6 @@ export const loadTenantSqlIntoMemory = async (tenantId) => {
         doctorName: medical.doctorName || '',
         doctorContact: medical.doctorContact || '',
 
-        // Logins
         studentUsername: studAcc.studentUsername || s.admissionNumber || '',
         studentPassword: studAcc.studentPassword || '',
         parentUsername: parentAcc.parentUsername || '',
@@ -1439,7 +1492,6 @@ export const loadTenantSqlIntoMemory = async (tenantId) => {
         transportRequired: s.transportRequired || 'No',
         hostelRequired: s.hostelRequired || 'No',
 
-        // Files
         photo: photoDoc ? photoDoc.filePath : s.photo || '',
         aadhaarFile: aadhaarDoc ? aadhaarDoc.filePath : '',
         birthCertificateFile: birthDoc ? birthDoc.filePath : '',
@@ -1449,7 +1501,6 @@ export const loadTenantSqlIntoMemory = async (tenantId) => {
         medicalCertificateFile: medCertDoc ? medCertDoc.filePath : '',
         additionalFile: extraDoc ? extraDoc.filePath : '',
 
-        // Fees
         feeStructure: fee.feeStructure || '',
         scholarshipDetails: fee.scholarshipDetails || '',
         discountType: fee.discountType || '',
@@ -1459,8 +1510,6 @@ export const loadTenantSqlIntoMemory = async (tenantId) => {
       };
     });
 
-    // Load Roles & Permissions details
-    const dbRoles = await sqlDb.query('SELECT * FROM roles WHERE tenantId = ?', [tId]);
     data.roles = dbRoles.map(r => ({
       ...r,
       active: r.active === 1 || r.active === true || r.active === '1',
@@ -1468,24 +1517,19 @@ export const loadTenantSqlIntoMemory = async (tenantId) => {
       permissions: typeof r.permissions === 'string' ? JSON.parse(r.permissions) : (r.permissions || {})
     }));
 
-    // Auto-seed default roles if none exist for this tenant
     if (data.roles.length === 0) {
       data.roles = getDefaultRoles();
       console.log(`[SQL Preload] Seeded default roles for tenant: ${tId}`);
     }
 
-    const dbUserAccess = await sqlDb.query('SELECT * FROM user_access WHERE tenantId = ?', [tId]);
     data.userAccess = dbUserAccess.map(ua => ({
       ...ua,
       overrides: typeof ua.overrides === 'string' ? JSON.parse(ua.overrides) : (ua.overrides || {})
     }));
 
-    data.auditLogs = await sqlDb.query('SELECT * FROM audit_logs WHERE tenantId = ?', [tId]);
-
-    const dbQrCodes = await sqlDb.query('SELECT * FROM employee_qr_codes WHERE tenantId = ?', [tId]);
+    data.auditLogs = dbAuditLogs;
     data.employeeQrCodes = dbQrCodes;
 
-    // Link qrCodePath onto teachers and staff in memory for quick frontend access
     if (data.teachers && Array.isArray(data.teachers)) {
       data.teachers.forEach(t => {
         const qr = dbQrCodes.find(q => q.employeeId === t.employeeId || q.employeeId === t.id);
@@ -1499,42 +1543,33 @@ export const loadTenantSqlIntoMemory = async (tenantId) => {
       });
     }
 
-
-    const dbAttRecords = await sqlDb.query('SELECT * FROM attendance_records WHERE tenantId = ?', [tId]);
     data.attendanceRecords = dbAttRecords.map(a => ({
       ...a,
       workingHours: parseFloat(a.workingHours || 0)
     }));
 
-    const dbAttLogs = await sqlDb.query('SELECT * FROM attendance_logs WHERE tenantId = ?', [tId]);
     data.attendanceLogs = dbAttLogs;
 
-    const dbAttReports = await sqlDb.query('SELECT * FROM attendance_reports WHERE tenantId = ?', [tId]);
     data.attendanceReports = dbAttReports.map(r => ({
       ...r,
       filters: typeof r.filters === 'string' ? JSON.parse(r.filters) : (r.filters || {})
     }));
 
-    // Load centralized grades, departments, and grade mappings
-    const dbGrades = await sqlDb.query('SELECT * FROM grades WHERE tenantId = ?', [tId]);
     data.grades = dbGrades.map(g => ({
       ...g,
-      status: g.status || 'Active'
+      status: g.status || 'Active',
+      sections: g.sections ? (typeof g.sections === 'string' ? JSON.parse(g.sections) : g.sections) : []
     }));
 
-    const dbDepts = await sqlDb.query('SELECT * FROM departments WHERE tenantId = ?', [tId]);
     data.departments = dbDepts.map(d => ({
       ...d,
       status: d.status || 'Active'
     }));
 
-    const dbGradeDepts = await sqlDb.query('SELECT * FROM grade_departments WHERE tenantId = ?', [tId]);
     data.gradeDepartments = dbGradeDepts.map(gd => ({
       ...gd,
       status: gd.status || 'Active'
     }));
-
-    // Seeder disabled: User wishes grade list to start empty until manually configured
 
     dbCache[queryTenantId] = data;
     return data;
@@ -1546,6 +1581,14 @@ export const loadTenantSqlIntoMemory = async (tenantId) => {
 
 // Express middleware to ensure SQL cache is loaded on incoming requests
 export const ensureTenantSqlLoaded = async (req, res, next) => {
+  if (sqlInitPromise) {
+    try {
+      await sqlInitPromise;
+    } catch (err) {
+      console.error('[SQL Init Wait Error]', err);
+    }
+  }
+
   if (!isSqlActive()) {
     return next(); // Fail-safe fallback to local JSON file operations
   }
@@ -1562,12 +1605,16 @@ export const ensureTenantSqlLoaded = async (req, res, next) => {
   const activeTenant = tenantId ? slugify(tenantId) : 'platform';
   
   try {
-    // 1. ALWAYS validate and load platform cache first, because any tenant request might need global school config
-    const dbRows = await sqlDb.query('SELECT COUNT(*) as count, MAX(id) as maxId, MAX(updatedAt) as maxUpdatedAt FROM schools');
-    const count = dbRows[0]?.count || 0;
-    const maxId = dbRows[0]?.maxId || '';
-    const maxUpdatedAt = dbRows[0]?.maxUpdatedAt || '';
-    const platformSignature = `${count}-${maxId}-${maxUpdatedAt}`;
+    // 1. Validate both platform schools and active tenant context in parallel
+    const promises = [
+      sqlDb.query('SELECT id, name, code, subdomain, logo, principalName, email, phone, address, city, state, country, academicSession, subscriptionPlan, url, status, adminName, adminEmail, adminUsername, adminPassword, createdAt FROM schools')
+    ];
+    if (activeTenant !== 'platform') {
+      promises.push(sqlDb.query('SELECT updatedAt FROM schools WHERE subdomain = ?', [activeTenant]));
+    }
+    const [schoolRows, tenantRows] = await Promise.all(promises);
+
+    const platformSignature = schoolRows.map(s => `${s.id}-${s.name || ''}-${s.code || ''}-${s.subdomain || ''}-${s.logo || ''}-${s.principalName || ''}-${s.email || ''}-${s.phone || ''}-${s.address || ''}-${s.city || ''}-${s.state || ''}-${s.country || ''}-${s.academicSession || ''}-${s.subscriptionPlan || ''}-${s.url || ''}-${s.status || ''}-${s.adminName || ''}-${s.adminEmail || ''}-${s.adminUsername || ''}-${s.adminPassword || ''}-${s.createdAt || ''}`).join('|');
     if (!dbCache['platform'] || dbCache['platform']._signature !== platformSignature) {
       console.log(`[SQL Cache] Invalidating platform cache (Local: ${dbCache['platform']?._signature || 'None'} != SQL: ${platformSignature})`);
       const data = await loadTenantSqlIntoMemory('platform');
@@ -1579,8 +1626,7 @@ export const ensureTenantSqlLoaded = async (req, res, next) => {
 
     // 2. Validate and load tenant cache if we are inside a tenant context
     if (activeTenant !== 'platform') {
-      const rows = await sqlDb.query('SELECT updatedAt FROM schools WHERE subdomain = ?', [activeTenant]);
-      const dbUpdatedAt = rows[0]?.updatedAt || '';
+      const dbUpdatedAt = tenantRows[0]?.updatedAt || '';
       
       const dbUpdatedAtStr = dbUpdatedAt instanceof Date ? dbUpdatedAt.toISOString() : (dbUpdatedAt || '');
       const localUpdatedAtStr = (dbCache[activeTenant] && dbCache[activeTenant]._updatedAt)
@@ -1598,6 +1644,13 @@ export const ensureTenantSqlLoaded = async (req, res, next) => {
     }
   } catch (err) {
     console.error('[SQL Cache Validation Error]', err.message);
+    const isConnectionError = ['ETIMEDOUT', 'ENOTFOUND', 'ECONNREFUSED', 'PROTOCOL_CONNECTION_LOST', 'lost', 'handshake'].some(
+      term => err.message.toUpperCase().includes(term)
+    );
+    if (isConnectionError) {
+      console.warn('[SQL Cache] SQL connection lost or timed out. Gracefully disabling SQL mode and falling back to JSON.');
+      isSqlInitialized = false;
+    }
   }
   next();
 };
@@ -1631,7 +1684,7 @@ const bulkInsertOnly = async (tableName, columns, valueRows) => {
 };
 
 // Asynchronous write dispatcher to MySQL
-export const saveMemoryDbToSql = async (tenantId, db) => {
+export const saveMemoryDbToSql = async (tenantId, db, previousDb) => {
   const tId = tenantId || 'platform';
   if (!isSqlActive()) return;
 
@@ -1641,12 +1694,19 @@ export const saveMemoryDbToSql = async (tenantId, db) => {
 
   const syncPromise = sqlSyncQueues[tId].then(async () => {
     try {
+      const hasTableChanged = (key) => {
+        if (!previousDb) return true;
+        if (!db[key] && !previousDb[key]) return false;
+        if (!db[key] || !previousDb[key]) return true;
+        return JSON.stringify(db[key]) !== JSON.stringify(previousDb[key]);
+      };
+
       console.log(`[SQL Sync] Initiating async MySQL database update for tenant: ${tId}`);
 
       const tasks = [];
 
       // 1. Sync global platforms
-      if (db.schools && Array.isArray(db.schools)) {
+      if (db.schools && Array.isArray(db.schools) && hasTableChanged('schools')) {
         tasks.push((async () => {
           const activeSchoolIds = db.schools.map(s => s.id).filter(Boolean);
           let deletedSubdomains = [];
@@ -1701,7 +1761,7 @@ export const saveMemoryDbToSql = async (tenantId, db) => {
       }
 
       // 2. Sync school details
-      if (tId !== 'platform' && db.school) {
+      if (tId !== 'platform' && db.school && hasTableChanged('school')) {
         const sch = db.school;
         tasks.push(sqlDb.query(
           `UPDATE schools SET 
@@ -1717,7 +1777,7 @@ export const saveMemoryDbToSql = async (tenantId, db) => {
       }
 
       // 3. Sync Teachers
-      if (db.teachers && Array.isArray(db.teachers)) {
+      if (db.teachers && Array.isArray(db.teachers) && hasTableChanged('teachers')) {
         tasks.push((async () => {
           const activeTeacherIds = db.teachers.map(t => t.id).filter(Boolean);
           if (activeTeacherIds.length > 0) {
@@ -1765,7 +1825,7 @@ export const saveMemoryDbToSql = async (tenantId, db) => {
       }
 
       // 4. Sync Staff
-      if (db.staff && Array.isArray(db.staff)) {
+      if (db.staff && Array.isArray(db.staff) && hasTableChanged('staff')) {
         tasks.push((async () => {
           const activeStaffIds = db.staff.map(s => s.id).filter(Boolean);
           if (activeStaffIds.length > 0) {
@@ -1787,7 +1847,7 @@ export const saveMemoryDbToSql = async (tenantId, db) => {
       }
 
       // 5. Sync Students & Sub-Tables (Students first, then child tables concurrently)
-      if (db.students && Array.isArray(db.students)) {
+      if (db.students && Array.isArray(db.students) && hasTableChanged('students')) {
         tasks.push((async () => {
           const activeStudentIds = db.students.map(s => s.id).filter(Boolean);
           if (activeStudentIds.length > 0) {
@@ -1912,7 +1972,7 @@ export const saveMemoryDbToSql = async (tenantId, db) => {
       }
 
       // 6. Sync Timetables
-      if (db.timetables && Array.isArray(db.timetables)) {
+      if (db.timetables && Array.isArray(db.timetables) && hasTableChanged('timetables')) {
         tasks.push((async () => {
           await sqlDb.query('DELETE FROM timetables WHERE tenantId = ?', [tId]);
           
@@ -1987,7 +2047,7 @@ export const saveMemoryDbToSql = async (tenantId, db) => {
       }
 
       // 7. Sync Invoices
-      if (db.invoices && Array.isArray(db.invoices)) {
+      if (db.invoices && Array.isArray(db.invoices) && hasTableChanged('invoices')) {
         tasks.push((async () => {
           const activeInvNos = db.invoices.map(i => i.invoiceNo).filter(Boolean);
           if (activeInvNos.length > 0) {
@@ -2006,7 +2066,7 @@ export const saveMemoryDbToSql = async (tenantId, db) => {
       }
 
       // 8. Sync Fees
-      if (db.fees && Array.isArray(db.fees)) {
+      if (db.fees && Array.isArray(db.fees) && hasTableChanged('fees')) {
         tasks.push((async () => {
           const activeFeeIds = db.fees.map(f => f.id || f.feeId).filter(Boolean);
           if (activeFeeIds.length > 0) {
@@ -2032,7 +2092,7 @@ export const saveMemoryDbToSql = async (tenantId, db) => {
       }
 
       // 9. Sync Expenses
-      if (db.expenses && Array.isArray(db.expenses)) {
+      if (db.expenses && Array.isArray(db.expenses) && hasTableChanged('expenses')) {
         tasks.push((async () => {
           const activeExpIds = db.expenses.map(e => e.id).filter(Boolean);
           if (activeExpIds.length > 0) {
@@ -2051,7 +2111,7 @@ export const saveMemoryDbToSql = async (tenantId, db) => {
       }
 
       // 10. Sync Payroll
-      if (db.payroll && Array.isArray(db.payroll)) {
+      if (db.payroll && Array.isArray(db.payroll) && hasTableChanged('payroll')) {
         tasks.push((async () => {
           const activePayIds = db.payroll.map(p => p.id).filter(Boolean);
           if (activePayIds.length > 0) {
@@ -2070,7 +2130,7 @@ export const saveMemoryDbToSql = async (tenantId, db) => {
       }
 
       // 11. Sync Staff Payments
-      if (db.staffPayments && Array.isArray(db.staffPayments)) {
+      if (db.staffPayments && Array.isArray(db.staffPayments) && hasTableChanged('staffPayments')) {
         tasks.push((async () => {
           const activeSpIds = db.staffPayments.map(sp => sp.id || sp.paymentId).filter(Boolean);
           if (activeSpIds.length > 0) {
@@ -2098,7 +2158,7 @@ export const saveMemoryDbToSql = async (tenantId, db) => {
       }
 
       // 12. Sync Activities
-      if (db.activities && Array.isArray(db.activities)) {
+      if (db.activities && Array.isArray(db.activities) && hasTableChanged('activities')) {
         tasks.push((async () => {
           const itemsToKeep = db.activities.slice(0, 50);
           const activeActIds = itemsToKeep.map(act => act.id).filter(Boolean);
@@ -2118,7 +2178,7 @@ export const saveMemoryDbToSql = async (tenantId, db) => {
       }
 
       // 13. Sync Exams
-      if (db.exams && Array.isArray(db.exams)) {
+      if (db.exams && Array.isArray(db.exams) && hasTableChanged('exams')) {
         tasks.push((async () => {
           const activeExamIds = db.exams.map(ex => ex.id).filter(Boolean);
           if (activeExamIds.length > 0) {
@@ -2150,7 +2210,7 @@ export const saveMemoryDbToSql = async (tenantId, db) => {
       }
 
       // 13b. Sync Exam Timetables
-      if (db.examTimetables && Array.isArray(db.examTimetables)) {
+      if (db.examTimetables && Array.isArray(db.examTimetables) && hasTableChanged('examTimetables')) {
         tasks.push((async () => {
           const activeEtIds = db.examTimetables.map(et => et.id).filter(Boolean);
           if (activeEtIds.length > 0) {
@@ -2172,7 +2232,7 @@ export const saveMemoryDbToSql = async (tenantId, db) => {
       }
 
       // 13c. Sync Results
-      if (db.results && Array.isArray(db.results)) {
+      if (db.results && Array.isArray(db.results) && hasTableChanged('results')) {
         tasks.push((async () => {
           const activeResIds = db.results.map(r => r.id).filter(Boolean);
           if (activeResIds.length > 0) {
@@ -2198,7 +2258,7 @@ export const saveMemoryDbToSql = async (tenantId, db) => {
       }
 
       // 13d. Sync Overall Results
-      if (db.overallResults && Array.isArray(db.overallResults)) {
+      if (db.overallResults && Array.isArray(db.overallResults) && hasTableChanged('overallResults')) {
         tasks.push((async () => {
           const activeOrIds = db.overallResults.map(o => o.id || `OR-${o.studentId}`).filter(Boolean);
           if (activeOrIds.length > 0) {
@@ -2225,7 +2285,7 @@ export const saveMemoryDbToSql = async (tenantId, db) => {
       }
 
       // 14. Sync Notices
-      if (db.notices && Array.isArray(db.notices)) {
+      if (db.notices && Array.isArray(db.notices) && hasTableChanged('notices')) {
         tasks.push((async () => {
           const activeNoticeIds = db.notices.map(n => n.id).filter(Boolean);
           if (activeNoticeIds.length > 0) {
@@ -2244,7 +2304,7 @@ export const saveMemoryDbToSql = async (tenantId, db) => {
       }
 
       // 14b. Sync Holidays
-      if (db.holidays && Array.isArray(db.holidays)) {
+      if (db.holidays && Array.isArray(db.holidays) && hasTableChanged('holidays')) {
         tasks.push((async () => {
           const activeHolidayIds = db.holidays.map(h => h.id).filter(Boolean);
           if (activeHolidayIds.length > 0) {
@@ -2263,7 +2323,7 @@ export const saveMemoryDbToSql = async (tenantId, db) => {
       }
 
       // 14c. Sync Events
-      if (db.events && Array.isArray(db.events)) {
+      if (db.events && Array.isArray(db.events) && hasTableChanged('events')) {
         tasks.push((async () => {
           const activeEventIds = db.events.map(ev => ev.id).filter(Boolean);
           if (activeEventIds.length > 0) {
@@ -2282,7 +2342,7 @@ export const saveMemoryDbToSql = async (tenantId, db) => {
       }
 
       // 14d. Sync Subjects
-      if (db.subjects && Array.isArray(db.subjects)) {
+      if (db.subjects && Array.isArray(db.subjects) && hasTableChanged('subjects')) {
         tasks.push((async () => {
           const activeSubjectIds = db.subjects.map(sub => sub.id).filter(Boolean);
           if (activeSubjectIds.length > 0) {
@@ -2301,7 +2361,7 @@ export const saveMemoryDbToSql = async (tenantId, db) => {
       }
 
       // 15. Sync Timeslots
-      if (db.timeslots && Array.isArray(db.timeslots)) {
+      if (db.timeslots && Array.isArray(db.timeslots) && hasTableChanged('timeslots')) {
         tasks.push((async () => {
           await sqlDb.query('DELETE FROM timeslots WHERE tenantId = ?', [tId]);
           const columns = ['slotTime', 'tenantId'];
@@ -2311,7 +2371,7 @@ export const saveMemoryDbToSql = async (tenantId, db) => {
       }
 
       // 16. Sync Fee Structures
-      if (db.feeStructures && Array.isArray(db.feeStructures)) {
+      if (db.feeStructures && Array.isArray(db.feeStructures) && hasTableChanged('feeStructures')) {
         tasks.push((async () => {
           const activeFsIds = db.feeStructures.map(fsItem => fsItem.id || `FS-${fsItem.grade || fsItem.studentClass}`);
           if (activeFsIds.length > 0) {
@@ -2338,7 +2398,7 @@ export const saveMemoryDbToSql = async (tenantId, db) => {
       }
 
       // 16b. Sync Salary Structures
-      if (db.salaryStructures && Array.isArray(db.salaryStructures)) {
+      if (db.salaryStructures && Array.isArray(db.salaryStructures) && hasTableChanged('salaryStructures')) {
         tasks.push((async () => {
           const activeSsIds = db.salaryStructures.map(ss => ss.id || `SS-${ss.gradeName || ss.designation}`);
           if (activeSsIds.length > 0) {
@@ -2366,7 +2426,7 @@ export const saveMemoryDbToSql = async (tenantId, db) => {
       }
 
       // 16c. Sync Staff Salary Structures
-      if (db.staffSalaryStructures && Array.isArray(db.staffSalaryStructures)) {
+      if (db.staffSalaryStructures && Array.isArray(db.staffSalaryStructures) && hasTableChanged('staffSalaryStructures')) {
         tasks.push((async () => {
           const activeSssIds = db.staffSalaryStructures.map(sss => sss.id || `SSS-${sss.position || sss.designation}`);
           if (activeSssIds.length > 0) {
@@ -2396,7 +2456,7 @@ export const saveMemoryDbToSql = async (tenantId, db) => {
       }
 
       // 16d. Sync Income
-      if (db.income && Array.isArray(db.income)) {
+      if (db.income && Array.isArray(db.income) && hasTableChanged('income')) {
         tasks.push((async () => {
           const activeIncIds = db.income.map(inc => inc.id);
           if (activeIncIds.length > 0) {
@@ -2415,7 +2475,7 @@ export const saveMemoryDbToSql = async (tenantId, db) => {
       }
 
       // 16e. Sync Attendance
-      if (db.attendance && Array.isArray(db.attendance)) {
+      if (db.attendance && Array.isArray(db.attendance) && hasTableChanged('attendance')) {
         tasks.push((async () => {
           const activeAttIds = db.attendance.map(att => att.attendanceId);
           if (activeAttIds.length > 0) {
@@ -2434,7 +2494,7 @@ export const saveMemoryDbToSql = async (tenantId, db) => {
       }
 
       // 17. Sync Roles
-      if (db.roles && Array.isArray(db.roles)) {
+      if (db.roles && Array.isArray(db.roles) && hasTableChanged('roles')) {
         tasks.push((async () => {
           const activeRoleIds = db.roles.map(r => r.id).filter(Boolean);
           if (activeRoleIds.length > 0) {
@@ -2455,7 +2515,7 @@ export const saveMemoryDbToSql = async (tenantId, db) => {
       }
 
       // 18. Sync User Access
-      if (db.userAccess && Array.isArray(db.userAccess)) {
+      if (db.userAccess && Array.isArray(db.userAccess) && hasTableChanged('userAccess')) {
         tasks.push((async () => {
           const activeUaIds = db.userAccess.map(ua => ua.id).filter(Boolean);
           if (activeUaIds.length > 0) {
@@ -2476,7 +2536,7 @@ export const saveMemoryDbToSql = async (tenantId, db) => {
       }
 
       // 19. Sync Audit Logs
-      if (db.auditLogs && Array.isArray(db.auditLogs)) {
+      if (db.auditLogs && Array.isArray(db.auditLogs) && hasTableChanged('auditLogs')) {
         tasks.push((async () => {
           const activeLogIds = db.auditLogs.map(l => l.id).filter(Boolean);
           if (activeLogIds.length > 0) {
@@ -2495,7 +2555,7 @@ export const saveMemoryDbToSql = async (tenantId, db) => {
       }
 
       // 20. Sync Employee QR Codes
-      if (db.employeeQrCodes && Array.isArray(db.employeeQrCodes)) {
+      if (db.employeeQrCodes && Array.isArray(db.employeeQrCodes) && hasTableChanged('employeeQrCodes')) {
         tasks.push((async () => {
           const activeQrIds = db.employeeQrCodes.map(q => q.id).filter(Boolean);
           if (activeQrIds.length > 0) {
@@ -2527,7 +2587,7 @@ export const saveMemoryDbToSql = async (tenantId, db) => {
       }
 
       // 21. Sync Attendance Records
-      if (db.attendanceRecords && Array.isArray(db.attendanceRecords)) {
+      if (db.attendanceRecords && Array.isArray(db.attendanceRecords) && hasTableChanged('attendanceRecords')) {
         tasks.push((async () => {
           const activeAttIds = db.attendanceRecords.map(a => a.id).filter(Boolean);
           if (activeAttIds.length > 0) {
@@ -2559,7 +2619,7 @@ export const saveMemoryDbToSql = async (tenantId, db) => {
       }
 
       // 22. Sync Attendance Logs
-      if (db.attendanceLogs && Array.isArray(db.attendanceLogs)) {
+      if (db.attendanceLogs && Array.isArray(db.attendanceLogs) && hasTableChanged('attendanceLogs')) {
         tasks.push((async () => {
           const activeLogIds = db.attendanceLogs.map(l => l.id).filter(Boolean);
           if (activeLogIds.length > 0) {
@@ -2591,7 +2651,7 @@ export const saveMemoryDbToSql = async (tenantId, db) => {
       }
 
       // 23. Sync Attendance Reports
-      if (db.attendanceReports && Array.isArray(db.attendanceReports)) {
+      if (db.attendanceReports && Array.isArray(db.attendanceReports) && hasTableChanged('attendanceReports')) {
         tasks.push((async () => {
           const activeRepIds = db.attendanceReports.map(r => r.id).filter(Boolean);
           if (activeRepIds.length > 0) {
@@ -2612,7 +2672,7 @@ export const saveMemoryDbToSql = async (tenantId, db) => {
       }
 
       // 24. Sync Academic Calendar Events
-      if (db.academicCalendarEvents && Array.isArray(db.academicCalendarEvents)) {
+      if (db.academicCalendarEvents && Array.isArray(db.academicCalendarEvents) && hasTableChanged('academicCalendarEvents')) {
         tasks.push((async () => {
           const activeEventIds = db.academicCalendarEvents.map(e => e.id).filter(Boolean);
           if (activeEventIds.length > 0) {
@@ -2637,7 +2697,7 @@ export const saveMemoryDbToSql = async (tenantId, db) => {
       }
 
       // 25. Sync Academic Calendar Imports
-      if (db.academicCalendarImports && Array.isArray(db.academicCalendarImports)) {
+      if (db.academicCalendarImports && Array.isArray(db.academicCalendarImports) && hasTableChanged('academicCalendarImports')) {
         tasks.push((async () => {
           const activeImportIds = db.academicCalendarImports.map(i => i.id).filter(Boolean);
           if (activeImportIds.length > 0) {
@@ -2656,7 +2716,7 @@ export const saveMemoryDbToSql = async (tenantId, db) => {
       }
 
       // 26. Sync Published Calendar Events
-      if (db.publishedCalendarEvents && Array.isArray(db.publishedCalendarEvents)) {
+      if (db.publishedCalendarEvents && Array.isArray(db.publishedCalendarEvents) && hasTableChanged('publishedCalendarEvents')) {
         tasks.push((async () => {
           const activePublishedIds = db.publishedCalendarEvents.filter(Boolean);
           if (activePublishedIds.length > 0) {
@@ -2674,7 +2734,7 @@ export const saveMemoryDbToSql = async (tenantId, db) => {
       }
 
       // Sync central grades
-      if (db.grades && Array.isArray(db.grades)) {
+      if (db.grades && Array.isArray(db.grades) && hasTableChanged('grades')) {
         tasks.push((async () => {
           const activeGradeIds = db.grades.map(g => g.id).filter(Boolean);
           if (activeGradeIds.length > 0) {
@@ -2683,17 +2743,18 @@ export const saveMemoryDbToSql = async (tenantId, db) => {
             await sqlDb.query('DELETE FROM grades WHERE tenantId = ?', [tId]);
           }
 
-          const columns = ['id', 'name', 'status', 'createdAt', 'updatedAt', 'tenantId'];
-          const updateColumns = ['name', 'status', 'updatedAt'];
+          const columns = ['id', 'name', 'status', 'createdAt', 'updatedAt', 'tenantId', 'sections'];
+          const updateColumns = ['name', 'status', 'updatedAt', 'sections'];
           const valueRows = db.grades.filter(g => g.id).map(g => [
-            g.id, g.name, g.status || 'Active', g.createdAt || new Date().toISOString(), g.updatedAt || new Date().toISOString(), tId
+            g.id, g.name, g.status || 'Active', g.createdAt || new Date().toISOString(), g.updatedAt || new Date().toISOString(), tId,
+            g.sections ? (typeof g.sections === 'string' ? g.sections : JSON.stringify(g.sections)) : '[]'
           ]);
           await bulkInsertOrUpdate('grades', columns, valueRows, updateColumns);
         })());
       }
 
       // Sync central departments
-      if (db.departments && Array.isArray(db.departments)) {
+      if (db.departments && Array.isArray(db.departments) && hasTableChanged('departments')) {
         tasks.push((async () => {
           const activeDeptIds = db.departments.map(d => d.id).filter(Boolean);
           if (activeDeptIds.length > 0) {
@@ -2712,7 +2773,7 @@ export const saveMemoryDbToSql = async (tenantId, db) => {
       }
 
       // Sync central grade mappings
-      if (db.gradeDepartments && Array.isArray(db.gradeDepartments)) {
+      if (db.gradeDepartments && Array.isArray(db.gradeDepartments) && hasTableChanged('gradeDepartments')) {
         tasks.push((async () => {
           const activeMappingIds = db.gradeDepartments.map(gd => gd.id).filter(Boolean);
           if (activeMappingIds.length > 0) {
@@ -2730,11 +2791,73 @@ export const saveMemoryDbToSql = async (tenantId, db) => {
         })());
       }
 
+      // Sync sections
+      if (db.sections && Array.isArray(db.sections) && hasTableChanged('sections')) {
+        tasks.push((async () => {
+          const activeSecIds = db.sections.map(s => s.id).filter(Boolean);
+          if (activeSecIds.length > 0) {
+            await sqlDb.query(`DELETE FROM sections WHERE tenantId = ? AND id NOT IN (${activeSecIds.map(() => '?').join(',')})`, [tId, ...activeSecIds]);
+          } else {
+            await sqlDb.query('DELETE FROM sections WHERE tenantId = ?', [tId]);
+          }
+
+          const columns = ['id', 'name', 'status', 'createdAt', 'updatedAt', 'tenantId'];
+          const updateColumns = ['name', 'status', 'updatedAt'];
+          const valueRows = db.sections.filter(s => s.id).map(s => [
+            s.id, s.name, s.status || 'Active', s.createdAt || new Date().toISOString(), s.updatedAt || new Date().toISOString(), tId
+          ]);
+          await bulkInsertOrUpdate('sections', columns, valueRows, updateColumns);
+        })());
+      }
+
+      // Sync published timetables
+      if (hasTableChanged('publishedClassTimetables') || hasTableChanged('publishedTeacherTimetables')) {
+        tasks.push((async () => {
+          await sqlDb.query('DELETE FROM published_timetables WHERE tenantId = ?', [tId]);
+
+          const valueRows = [];
+          if (db.publishedClassTimetables && Array.isArray(db.publishedClassTimetables)) {
+            db.publishedClassTimetables.forEach(pt => {
+              if (pt.cohort) {
+                valueRows.push([
+                  `pub-class-${pt.cohort}-${tId}`,
+                  'class',
+                  pt.cohort,
+                  JSON.stringify(pt.slots || []),
+                  pt.publishedAt || new Date().toISOString(),
+                  tId
+                ]);
+              }
+            });
+          }
+          if (db.publishedTeacherTimetables && Array.isArray(db.publishedTeacherTimetables)) {
+            db.publishedTeacherTimetables.forEach(pt => {
+              if (pt.teacher) {
+                valueRows.push([
+                  `pub-teacher-${slugify(pt.teacher)}-${tId}`,
+                  'teacher',
+                  pt.teacher,
+                  JSON.stringify(pt.slots || []),
+                  pt.publishedAt || new Date().toISOString(),
+                  tId
+                ]);
+              }
+            });
+          }
+
+          if (valueRows.length > 0) {
+            const columns = ['id', 'type', 'identifier', 'slots', 'publishedAt', 'tenantId'];
+            const updateColumns = ['slots', 'publishedAt'];
+            await bulkInsertOrUpdate('published_timetables', columns, valueRows, updateColumns);
+          }
+        })());
+      }
+
       // Execute all synchronization tasks concurrently!
       await Promise.all(tasks);
 
       // 27. Update schools.updatedAt timestamp to trigger cache validation for other instances
-      if (tId !== 'platform') {
+      if (tId !== 'platform' && tasks.length > 0) {
         const nowStr = new Date().toISOString();
         await sqlDb.query("UPDATE schools SET updatedAt = ? WHERE subdomain = ?", [nowStr, tId]);
         if (dbCache[tId]) {
@@ -2745,6 +2868,13 @@ export const saveMemoryDbToSql = async (tenantId, db) => {
       console.log(`[SQL Sync SUCCESS] Finished database sync for tenant: ${tId}`);
     } catch (err) {
       console.error(`[SQL Sync ERROR] Sync query failed for tenant ${tId || 'platform'}:`, err);
+      const isConnectionError = ['ETIMEDOUT', 'ENOTFOUND', 'ECONNREFUSED', 'PROTOCOL_CONNECTION_LOST', 'lost', 'handshake'].some(
+        term => err.message.toUpperCase().includes(term)
+      );
+      if (isConnectionError) {
+        console.warn('[SQL Sync] SQL connection lost or timed out. Gracefully disabling SQL mode and falling back to JSON.');
+        isSqlInitialized = false;
+      }
     }
   });
 
@@ -2802,6 +2932,11 @@ export const readDb = () => {
     if (!db.attendanceLogs) db.attendanceLogs = [];
     if (!db.attendanceReports) db.attendanceReports = [];
     if (!db.grades) db.grades = [];
+    if (db.grades && Array.isArray(db.grades)) {
+      db.grades.forEach(g => {
+        if (!g.sections) g.sections = [];
+      });
+    }
     if (!db.departments) db.departments = [];
     if (!db.gradeDepartments) db.gradeDepartments = [];
     if (!db.sections) {
@@ -2875,15 +3010,23 @@ export const writeDb = (data) => {
   const activeTenant = tenantId ? slugify(tenantId) : 'platform';
 
   if (isSqlActive()) {
+    const previousData = dbCache[activeTenant];
     // 1. Update memory cache instantly
     dbCache[activeTenant] = data;
     // 2. Dispatch MySQL sync asynchronously in the background
-    saveMemoryDbToSql(activeTenant, data);
+    saveMemoryDbToSql(activeTenant, data, previousData);
   }
 
   // Backup to JSON file asynchronously to avoid blocking (always for platform owner, or when SQL is inactive)
   if (activeTenant === 'platform' || !isSqlActive()) {
     const dbFile = getDbPath();
+    if (!isSqlActive() && !fs.existsSync(TENANTS_DIR)) {
+      try {
+        fs.mkdirSync(TENANTS_DIR, { recursive: true });
+      } catch (err) {
+        console.error('Failed to create tenants directory:', err);
+      }
+    }
     fs.writeFile(dbFile, JSON.stringify(data, null, 2), 'utf8', (err) => {
       if (err) {
         console.error(`[JSON Backup ERROR] Failed writing local backup:`, err);

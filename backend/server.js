@@ -13,7 +13,7 @@ import academicRoutes from './routes/academicRoutes.js';
 import rbacRoutes from './routes/rbacRoutes.js';
 import gradeRoutes from './routes/gradeRoutes.js';
 import upload from './middleware/upload.js';
-import { readDb, writeDb, addActivity, tenantStorage, slugify, restoreTenantContext, ensureTenantSqlLoaded } from './utils/db.js';
+import { readDb, writeDb, addActivity, tenantStorage, slugify, restoreTenantContext, ensureTenantSqlLoaded, isSqlActive } from './utils/db.js';
 import { auth, generateToken } from './middleware/auth.js';
 import { generateQrCode } from './utils/qrService.js';
 
@@ -259,26 +259,62 @@ app.post('/api/auth/login', (req, res) => {
 });
 
 // Get all schools with tenant counts
-app.get('/api/platform/schools', (req, res) => {
+app.get('/api/platform/schools', async (req, res) => {
   const db = readDb(); // Global DB
   const schools = db.schools || [];
   
+  let stats = {};
+  if (isSqlActive()) {
+    try {
+      const sqlDb = await import('./utils/sqlDb.js');
+      const [studentsRes, teachersRes, staffRes] = await Promise.all([
+        sqlDb.query('SELECT tenantId, COUNT(*) as cnt FROM students GROUP BY tenantId'),
+        sqlDb.query('SELECT tenantId, COUNT(*) as cnt FROM staff GROUP BY tenantId'),
+        sqlDb.query('SELECT tenantId, COUNT(*) as cnt FROM employees GROUP BY tenantId')
+      ]);
+      
+      studentsRes.forEach(r => {
+        if (!stats[r.tenantId]) stats[r.tenantId] = { students: 0, teachers: 0, staff: 0 };
+        stats[r.tenantId].students = r.cnt;
+      });
+      teachersRes.forEach(r => {
+        if (!stats[r.tenantId]) stats[r.tenantId] = { students: 0, teachers: 0, staff: 0 };
+        stats[r.tenantId].teachers = r.cnt;
+      });
+      staffRes.forEach(r => {
+        if (!stats[r.tenantId]) stats[r.tenantId] = { students: 0, teachers: 0, staff: 0 };
+        stats[r.tenantId].staff = r.cnt;
+      });
+    } catch (err) {
+      console.error('Failed to query stats from SQL:', err);
+    }
+  }
+
   const schoolsWithStats = schools.map(school => {
     let studentCount = 0;
     let teacherCount = 0;
     let staffCount = 0;
-    const tenantDbPath = path.join(__dirname, 'tenants', `db_${school.subdomain}.json`);
-    if (fs.existsSync(tenantDbPath)) {
-      try {
-        const raw = fs.readFileSync(tenantDbPath, 'utf8');
-        const data = JSON.parse(raw);
-        studentCount = (data.students || []).length;
-        teacherCount = (data.teachers || []).length;
-        staffCount = (data.staff || []).length;
-      } catch (e) {
-        console.error(`Error reading tenant stats for ${school.subdomain}:`, e);
+    
+    if (isSqlActive()) {
+      const tenantStats = stats[school.subdomain] || {};
+      studentCount = tenantStats.students || 0;
+      teacherCount = tenantStats.teachers || 0;
+      staffCount = tenantStats.staff || 0;
+    } else {
+      const tenantDbPath = path.join(__dirname, 'tenants', `db_${school.subdomain}.json`);
+      if (fs.existsSync(tenantDbPath)) {
+        try {
+          const raw = fs.readFileSync(tenantDbPath, 'utf8');
+          const data = JSON.parse(raw);
+          studentCount = (data.students || []).length;
+          teacherCount = (data.teachers || []).length;
+          staffCount = (data.staff || []).length;
+        } catch (e) {
+          console.error(`Error reading tenant stats for ${school.subdomain}:`, e);
+        }
       }
     }
+    
     return {
       ...school,
       studentCount,
@@ -390,10 +426,16 @@ app.post('/api/platform/schools', (req, res) => {
     results: []
   };
 
-  try {
-    fs.writeFileSync(tenantDbPath, JSON.stringify(defaultTenantDb, null, 2), 'utf8');
-  } catch (err) {
-    console.error('Failed to create tenant DB:', err);
+  if (!isSqlActive()) {
+    try {
+      const dir = path.dirname(tenantDbPath);
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+      }
+      fs.writeFileSync(tenantDbPath, JSON.stringify(defaultTenantDb, null, 2), 'utf8');
+    } catch (err) {
+      console.error('Failed to create tenant DB:', err);
+    }
   }
 
   res.status(201).json(newSchool);
@@ -428,26 +470,28 @@ app.put('/api/platform/schools/:id', (req, res) => {
   writeDb(db);
 
   // Update tenant database details block as well
-  const tenantDbPath = path.join(__dirname, 'tenants', `db_${currentSchool.subdomain}.json`);
-  if (fs.existsSync(tenantDbPath)) {
-    try {
-      const raw = fs.readFileSync(tenantDbPath, 'utf8');
-      const tenantData = JSON.parse(raw);
-      tenantData.school = {
-        ...tenantData.school,
-        name: db.schools[index].name,
-        address: db.schools[index].address,
-        city: db.schools[index].city,
-        state: db.schools[index].state,
-        phone: db.schools[index].phone,
-        email: db.schools[index].email,
-        principal: db.schools[index].principalName,
-        adminUsername: db.schools[index].adminUsername,
-        updatedAt: new Date().toISOString()
-      };
-      fs.writeFileSync(tenantDbPath, JSON.stringify(tenantData, null, 2), 'utf8');
-    } catch (e) {
-      console.error('Failed to sync school update to tenant DB:', e);
+  if (!isSqlActive()) {
+    const tenantDbPath = path.join(__dirname, 'tenants', `db_${currentSchool.subdomain}.json`);
+    if (fs.existsSync(tenantDbPath)) {
+      try {
+        const raw = fs.readFileSync(tenantDbPath, 'utf8');
+        const tenantData = JSON.parse(raw);
+        tenantData.school = {
+          ...tenantData.school,
+          name: db.schools[index].name,
+          address: db.schools[index].address,
+          city: db.schools[index].city,
+          state: db.schools[index].state,
+          phone: db.schools[index].phone,
+          email: db.schools[index].email,
+          principal: db.schools[index].principalName,
+          adminUsername: db.schools[index].adminUsername,
+          updatedAt: new Date().toISOString()
+        };
+        fs.writeFileSync(tenantDbPath, JSON.stringify(tenantData, null, 2), 'utf8');
+      } catch (e) {
+        console.error('Failed to sync school update to tenant DB:', e);
+      }
     }
   }
 
@@ -465,18 +509,20 @@ app.post('/api/platform/schools/:id/suspend', (req, res) => {
   writeDb(db);
 
   // Sync to tenant DB
-  const tenantDbPath = path.join(__dirname, 'tenants', `db_${school.subdomain}.json`);
-  if (fs.existsSync(tenantDbPath)) {
-    try {
-      const raw = fs.readFileSync(tenantDbPath, 'utf8');
-      const tenantData = JSON.parse(raw);
-      if (tenantData.school) {
-        tenantData.school.status = 'Suspended';
-        tenantData.school.updatedAt = new Date().toISOString();
+  if (!isSqlActive()) {
+    const tenantDbPath = path.join(__dirname, 'tenants', `db_${school.subdomain}.json`);
+    if (fs.existsSync(tenantDbPath)) {
+      try {
+        const raw = fs.readFileSync(tenantDbPath, 'utf8');
+        const tenantData = JSON.parse(raw);
+        if (tenantData.school) {
+          tenantData.school.status = 'Suspended';
+          tenantData.school.updatedAt = new Date().toISOString();
+        }
+        fs.writeFileSync(tenantDbPath, JSON.stringify(tenantData, null, 2), 'utf8');
+      } catch (e) {
+        console.error('Failed to sync suspend to tenant DB:', e);
       }
-      fs.writeFileSync(tenantDbPath, JSON.stringify(tenantData, null, 2), 'utf8');
-    } catch (e) {
-      console.error('Failed to sync suspend to tenant DB:', e);
     }
   }
 
@@ -494,48 +540,110 @@ app.post('/api/platform/schools/:id/activate', (req, res) => {
   writeDb(db);
 
   // Sync to tenant DB
-  const tenantDbPath = path.join(__dirname, 'tenants', `db_${school.subdomain}.json`);
-  if (fs.existsSync(tenantDbPath)) {
-    try {
-      const raw = fs.readFileSync(tenantDbPath, 'utf8');
-      const tenantData = JSON.parse(raw);
-      if (tenantData.school) {
-        tenantData.school.status = 'Active';
-        tenantData.school.updatedAt = new Date().toISOString();
+  if (!isSqlActive()) {
+    const tenantDbPath = path.join(__dirname, 'tenants', `db_${school.subdomain}.json`);
+    if (fs.existsSync(tenantDbPath)) {
+      try {
+        const raw = fs.readFileSync(tenantDbPath, 'utf8');
+        const tenantData = JSON.parse(raw);
+        if (tenantData.school) {
+          tenantData.school.status = 'Active';
+          tenantData.school.updatedAt = new Date().toISOString();
+        }
+        fs.writeFileSync(tenantDbPath, JSON.stringify(tenantData, null, 2), 'utf8');
+      } catch (e) {
+        console.error('Failed to sync activate to tenant DB:', e);
       }
-      fs.writeFileSync(tenantDbPath, JSON.stringify(tenantData, null, 2), 'utf8');
-    } catch (e) {
-      console.error('Failed to sync activate to tenant DB:', e);
     }
   }
 
   res.json(school);
 });
 // Delete school
-app.delete('/api/platform/schools/:id', (req, res) => {
+app.delete('/api/platform/schools/:id', async (req, res) => {
   const db = readDb();
-  const index = db.schools.findIndex(s => s.id === req.params.id);
-  if (index === -1) return res.status(404).json({ error: 'School not found.' });
+  let index = db.schools.findIndex(s => s.id === req.params.id);
 
-  const subdomain = db.schools[index].subdomain;
-  db.schools.splice(index, 1);
-  writeDb(db);
+  let subdomainToDelete = null;
 
-  // Delete tenant file
-  const tenantDbPath = path.join(__dirname, 'tenants', `db_${subdomain}.json`);
-  if (fs.existsSync(tenantDbPath)) {
-    try {
-      fs.unlinkSync(tenantDbPath);
-    } catch (err) {
-      console.error('Failed to delete tenant database file:', err);
+  if (index !== -1) {
+    subdomainToDelete = db.schools[index].subdomain;
+    db.schools.splice(index, 1);
+    writeDb(db);
+  } else {
+    // If not found in active cache, fallback to checking local db.json directly
+    const dbJsonPath = path.join(__dirname, 'db.json');
+    if (fs.existsSync(dbJsonPath)) {
+      try {
+        const rawJson = fs.readFileSync(dbJsonPath, 'utf8');
+        const localDb = JSON.parse(rawJson);
+        const localIndex = (localDb.schools || []).findIndex(s => s.id === req.params.id);
+        if (localIndex !== -1) {
+          subdomainToDelete = localDb.schools[localIndex].subdomain;
+          localDb.schools.splice(localIndex, 1);
+          writeDb(localDb); // Updates both disk backup and active memory cache
+        }
+      } catch (err) {
+        console.error('Failed to update local db.json fallback during delete:', err);
+      }
+    }
+
+    // Also attempt deletion directly from MySQL database if active
+    const { isSqlActive } = await import('./utils/db.js');
+    if (isSqlActive()) {
+      try {
+        const sqlDb = await import('./utils/sqlDb.js');
+        const rows = await sqlDb.query('SELECT subdomain FROM schools WHERE id = ?', [req.params.id]);
+        if (rows && rows.length > 0) {
+          subdomainToDelete = rows[0].subdomain;
+        }
+        await sqlDb.query('DELETE FROM schools WHERE id = ?', [req.params.id]);
+      } catch (err) {
+        console.error('Failed to delete school from SQL directly:', err);
+      }
     }
   }
 
-  res.json({ success: true, message: 'School removed from the platform.' });
+  if (subdomainToDelete) {
+    // Delete tenant JSON file
+    const tenantDbPath = path.join(__dirname, 'tenants', `db_${subdomainToDelete}.json`);
+    if (fs.existsSync(tenantDbPath)) {
+      try {
+        fs.unlinkSync(tenantDbPath);
+      } catch (err) {
+        console.error('Failed to delete tenant database file:', err);
+      }
+    }
+
+    // Delete all tenant-specific rows from SQL tables if active
+    const { isSqlActive } = await import('./utils/db.js');
+    if (isSqlActive()) {
+      try {
+        const sqlDb = await import('./utils/sqlDb.js');
+        const tenantTables = [
+          'employees', 'staff', 'students', 'invoices', 'fees', 'expenses', 'payroll',
+          'staff_payments', 'activities', 'exams', 'exam_timetables', 'notices',
+          'holidays', 'events', 'results', 'overall_results', 'subjects', 'timeslots',
+          'fee_structures', 'salary_structures', 'staff_salary_structures', 'income',
+          'attendance', 'roles', 'user_access', 'audit_logs', 'employee_qr_codes',
+          'attendance_records', 'attendance_logs', 'attendance_reports'
+        ];
+        await Promise.all(tenantTables.map(tbl => 
+          sqlDb.query(`DELETE FROM \`${tbl}\` WHERE tenantId = ?`, [subdomainToDelete]).catch(() => {})
+        ));
+      } catch (err) {
+        console.error('Failed to purge SQL tenant tables:', err);
+      }
+    }
+
+    return res.json({ success: true, message: 'School removed from the platform.' });
+  }
+
+  return res.status(404).json({ error: 'School not found.' });
 });
 
 // Get Platform Analytics
-app.get('/api/platform/analytics', (req, res) => {
+app.get('/api/platform/analytics', async (req, res) => {
   const db = readDb(); // Global DB
   const schools = db.schools || [];
 
@@ -548,18 +656,36 @@ app.get('/api/platform/analytics', (req, res) => {
   let totalStaff = 0;
   let monthlyRevenue = 0;
 
+  if (isSqlActive()) {
+    try {
+      const sqlDb = await import('./utils/sqlDb.js');
+      const [studentsRes, teachersRes, staffRes] = await Promise.all([
+        sqlDb.query('SELECT COUNT(*) as cnt FROM students'),
+        sqlDb.query('SELECT COUNT(*) as cnt FROM staff'),
+        sqlDb.query('SELECT COUNT(*) as cnt FROM employees')
+      ]);
+      totalStudents = studentsRes[0]?.cnt || 0;
+      totalTeachers = teachersRes[0]?.cnt || 0;
+      totalStaff = staffRes[0]?.cnt || 0;
+    } catch (err) {
+      console.error('Failed to query global stats from SQL:', err);
+    }
+  }
+
   schools.forEach(school => {
-    // Read individual tenant files
-    const tenantDbPath = path.join(__dirname, 'tenants', `db_${school.subdomain}.json`);
-    if (fs.existsSync(tenantDbPath)) {
-      try {
-        const raw = fs.readFileSync(tenantDbPath, 'utf8');
-        const data = JSON.parse(raw);
-        totalStudents += (data.students || []).length;
-        totalTeachers += (data.teachers || []).length;
-        totalStaff += (data.staff || []).length;
-      } catch (e) {
-        console.error(`Error reading tenant DB for ${school.subdomain}:`, e);
+    // Read individual tenant files if not in SQL mode
+    if (!isSqlActive()) {
+      const tenantDbPath = path.join(__dirname, 'tenants', `db_${school.subdomain}.json`);
+      if (fs.existsSync(tenantDbPath)) {
+        try {
+          const raw = fs.readFileSync(tenantDbPath, 'utf8');
+          const data = JSON.parse(raw);
+          totalStudents += (data.students || []).length;
+          totalTeachers += (data.teachers || []).length;
+          totalStaff += (data.staff || []).length;
+        } catch (e) {
+          console.error(`Error reading tenant DB for ${school.subdomain}:`, e);
+        }
       }
     }
 

@@ -115,7 +115,7 @@ function SearchableSelect({ options, value, onChange, placeholder, className, st
 }
 
 // Drag & Drop File Upload Component
-function DragAndDropFile({ fieldName, label, file, onFileChange, onRemove, accept = "image/*,application/pdf" }) {
+function DragAndDropFile({ fieldName, label, file, onFileChange, onRemove, accept = "*" }) {
   const [dragOver, setDragOver] = useState(false);
 
   const handleDrag = (e) => {
@@ -135,17 +135,9 @@ function DragAndDropFile({ fieldName, label, file, onFileChange, onRemove, accep
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
       const fileObj = e.dataTransfer.files[0];
       
-      // Validation Check size limit (5MB)
-      if (fileObj.size > 5 * 1024 * 1024) {
-        alert("File size exceeds 5MB limit. Please upload a smaller document.");
-        return;
-      }
-      
-      // Allowed types
-      const allowedExts = ['pdf', 'png', 'jpg', 'jpeg'];
-      const fileExt = fileObj.name.split('.').pop().toLowerCase();
-      if (!allowedExts.includes(fileExt)) {
-        alert("Invalid file format. PDFs and images (JPG, PNG) only.");
+      // Validation Check size limit (50MB)
+      if (fileObj.size > 50 * 1024 * 1024) {
+        alert("File size exceeds 50MB limit. Please upload a smaller document.");
         return;
       }
 
@@ -319,6 +311,7 @@ export default function RegisterStudent({ setActiveView, editData }) {
 
   const [classOptions, setClassOptions] = useState([]);
   const [sectionOptions, setSectionOptions] = useState([]);
+  const [activeGradesList, setActiveGradesList] = useState([]);
 
   const bloodGroupOptions = [
     { value: 'A+', label: 'A+' },
@@ -371,19 +364,41 @@ export default function RegisterStudent({ setActiveView, editData }) {
   useEffect(() => {
     const loadGradesAndSections = async () => {
       const activeGrades = await fetchActiveGrades();
+      setActiveGradesList(activeGrades);
       setClassOptions(activeGrades.map(g => ({ 
         value: g.name, 
         label: g.name.startsWith('LKG') || g.name.startsWith('UKG') || g.name.startsWith('NURSERY') ? g.name : `Grade ${g.name}` 
       })));
-
-      const activeSections = await fetchActiveSections();
-      setSectionOptions(activeSections.map(s => ({
-        value: s.name,
-        label: `Section ${s.name}`
-      })));
     };
     loadGradesAndSections();
   }, []);
+
+  // Filter sections based on selected class
+  useEffect(() => {
+    if (activeGradesList.length === 0) return;
+
+    if (!formData.studentClass) {
+      setSectionOptions([]);
+      setFormData(prev => {
+        if (prev.section !== '') {
+          return { ...prev, section: '' };
+        }
+        return prev;
+      });
+      return;
+    }
+
+    const selectedGrade = activeGradesList.find(g => g.name === formData.studentClass);
+    const assignedSections = selectedGrade?.sections || [];
+    setSectionOptions(assignedSections.map(secName => ({
+      value: secName,
+      label: `Section ${secName}`
+    })));
+
+    if (formData.section && !assignedSections.includes(formData.section)) {
+      setFormData(prev => ({ ...prev, section: '' }));
+    }
+  }, [formData.studentClass, activeGradesList]);
 
   // Populate from editData
   useEffect(() => {
@@ -1716,7 +1731,7 @@ export default function RegisterStudent({ setActiveView, editData }) {
         {activeStep === 8 && (
           <div className="glass-panel" style={{ padding: '28px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
             <h3 style={{ fontSize: '1rem', fontWeight: 700, margin: 0, color: 'var(--text-main)', borderBottom: '1px solid var(--border-glass)', paddingBottom: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Upload size={16} style={{ color: 'rgb(245, 158, 11)' }} /> Document Checklist (PDFs or Images under 5MB)
+              <Upload size={16} style={{ color: 'rgb(245, 158, 11)' }} /> Document Checklist (Files under 50MB)
             </h3>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px' }}>
