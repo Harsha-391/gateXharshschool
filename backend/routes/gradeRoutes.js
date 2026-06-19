@@ -88,22 +88,27 @@ router.get('/active-options', (req, res) => {
     const db = readDb();
     const activeGrades = (db.grades || []).filter(g => g.status === 'Active');
     const activeDepartments = (db.departments || []).filter(d => d.status === 'Active');
+    const gradeDepartments = db.gradeDepartments || [];
 
     const options = [];
 
     activeGrades.forEach(g => {
       if (isGrade11or12(g.name)) {
-        if (activeDepartments.length > 0) {
-          activeDepartments.forEach(dept => {
-            options.push({
-              id: `${g.id}-${dept.id}`,
-              name: `${g.name} (${dept.name})`,
-              gradeId: g.id,
-              gradeName: g.name,
-              departmentId: dept.id,
-              departmentName: dept.name,
-              sections: g.sections || []
-            });
+        const mappingsForGrade = gradeDepartments.filter(gd => gd.gradeId === g.id && gd.status === 'Active');
+        if (mappingsForGrade.length > 0) {
+          mappingsForGrade.forEach(map => {
+            const dept = activeDepartments.find(d => d.id === map.departmentId);
+            if (dept) {
+              options.push({
+                id: `${g.id}-${dept.id}`,
+                name: `${g.name} (${dept.name})`,
+                gradeId: g.id,
+                gradeName: g.name,
+                departmentId: dept.id,
+                departmentName: dept.name,
+                sections: g.sections || []
+              });
+            }
           });
         } else {
           options.push({
@@ -206,7 +211,7 @@ router.post('/', (req, res) => {
 router.put('/:id', (req, res) => {
   try {
     const { id } = req.params;
-    const { name, status, sections } = req.body;
+    const { name, status, sections, departments } = req.body;
 
     const db = readDb();
     const index = db.grades.findIndex(g => g.id === id);
@@ -234,6 +239,23 @@ router.put('/:id', (req, res) => {
 
     if (sections !== undefined) {
       currentGrade.sections = sections;
+    }
+
+    // Sync mappings if provided
+    if (departments !== undefined && Array.isArray(departments)) {
+      db.gradeDepartments = (db.gradeDepartments || []).filter(gd => gd.gradeId !== id);
+      departments.forEach(deptId => {
+        const mappingId = `map-${id}-${deptId}`;
+        const mappingObj = {
+          id: mappingId,
+          gradeId: id,
+          departmentId: deptId,
+          status: 'Active',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        };
+        db.gradeDepartments.push(mappingObj);
+      });
     }
 
     currentGrade.updatedAt = new Date().toISOString();

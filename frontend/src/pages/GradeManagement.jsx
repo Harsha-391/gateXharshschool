@@ -334,7 +334,8 @@ export default function GradeManagement({ currentSubView, setAdminView, showToas
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          name: formattedName
+          name: formattedName,
+          departments: showDeptsSelector(formattedName) ? (editingGrade.selectedDepts || []) : []
         })
       });
 
@@ -351,20 +352,42 @@ export default function GradeManagement({ currentSubView, setAdminView, showToas
     }
   };
 
-  const handleDeleteGrade = async (id, name) => {
-    if (!window.confirm(`Are you sure you want to delete Grade "${name}"? This action will remove all mappings.`)) return;
-
-    try {
-      const res = await fetch(`/api/grades/${id}`, { method: 'DELETE' });
-      const data = await res.json();
-      if (res.ok) {
-        showToast(`Grade ${name} successfully deleted.`, 'success');
-        loadData();
-      } else {
-        showToast(data.error || 'Deletion blocked.', 'danger');
+  const handleDeleteGrade = async (g) => {
+    if (g.deptId) {
+      const existing = mappings.find(m => m.gradeId === g.id && m.departmentId === g.deptId);
+      if (!existing) {
+        showToast('Mapping not found.', 'danger');
+        return;
       }
-    } catch (err) {
-      showToast('Network error deleting grade.', 'danger');
+      if (!window.confirm(`Are you sure you want to delete department option "${g.displayName}"?`)) return;
+
+      try {
+        const res = await fetch(`/api/grades/mappings/${existing.id}`, { method: 'DELETE' });
+        const data = await res.json();
+        if (res.ok) {
+          showToast(`Option "${g.displayName}" successfully deleted.`, 'success');
+          loadData();
+        } else {
+          showToast(data.error || 'Deletion blocked.', 'danger');
+        }
+      } catch (err) {
+        showToast('Network error deleting mapping.', 'danger');
+      }
+    } else {
+      if (!window.confirm(`Are you sure you want to delete Grade "${g.name}"? This action will remove all mappings.`)) return;
+
+      try {
+        const res = await fetch(`/api/grades/${g.id}`, { method: 'DELETE' });
+        const data = await res.json();
+        if (res.ok) {
+          showToast(`Grade ${g.name} successfully deleted.`, 'success');
+          loadData();
+        } else {
+          showToast(data.error || 'Deletion blocked.', 'danger');
+        }
+      } catch (err) {
+        showToast('Network error deleting grade.', 'danger');
+      }
     }
   };
 
@@ -533,15 +556,19 @@ export default function GradeManagement({ currentSubView, setAdminView, showToas
   const displayGrades = [];
   filteredGrades.forEach(g => {
     if (isGrade11or12(g.name)) {
-      if (departments.length > 0) {
-        departments.forEach(d => {
-          displayGrades.push({
-            ...g,
-            displayId: `${g.id}-${d.id}`,
-            displayName: `${g.name} (${d.name})`,
-            deptName: d.name,
-            deptId: d.id
-          });
+      const mappingsForGrade = mappings.filter(m => m.gradeId === g.id);
+      if (mappingsForGrade.length > 0) {
+        mappingsForGrade.forEach(m => {
+          const d = departments.find(dept => dept.id === m.departmentId);
+          if (d) {
+            displayGrades.push({
+              ...g,
+              displayId: `${g.id}-${d.id}`,
+              displayName: `${g.name} (${d.name})`,
+              deptName: d.name,
+              deptId: d.id
+            });
+          }
         });
       } else {
         displayGrades.push({
@@ -581,24 +608,28 @@ export default function GradeManagement({ currentSubView, setAdminView, showToas
 
   const handleBulkDeleteGrades = async () => {
     if (selectedGrades.length === 0) return;
-    
-    // Extract unique master grade IDs
-    const masterGradeIds = Array.from(new Set(selectedGrades.map(selectedId => {
-      const matchedGrade = grades.find(g => selectedId === g.id || selectedId.startsWith(`${g.id}-`));
-      return matchedGrade ? matchedGrade.id : selectedId;
-    })));
 
-    if (!window.confirm(`Are you sure you want to delete the ${masterGradeIds.length} selected grades?`)) return;
+    if (!window.confirm(`Are you sure you want to delete the ${selectedGrades.length} selected items?`)) return;
 
     try {
       let deletesSucceeded = 0;
       let deletesFailed = 0;
       let errorMsg = '';
 
-      for (const gId of masterGradeIds) {
-        const grade = grades.find(g => g.id === gId);
-        if (grade) {
-          const res = await fetch(`/api/grades/${gId}`, { method: 'DELETE' });
+      for (const rowKey of selectedGrades) {
+        const mapping = mappings.find(m => `${m.gradeId}-${m.departmentId}` === rowKey);
+        if (mapping) {
+          const res = await fetch(`/api/grades/mappings/${mapping.id}`, { method: 'DELETE' });
+          if (res.ok) {
+            deletesSucceeded++;
+          } else {
+            deletesFailed++;
+            const err = await res.json();
+            errorMsg = err.error || 'Usage restrictions.';
+          }
+        } else {
+          // Master grade delete
+          const res = await fetch(`/api/grades/${rowKey}`, { method: 'DELETE' });
           if (res.ok) {
             deletesSucceeded++;
           } else {
@@ -610,9 +641,9 @@ export default function GradeManagement({ currentSubView, setAdminView, showToas
       }
 
       if (deletesFailed > 0) {
-        showToast(`Deleted ${deletesSucceeded} grades. ${deletesFailed} grades blocked from deletion: ${errorMsg}`, 'danger');
+        showToast(`Deleted ${deletesSucceeded} items. ${deletesFailed} items blocked from deletion: ${errorMsg}`, 'danger');
       } else {
-        showToast(`Successfully deleted ${deletesSucceeded} grades.`, 'success');
+        showToast(`Successfully deleted ${deletesSucceeded} items.`, 'success');
       }
 
       setSelectedGrades([]);
@@ -739,10 +770,16 @@ export default function GradeManagement({ currentSubView, setAdminView, showToas
                               )}
                             </div>
                             <div style={{ display: 'flex', gap: '6px' }}>
-                              <button type="button" onClick={() => setEditingGrade({...g})} className="btn-secondary" style={{ padding: '6px', minWidth: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', borderRadius: '8px' }} title="Edit Grade Name">
+                              <button type="button" onClick={() => {
+                                const mappedDepts = mappings.filter(m => m.gradeId === g.id).map(m => m.departmentId);
+                                setEditingGrade({
+                                  ...g,
+                                  selectedDepts: mappedDepts
+                                });
+                              }} className="btn-secondary" style={{ padding: '6px', minWidth: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', borderRadius: '8px' }} title="Edit Grade Name">
                                 <Edit3 size={14} />
                               </button>
-                              <button type="button" onClick={() => handleDeleteGrade(g.id, g.name)} className="btn-danger" style={{ padding: '6px', minWidth: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', borderRadius: '8px', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: 'none' }} title="Delete Grade">
+                              <button type="button" onClick={() => handleDeleteGrade(g)} className="btn-danger" style={{ padding: '6px', minWidth: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', borderRadius: '8px', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: 'none' }} title="Delete Grade">
                                 <Trash2 size={14} />
                               </button>
                             </div>
@@ -925,6 +962,40 @@ export default function GradeManagement({ currentSubView, setAdminView, showToas
                       />
                     </div>
 
+                    {showDeptsSelector(editingGrade.name) && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                        <label style={{ fontSize: '0.8rem', fontWeight: 600, display: 'block' }}>Select Departments</label>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
+                          {departments.map(dept => {
+                            const isChecked = (editingGrade.selectedDepts || []).includes(dept.id);
+                            return (
+                              <label key={dept.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 10px', background: 'var(--bg-form)', border: '1px solid var(--border-glass)', borderRadius: '8px', cursor: 'pointer', fontSize: '0.8rem' }}>
+                                <input 
+                                  type="checkbox"
+                                  checked={isChecked}
+                                  onChange={(e) => {
+                                    const currentSelected = editingGrade.selectedDepts || [];
+                                    if (e.target.checked) {
+                                      setEditingGrade(prev => ({
+                                        ...prev,
+                                        selectedDepts: [...currentSelected, dept.id]
+                                      }));
+                                    } else {
+                                      setEditingGrade(prev => ({
+                                        ...prev,
+                                        selectedDepts: currentSelected.filter(id => id !== dept.id)
+                                      }));
+                                    }
+                                  }}
+                                />
+                                {dept.name}
+                              </label>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
                     <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '8px' }}>
                       <button type="button" onClick={() => setEditingGrade(null)} className="btn-secondary" style={{ padding: '8px 16px', cursor: 'pointer' }}>Cancel</button>
                       <button type="submit" className="btn-primary" style={{ padding: '8px 16px', cursor: 'pointer' }}>Save Changes</button>
@@ -956,8 +1027,38 @@ export default function GradeManagement({ currentSubView, setAdminView, showToas
                   </small>
                 </div>
 
-
-
+                {showDeptsSelector(newGrade.name) && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    <label style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-main)' }}>Select Departments</label>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
+                      {departments.map(dept => {
+                        const isChecked = newGrade.selectedDepts.includes(dept.id);
+                        return (
+                          <label key={dept.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'var(--bg-form)', border: '1px solid var(--border-glass)', borderRadius: '8px', cursor: 'pointer', fontSize: '0.85rem' }}>
+                            <input 
+                              type="checkbox"
+                              checked={isChecked}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setNewGrade(prev => ({
+                                    ...prev,
+                                    selectedDepts: [...prev.selectedDepts, dept.id]
+                                  }));
+                                } else {
+                                  setNewGrade(prev => ({
+                                    ...prev,
+                                    selectedDepts: prev.selectedDepts.filter(id => id !== dept.id)
+                                  }));
+                                }
+                              }}
+                            />
+                            {dept.name}
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
 
 
                 <button type="submit" className="btn-primary" style={{ padding: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', background: 'rgb(99, 102, 241)', color: 'white', border: 'none', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer', marginTop: '10px' }}>
