@@ -6,9 +6,11 @@
     "install:all": "npm install --prefix frontend && npm install --prefix backend",
     "dev:frontend": "npm run dev --prefix frontend",
     "dev:backend": "npm run dev --prefix backend",
-    "dev": "npx concurrently --kill-others \"npm run dev:backend\" \"npm run dev:frontend\""
+    "dev": "npx concurrently --kill-others \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "build": "vite build"
   },
   "devDependencies": {
-    "esbuild": "^0.28.1"
+    "esbuild": "^0.24.2",
+    "vite": "^5.4.19"
   }
 }
