@@ -170,6 +170,7 @@ export function MarkAttendanceView({ date, setDate, studentClass, setClass, sect
 
   // Load roster
   const fetchRoster = async () => {
+    if (!studentClass || !section) return;
     try {
       setLoading(true);
       const queryParams = new URLSearchParams({
@@ -840,6 +841,7 @@ export function AttendanceHistoryView({ date, showToast }) {
   };
 
   const fetchRoster = async () => {
+    if (!studentClass || !section) return;
     try {
       setLoading(true);
       const queryParams = new URLSearchParams({

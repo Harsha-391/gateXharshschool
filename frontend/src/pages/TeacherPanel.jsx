@@ -358,6 +358,7 @@ export function MarkAttendanceView({ date, setDate, studentClass, setClass, sect
 
   // Load roster
   const fetchRoster = async () => {
+    if (!studentClass || !section) return;
     try {
       setLoading(true);
       const queryParams = new URLSearchParams({
@@ -965,9 +966,10 @@ export function AttendanceHistoryView({ date, showToast }) {
   const [loadingSubmitted, setLoadingSubmitted] = useState(false);
 
   const fetchSubmittedDates = async () => {
+    if (!studentClass || !section) return;
     try {
       setLoadingSubmitted(true);
-      const res = await fetch('/api/attendance/submitted-dates');
+      const res = await fetch(`/api/attendance/submitted-dates?studentClass=${encodeURIComponent(studentClass)}&section=${encodeURIComponent(section)}`);
       if (res.ok) {
         const data = await res.json();
         setSubmittedDates(data);
@@ -980,6 +982,7 @@ export function AttendanceHistoryView({ date, showToast }) {
   };
 
   const fetchRoster = async (submittedOnly = false) => {
+    if (!studentClass || !section) return;
     try {
       setLoading(true);
       const queryParams = new URLSearchParams({
