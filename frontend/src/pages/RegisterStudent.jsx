@@ -231,14 +231,14 @@ export default function RegisterStudent({ setActiveView, editData }) {
     dob: '',
     gender: '',
     bloodGroup: '',
-    nationality: 'Indian',
-    category: 'General',
-    religion: 'Hinduism',
+    nationality: '',
+    category: '',
+    religion: '',
     aadhaarNumber: '',
 
     // Step 2: Academic Info
-    academicYear: '2026-2027',
-    admissionType: 'New Admission',
+    academicYear: '',
+    admissionType: '',
     studentClass: '',
     section: '',
     rollNumber: '',
@@ -416,8 +416,8 @@ export default function RegisterStudent({ setActiveView, editData }) {
         fullName: derivedFullName,
         admissionNumber: editData.admissionNumber || '',
         manualAdmissionNumber: true,
-        admissionDate: editData.admissionDate || '',
-        dob: editData.dob || '',
+        admissionDate: editData.admissionDate ? editData.admissionDate.split(/[ T]/)[0] : '',
+        dob: editData.dob ? editData.dob.split(/[ T]/)[0] : '',
         gender: editData.gender || '',
         bloodGroup: editData.bloodGroup || '',
         nationality: editData.nationality || 'Indian',
@@ -505,10 +505,14 @@ export default function RegisterStudent({ setActiveView, editData }) {
     });
 
     if (hasAnyContent) {
-      setDraftSaving(true);
-      localStorage.setItem(draftKey, JSON.stringify(formData));
-      const timer = setTimeout(() => setDraftSaving(false), 600);
-      return () => clearTimeout(timer);
+      const serialized = JSON.stringify(formData);
+      const existing = localStorage.getItem(draftKey);
+      if (existing !== serialized) {
+        setDraftSaving(true);
+        localStorage.setItem(draftKey, serialized);
+        const timer = setTimeout(() => setDraftSaving(false), 600);
+        return () => clearTimeout(timer);
+      }
     }
   }, [formData, editData]);
 
@@ -654,12 +658,12 @@ export default function RegisterStudent({ setActiveView, editData }) {
       dob: '',
       gender: '',
       bloodGroup: '',
-      nationality: 'Indian',
-      category: 'General',
-      religion: 'Hinduism',
+      nationality: '',
+      category: '',
+      religion: '',
       aadhaarNumber: '',
-      academicYear: '2026-2027',
-      admissionType: 'New Admission',
+      academicYear: '',
+      admissionType: '',
       studentClass: '',
       section: '',
       rollNumber: '',
@@ -1197,6 +1201,7 @@ export default function RegisterStudent({ setActiveView, editData }) {
                   onChange={handleTextChange}
                   className="form-control"
                 >
+                  <option value="">Select Session</option>
                   {Array.from({ length: 2030 - 2026 + 1 }, (_, i) => {
                     const s = 2026 + i;
                     return `${s}-${s + 1}`;
@@ -1214,6 +1219,7 @@ export default function RegisterStudent({ setActiveView, editData }) {
                   onChange={handleTextChange}
                   className="form-control"
                 >
+                  <option value="">Select Admission Type</option>
                   <option value="New Admission">New Admission</option>
                   <option value="Transfer">Transfer / Promotion</option>
                 </select>

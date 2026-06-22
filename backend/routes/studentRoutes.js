@@ -7,6 +7,7 @@ import {
 } from '../controllers/studentController.js';
 import upload from '../middleware/upload.js';
 import { auth } from '../middleware/auth.js';
+import { checkPermission } from '../middleware/permissionMiddleware.js';
 import { restoreTenantContext } from '../utils/db.js';
 
 const router = express.Router();
@@ -23,18 +24,19 @@ const uploadFields = upload.fields([
   { name: 'additionalFile', maxCount: 1 }
 ]);
 
+// Apply auth globally to all student routes
+router.use(auth);
+
 // 1. GET ALL STUDENTS (Support Query Search, Filter, Sort, Pagination)
-router.get('/', getStudents);
+router.get('/', restoreTenantContext, checkPermission('student-directory', 'view'), getStudents);
 
 // 2. REGISTER NEW STUDENT (Multer Files upload + JWT authentication)
-// Note: To support standard registration seamlessly, we support optional or enforced JWT checks.
-// We can apply auth check to comply with security requirements.
-router.post('/', uploadFields, restoreTenantContext, registerStudent);
+router.post('/', uploadFields, restoreTenantContext, checkPermission('register-student', 'create'), registerStudent);
 
 // 3. UPDATE STUDENT PROFILE
-router.put('/:id', uploadFields, restoreTenantContext, updateStudent);
+router.put('/:id', uploadFields, restoreTenantContext, checkPermission('student-directory', 'edit'), updateStudent);
 
 // 4. DISMISS / REMOVE STUDENT profile
-router.delete('/:id', deleteStudent);
+router.delete('/:id', restoreTenantContext, checkPermission('student-directory', 'delete'), deleteStudent);
 
 export default router;

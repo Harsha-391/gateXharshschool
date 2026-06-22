@@ -270,6 +270,7 @@ const createTablesFromSchema = async () => {
       "ALTER TABLE fee_structures ADD COLUMN libraryFee DECIMAL(10,2) DEFAULT 0.00",
       "ALTER TABLE fee_structures ADD COLUMN otherCharges DECIMAL(10,2) DEFAULT 0.00",
       "ALTER TABLE fee_structures ADD COLUMN totalFee DECIMAL(10,2) DEFAULT 0.00",
+      "ALTER TABLE fee_structures ADD COLUMN monthRange VARCHAR(100) DEFAULT NULL",
       "ALTER TABLE salary_structures ADD COLUMN designation VARCHAR(255)",
       "ALTER TABLE salary_structures ADD COLUMN pfDeduction DECIMAL(10,2) DEFAULT 0.00",
       "ALTER TABLE salary_structures ADD COLUMN taxDeduction DECIMAL(10,2) DEFAULT 0.00",
@@ -291,6 +292,7 @@ const createTablesFromSchema = async () => {
       "ALTER TABLE fees ADD COLUMN studentClass VARCHAR(100)",
       "ALTER TABLE fees ADD COLUMN section VARCHAR(50)",
       "ALTER TABLE fees ADD COLUMN paymentStatus VARCHAR(50)",
+      "ALTER TABLE fees ADD COLUMN billingPeriod VARCHAR(100)",
       "ALTER TABLE employees ADD COLUMN designationLevel VARCHAR(100)",
       "ALTER TABLE employees ADD COLUMN employmentType VARCHAR(100)",
       "ALTER TABLE staff_salary_structures ADD COLUMN designationLevel VARCHAR(100)",
@@ -317,7 +319,8 @@ const createTablesFromSchema = async () => {
       "ALTER TABLE grades ADD COLUMN sections JSON NULL",
       "ALTER TABLE grade_departments ADD COLUMN sections JSON NULL",
       "CREATE TABLE IF NOT EXISTS sections (id VARCHAR(50) PRIMARY KEY, name VARCHAR(100) NOT NULL, status VARCHAR(50) DEFAULT 'Active', createdAt VARCHAR(100), updatedAt VARCHAR(100), tenantId VARCHAR(100) NOT NULL, UNIQUE KEY unique_sec_name (name, tenantId))",
-      "CREATE TABLE IF NOT EXISTS published_timetables (id VARCHAR(50) PRIMARY KEY, type VARCHAR(50) NOT NULL, identifier VARCHAR(100) NOT NULL, slots JSON NOT NULL, publishedAt VARCHAR(100) NOT NULL, tenantId VARCHAR(100) NOT NULL, UNIQUE KEY unique_pub_tt (type, identifier, tenantId))"
+      "CREATE TABLE IF NOT EXISTS published_timetables (id VARCHAR(50) PRIMARY KEY, type VARCHAR(50) NOT NULL, identifier VARCHAR(100) NOT NULL, slots JSON NOT NULL, publishedAt VARCHAR(100) NOT NULL, tenantId VARCHAR(100) NOT NULL, UNIQUE KEY unique_pub_tt (type, identifier, tenantId))",
+      "CREATE TABLE IF NOT EXISTS fee_periods (id VARCHAR(50) PRIMARY KEY, frequency VARCHAR(50) NOT NULL, name VARCHAR(100) NOT NULL, sortOrder INT DEFAULT 0, tenantId VARCHAR(100) NOT NULL, UNIQUE KEY unique_fp_freq_name (frequency, name, tenantId))"
     ];
 
     for (const sql of extraSchemaAlters) {
@@ -371,7 +374,8 @@ const createTablesFromSchema = async () => {
       "CREATE INDEX idx_emp_qr_tenant ON employee_qr_codes (tenantId)",
       "CREATE INDEX idx_grades_tenant ON grades (tenantId)",
       "CREATE INDEX idx_departments_tenant ON departments (tenantId)",
-      "CREATE INDEX idx_grade_dept_tenant ON grade_departments (tenantId)"
+      "CREATE INDEX idx_grade_dept_tenant ON grade_departments (tenantId)",
+      "CREATE INDEX idx_fee_periods_tenant ON fee_periods (tenantId)"
     ];
 
     console.log(`[SQL Init] Constructing performance optimization indexes...`);
@@ -991,6 +995,7 @@ export const loadTenantSqlIntoMemory = async (tenantId) => {
       subjects: [],
       timeslots: [],
       feeStructures: [],
+      feePeriods: [],
       salaryStructures: [],
       staffSalaryStructures: [],
       income: [],
@@ -1058,7 +1063,8 @@ export const loadTenantSqlIntoMemory = async (tenantId) => {
       dbAttReports,
       dbGrades,
       dbDepts,
-      dbGradeDepts
+      dbGradeDepts,
+      dbFeePeriods
     ] = await Promise.all([
       !isGlobal ? sqlDb.query('SELECT * FROM sections WHERE tenantId = ?', [tId]) : Promise.resolve([]),
       !isGlobal ? sqlDb.query('SELECT * FROM published_timetables WHERE tenantId = ?', [tId]) : Promise.resolve([]),
@@ -1108,7 +1114,8 @@ export const loadTenantSqlIntoMemory = async (tenantId) => {
       sqlDb.query('SELECT * FROM attendance_reports WHERE tenantId = ?', [tId]),
       sqlDb.query('SELECT * FROM grades WHERE tenantId = ?', [tId]),
       sqlDb.query('SELECT * FROM departments WHERE tenantId = ?', [tId]),
-      sqlDb.query('SELECT * FROM grade_departments WHERE tenantId = ?', [tId])
+      sqlDb.query('SELECT * FROM grade_departments WHERE tenantId = ?', [tId]),
+      sqlDb.query('SELECT * FROM fee_periods WHERE tenantId = ? ORDER BY sortOrder', [tId])
     ]);
 
     // Load custom fields
@@ -1360,7 +1367,15 @@ export const loadTenantSqlIntoMemory = async (tenantId) => {
       otherCharges: parseFloat(fsItem.otherCharges || 0),
       totalFee: parseFloat(fsItem.totalFee || fsItem.amount || 0),
       amount: parseFloat(fsItem.amount || fsItem.totalFee || 0),
-      frequency: fsItem.frequency
+      frequency: fsItem.frequency,
+      monthRange: fsItem.monthRange || null
+    }));
+
+    data.feePeriods = (dbFeePeriods || []).map(fp => ({
+      id: fp.id,
+      frequency: fp.frequency,
+      name: fp.name,
+      sortOrder: fp.sortOrder || 0
     }));
 
     const loadedSlots = [];
@@ -2104,8 +2119,8 @@ export const saveMemoryDbToSql = async (tenantId, db, previousDb) => {
             await sqlDb.query('DELETE FROM fees WHERE tenantId = ?', [tId]);
           }
 
-          const columns = ['id', 'studentId', 'studentName', 'classId', 'sectionId', 'feeType', 'totalAmount', 'paidAmount', 'dueAmount', 'status', 'paymentDate', 'paymentMethod', 'remarks', 'createdAt', 'tenantId', 'receiptNumber', 'transactionId', 'discount', 'fine', 'amount', 'studentClass', 'section', 'paymentStatus'];
-          const updateColumns = ['paidAmount', 'dueAmount', 'status', 'paymentDate', 'paymentMethod', 'receiptNumber', 'transactionId', 'discount', 'fine', 'amount', 'studentClass', 'section', 'paymentStatus'];
+          const columns = ['id', 'studentId', 'studentName', 'classId', 'sectionId', 'feeType', 'totalAmount', 'paidAmount', 'dueAmount', 'status', 'paymentDate', 'paymentMethod', 'remarks', 'createdAt', 'tenantId', 'receiptNumber', 'transactionId', 'discount', 'fine', 'amount', 'studentClass', 'section', 'paymentStatus', 'billingPeriod'];
+          const updateColumns = ['paidAmount', 'dueAmount', 'status', 'paymentDate', 'paymentMethod', 'receiptNumber', 'transactionId', 'discount', 'fine', 'amount', 'studentClass', 'section', 'paymentStatus', 'billingPeriod'];
           const valueRows = db.fees.filter(f => f.id || f.feeId).map(f => {
             const id = f.id || f.feeId;
             const classId = f.classId || f.studentClass || '';
@@ -2113,7 +2128,7 @@ export const saveMemoryDbToSql = async (tenantId, db, previousDb) => {
             const status = f.status || f.paymentStatus || 'Pending';
             return [
               id, f.studentId || '', f.studentName || '', classId, sectionId, f.feeType || '', parseFloat(f.totalAmount || 0), parseFloat(f.paidAmount || 0), parseFloat(f.dueAmount || 0), status, f.paymentDate || '', f.paymentMethod || '', f.remarks || '', f.createdAt || '', tId,
-              f.receiptNumber || '', f.transactionId || '', parseFloat(f.discount || 0), parseFloat(f.fine || 0), parseFloat(f.amount || 0), f.studentClass || '', f.section || '', f.paymentStatus || status
+              f.receiptNumber || '', f.transactionId || '', parseFloat(f.discount || 0), parseFloat(f.fine || 0), parseFloat(f.amount || 0), f.studentClass || '', f.section || '', f.paymentStatus || status, f.billingPeriod || 'Yearly'
             ];
           });
           await bulkInsertOrUpdate('fees', columns, valueRows, updateColumns);
@@ -2409,8 +2424,8 @@ export const saveMemoryDbToSql = async (tenantId, db, previousDb) => {
             await sqlDb.query('DELETE FROM fee_structures WHERE tenantId = ?', [tId]);
           }
 
-          const columns = ['id', 'classId', 'amount', 'frequency', 'tenantId', 'studentClass', 'admissionFee', 'tuitionFee', 'examFee', 'transportFee', 'hostelFee', 'libraryFee', 'otherCharges', 'totalFee'];
-          const updateColumns = ['amount', 'frequency', 'studentClass', 'admissionFee', 'tuitionFee', 'examFee', 'transportFee', 'hostelFee', 'libraryFee', 'otherCharges', 'totalFee'];
+          const columns = ['id', 'classId', 'amount', 'frequency', 'tenantId', 'studentClass', 'admissionFee', 'tuitionFee', 'examFee', 'transportFee', 'hostelFee', 'libraryFee', 'otherCharges', 'totalFee', 'monthRange'];
+          const updateColumns = ['amount', 'frequency', 'studentClass', 'admissionFee', 'tuitionFee', 'examFee', 'transportFee', 'hostelFee', 'libraryFee', 'otherCharges', 'totalFee', 'monthRange'];
           const valueRows = db.feeStructures.map(fsItem => {
             const classVal = fsItem.grade || fsItem.studentClass;
             const totalVal = parseFloat(fsItem.totalFee || fsItem.amount || 0);
@@ -2419,10 +2434,25 @@ export const saveMemoryDbToSql = async (tenantId, db, previousDb) => {
               fsItem.studentClass || classVal,
               parseFloat(fsItem.admissionFee || 0), parseFloat(fsItem.tuitionFee || 0), parseFloat(fsItem.examFee || 0),
               parseFloat(fsItem.transportFee || 0), parseFloat(fsItem.hostelFee || 0), parseFloat(fsItem.libraryFee || 0),
-              parseFloat(fsItem.otherCharges || 0), totalVal
+              parseFloat(fsItem.otherCharges || 0), totalVal,
+              fsItem.monthRange || null
             ];
           });
           await bulkInsertOrUpdate('fee_structures', columns, valueRows, updateColumns);
+        })());
+      }
+
+      // 16a. Sync Fee Periods
+      if (db.feePeriods && Array.isArray(db.feePeriods) && hasTableChanged('feePeriods')) {
+        tasks.push((async () => {
+          await sqlDb.query('DELETE FROM fee_periods WHERE tenantId = ?', [tId]);
+          if (db.feePeriods.length > 0) {
+            const columns = ['id', 'frequency', 'name', 'sortOrder', 'tenantId'];
+            const valueRows = db.feePeriods.map(fp => [
+              fp.id, fp.frequency, fp.name, fp.sortOrder || 0, tId
+            ]);
+            await bulkInsertOnly('fee_periods', columns, valueRows);
+          }
         })());
       }
 

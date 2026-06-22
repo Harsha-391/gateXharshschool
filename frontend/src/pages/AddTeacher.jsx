@@ -227,7 +227,7 @@ export default function AddTeacher({ setActiveView, editData }) {
     gender: '',
     dob: '',
     bloodGroup: '',
-    nationality: 'Indian',
+    nationality: '',
     maritalStatus: '',
     aadhaarNumber: '',
     panNumber: '',
@@ -406,10 +406,14 @@ export default function AddTeacher({ setActiveView, editData }) {
     });
 
     if (hasAnyContent) {
-      setDraftSaving(true);
-      localStorage.setItem(draftKey, JSON.stringify(formData));
-      const timer = setTimeout(() => setDraftSaving(false), 600);
-      return () => clearTimeout(timer);
+      const serialized = JSON.stringify(formData);
+      const existing = localStorage.getItem(draftKey);
+      if (existing !== serialized) {
+        setDraftSaving(true);
+        localStorage.setItem(draftKey, serialized);
+        const timer = setTimeout(() => setDraftSaving(false), 600);
+        return () => clearTimeout(timer);
+      }
     }
   }, [formData, editData]);
 
@@ -459,13 +463,13 @@ export default function AddTeacher({ setActiveView, editData }) {
         lastName: editData.lastName || '',
         fullName: editData.fullName || editData.name || '',
         gender: editData.gender || '',
-        dob: editData.dob ? editData.dob.split('T')[0] : '',
+        dob: editData.dob ? editData.dob.split(/[ T]/)[0] : '',
         bloodGroup: editData.bloodGroup || '',
         nationality: editData.nationality || 'Indian',
         maritalStatus: editData.maritalStatus || '',
         aadhaarNumber: editData.aadhaarNumber || '',
         panNumber: editData.panNumber || '',
-        joiningDate: editData.joiningDate ? editData.joiningDate.split('T')[0] : '',
+        joiningDate: editData.joiningDate ? editData.joiningDate.split(/[ T]/)[0] : '',
         employmentType: editData.employmentType || '',
         designation: editData.designation || '',
         department: editData.department || '',
@@ -778,7 +782,7 @@ export default function AddTeacher({ setActiveView, editData }) {
         // setTimeout(() => setSuccessToast(false), 5000);
       } else {
         const errData = await res.json();
-        alert(errData.error || 'Server error occurred during teacher registration.');
+        alert(errData.error || 'Server error occurred during staff registration.');
         setLoading(false);
         isSubmitting.current = false;
       }
@@ -842,7 +846,7 @@ export default function AddTeacher({ setActiveView, editData }) {
         }}>
           <CheckCircle size={24} />
           <div>
-            <strong style={{ display: 'block', fontSize: '0.95rem' }}>{editData ? 'Changes Saved!' : 'Teacher Registered!'}</strong>
+            <strong style={{ display: 'block', fontSize: '0.95rem' }}>{editData ? 'Changes Saved!' : 'Staff Registered!'}</strong>
             <span style={{ fontSize: '0.8rem' }}>{editData ? 'Faculty profile updated successfully.' : 'Faculty profile created and account credentials activated.'}</span>
           </div>
         </div>
@@ -1103,7 +1107,7 @@ export default function AddTeacher({ setActiveView, editData }) {
               <div className="form-group">
                 <DragAndDropFile 
                   fieldName="photo"
-                  label="Teacher Profile Photo (Optional)"
+                  label="Staff Profile Photo (Optional)"
                   file={files.photo || (existingFiles.photo ? { name: existingFiles.photo.split('/').pop() } : null)}
                   onFileChange={handleFileChange}
                   onRemove={removeFile}

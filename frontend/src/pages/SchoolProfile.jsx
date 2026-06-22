@@ -314,8 +314,14 @@ export default function SchoolProfile({ schoolDetails, fetchSchoolDetails, isDev
 
   const validateForm = () => {
     const errors = {};
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
     if (!formData.name.trim()) errors.name = 'School Name is required.';
     
+    if (formData.email && !emailRegex.test(formData.email.trim())) {
+      errors.email = 'Invalid School Email format.';
+    }
+
     if (modalMode === 'add') {
       if (!formData.subdomain.trim()) {
         errors.subdomain = 'Subdomain is required.';
@@ -323,9 +329,18 @@ export default function SchoolProfile({ schoolDetails, fetchSchoolDetails, isDev
         errors.subdomain = 'Subdomain must be alphanumeric with no spaces.';
       }
       
-      if (!formData.adminEmail.trim()) errors.adminEmail = 'Admin Email is required.';
+      if (!formData.adminEmail.trim()) {
+        errors.adminEmail = 'Admin Email is required.';
+      } else if (!emailRegex.test(formData.adminEmail.trim())) {
+        errors.adminEmail = 'Invalid Admin Email format.';
+      }
+
       if (!formData.adminUsername.trim()) errors.adminUsername = 'Admin Username is required.';
       if (!formData.adminPassword.trim()) errors.adminPassword = 'Admin Password is required.';
+    } else {
+      if (formData.adminEmail && !emailRegex.test(formData.adminEmail.trim())) {
+        errors.adminEmail = 'Invalid Admin Email format.';
+      }
     }
     
     setFormErrors(errors);
@@ -791,7 +806,7 @@ export default function SchoolProfile({ schoolDetails, fetchSchoolDetails, isDev
                   {/* Enrollments */}
                   <div style={{ display: 'flex', gap: '12px', fontSize: '0.76rem', padding: '10px 12px', background: 'var(--bg-glass-active)', borderRadius: '8px' }}>
                     <span style={{ color: 'var(--text-main)' }}>Students: <strong>{school.studentCount || 0}</strong></span>
-                    <span style={{ color: 'var(--text-muted)' }}>Teachers: <strong>{school.teacherCount || 0}</strong></span>
+                    <span style={{ color: 'var(--text-muted)' }}>Staff: <strong>{school.teacherCount || 0}</strong></span>
                     <span style={{ color: 'var(--text-muted)' }}>Employees: <strong>{school.staffCount || 0}</strong></span>
                   </div>
 
@@ -982,7 +997,9 @@ export default function SchoolProfile({ schoolDetails, fetchSchoolDetails, isDev
                     <input 
                       type="email" name="email" className="form-control" placeholder="contact@school.edu"
                       value={formData.email} onChange={handleInputChange}
+                      style={{ borderColor: formErrors.email ? '#ef4444' : undefined }}
                     />
+                    {formErrors.email && <span style={{ color: '#ef4444', fontSize: '0.72rem', marginTop: '4px', display: 'block' }}>{formErrors.email}</span>}
                   </div>
 
                   <div className="form-group">
@@ -1074,6 +1091,7 @@ export default function SchoolProfile({ schoolDetails, fetchSchoolDetails, isDev
                       <input 
                         type="email" name="adminEmail" className="form-control" placeholder="admin@domain.com"
                         value={formData.adminEmail} onChange={handleInputChange} required
+                        style={{ borderColor: formErrors.adminEmail ? '#ef4444' : undefined }}
                       />
                       {formErrors.adminEmail && <span style={{ color: '#ef4444', fontSize: '0.72rem', marginTop: '4px', display: 'block' }}>{formErrors.adminEmail}</span>}
                     </div>

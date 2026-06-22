@@ -247,7 +247,7 @@ export default function TeacherManagement() {
               ) : (
                 <tr>
                   <td colSpan="8" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
-                    No teachers found in the roster.
+                    No staff found in the roster.
                   </td>
                 </tr>
               )}

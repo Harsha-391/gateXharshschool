@@ -7,6 +7,7 @@ import {
   deleteFeeStructure,
   getFees,
   collectFee,
+  deleteFee,
   getSalaryStructures,
   createSalaryStructure,
   updateSalaryStructure,
@@ -25,7 +26,10 @@ import {
   deleteExpense,
   getIncome,
   addIncome,
-  getExpenseHistory
+  getExpenseHistory,
+  getFeePeriods,
+  createFeePeriod,
+  deleteFeePeriod
 } from '../controllers/accountManagementController.js';
 
 const router = express.Router();
@@ -42,6 +46,7 @@ router.delete('/fee-structures/:id', deleteFeeStructure);
 // Student fees (collections)
 router.get('/fees', getFees);
 router.post('/fees', collectFee);
+router.delete('/fees/:id', deleteFee);
 
 // Salary structures
 router.get('/salary-structures', getSalaryStructures);
@@ -75,5 +80,10 @@ router.post('/income', addIncome);
 
 // Expense history snapshot logs
 router.get('/expense-history', getExpenseHistory);
+
+// Fee periods (custom month ranges)
+router.get('/fee-periods', getFeePeriods);
+router.post('/fee-periods', createFeePeriod);
+router.delete('/fee-periods/:id', deleteFeePeriod);
 
 export default router;

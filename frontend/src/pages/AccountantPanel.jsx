@@ -6,7 +6,8 @@ import {
   PieChart, FileText, Download, Search, Filter, Plus, CheckCircle, AlertCircle,
   Loader2, Calculator, Receipt, Wallet, Building2, ArrowUpRight, ArrowDownRight,
   ChevronDown, Printer, X, IndianRupee, BookOpen, Banknote, HandCoins, CircleDollarSign,
-  ClipboardList, BarChart3, Calendar, Eye, UserCog, UserPlus, Pencil, Trash2, LogOut
+  ClipboardList, BarChart3, Calendar, Eye, UserCog, UserPlus, Pencil, Trash2, LogOut,
+  RefreshCw, History
 } from 'lucide-react';
 
 import StudentDirectory from './StudentDirectory';
@@ -60,6 +61,7 @@ export default function AccountantPanel({ setActiveView, onLogout, accountantVie
       case 'dashboard': return <DashboardView setAccountantView={setAccountantView} />;
       case 'collect-fees': return <CollectFeesView showToast={showToast} />;
       case 'fee-structure': return <FeeStructureView showToast={showToast} />;
+      case 'fees-history': return <FeesHistoryView showToast={showToast} />;
       case 'payroll': return <PayrollView showToast={showToast} />;
       case 'teacher-pay-structure': return <TeacherSalaryStructureView showToast={showToast} />;
       case 'expenses': return <ExpensesView showToast={showToast} />;
@@ -109,12 +111,13 @@ export default function AccountantPanel({ setActiveView, onLogout, accountantVie
             <h2 style={{ fontSize: '1.25rem', fontWeight: 700 }}>{accountantView === 'dashboard' ? 'Finance Panel' :
               accountantView === 'collect-fees' ? 'Student Fee Collection' :
               accountantView === 'fee-structure' ? 'Fee Structure Configuration' :
-               accountantView === 'payroll' ? 'Staff Payroll Management' :
+              accountantView === 'fees-history' ? 'Fees Payment History' :
+               accountantView === 'payroll' ? 'Pay Staff' :
                accountantView === 'teacher-pay-structure' ? 'Staff Pay Structure' :
                accountantView === 'expenses' ? 'Expense Tracker' :
                accountantView === 'income' ? 'Income Tracker' :
                accountantView === 'reports' ? 'Financial Reports' :
-               accountantView === 'staff-pay' ? 'Employee Salary Payments' :
+               accountantView === 'staff-pay' ? 'Pay Employee' :
                accountantView === 'staff-pay-structure' ? 'Employee Pay Structure' :
                accountantView === 'students' ? 'Student Directory' :
                accountantView === 'teacher-list' ? 'Staff Directory' :
@@ -176,9 +179,10 @@ function DashboardView({ setAccountantView }) {
   const quickActions = [
     { label: 'Collect Fees', icon: Receipt, view: 'collect-fees', color: '#10b981' },
     { label: 'Fee Structure', icon: BookOpen, view: 'fee-structure', color: '#3b82f6' },
-    { label: 'Process Payroll', icon: Banknote, view: 'payroll', color: '#8b5cf6' },
+    { label: 'Fees History', icon: History, view: 'fees-history', color: '#8b5cf6' },
+    { label: 'Pay Staff', icon: Banknote, view: 'payroll', color: '#8b5cf6' },
     { label: 'Staff Pay Structure', icon: Calculator, view: 'teacher-pay-structure', color: '#10b981' },
-    { label: 'Employee Payments', icon: UserCog, view: 'staff-pay', color: '#ec4899' },
+    { label: 'Pay Employee', icon: UserCog, view: 'staff-pay', color: '#ec4899' },
     { label: 'Employee Pay Structure', icon: Calculator, view: 'staff-pay-structure', color: '#14b8a6' },
     { label: 'Add Expense', icon: TrendingDown, view: 'expenses', color: '#ef4444' },
     { label: 'Add Income', icon: TrendingUp, view: 'income', color: '#f59e0b' },
@@ -331,13 +335,18 @@ export function CollectFeesView({ showToast }) {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [feeStructures, setFeeStructures] = useState([]);
+  const [feePeriods, setFeePeriods] = useState([]);
+  const [showMonthRangeModal, setShowMonthRangeModal] = useState(false);
+  const [newPeriodFreq, setNewPeriodFreq] = useState('Quarterly');
+  const [newPeriodName, setNewPeriodName] = useState('');
   const [filterClass, setFilterClass] = useState('All');
   const [filterDept, setFilterDept] = useState('All');
   const [filterStatus, setFilterStatus] = useState('All');
   const [search, setSearch] = useState('');
   const [form, setForm] = useState({
     studentId: '', studentName: '', admissionNumber: '', studentClass: '', section: '',
-    feeType: 'Tuition Fee', amount: '', discount: '0', fine: '0', paidAmount: '', paymentMethod: 'Cash', remarks: ''
+    feeType: 'Tuition Fee', amount: '', discount: '0', fine: '0', paidAmount: '', paymentMethod: 'Cash', remarks: '',
+    billingPeriod: 'Yearly'
   });
   const [receiptData, setReceiptData] = useState(null);
   const [studentSearchQuery, setStudentSearchQuery] = useState('');
@@ -360,7 +369,8 @@ export function CollectFeesView({ showToast }) {
       setIsPaidAmountEdited(false);
       setForm({
         studentId: '', studentName: '', admissionNumber: '', studentClass: '', section: '',
-        feeType: 'Tuition Fee', amount: '', discount: '0', fine: '0', paidAmount: '', paymentMethod: 'Cash', remarks: ''
+        feeType: 'Tuition Fee', amount: '', discount: '0', fine: '0', paidAmount: '', paymentMethod: 'Cash', remarks: '',
+        billingPeriod: 'Yearly'
       });
     }
   }, [showForm]);
@@ -381,7 +391,7 @@ export function CollectFeesView({ showToast }) {
   }, []);
 
   const classes = activeGrades.map(g => g.name);
-  const feeTypes = ['Tuition Fee', 'Admission Fee', 'Exam Fee', 'Transport Fee', 'Other Charges'];
+  const feeTypes = ['Tuition Fee', 'Transport Fee', 'Other Charges'];
 
   const uniqueBaseGrades = [...new Set(activeGrades.map(g => parseGradeName(g.name).baseGrade))];
   const departmentsForSelectedGrade = activeGrades
@@ -447,12 +457,86 @@ export function CollectFeesView({ showToast }) {
       .catch(() => {});
 
     fetch('/api/finance/fee-structures')
-      .then(r => r.json())
+    .then(r => r.json())
       .then(d => setFeeStructures(d))
+      .catch(() => {});
+
+    fetch('/api/finance/fee-periods')
+      .then(r => r.json())
+      .then(d => setFeePeriods(d || []))
       .catch(() => {});
   };
 
   useEffect(() => { fetchFees(); fetchStudents(); }, [filterClass, filterDept, filterStatus, search]);
+
+  useEffect(() => {
+    if (!form.studentId) {
+      const targetClass = (isGrade11or12(selectedFormGrade) && selectedFormDept)
+        ? `${selectedFormGrade} (${selectedFormDept})`
+        : selectedFormGrade;
+
+      if (targetClass) {
+        const classStructures = feeStructures.filter(f => f.studentClass === targetClass);
+        const fstr = classStructures[0];
+        const freq = fstr ? (fstr.frequency || 'Yearly') : 'Yearly';
+        const bpOptions = getBillingPeriodOptions(freq);
+        const defaultBp = bpOptions[0] || 'Full Year';
+
+        const matchedFstr = classStructures.find(f => f.monthRange === defaultBp) || fstr;
+        let defaultAmount = 0;
+        if (matchedFstr) {
+          if (form.feeType === 'Tuition Fee') defaultAmount = matchedFstr.tuitionFee;
+          else if (form.feeType === 'Transport Fee') defaultAmount = matchedFstr.transportFee;
+          else if (form.feeType === 'Other Charges') defaultAmount = matchedFstr.otherCharges;
+        }
+
+        const calculatedAmount = getCalculatedAmount(defaultAmount, freq, !!(matchedFstr && matchedFstr.monthRange));
+
+        setForm(prev => ({
+          ...prev,
+          amount: defaultAmount ? String(calculatedAmount) : '',
+          paidAmount: defaultAmount ? String(calculatedAmount) : '',
+          billingPeriod: defaultBp
+        }));
+        setIsPaidAmountEdited(false);
+      } else {
+        setForm(prev => ({
+          ...prev,
+          amount: '',
+          paidAmount: '',
+          billingPeriod: 'Yearly'
+        }));
+        setIsPaidAmountEdited(false);
+      }
+    }
+  }, [selectedFormGrade, selectedFormDept, form.feeType, feeStructures]);
+
+  const getBillingPeriodOptions = (frequency) => {
+    if (frequency === 'Monthly') {
+      return [
+        'January', 'February', 'March', 'April', 'May', 'June', 
+        'July', 'August', 'September', 'October', 'November', 'December'
+      ];
+    }
+    const customPeriods = feePeriods.filter(fp => fp.frequency === frequency).map(fp => fp.name);
+    if (customPeriods.length > 0) return customPeriods;
+    if (frequency === 'Quarterly') {
+      return ['Q1 (Apr-Jun)', 'Q2 (Jul-Sep)', 'Q3 (Oct-Dec)', 'Q4 (Jan-Mar)'];
+    } else if (frequency === 'Half-Yearly') {
+      return ['First Half (H1)', 'Second Half (H2)'];
+    } else {
+      return ['Full Year'];
+    }
+  };
+
+  const getCalculatedAmount = (baseAmount, frequency, hasMonthRange = false) => {
+    const amt = Number(baseAmount) || 0;
+    if (hasMonthRange) return amt;
+    if (frequency === 'Monthly') return Math.round(amt / 12);
+    if (frequency === 'Quarterly') return Math.round(amt / 4);
+    if (frequency === 'Half-Yearly') return Math.round(amt / 2);
+    return amt;
+  };
 
   const selectStudent = (stu) => {
     if (stu) {
@@ -461,15 +545,21 @@ export function CollectFeesView({ showToast }) {
       setSelectedFormSection(stu.section);
       setSelectedFormDept(parsed.department);
 
-      const fstr = feeStructures.find(f => f.studentClass === stu.studentClass);
-      let defaultAmount = '';
-      if (fstr) {
-        if (form.feeType === 'Tuition Fee') defaultAmount = fstr.tuitionFee;
-        else if (form.feeType === 'Admission Fee') defaultAmount = fstr.admissionFee;
-        else if (form.feeType === 'Exam Fee') defaultAmount = fstr.examFee;
-        else if (form.feeType === 'Transport Fee') defaultAmount = fstr.transportFee;
-        else if (form.feeType === 'Other Charges') defaultAmount = fstr.otherCharges;
+      const classStructures = feeStructures.filter(f => f.studentClass === stu.studentClass);
+      const fstr = classStructures[0];
+      const freq = fstr ? (fstr.frequency || 'Yearly') : 'Yearly';
+      const bpOptions = getBillingPeriodOptions(freq);
+      const defaultBp = bpOptions[0] || 'Full Year';
+
+      const matchedFstr = classStructures.find(f => f.monthRange === defaultBp) || fstr;
+      let defaultAmount = 0;
+      if (matchedFstr) {
+        if (form.feeType === 'Tuition Fee') defaultAmount = matchedFstr.tuitionFee;
+        else if (form.feeType === 'Transport Fee') defaultAmount = matchedFstr.transportFee;
+        else if (form.feeType === 'Other Charges') defaultAmount = matchedFstr.otherCharges;
       }
+
+      const calculatedAmount = getCalculatedAmount(defaultAmount, freq, !!(matchedFstr && matchedFstr.monthRange));
 
       setForm(prev => ({
         ...prev,
@@ -478,8 +568,9 @@ export function CollectFeesView({ showToast }) {
         admissionNumber: stu.admissionNumber,
         studentClass: stu.studentClass,
         section: stu.section,
-        amount: defaultAmount ? String(defaultAmount) : '',
-        paidAmount: defaultAmount ? String(defaultAmount) : ''
+        amount: defaultAmount ? String(calculatedAmount) : '',
+        paidAmount: defaultAmount ? String(calculatedAmount) : '',
+        billingPeriod: defaultBp
       }));
       setIsPaidAmountEdited(false);
       setStudentSearchQuery(stu.fullName || stu.name);
@@ -493,27 +584,33 @@ export function CollectFeesView({ showToast }) {
         studentClass: '',
         section: '',
         amount: '',
-        paidAmount: ''
+        paidAmount: '',
+        billingPeriod: 'Yearly'
       }));
       setIsPaidAmountEdited(false);
       setStudentSearchQuery('');
+      setShowStudentDropdown(false);
     }
   };
 
   const handleStudentSelect = (e) => {
     const stu = students.find(s => s.id === e.target.value);
     if (stu) {
-      const fstr = feeStructures.find(f => f.studentClass === stu.studentClass);
-      let defaultAmount = '';
-      if (fstr) {
-        if (form.feeType === 'Tuition Fee') defaultAmount = fstr.tuitionFee;
-        else if (form.feeType === 'Admission Fee') defaultAmount = fstr.admissionFee;
-        else if (form.feeType === 'Exam Fee') defaultAmount = fstr.examFee;
-        else if (form.feeType === 'Transport Fee') defaultAmount = fstr.transportFee;
-        else if (form.feeType === 'Library Fee') defaultAmount = fstr.libraryFee;
-        else if (form.feeType === 'Hostel Fee') defaultAmount = fstr.hostelFee;
-        else if (form.feeType === 'Other Charges') defaultAmount = fstr.otherCharges;
+      const classStructures = feeStructures.filter(f => f.studentClass === stu.studentClass);
+      const fstr = classStructures[0];
+      const freq = fstr ? (fstr.frequency || 'Yearly') : 'Yearly';
+      const bpOptions = getBillingPeriodOptions(freq);
+      const defaultBp = bpOptions[0] || 'Full Year';
+
+      const matchedFstr = classStructures.find(f => f.monthRange === defaultBp) || fstr;
+      let defaultAmount = 0;
+      if (matchedFstr) {
+        if (form.feeType === 'Tuition Fee') defaultAmount = matchedFstr.tuitionFee;
+        else if (form.feeType === 'Transport Fee') defaultAmount = matchedFstr.transportFee;
+        else if (form.feeType === 'Other Charges') defaultAmount = matchedFstr.otherCharges;
       }
+
+      const calculatedAmount = getCalculatedAmount(defaultAmount, freq, !!(matchedFstr && matchedFstr.monthRange));
 
       setForm(prev => ({
         ...prev,
@@ -522,8 +619,9 @@ export function CollectFeesView({ showToast }) {
         admissionNumber: stu.admissionNumber,
         studentClass: stu.studentClass,
         section: stu.section,
-        amount: defaultAmount ? String(defaultAmount) : '',
-        paidAmount: defaultAmount ? String(defaultAmount) : ''
+        amount: defaultAmount ? String(calculatedAmount) : '',
+        paidAmount: defaultAmount ? String(calculatedAmount) : '',
+        billingPeriod: defaultBp
       }));
       setIsPaidAmountEdited(false);
     } else {
@@ -535,7 +633,8 @@ export function CollectFeesView({ showToast }) {
         studentClass: '',
         section: '',
         amount: '',
-        paidAmount: ''
+        paidAmount: '',
+        billingPeriod: 'Yearly'
       }));
       setIsPaidAmountEdited(false);
     }
@@ -543,22 +642,51 @@ export function CollectFeesView({ showToast }) {
 
   const handleFeeTypeChange = (newFeeType, selectedStudentId = form.studentId) => {
     const stu = students.find(s => s.id === selectedStudentId);
-    let defaultAmount = '';
+    let defaultAmount = 0;
+    let freq = 'Yearly';
+    let matchedFstr = null;
     if (stu) {
-      const fstr = feeStructures.find(f => f.studentClass === stu.studentClass);
-      if (fstr) {
-        if (newFeeType === 'Tuition Fee') defaultAmount = fstr.tuitionFee;
-        else if (newFeeType === 'Admission Fee') defaultAmount = fstr.admissionFee;
-        else if (newFeeType === 'Exam Fee') defaultAmount = fstr.examFee;
-        else if (newFeeType === 'Transport Fee') defaultAmount = fstr.transportFee;
-        else if (newFeeType === 'Other Charges') defaultAmount = fstr.otherCharges;
+      const classStructures = feeStructures.filter(f => f.studentClass === stu.studentClass);
+      matchedFstr = classStructures.find(f => f.monthRange === form.billingPeriod) || classStructures[0];
+      if (matchedFstr) {
+        freq = matchedFstr.frequency || 'Yearly';
+        if (newFeeType === 'Tuition Fee') defaultAmount = matchedFstr.tuitionFee;
+        else if (newFeeType === 'Transport Fee') defaultAmount = matchedFstr.transportFee;
+        else if (newFeeType === 'Other Charges') defaultAmount = matchedFstr.otherCharges;
       }
     }
+    const calculatedAmount = getCalculatedAmount(defaultAmount, freq, !!(matchedFstr && matchedFstr.monthRange));
     setForm(prev => ({
       ...prev,
       feeType: newFeeType,
-      amount: defaultAmount ? String(defaultAmount) : prev.amount,
-      paidAmount: defaultAmount ? String(defaultAmount) : prev.paidAmount
+      amount: defaultAmount ? String(calculatedAmount) : prev.amount,
+      paidAmount: defaultAmount ? String(calculatedAmount) : prev.paidAmount
+    }));
+    setIsPaidAmountEdited(false);
+  };
+
+  const handleBillingPeriodChange = (newBp) => {
+    const stu = students.find(s => s.id === form.studentId);
+    let defaultAmount = 0;
+    let freq = 'Yearly';
+    let matchedFstr = null;
+    if (stu) {
+      const classStructures = feeStructures.filter(f => f.studentClass === stu.studentClass);
+      matchedFstr = classStructures.find(f => f.monthRange === newBp) || classStructures[0];
+      if (matchedFstr) {
+        freq = matchedFstr.frequency || 'Yearly';
+        if (form.feeType === 'Tuition Fee') defaultAmount = matchedFstr.tuitionFee;
+        else if (form.feeType === 'Transport Fee') defaultAmount = matchedFstr.transportFee;
+        else if (form.feeType === 'Other Charges') defaultAmount = matchedFstr.otherCharges;
+      }
+    }
+    const calculatedAmount = getCalculatedAmount(defaultAmount, freq, !!(matchedFstr && matchedFstr.monthRange));
+
+    setForm(prev => ({
+      ...prev,
+      billingPeriod: newBp,
+      amount: defaultAmount ? String(calculatedAmount) : prev.amount,
+      paidAmount: defaultAmount ? String(calculatedAmount) : prev.paidAmount
     }));
     setIsPaidAmountEdited(false);
   };
@@ -633,7 +761,8 @@ export function CollectFeesView({ showToast }) {
         }
         setShowForm(false);
         setForm({ studentId: '', studentName: '', admissionNumber: '', studentClass: '', section: '',
-          feeType: 'Tuition Fee', amount: '', discount: '0', fine: '0', paidAmount: '', paymentMethod: 'Cash', remarks: '' });
+          feeType: 'Tuition Fee', amount: '', discount: '0', fine: '0', paidAmount: '', paymentMethod: 'Cash', remarks: '',
+          billingPeriod: 'Yearly' });
         setEditingId(null);
         fetchFees();
       } else {
@@ -683,6 +812,7 @@ export function CollectFeesView({ showToast }) {
               {[
                 ['Student', receiptData.studentName],
                 ['Class', `${receiptData.studentClass}-${receiptData.section}`],
+                ['Billing Period', receiptData.billingPeriod || 'Yearly'],
                 ['Fee Type', receiptData.feeType],
                 ['Amount', `₹${receiptData.amount?.toLocaleString()}`],
                 ['Discount', `₹${receiptData.discount?.toLocaleString()}`],
@@ -789,8 +919,17 @@ export function CollectFeesView({ showToast }) {
                   <select 
                     value={selectedFormGrade} 
                     onChange={e => {
-                      setSelectedFormGrade(e.target.value);
-                      setSelectedFormDept('');
+                      const val = e.target.value;
+                      setSelectedFormGrade(val);
+                      if (isGrade11or12(val)) {
+                        const depts = activeGrades
+                          .filter(g => parseGradeName(g.name).baseGrade === val)
+                          .map(g => parseGradeName(g.name).department)
+                          .filter(Boolean);
+                        setSelectedFormDept(depts[0] || '');
+                      } else {
+                        setSelectedFormDept('');
+                      }
                       selectStudent(null);
                     }} 
                     style={{ ...inputStyle, cursor: 'pointer' }}
@@ -908,9 +1047,85 @@ export function CollectFeesView({ showToast }) {
                     {feeTypes.map(f => <option key={f} value={f} style={optionStyle}>{f}</option>)}
                   </select>
                 </div>
+                {(() => {
+                  const selStudent = students.find(s => s.id === form.studentId);
+                  let selFs = null;
+                  const targetClass = selStudent 
+                    ? selStudent.studentClass 
+                    : ((isGrade11or12(selectedFormGrade) && selectedFormDept)
+                        ? `${selectedFormGrade} (${selectedFormDept})`
+                        : selectedFormGrade);
+                  
+                  if (targetClass) {
+                    const classStructures = feeStructures.filter(f => f.studentClass === targetClass);
+                    selFs = classStructures.find(f => f.monthRange === form.billingPeriod) || classStructures[0];
+                  }
+                  const selFreq = selFs ? (selFs.frequency || 'Yearly') : 'Yearly';
+                  
+                  if (selFreq === 'Yearly') {
+                    return (
+                      <div>
+                        <label style={labelStyle}>Billing Period</label>
+                        <div style={{
+                          ...inputStyle,
+                          background: 'rgba(255, 255, 255, 0.03)',
+                          color: 'var(--text-muted)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          cursor: 'not-allowed'
+                        }}>
+                          Full Year
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div>
+                      <label style={labelStyle}>Billing Period</label>
+                      <select 
+                        value={form.billingPeriod || 'Yearly'} 
+                        onChange={e => handleBillingPeriodChange(e.target.value)} 
+                        style={{ ...inputStyle, cursor: 'pointer' }}
+                      >
+                        {getBillingPeriodOptions(selFreq).map(opt => (
+                          <option key={opt} value={opt} style={optionStyle}>{opt}</option>
+                        ))}
+                      </select>
+                    </div>
+                  );
+                })()}
                 <div>
                   <label style={labelStyle}>Amount (₹)</label>
                   <input type="number" value={form.amount} onChange={e => updateFormFields({ amount: e.target.value })} required placeholder="12000" style={inputStyle} />
+                  {(() => {
+                    const selStudent = students.find(s => s.id === form.studentId);
+                    let selFs = null;
+                    const targetClass = selStudent 
+                      ? selStudent.studentClass 
+                      : ((isGrade11or12(selectedFormGrade) && selectedFormDept)
+                          ? `${selectedFormGrade} (${selectedFormDept})`
+                          : selectedFormGrade);
+                    
+                    if (targetClass) {
+                      const classStructures = feeStructures.filter(f => f.studentClass === targetClass);
+                      selFs = classStructures.find(f => f.monthRange === form.billingPeriod) || classStructures[0];
+                    }
+                    const selFreq = selFs ? (selFs.frequency || 'Yearly') : 'Yearly';
+                    const baseAmt = selFs ? (
+                      form.feeType === 'Tuition Fee' ? selFs.tuitionFee :
+                      form.feeType === 'Transport Fee' ? selFs.transportFee :
+                      form.feeType === 'Other Charges' ? selFs.otherCharges : 0
+                    ) : 0;
+                    if (selFs && baseAmt > 0) {
+                      return (
+                        <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '4px', display: 'block' }}>
+                          Base structure: ₹{baseAmt.toLocaleString()} ({selFreq}{selFs.monthRange ? ` - ${selFs.monthRange}` : ''})
+                        </span>
+                      );
+                    }
+                    return null;
+                  })()}
                 </div>
                 <div>
                   <label style={labelStyle}>Discount (₹)</label>
@@ -994,7 +1209,7 @@ export function CollectFeesView({ showToast }) {
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ background: 'rgba(255,255,255,0.02)' }}>
-                {['Receipt #', 'Student', 'Class', 'Fee Type', 'Amount', 'Discount', 'Fine', 'Paid', 'Due', 'Status', 'Method', 'Date', 'Actions'].map(h => (
+                {['Receipt #', 'Student', 'Class', 'Period', 'Fee Type', 'Amount', 'Discount', 'Fine', 'Paid', 'Due', 'Status', 'Method', 'Date', 'Actions'].map(h => (
                   <th key={h} style={{ padding: '14px 16px', textAlign: 'left', fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', borderBottom: '1px solid rgba(255,255,255,0.04)', whiteSpace: 'nowrap' }}>{h}</th>
                 ))}
               </tr>
@@ -1018,6 +1233,7 @@ export function CollectFeesView({ showToast }) {
                       <td style={{ padding: '12px 16px', fontSize: '0.8rem', fontWeight: 600, color: '#10b981', whiteSpace: 'nowrap' }}>{fee.receiptNumber}</td>
                       <td style={{ padding: '12px 16px', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-main)', whiteSpace: 'nowrap' }}>{fee.studentName}</td>
                       <td style={{ padding: '12px 16px', fontSize: '0.8rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{fee.studentClass}-{fee.section}</td>
+                      <td style={{ padding: '12px 16px', fontSize: '0.8rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{fee.billingPeriod || 'Yearly'}</td>
                       <td style={{ padding: '12px 16px', fontSize: '0.8rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{fee.feeType}</td>
                       <td style={{ padding: '12px 16px', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-main)', whiteSpace: 'nowrap' }}>₹{baseAmt?.toLocaleString()}</td>
                       <td style={{ padding: '12px 16px', fontSize: '0.8rem', fontWeight: 600, color: '#ef4444', whiteSpace: 'nowrap' }}>₹{fee.discount?.toLocaleString()}</td>
@@ -1091,9 +1307,14 @@ export function FeeStructureView({ showToast }) {
   const [activeGrades, setActiveGrades] = useState([]);
   const [selectedFormGrade, setSelectedFormGrade] = useState('');
   const [selectedFormDept, setSelectedFormDept] = useState('');
+  const [feePeriods, setFeePeriods] = useState([]);
+  const [showMonthRangeModal, setShowMonthRangeModal] = useState(false);
+  const [newPeriodFreq, setNewPeriodFreq] = useState('Quarterly');
+  const [newPeriodName, setNewPeriodName] = useState('');
   const [form, setForm] = useState({
     studentClass: '', admissionFee: '0', tuitionFee: '0', examFee: '0',
-    transportFee: '0', hostelFee: '0', libraryFee: '0', otherCharges: '0'
+    transportFee: '0', hostelFee: '0', libraryFee: '0', otherCharges: '0',
+    frequency: 'Yearly', monthRange: null
   });
 
   const classes = activeGrades.map(g => g.name);
@@ -1117,11 +1338,45 @@ export function FeeStructureView({ showToast }) {
     }
   };
 
+  const getBillingPeriodOptions = (frequency) => {
+    if (frequency === 'Monthly') {
+      return [
+        'January', 'February', 'March', 'April', 'May', 'June', 
+        'July', 'August', 'September', 'October', 'November', 'December'
+      ];
+    }
+    const customPeriods = feePeriods.filter(fp => fp.frequency === frequency).map(fp => fp.name);
+    if (customPeriods.length > 0) return customPeriods;
+    if (frequency === 'Quarterly') {
+      return ['Q1 (Apr-Jun)', 'Q2 (Jul-Sep)', 'Q3 (Oct-Dec)', 'Q4 (Jan-Mar)'];
+    } else if (frequency === 'Half-Yearly') {
+      return ['First Half (H1)', 'Second Half (H2)'];
+    } else {
+      return ['Full Year'];
+    }
+  };
+
+  const handleFrequencyChange = (freq) => {
+    let monthRange = null;
+    const options = getBillingPeriodOptions(freq);
+    if (options.length > 0) {
+      monthRange = options[0];
+    }
+    setForm(prev => ({ ...prev, frequency: freq, monthRange }));
+  };
+
   const fetchStructures = () => {
     fetch('/api/finance/fee-structures')
       .then(r => r.json())
       .then(d => { setStructures(d); setLoading(false); })
       .catch(() => setLoading(false));
+  };
+
+  const fetchFeePeriods = () => {
+    fetch('/api/finance/fee-periods')
+      .then(r => r.json())
+      .then(d => setFeePeriods(d || []))
+      .catch(() => {});
   };
 
   useEffect(() => {
@@ -1131,6 +1386,7 @@ export function FeeStructureView({ showToast }) {
       setActiveGrades(grades);
     };
     loadGrades();
+    fetchFeePeriods();
   }, []);
 
   useEffect(() => {
@@ -1142,6 +1398,16 @@ export function FeeStructureView({ showToast }) {
       }
     }
   }, [showForm, editingId, activeGrades]);
+
+  useEffect(() => {
+    if (!showForm) {
+      setForm({
+        studentClass: '', admissionFee: '0', tuitionFee: '0', examFee: '0',
+        transportFee: '0', hostelFee: '0', libraryFee: '0', otherCharges: '0',
+        frequency: 'Yearly', monthRange: null
+      });
+    }
+  }, [showForm]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -1195,7 +1461,9 @@ export function FeeStructureView({ showToast }) {
       transportFee: String(s.transportFee || '0'),
       hostelFee: String(s.hostelFee || '0'),
       libraryFee: String(s.libraryFee || '0'),
-      otherCharges: String(s.otherCharges || '0')
+      otherCharges: String(s.otherCharges || '0'),
+      frequency: s.frequency || 'Yearly',
+      monthRange: s.monthRange || null
     });
     setEditingId(s.id);
     setShowForm(true);
@@ -1209,8 +1477,7 @@ export function FeeStructureView({ showToast }) {
   const labelStyle = { fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '6px', display: 'block' };
   const optionStyle = { background: 'var(--bg-form)', color: 'var(--text-main)' };
 
-  const total = Number(form.admissionFee || 0) + Number(form.tuitionFee || 0) + Number(form.examFee || 0) +
-    Number(form.transportFee || 0) + Number(form.hostelFee || 0) + Number(form.libraryFee || 0) + Number(form.otherCharges || 0);
+  const total = Number(form.tuitionFee || 0) + Number(form.transportFee || 0) + Number(form.otherCharges || 0);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
@@ -1221,6 +1488,13 @@ export function FeeStructureView({ showToast }) {
           alignItems: 'center', gap: '6px', fontSize: '0.85rem'
         }}>
           <Plus size={16} /> Add/Edit Fee Structure
+        </button>
+        <button onClick={() => setShowMonthRangeModal(true)} style={{
+          padding: '10px 20px', background: 'linear-gradient(135deg, #8b5cf6, #7c3aed)', border: 'none',
+          borderRadius: '10px', color: '#fff', fontWeight: 700, cursor: 'pointer', display: 'flex',
+          alignItems: 'center', gap: '6px', fontSize: '0.85rem'
+        }}>
+          <Calendar size={16} /> Manage Month Ranges
         </button>
       </div>
 
@@ -1253,9 +1527,38 @@ export function FeeStructureView({ showToast }) {
                     </select>
                   </div>
                 )}
+                <div>
+                  <label style={labelStyle}>Fee Frequency</label>
+                  <select 
+                    value={form.frequency || 'Yearly'} 
+                    onChange={e => handleFrequencyChange(e.target.value)} 
+                    style={{ ...inputStyle, cursor: 'pointer' }}
+                  >
+                    <option value="Monthly" style={optionStyle}>Monthly</option>
+                    <option value="Quarterly" style={optionStyle}>Quarterly</option>
+                    <option value="Half-Yearly" style={optionStyle}>Half-Yearly</option>
+                    <option value="Yearly" style={optionStyle}>Yearly</option>
+                  </select>
+                </div>
+                {(form.frequency === 'Quarterly' || form.frequency === 'Half-Yearly' || form.frequency === 'Monthly') && form.frequency !== 'Yearly' && getBillingPeriodOptions(form.frequency).length > 0 && (
+                  <div>
+                    <label style={labelStyle}>Month Range</label>
+                    <select 
+                      value={form.monthRange || ''} 
+                      onChange={e => setForm({ ...form, monthRange: e.target.value })} 
+                      style={{ ...inputStyle, cursor: 'pointer' }}
+                      required
+                    >
+                      {getBillingPeriodOptions(form.frequency).map(opt => (
+                        <option key={opt} value={opt} style={optionStyle}>{opt}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
                 {[
-                  ['Admission Fee', 'admissionFee'], ['Tuition Fee', 'tuitionFee'], ['Exam Fee', 'examFee'],
-                  ['Transport Fee', 'transportFee'], ['Other Charges', 'otherCharges']
+                  ['Tuition Fee', 'tuitionFee'],
+                  ['Transport Fee', 'transportFee'],
+                  ['Other Charges', 'otherCharges']
                 ].map(([label, key]) => (
                   <div key={key}>
                     <label style={labelStyle}>{label} (₹)</label>
@@ -1264,7 +1567,9 @@ export function FeeStructureView({ showToast }) {
                 ))}
               </div>
               <div style={{ padding: '12px 16px', background: 'rgba(16,185,129,0.06)', borderRadius: '10px', border: '1px solid rgba(16,185,129,0.1)', display: 'flex', justifyContent: 'space-between' }}>
-                <span style={{ fontWeight: 700, color: 'var(--text-muted)', fontSize: '0.85rem' }}>Total Annual Fee</span>
+                <span style={{ fontWeight: 700, color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                  {form.frequency === 'Quarterly' || form.frequency === 'Half-Yearly' ? `Total Fee for ${form.monthRange || 'Selected Period'}` : 'Total Annual Fee'}
+                </span>
                 <span style={{ fontWeight: 800, color: '#10b981', fontSize: '1.1rem' }}>₹{total.toLocaleString()}</span>
               </div>
               <div style={{ display: 'flex', gap: '12px', marginTop: '10px' }}>
@@ -1281,6 +1586,127 @@ export function FeeStructureView({ showToast }) {
                    onMouseLeave={e => e.currentTarget.style.background = 'var(--bg-card-subtle)'}><X size={16} /> Close</button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Manage Month Ranges Modal */}
+      {showMonthRangeModal && (
+        <div className="modal-overlay" onClick={() => setShowMonthRangeModal(false)}>
+          <div onClick={e => e.stopPropagation()} className="animate-scale-up" style={{
+            width: '100%', maxWidth: '600px', background: 'var(--bg-elevated)', borderRadius: '20px',
+            border: '1px solid var(--border-glass)', padding: '32px', boxShadow: 'var(--shadow-lg)',
+            maxHeight: '90vh', overflowY: 'auto'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
+                <Calendar size={18} style={{ color: '#8b5cf6' }} /> Manage Month Ranges
+              </h3>
+              <button onClick={() => setShowMonthRangeModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}><X size={20} /></button>
+            </div>
+
+            {/* Add new period */}
+            <div style={{ display: 'flex', gap: '10px', marginBottom: '24px', alignItems: 'flex-end', flexWrap: 'wrap' }}>
+              <div style={{ flex: '0 0 auto' }}>
+                <label style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '6px', display: 'block' }}>Frequency</label>
+                <select value={newPeriodFreq} onChange={e => setNewPeriodFreq(e.target.value)} style={{ ...inputStyle, cursor: 'pointer', minWidth: '140px' }}>
+                  <option value="Quarterly" style={optionStyle}>Quarterly</option>
+                  <option value="Half-Yearly" style={optionStyle}>Half-Yearly</option>
+                  <option value="Yearly" style={optionStyle}>Yearly</option>
+                </select>
+              </div>
+              <div style={{ flex: 1, minWidth: '150px' }}>
+                <label style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '6px', display: 'block' }}>Period Name</label>
+                <input
+                  type="text"
+                  name="periodName"
+                  id="periodName"
+                  placeholder="e.g. Q1 (Apr-Jun)"
+                  value={newPeriodName}
+                  onChange={e => setNewPeriodName(e.target.value)}
+                  style={inputStyle}
+                />
+              </div>
+              <button
+                onClick={async () => {
+                  if (!newPeriodName.trim()) return;
+                  try {
+                    const res = await fetch('/api/finance/fee-periods', {
+                      method: 'POST', headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ frequency: newPeriodFreq, name: newPeriodName.trim() })
+                    });
+                    if (res.ok) {
+                      const created = await res.json();
+                      setFeePeriods(prev => [...prev, created]);
+                      setNewPeriodName('');
+                      if (showToast) showToast('Month range added!', 'success');
+                    } else {
+                      const err = await res.json();
+                      if (showToast) showToast(err.error || 'Failed to add.', 'error');
+                    }
+                  } catch { if (showToast) showToast('Network error.', 'error'); }
+                }}
+                style={{
+                  padding: '10px 18px', background: 'linear-gradient(135deg, #8b5cf6, #7c3aed)', border: 'none',
+                  borderRadius: '10px', color: '#fff', fontWeight: 700, cursor: 'pointer', display: 'flex',
+                  alignItems: 'center', gap: '6px', fontSize: '0.82rem', whiteSpace: 'nowrap'
+                }}
+              >
+                <Plus size={15} /> Add
+              </button>
+            </div>
+
+            {/* List periods grouped by frequency */}
+            {['Quarterly', 'Half-Yearly', 'Yearly'].map(freq => {
+              const items = feePeriods.filter(fp => fp.frequency === freq);
+              if (items.length === 0) return null;
+              return (
+                <div key={freq} style={{ marginBottom: '20px' }}>
+                  <div style={{
+                    fontSize: '0.78rem', fontWeight: 700, color: freq === 'Quarterly' ? '#f59e0b' : freq === 'Half-Yearly' ? '#3b82f6' : '#10b981',
+                    textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px',
+                    display: 'flex', alignItems: 'center', gap: '6px'
+                  }}>
+                    <Calendar size={14} /> {freq}
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    {items.map(fp => (
+                      <div key={fp.id} style={{
+                        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                        padding: '10px 14px', background: 'var(--bg-card-subtle)', borderRadius: '10px',
+                        border: '1px solid var(--border-subtle)'
+                      }}>
+                        <span style={{ fontWeight: 600, fontSize: '0.85rem', color: 'var(--text-main)' }}>{fp.name}</span>
+                        <button
+                          onClick={async () => {
+                            try {
+                              const res = await fetch(`/api/finance/fee-periods/${fp.id}`, { method: 'DELETE' });
+                              if (res.ok) {
+                                setFeePeriods(prev => prev.filter(p => p.id !== fp.id));
+                                if (showToast) showToast('Period deleted.', 'success');
+                              }
+                            } catch { if (showToast) showToast('Delete failed.', 'error'); }
+                          }}
+                          style={{
+                            background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)',
+                            borderRadius: '8px', color: '#ef4444', cursor: 'pointer', padding: '5px 10px',
+                            fontWeight: 600, fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '4px'
+                          }}
+                        >
+                          <Trash2 size={13} /> Delete
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+
+            {feePeriods.length === 0 && (
+              <div style={{ textAlign: 'center', padding: '30px', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                No custom month ranges configured yet. Add your first one above!
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -1311,18 +1737,26 @@ export function FeeStructureView({ showToast }) {
             }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(0,0,0,0.06)', paddingBottom: '10px' }}>
                 <h4 style={{ fontSize: '1rem', fontWeight: 800, color: '#3b82f6' }}>Grade {s.studentClass}</h4>
+                <span style={{ 
+                  fontSize: '0.7rem', fontWeight: 800, color: '#3b82f6', 
+                  background: 'rgba(59, 130, 246, 0.08)', padding: '2px 8px', borderRadius: '12px',
+                  textTransform: 'uppercase', letterSpacing: '0.04em'
+                }}>
+                  {s.frequency || 'Yearly'}{s.monthRange ? ` - ${s.monthRange}` : ''}
+                </span>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
                 {[
-                  ['Admission Fee', s.admissionFee], ['Tuition Fee', s.tuitionFee], ['Exam Fee', s.examFee],
-                  ['Transport Fee', s.transportFee], ['Other Charges', s.otherCharges]
+                  ['Tuition Fee', s.tuitionFee],
+                  ['Transport Fee', s.transportFee],
+                  ['Other Charges', s.otherCharges]
                 ].map(([l, v], idx) => (
                   <div key={l} style={{ 
                     display: 'flex', 
                     justifyContent: 'space-between', 
                     fontSize: '0.82rem',
                     padding: '8px 0',
-                    borderBottom: idx === 4 ? 'none' : '1px solid rgba(0,0,0,0.04)'
+                    borderBottom: idx === 2 ? 'none' : '1px solid rgba(0,0,0,0.04)'
                   }}>
                     <span style={{ color: 'var(--text-muted)' }}>{l}</span>
                     <span style={{ color: 'var(--text-main)', fontWeight: 600 }}>₹{(v || 0).toLocaleString()}</span>
@@ -1331,8 +1765,10 @@ export function FeeStructureView({ showToast }) {
               </div>
               <div style={{ borderTop: '1px solid rgba(0,0,0,0.08)', paddingTop: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div style={{ display: 'flex', flexDirection: 'column' }}>
-                  <span style={{ fontWeight: 700, color: 'var(--text-muted)', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.02em' }}>Total Fee</span>
-                  <span style={{ fontWeight: 800, color: '#10b981', fontSize: '1.15rem' }}>₹{(s.totalFee || 0).toLocaleString()}</span>
+                  <span style={{ fontWeight: 700, color: 'var(--text-muted)', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.02em' }}>
+                    {s.frequency === 'Quarterly' || s.frequency === 'Half-Yearly' ? 'Total Period Fee' : 'Total Annual Fee'}
+                  </span>
+                  <span style={{ fontWeight: 800, color: '#10b981', fontSize: '1.15rem' }}>₹{((s.tuitionFee || 0) + (s.transportFee || 0) + (s.otherCharges || 0)).toLocaleString()}</span>
                 </div>
                 <div style={{ display: 'flex', gap: '8px' }}>
                   <button onClick={() => handleEdit(s)} style={{
@@ -2829,7 +3265,7 @@ export function IncomeView({ showToast }) {
   const otherIncomeSharePercent = calculatedTotalIncome > 0 ? Math.round((totalOtherIncome / calculatedTotalIncome) * 100) : 0;
 
   const classesList = [...new Set(fees.map(f => f.studentClass).filter(Boolean))].sort();
-  const feeTypesList = ['Tuition Fee', 'Admission Fee', 'Exam Fee', 'Transport Fee', 'Other Charges'];
+  const feeTypesList = ['Tuition Fee', 'Transport Fee', 'Other Charges'];
 
   const filteredFees = fees.filter(f => {
     const matchesSearch = !feeSearch || 
@@ -4169,6 +4605,745 @@ export function TeacherSalaryStructureView({ showToast }) {
           }}
           onCancel={() => setConfirmDelete(null)}
         />
+    </div>
+  );
+}
+
+export function FeesHistoryView({ showToast }) {
+  const [students, setStudents] = useState([]);
+  const [fees, setFees] = useState([]);
+  const [feeStructures, setFeeStructures] = useState([]);
+  const [feePeriods, setFeePeriods] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
+  const [filterClass, setFilterClass] = useState('All');
+  const [filterSection, setFilterSection] = useState('All');
+  const [filterDept, setFilterDept] = useState('All');
+  const [selectedStudentHistory, setSelectedStudentHistory] = useState(null);
+  const [confirmDeleteAllStudentFees, setConfirmDeleteAllStudentFees] = useState(null);
+  const [activeGrades, setActiveGrades] = useState([]);
+  const [activeSections, setActiveSections] = useState([]);
+
+  const [dismissedStudentIds, setDismissedStudentIds] = useState(() => {
+    const tenantSubdomain = localStorage.getItem('tenant_subdomain') || 'default';
+    const hiddenKey = `hidden_fees_history_${tenantSubdomain}`;
+    try {
+      const stored = localStorage.getItem(hiddenKey);
+      return stored ? JSON.parse(stored) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const handleHideStudentCard = (studentId) => {
+    const tenantSubdomain = localStorage.getItem('tenant_subdomain') || 'default';
+    const hiddenKey = `hidden_fees_history_${tenantSubdomain}`;
+    setDismissedStudentIds(prev => {
+      const updated = [...new Set([...prev, studentId])];
+      localStorage.setItem(hiddenKey, JSON.stringify(updated));
+      return updated;
+    });
+    if (showToast) showToast('Student card hidden from history view.');
+  };
+
+  const handleResetHiddenCards = () => {
+    const tenantSubdomain = localStorage.getItem('tenant_subdomain') || 'default';
+    const hiddenKey = `hidden_fees_history_${tenantSubdomain}`;
+    localStorage.removeItem(hiddenKey);
+    setDismissedStudentIds([]);
+    if (showToast) showToast('All hidden student cards restored.');
+  };
+
+  useEffect(() => {
+    const loadGradesAndSections = async () => {
+      try {
+        const [grades, secs] = await Promise.all([
+          fetchActiveGrades(),
+          fetchActiveSections()
+        ]);
+        setActiveGrades(grades);
+        setActiveSections(secs);
+      } catch (err) {
+        console.error(err);
+      }
+    };
+    loadGradesAndSections();
+  }, []);
+
+  const uniqueBaseGrades = [...new Set(activeGrades.map(g => parseGradeName(g.name).baseGrade))];
+
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      const [studentsRes, feesRes, structuresRes, periodsRes] = await Promise.all([
+        fetch(`/api/students?limit=1000&status=Active&t=${Date.now()}`),
+        fetch(`/api/finance/fees?t=${Date.now()}`),
+        fetch(`/api/finance/fee-structures?t=${Date.now()}`),
+        fetch(`/api/finance/fee-periods?t=${Date.now()}`)
+      ]);
+
+      if (studentsRes.ok && feesRes.ok && structuresRes.ok && periodsRes.ok) {
+        const studentsData = await studentsRes.json();
+        const feesData = await feesRes.json();
+        const structuresData = await structuresRes.json();
+        const periodsData = await periodsRes.json();
+        setStudents(studentsData.students || []);
+        setFees(feesData || []);
+        setFeeStructures(structuresData || []);
+        setFeePeriods(periodsData || []);
+      }
+    } catch (err) {
+      console.error(err);
+      if (showToast) showToast('Error loading fees history data.', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+
+    const handleCacheUpdate = (e) => {
+      const updatedUrl = e.detail?.url || '';
+      if (
+        updatedUrl.includes('/api/finance/fees') ||
+        updatedUrl.includes('/api/students') ||
+        updatedUrl.includes('/api/finance/fee-structures') ||
+        updatedUrl.includes('/api/finance/fee-periods')
+      ) {
+        fetchData();
+      }
+    };
+
+    window.addEventListener('api-cache-updated', handleCacheUpdate);
+    return () => {
+      window.removeEventListener('api-cache-updated', handleCacheUpdate);
+    };
+  }, []);
+
+  const studentCardsData = React.useMemo(() => {
+    const getBillingPeriodOptions = (frequency) => {
+      if (frequency === 'Monthly') {
+        return [
+          'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December', 'January', 'February', 'March'
+        ];
+      }
+      const customPeriods = feePeriods.filter(fp => fp.frequency === frequency).map(fp => fp.name);
+      if (customPeriods.length > 0) return customPeriods;
+      if (frequency === 'Quarterly') {
+        return ['Q1 (Apr-Jun)', 'Q2 (Jul-Sep)', 'Q3 (Oct-Dec)', 'Q4 (Jan-Mar)'];
+      } else if (frequency === 'Half-Yearly') {
+        return ['First Half (H1)', 'Second Half (H2)'];
+      } else {
+        return ['Full Year'];
+      }
+    };
+
+    const getCalculatedAmount = (baseAmount, frequency, hasMonthRange = false) => {
+      const amt = Number(baseAmount) || 0;
+      if (hasMonthRange) return amt;
+      if (frequency === 'Monthly') return Math.round(amt / 12);
+      if (frequency === 'Quarterly') return Math.round(amt / 4);
+      if (frequency === 'Half-Yearly') return Math.round(amt / 2);
+      return amt;
+    };
+
+    const isPeriodDueTillNow = (period, freq) => {
+      const now = new Date();
+      const currentMonth = now.getMonth(); // 0 = Jan, 11 = Dec
+      // Academic year starts in April. Months order: Apr(3), May(4), Jun(5), Jul(6), Aug(7), Sep(8), Oct(9), Nov(10), Dec(11), Jan(0), Feb(1), Mar(2)
+      const academicMonthOrder = [3, 4, 5, 6, 7, 8, 9, 10, 11, 0, 1, 2];
+      const currentMonthOrderIdx = academicMonthOrder.indexOf(currentMonth);
+
+      if (freq === 'Monthly') {
+        const monthNames = [
+          'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December', 'January', 'February', 'March'
+        ];
+        const periodIdx = monthNames.indexOf(period);
+        if (periodIdx === -1) return false;
+        return periodIdx <= currentMonthOrderIdx;
+      }
+
+      // Check if there are custom periods for this frequency
+      const customPeriodsForFreq = feePeriods.filter(fp => fp.frequency === freq).map(fp => fp.name);
+      if (customPeriodsForFreq.length > 0) {
+        const periodIdx = customPeriodsForFreq.indexOf(period);
+        if (periodIdx !== -1) {
+          const expectedMonthThreshold = Math.floor(periodIdx * (12 / customPeriodsForFreq.length));
+          return currentMonthOrderIdx >= expectedMonthThreshold;
+        }
+      }
+
+      if (freq === 'Quarterly') {
+        // Q1 (Apr-Jun) -> ends June (index 2 in academic order)
+        // Q2 (Jul-Sep) -> ends Sept (index 5 in academic order)
+        // Q3 (Oct-Dec) -> ends Dec (index 8 in academic order)
+        // Q4 (Jan-Mar) -> ends Mar (index 11 in academic order)
+        const quarterMaxMonthOrder = {
+          'Q1 (Apr-Jun)': 2,
+          'Q2 (Jul-Sep)': 5,
+          'Q3 (Oct-Dec)': 8,
+          'Q4 (Jan-Mar)': 11
+        };
+        const maxIdx = quarterMaxMonthOrder[period];
+        if (maxIdx === undefined) return false;
+        return currentMonthOrderIdx >= maxIdx - 2; // quarter is due if current month has reached the start of the quarter
+      }
+
+      if (freq === 'Half-Yearly') {
+        // H1 starts April (idx 0), H2 starts October (idx 6)
+        if (period === 'First Half (H1)') return true;
+        if (period === 'Second Half (H2)') return currentMonthOrderIdx >= 6;
+      }
+
+      return true; // Yearly is always due
+    };
+
+    return students.map(student => {
+      const studentFees = fees.filter(f => f.studentId === student.id);
+      
+      const classStructures = feeStructures.filter(fs => fs.studentClass === student.studentClass);
+      const firstStructure = classStructures[0];
+      
+      // Dynamic frequency resolution
+      let frequency = 'Yearly';
+      if (firstStructure) {
+        frequency = firstStructure.frequency || 'Yearly';
+      } else {
+        const hasQuarterly = studentFees.some(f => f.billingPeriod && (f.billingPeriod.startsWith('Q') || f.billingPeriod.includes('Quarter')));
+        const hasMonthly = studentFees.some(f => f.billingPeriod && [
+          'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December', 'January', 'February', 'March'
+        ].includes(f.billingPeriod));
+        const hasHalfYearly = studentFees.some(f => f.billingPeriod && (f.billingPeriod.includes('Half') || f.billingPeriod.includes('H1') || f.billingPeriod.includes('H2')));
+        
+        if (hasQuarterly) frequency = 'Quarterly';
+        else if (hasMonthly) frequency = 'Monthly';
+        else if (hasHalfYearly) frequency = 'Half-Yearly';
+      }
+
+      const periods = getBillingPeriodOptions(frequency);
+
+      const feeTypesConfig = [
+        { type: 'Tuition Fee', field: 'tuitionFee' },
+        { type: 'Transport Fee', field: 'transportFee' },
+        { type: 'Other Charges', field: 'otherCharges' }
+      ];
+
+      const feeStatusDetails = feeTypesConfig.map(cfg => {
+        const feeType = cfg.type;
+        const field = cfg.field;
+        const typePayments = studentFees.filter(f => f.feeType === feeType);
+
+        let typeDue = 0;
+        
+        if (typePayments.length === 0) {
+          // If no payments collected for this type initially, show Not Paid.
+          // Dues are sum of expected amounts for periods due till now.
+          periods.forEach(period => {
+            if (isPeriodDueTillNow(period, frequency)) {
+              const matchedFs = classStructures.find(fs => fs.monthRange === period) || firstStructure;
+              const expectedAmt = matchedFs ? getCalculatedAmount(Number(matchedFs[field] || 0), frequency, !!(matchedFs && matchedFs.monthRange)) : 0;
+              typeDue += expectedAmt;
+            }
+          });
+          return {
+            feeType,
+            status: 'Not Paid',
+            dueAmount: typeDue
+          };
+        } else {
+          // Calculate dues for periods that have started OR have transaction entries
+          periods.forEach(period => {
+            const hasRecord = typePayments.some(f => f.billingPeriod === period);
+            const isDue = isPeriodDueTillNow(period, frequency) || hasRecord;
+            
+            if (isDue) {
+              const periodPayments = typePayments.filter(f => f.billingPeriod === period);
+              if (periodPayments.length > 0) {
+                const latestPayment = periodPayments.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt))[periodPayments.length - 1];
+                typeDue += Number(latestPayment.dueAmount || 0);
+              } else {
+                const matchedFs = classStructures.find(fs => fs.monthRange === period) || firstStructure;
+                const expectedAmt = matchedFs ? getCalculatedAmount(Number(matchedFs[field] || 0), frequency, !!(matchedFs && matchedFs.monthRange)) : 0;
+                typeDue += expectedAmt;
+              }
+            }
+          });
+
+          return {
+            feeType,
+            status: typeDue > 0 ? 'Has Due' : 'No Due',
+            dueAmount: typeDue
+          };
+        }
+      });
+
+      const totalDue = feeStatusDetails.reduce((sum, item) => sum + item.dueAmount, 0);
+
+      return {
+        ...student,
+        structures: feeStatusDetails,
+        totalDue,
+        allFees: studentFees,
+        feeStatusDetails
+      };
+    });
+  }, [students, fees, feeStructures, feePeriods]);
+
+  const filteredCards = studentCardsData.filter(card => {
+    // Only show students who have at least one collected fee transaction
+    if (!card.allFees || card.allFees.length === 0) return false;
+
+    // Filter out dismissed student IDs
+    if (dismissedStudentIds.includes(card.id)) return false;
+
+    const name = (card.fullName || card.name || '').toLowerCase();
+    const roll = (card.rollNumber || card.roll || '').toLowerCase();
+    const admNo = (card.admissionNumber || '').toLowerCase();
+    const q = search.toLowerCase();
+    const matchesSearch = !search || name.includes(q) || roll.includes(q) || admNo.includes(q);
+
+    const parsed = parseGradeName(card.studentClass);
+    const matchesClass = filterClass === 'All' || (
+      parsed.baseGrade === filterClass &&
+      (!isGrade11or12(filterClass) || filterDept === 'All' || parsed.department === filterDept)
+    );
+    const matchesSection = filterSection === 'All' || card.section === filterSection;
+
+    return matchesSearch && matchesClass && matchesSection;
+  });
+
+  const inputStyle = {
+    padding: '10px 14px', background: 'var(--bg-form)',
+    border: '1.5px solid var(--border-glass)', borderRadius: '10px', color: 'var(--text-main)',
+    fontSize: '0.85rem', outline: 'none', boxSizing: 'border-box'
+  };
+  const optionStyle = { background: 'var(--bg-form)', color: 'var(--text-main)' };
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+      
+      {/* Search and Filters Toolbar */}
+      <div className="glass-panel" style={{ padding: '20px', display: 'flex', gap: '16px', flexWrap: 'wrap', alignItems: 'center', borderRadius: '16px' }}>
+        
+        {/* Search */}
+        <div style={{ position: 'relative', flex: '1', minWidth: '220px' }}>
+          <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+          <input 
+            type="text"
+            placeholder="Search student, roll number, adm..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            style={{ ...inputStyle, paddingLeft: '36px', width: '100%' }}
+          />
+        </div>
+
+        {/* Grade Filter */}
+        <select 
+          value={filterClass} 
+          onChange={(e) => {
+            setFilterClass(e.target.value);
+            setFilterDept('All');
+          }}
+          style={{ ...inputStyle, width: '130px', cursor: 'pointer' }}
+        >
+          <option value="All" style={optionStyle}>All Grades</option>
+          {uniqueBaseGrades.map(g => (
+            <option key={g} value={g} style={optionStyle}>Grade {g}</option>
+          ))}
+        </select>
+
+        {/* Department Filter (conditional for Grade 11 & 12) */}
+        {isGrade11or12(filterClass) && (
+          <select 
+            value={filterDept} 
+            onChange={(e) => setFilterDept(e.target.value)} 
+            style={{ ...inputStyle, width: '150px', cursor: 'pointer' }}
+          >
+            <option value="All" style={optionStyle}>All Departments</option>
+            {[...new Set(activeGrades
+              .filter(g => parseGradeName(g.name).baseGrade === filterClass)
+              .map(g => parseGradeName(g.name).department)
+              .filter(Boolean)
+            )].map(d => (
+              <option key={d} value={d} style={optionStyle}>{d}</option>
+            ))}
+          </select>
+        )}
+
+        {/* Section Filter */}
+        <select 
+          value={filterSection} 
+          onChange={(e) => setFilterSection(e.target.value)}
+          style={{ ...inputStyle, width: '120px', cursor: 'pointer' }}
+        >
+          <option value="All" style={optionStyle}>All Sections</option>
+          {activeSections.map(s => (
+            <option key={s.id} value={s.name} style={optionStyle}>Section {s.name}</option>
+          ))}
+        </select>
+
+        <button 
+          onClick={fetchData}
+          style={{
+            display: 'flex', alignItems: 'center', gap: '6px',
+            padding: '10px 16px', borderRadius: '10px', fontSize: '0.85rem', fontWeight: 600,
+            border: '1px solid var(--border-glass)', background: 'var(--bg-card)',
+            color: 'var(--text-muted)', cursor: 'pointer', transition: 'all 0.2s'
+          }}
+          onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-main)'; }}
+          onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted)'; }}
+        >
+          <RefreshCw size={14} className={loading ? 'animate-spin' : ''} /> Refresh
+        </button>
+
+        {dismissedStudentIds.length > 0 && (
+          <button 
+            onClick={handleResetHiddenCards}
+            style={{
+              display: 'flex', alignItems: 'center', gap: '6px',
+              padding: '10px 16px', borderRadius: '10px', fontSize: '0.85rem', fontWeight: 600,
+              border: '1px solid rgba(59, 130, 246, 0.2)', background: 'rgba(59, 130, 246, 0.05)',
+              color: '#3b82f6', cursor: 'pointer', transition: 'all 0.2s'
+            }}
+            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(59, 130, 246, 0.15)'; }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'rgba(59, 130, 246, 0.05)'; }}
+          >
+            <Eye size={14} /> Restore Hidden ({dismissedStudentIds.length})
+          </button>
+        )}
+      </div>
+
+      {/* Grid of Student Fee History Cards */}
+      {loading ? (
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '280px', flexDirection: 'column', gap: '12px' }}>
+          <Loader2 className="animate-spin" size={32} style={{ color: '#10b981' }} />
+          <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Analyzing database fee structures...</p>
+        </div>
+      ) : filteredCards.length === 0 ? (
+        <div className="glass-panel" style={{ padding: '60px', textAlign: 'center', borderRadius: '16px' }}>
+          <AlertCircle size={40} style={{ color: 'var(--text-muted)', marginBottom: '12px' }} />
+          <h3 style={{ fontSize: '1.05rem', fontWeight: 700, color: 'var(--text-main)', margin: '0 0 4px 0' }}>No Fee Histories Found</h3>
+          <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', margin: 0 }}>Try refining your search query or filters above</p>
+        </div>
+      ) : (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(310px, 1fr))', gap: '20px' }}>
+          {filteredCards.map(card => {
+            const hasDue = card.totalDue > 0;
+            return (
+              <div 
+                key={card.id} 
+                className="glass-panel" 
+                style={{
+                  padding: '24px', borderRadius: '16px', display: 'flex', flexDirection: 'column', gap: '16px',
+                  background: 'var(--bg-card)', border: '1px solid var(--border-glass)',
+                  transition: 'all 0.22s ease'
+                }}
+                onMouseEnter={e => {
+                  e.currentTarget.style.transform = 'translateY(-2px)';
+                  e.currentTarget.style.boxShadow = 'var(--shadow-md)';
+                  e.currentTarget.style.borderColor = hasDue ? 'rgba(239, 68, 68, 0.2)' : 'rgba(16, 185, 129, 0.2)';
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.transform = 'translateY(0)';
+                  e.currentTarget.style.boxShadow = '';
+                  e.currentTarget.style.borderColor = 'var(--border-glass)';
+                }}
+              >
+                {/* Student info */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <div style={{
+                    width: '44px', height: '44px', borderRadius: '50%', flexShrink: 0,
+                    background: card.photoBg || 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    color: '#ffffff', fontWeight: 800, fontSize: '1rem', border: '1.5px solid var(--border-glass)'
+                  }}>
+                    {card.photo ? (
+                      <img src={card.photo} alt={card.fullName || card.name} style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
+                    ) : (
+                      (card.fullName || card.name || 'ST').substring(0, 2).toUpperCase()
+                    )}
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <h4 style={{ fontSize: '0.92rem', fontWeight: 800, color: 'var(--text-main)', margin: '0 0 2px 0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {card.fullName || card.name}
+                    </h4>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 600 }}>
+                        Grade {card.studentClass || '—'}-{card.section || '—'}
+                      </span>
+                      <span style={{ width: '3px', height: '3px', borderRadius: '50%', background: 'var(--text-muted)', opacity: 0.5 }} />
+                      <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 600 }}>
+                        Roll No: {card.rollNumber || card.roll || '—'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ height: '1px', background: 'var(--border-glass)' }} />
+
+                {/* Fees Status Breakdown */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', flex: 1 }}>
+                  <span style={{ fontSize: '0.68rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                    Fees Status
+                  </span>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    {card.feeStatusDetails.map((statusDetail, idx) => {
+                      const statusColor = statusDetail.status === 'Not Paid' ? 'var(--text-muted)' : (statusDetail.status === 'Has Due' ? '#ef4444' : '#10b981');
+                      const statusBg = statusDetail.status === 'Not Paid' ? 'rgba(255, 255, 255, 0.015)' : (statusDetail.status === 'Has Due' ? 'rgba(239, 68, 68, 0.03)' : 'rgba(16, 185, 129, 0.03)');
+                      const statusBorder = statusDetail.status === 'Not Paid' ? 'var(--border-glass)' : (statusDetail.status === 'Has Due' ? 'rgba(239, 68, 68, 0.08)' : 'rgba(16, 185, 129, 0.08)');
+                      return (
+                        <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.8rem', background: statusBg, padding: '6px 10px', borderRadius: '8px', border: `1px solid ${statusBorder}` }}>
+                          <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}>{statusDetail.feeType}</span>
+                          <span style={{ color: statusColor, fontWeight: 700 }}>
+                            {statusDetail.status === 'Not Paid' ? 'Not Paid' : (statusDetail.status === 'Has Due' ? `₹${statusDetail.dueAmount.toLocaleString()} due` : 'No Due')}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div style={{ height: '1px', background: 'var(--border-glass)' }} />
+
+                {/* Card Footer: Total Due & Details Button */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div>
+                    {hasDue ? (
+                      <>
+                        <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>Total Due</div>
+                        <div style={{ fontSize: '1.2rem', fontWeight: 800, color: '#ef4444', marginTop: '2px' }}>₹{card.totalDue.toLocaleString()}</div>
+                      </>
+                    ) : (
+                      <>
+                        <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>Status</div>
+                        <div style={{ fontSize: '1rem', fontWeight: 800, color: '#10b981', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                          Clear
+                        </div>
+                      </>
+                    )}
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    <button 
+                      onClick={() => setSelectedStudentHistory(card)}
+                      style={{
+                        padding: '8px 14px', borderRadius: '8px', fontSize: '0.8rem', fontWeight: 700,
+                        border: '1px solid var(--border-glass)', background: 'var(--bg-card-subtle)',
+                        color: 'var(--text-main)', cursor: 'pointer', transition: 'all 0.15s ease'
+                      }}
+                      onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; }}
+                      onMouseLeave={e => { e.currentTarget.style.background = 'var(--bg-card-subtle)'; }}
+                    >
+                      View History
+                    </button>
+                    {card.allFees && card.allFees.length > 0 && (
+                      <button 
+                        onClick={() => setConfirmDeleteAllStudentFees(card)}
+                        style={{
+                          padding: '8px', borderRadius: '8px', fontSize: '0.8rem',
+                          border: '1px solid rgba(239, 68, 68, 0.2)', background: 'rgba(239, 68, 68, 0.05)',
+                          color: '#ef4444', cursor: 'pointer', transition: 'all 0.15s ease',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center'
+                        }}
+                        onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239, 68, 68, 0.15)'; }}
+                        onMouseLeave={e => { e.currentTarget.style.background = 'rgba(239, 68, 68, 0.05)'; }}
+                        title="Hide Student Card"
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Transaction History Modal */}
+      {selectedStudentHistory && createPortal(
+        <div className="modal-overlay" onClick={() => setSelectedStudentHistory(null)}>
+          <div onClick={e => e.stopPropagation()} className="animate-scale-up" style={{
+            width: '100%', maxWidth: '780px', background: 'var(--bg-elevated)', borderRadius: '20px',
+            border: '1px solid var(--border-glass)', padding: '32px', boxShadow: 'var(--shadow-lg)',
+            maxHeight: '85vh', display: 'flex', flexDirection: 'column', gap: '20px'
+          }}>
+            {/* Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-glass)', paddingBottom: '16px' }}>
+              <div>
+                <h3 style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--text-main)', margin: 0 }}>
+                  Fee Payment History
+                </h3>
+                <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', margin: '4px 0 0 0' }}>
+                  Detailed log for <strong style={{ color: 'var(--text-main)' }}>{selectedStudentHistory.fullName || selectedStudentHistory.name}</strong> (Grade {selectedStudentHistory.studentClass || '—'}-{selectedStudentHistory.section || '—'})
+                </p>
+              </div>
+              <button 
+                onClick={() => setSelectedStudentHistory(null)}
+                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Scrollable table */}
+            <div style={{ overflowY: 'auto', flex: 1, maxHeight: '50vh', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              {selectedStudentHistory.allFees.length === 0 ? (
+                <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.88rem', border: '1px solid var(--border-glass)', borderRadius: '12px' }}>
+                  No fee transactions recorded for this student.
+                </div>
+              ) : (
+                (() => {
+                  const groupedFees = {};
+                  selectedStudentHistory.allFees.forEach(fee => {
+                    const period = fee.billingPeriod || 'Yearly';
+                    if (!groupedFees[period]) groupedFees[period] = [];
+                    groupedFees[period].push(fee);
+                  });
+
+                  const sortedPeriods = Object.keys(groupedFees).sort((a, b) => {
+                    const periodA = feePeriods.find(fp => fp.name === a);
+                    const periodB = feePeriods.find(fp => fp.name === b);
+                    if (periodA && periodB) return (periodA.sortOrder || 0) - (periodB.sortOrder || 0);
+                    if (periodA) return -1;
+                    if (periodB) return 1;
+                    return a.localeCompare(b);
+                  });
+
+                  return sortedPeriods.map(periodName => {
+                    const periodFees = groupedFees[periodName];
+                    return (
+                      <div key={periodName} style={{ border: '1px solid var(--border-glass)', borderRadius: '12px', overflow: 'hidden' }}>
+                        <div style={{
+                          background: 'rgba(59, 130, 246, 0.08)',
+                          padding: '10px 16px',
+                          fontWeight: 700,
+                          fontSize: '0.85rem',
+                          color: '#3b82f6',
+                          borderBottom: '1px solid var(--border-glass)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '8px'
+                        }}>
+                          <Calendar size={15} /> Billing Period: {periodName}
+                        </div>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.82rem' }}>
+                          <thead>
+                            <tr style={{ background: 'var(--bg-card-subtle)', borderBottom: '1px solid var(--border-glass)' }}>
+                              <th style={{ padding: '12px 16px', color: 'var(--text-muted)', fontWeight: 700 }}>Date</th>
+                              <th style={{ padding: '12px 16px', color: 'var(--text-muted)', fontWeight: 700 }}>Receipt</th>
+                              <th style={{ padding: '12px 16px', color: 'var(--text-muted)', fontWeight: 700 }}>Fee Type</th>
+                              <th style={{ padding: '12px 16px', color: 'var(--text-muted)', fontWeight: 700 }}>Total</th>
+                              <th style={{ padding: '12px 16px', color: 'var(--text-muted)', fontWeight: 700 }}>Paid</th>
+                              <th style={{ padding: '12px 16px', color: 'var(--text-muted)', fontWeight: 700 }}>Due</th>
+                              <th style={{ padding: '12px 16px', color: 'var(--text-muted)', fontWeight: 700 }}>Status</th>
+                              <th style={{ padding: '12px 16px', color: 'var(--text-muted)', fontWeight: 700 }}>Method</th>
+                              <th style={{ padding: '12px 16px', color: 'var(--text-muted)', fontWeight: 700 }}>Action</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {periodFees.map((fee, idx) => {
+                              const statusColor = fee.paymentStatus === 'Paid' ? '#10b981' : (fee.paymentStatus === 'Partial' ? '#f59e0b' : '#ef4444');
+                              return (
+                                <tr key={idx} style={{ borderBottom: idx < periodFees.length - 1 ? '1px solid var(--border-glass)' : 'none' }}>
+                                  <td style={{ padding: '12px 16px', color: 'var(--text-main)', fontWeight: 500 }}>{fee.paymentDate}</td>
+                                  <td style={{ padding: '12px 16px', color: 'var(--text-muted)', fontFamily: 'monospace' }}>{fee.receiptNumber}</td>
+                                  <td style={{ padding: '12px 16px', color: 'var(--text-main)', fontWeight: 600 }}>{fee.feeType}</td>
+                                  <td style={{ padding: '12px 16px', color: 'var(--text-main)' }}>₹{(fee.totalAmount || fee.amount || 0).toLocaleString()}</td>
+                                  <td style={{ padding: '12px 16px', color: '#10b981', fontWeight: 600 }}>₹{(fee.paidAmount || 0).toLocaleString()}</td>
+                                  <td style={{ padding: '12px 16px', color: fee.dueAmount > 0 ? '#ef4444' : 'var(--text-muted)', fontWeight: 600 }}>
+                                    {fee.dueAmount > 0 ? `₹${fee.dueAmount.toLocaleString()}` : '₹0'}
+                                  </td>
+                                  <td style={{ padding: '12px 16px' }}>
+                                    <span style={{ fontSize: '0.72rem', fontWeight: 700, padding: '2px 8px', borderRadius: '12px', background: `${statusColor}15`, color: statusColor }}>
+                                      {fee.paymentStatus}
+                                    </span>
+                                  </td>
+                                  <td style={{ padding: '12px 16px', color: 'var(--text-muted)' }}>{fee.paymentMethod}</td>
+                                  <td style={{ padding: '12px 16px' }}>
+                                    <button 
+                                      onClick={async (e) => {
+                                        e.stopPropagation();
+                                        if (window.confirm(`Are you sure you want to delete receipt ${fee.receiptNumber}?`)) {
+                                          try {
+                                            const res = await fetch(`/api/finance/fees/${fee.id || fee.feeId}`, { method: 'DELETE' });
+                                            if (res.ok) {
+                                              showToast('Receipt deleted successfully!');
+                                              setSelectedStudentHistory(null);
+                                              fetchData();
+                                            } else {
+                                              showToast('Failed to delete receipt', 'error');
+                                            }
+                                          } catch {
+                                            showToast('Network error', 'error');
+                                          }
+                                        }
+                                      }}
+                                      style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '4px' }}
+                                      title="Delete Transaction"
+                                    >
+                                      <Trash2 size={14} />
+                                    </button>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    );
+                  });
+                })()
+              )}
+            </div>
+
+            {/* Footer summary */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-card-subtle)', padding: '16px 20px', borderRadius: '12px', border: '1px solid var(--border-glass)' }}>
+              <div>
+                <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>Transactions Count</span>
+                <span style={{ display: 'block', fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-main)', marginTop: '2px' }}>
+                  {selectedStudentHistory.allFees.length}
+                </span>
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>Aggregate Due Balance</span>
+                <span style={{ display: 'block', fontSize: '1.25rem', fontWeight: 800, color: selectedStudentHistory.totalDue > 0 ? '#ef4444' : '#10b981', marginTop: '2px' }}>
+                  {selectedStudentHistory.totalDue > 0 ? `₹${selectedStudentHistory.totalDue.toLocaleString()}` : 'Clear (No Due)'}
+                </span>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '4px' }}>
+              <button 
+                onClick={() => setSelectedStudentHistory(null)}
+                style={{
+                  padding: '10px 24px', background: 'linear-gradient(135deg, #10b981, #059669)',
+                  border: 'none', borderRadius: '10px', color: '#fff', fontWeight: 700, cursor: 'pointer', fontSize: '0.85rem'
+                }}
+              >
+                Close Portal
+              </button>
+            </div>
+
+          </div>
+        </div>,
+        document.body
+      )}
+
+      <ConfirmDialog
+        show={!!confirmDeleteAllStudentFees}
+        message={`Are you sure you want to hide the fee history card for ${confirmDeleteAllStudentFees?.fullName || confirmDeleteAllStudentFees?.name}? This will not delete their collected fee records.`}
+        onConfirm={() => {
+          if (confirmDeleteAllStudentFees) {
+            handleHideStudentCard(confirmDeleteAllStudentFees.id);
+          }
+          setConfirmDeleteAllStudentFees(null);
+        }}
+        onCancel={() => setConfirmDeleteAllStudentFees(null)}
+      />
+
     </div>
   );
 }

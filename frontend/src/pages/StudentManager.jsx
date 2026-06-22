@@ -370,12 +370,17 @@ export default function StudentManager({ showToast }) {
                     <td style={{ padding: '16px' }}>
                       <input
                         type="text"
+                        name="rollNumber"
                         className="form-control"
                         placeholder="Roll No"
                         value={allocation.rollNumber || ''}
-                        onChange={(e) => handleAllocationChange(student.id, 'rollNumber', e.target.value)}
+                        onChange={(e) => {
+                          const val = e.target.value.replace(/[^0-9]/g, '').slice(0, 5);
+                          handleAllocationChange(student.id, 'rollNumber', val);
+                        }}
                         style={{ width: '100px', height: '38px', borderRadius: '8px', fontSize: '0.82rem', padding: '0 8px' }}
                         disabled={isUpdating}
+                        maxLength={5}
                       />
                     </td>
 
@@ -403,7 +408,7 @@ export default function StudentManager({ showToast }) {
                       <button
                         onClick={() => handleActivateStudent(student.id)}
                         disabled={isUpdating}
-                        className="btn-custom btn-primary"
+                        className={student.status === 'Active' ? 'btn-secondary' : 'btn-primary'}
                         style={{ 
                           display: 'inline-flex', 
                           alignItems: 'center', 
@@ -412,12 +417,9 @@ export default function StudentManager({ showToast }) {
                           borderRadius: '8px', 
                           fontSize: '0.8rem', 
                           fontWeight: 600, 
-                          border: 'none', 
                           cursor: 'pointer',
-                          boxShadow: '0 4px 6px -1px rgba(99, 102, 241, 0.2)',
-                          transition: 'all 0.2s ease',
-                          background: student.status === 'Active' ? 'rgba(255,255,255,0.06)' : 'hsl(var(--color-primary))',
-                          color: student.status === 'Active' ? 'var(--text-main)' : '#ffffff'
+                          boxShadow: student.status === 'Active' ? 'none' : '0 4px 6px -1px rgba(99, 102, 241, 0.2)',
+                          transition: 'all 0.2s ease'
                         }}
                       >
                         {isUpdating ? (
@@ -426,7 +428,7 @@ export default function StudentManager({ showToast }) {
                           </>
                         ) : (
                           <>
-                            {student.status === 'Active' ? 'Re-allocate' : 'Activate'} <ArrowRight size={14} />
+                            {student.status === 'Active' ? 'Reallocate' : 'Activate'} <ArrowRight size={14} />
                           </>
                         )}
                       </button>

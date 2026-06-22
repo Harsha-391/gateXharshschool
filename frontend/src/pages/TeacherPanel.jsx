@@ -714,7 +714,6 @@ export function MarkAttendanceView({ date, setDate, studentClass, setClass, sect
                               style={{
                                 padding: '6px 12px',
                                 borderRadius: '6px',
-                                border: 'none',
                                 fontSize: '0.75rem',
                                 fontWeight: 700,
                                 cursor: 'pointer',
@@ -732,7 +731,6 @@ export function MarkAttendanceView({ date, setDate, studentClass, setClass, sect
                               style={{
                                 padding: '6px 12px',
                                 borderRadius: '6px',
-                                border: 'none',
                                 fontSize: '0.75rem',
                                 fontWeight: 700,
                                 cursor: 'pointer',
@@ -750,7 +748,6 @@ export function MarkAttendanceView({ date, setDate, studentClass, setClass, sect
                               style={{
                                 padding: '6px 12px',
                                 borderRadius: '6px',
-                                border: 'none',
                                 fontSize: '0.75rem',
                                 fontWeight: 700,
                                 cursor: 'pointer',
@@ -768,7 +765,6 @@ export function MarkAttendanceView({ date, setDate, studentClass, setClass, sect
                               style={{
                                 padding: '6px 12px',
                                 borderRadius: '6px',
-                                border: 'none',
                                 fontSize: '0.75rem',
                                 fontWeight: 700,
                                 cursor: 'pointer',
@@ -1112,7 +1108,7 @@ export function AttendanceHistoryView({ date, showToast }) {
         <button
           onClick={() => setActiveTab('all')}
           style={{
-            padding: '8px 20px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontWeight: 700, fontSize: '0.85rem',
+            padding: '8px 20px', borderRadius: '8px', cursor: 'pointer', fontWeight: 700, fontSize: '0.85rem',
             background: activeTab === 'all' ? '#6366f1' : 'rgba(255,255,255,0.03)',
             color: activeTab === 'all' ? '#fff' : 'var(--text-muted)',
             border: activeTab === 'all' ? 'none' : '1px solid var(--border-glass)'
@@ -1123,7 +1119,7 @@ export function AttendanceHistoryView({ date, showToast }) {
         <button
           onClick={() => setActiveTab('submitted')}
           style={{
-            padding: '8px 20px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontWeight: 700, fontSize: '0.85rem',
+            padding: '8px 20px', borderRadius: '8px', cursor: 'pointer', fontWeight: 700, fontSize: '0.85rem',
             background: activeTab === 'submitted' ? '#10b981' : 'rgba(255,255,255,0.03)',
             color: activeTab === 'submitted' ? '#fff' : 'var(--text-muted)',
             border: activeTab === 'submitted' ? 'none' : '1px solid var(--border-glass)'
@@ -1323,7 +1319,7 @@ export function AttendanceHistoryView({ date, showToast }) {
                         <button 
                           onClick={() => handleStatusToggle(stu.id, 'Present')}
                           style={{
-                            padding: '5px 10px', borderRadius: '4px', border: 'none', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer',
+                            padding: '5px 10px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer',
                             background: stu.attendanceStatus === 'Present' ? '#10b981' : 'rgba(255,255,255,0.02)',
                             color: stu.attendanceStatus === 'Present' ? '#ffffff' : 'var(--text-muted)',
                             border: stu.attendanceStatus === 'Present' ? 'none' : '1px solid var(--border-glass)'
@@ -1334,7 +1330,7 @@ export function AttendanceHistoryView({ date, showToast }) {
                         <button 
                           onClick={() => handleStatusToggle(stu.id, 'Absent')}
                           style={{
-                            padding: '5px 10px', borderRadius: '4px', border: 'none', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer',
+                            padding: '5px 10px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer',
                             background: stu.attendanceStatus === 'Absent' ? '#ef4444' : 'rgba(255,255,255,0.02)',
                             color: stu.attendanceStatus === 'Absent' ? '#ffffff' : 'var(--text-muted)',
                             border: stu.attendanceStatus === 'Absent' ? 'none' : '1px solid var(--border-glass)'
@@ -1345,7 +1341,7 @@ export function AttendanceHistoryView({ date, showToast }) {
                         <button 
                           onClick={() => handleStatusToggle(stu.id, 'Leave')}
                           style={{
-                            padding: '5px 10px', borderRadius: '4px', border: 'none', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer',
+                            padding: '5px 10px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer',
                             background: stu.attendanceStatus === 'Leave' ? '#f59e0b' : 'rgba(255,255,255,0.02)',
                             color: stu.attendanceStatus === 'Leave' ? '#ffffff' : 'var(--text-muted)',
                             border: stu.attendanceStatus === 'Leave' ? 'none' : '1px solid var(--border-glass)'
@@ -1356,7 +1352,7 @@ export function AttendanceHistoryView({ date, showToast }) {
                         <button 
                           onClick={() => handleStatusToggle(stu.id, 'Late')}
                           style={{
-                            padding: '5px 10px', borderRadius: '4px', border: 'none', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer',
+                            padding: '5px 10px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer',
                             background: stu.attendanceStatus === 'Late' ? '#f97316' : 'rgba(255,255,255,0.02)',
                             color: stu.attendanceStatus === 'Late' ? '#ffffff' : 'var(--text-muted)',
                             border: stu.attendanceStatus === 'Late' ? 'none' : '1px solid var(--border-glass)'
@@ -1908,7 +1904,7 @@ export function MonthlyCalendarView({ showToast }) {
             <select className="select-custom" value={selectedStudent} onChange={(e) => setSelectedStudent(e.target.value)} style={{ height: '38px', borderRadius: '8px' }}>
               {studentsList.length === 0 && <option value="">No students found</option>}
               {studentsList.map(s => (
-                <option key={s.id} value={s.id}>{s.fullName || s.name} ({s.admissionNumber})</option>
+                <option key={s.id} value={s.id}>{s.fullName || s.name} ({s.rollNumber || s.roll || '—'})</option>
               ))}
             </select>
           </div>
@@ -2400,7 +2396,7 @@ export function YearlyAttendanceView({ showToast }) {
             <select className="select-custom" value={selectedStudent} onChange={(e) => setSelectedStudent(e.target.value)} style={{ height: '38px', borderRadius: '8px' }}>
               {studentsList.length === 0 && <option value="">No students found</option>}
               {studentsList.map(s => (
-                <option key={s.id} value={s.id}>{s.fullName || s.name} ({s.admissionNumber})</option>
+                <option key={s.id} value={s.id}>{s.fullName || s.name} ({s.rollNumber || s.roll || '—'})</option>
               ))}
             </select>
           </div>

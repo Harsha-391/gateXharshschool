@@ -9,7 +9,19 @@ import {
   getMonthlyCalendarData 
 } from '../controllers/attendanceController.js';
 
+import { auth } from '../middleware/auth.js';
+import { checkPermission } from '../middleware/permissionMiddleware.js';
+
 const router = express.Router();
+
+// Apply auth to all attendance routes
+router.use(auth);
+
+// Apply checkPermission based on request method
+router.use((req, res, next) => {
+  const action = req.method === 'GET' ? 'view' : 'create';
+  return checkPermission('attendance', action)(req, res, next);
+});
 
 // 1. GET ATTENDANCE ROSTER FOR CLASS/SECTION/DATE
 router.get('/', getAttendanceRoster);

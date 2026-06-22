@@ -76,6 +76,23 @@ const checkGradeUsage = (db, gradeName, deptName = null) => {
 // Apply auth to all endpoints
 router.use(auth);
 
+// Apply grade-management permission check dynamically based on request method
+import { checkPermission } from '../middleware/permissionMiddleware.js';
+router.use((req, res, next) => {
+  const methodActionMap = {
+    'GET': 'view',
+    'POST': 'create',
+    'PUT': 'edit',
+    'PATCH': 'edit',
+    'DELETE': 'delete'
+  };
+  const action = methodActionMap[req.method];
+  if (action) {
+    return checkPermission('grade-management', action)(req, res, next);
+  }
+  next();
+});
+
 // Helper to check if a grade is 11 or 12
 const isGrade11or12 = (name) => {
   if (!name) return false;

@@ -66,6 +66,7 @@ const readDb = () => {
   if (!db.expenses) db.expenses = [];
   if (!db.income) db.income = [];
   if (!db.expenseHistory) db.expenseHistory = [];
+  if (!db.feePeriods) db.feePeriods = [];
 
   const removedDefaultStaffStructures = removeDefaultStaffSalaryStructures(db);
   const removedDefaultTeacherStructures = removeDefaultTeacherSalaryStructures(db);
@@ -180,7 +181,7 @@ export const getFeeStructures = (req, res) => {
 
 export const createFeeStructure = (req, res) => {
   try {
-    const { studentClass, admissionFee, tuitionFee, examFee, transportFee, hostelFee, libraryFee, otherCharges } = req.body;
+    const { studentClass, admissionFee, tuitionFee, examFee, transportFee, hostelFee, libraryFee, otherCharges, frequency, monthRange } = req.body;
 
     if (!studentClass) {
       return res.status(400).json({ error: 'Student class is required.' });
@@ -197,11 +198,18 @@ export const createFeeStructure = (req, res) => {
     const other = Number(otherCharges) || 0;
     const totalFee = admission + tuition + exam + transport + hostel + library + other;
 
-    // Check if structure for this class already exists
-    const existingIndex = db.feeStructures.findIndex(fs => fs.studentClass === studentClass);
+    const isQuarterlyOrHalf = frequency === 'Quarterly' || frequency === 'Half-Yearly';
+    const finalMonthRange = isQuarterlyOrHalf ? monthRange : null;
+
+    // Check if structure for this class already exists (matching studentClass, frequency, and monthRange if quarterly/half-yearly)
+    const existingIndex = db.feeStructures.findIndex(fs => 
+      fs.studentClass === studentClass && 
+      (fs.frequency || 'Yearly') === (frequency || 'Yearly') &&
+      (isQuarterlyOrHalf ? (fs.monthRange === finalMonthRange) : true)
+    );
 
     const structure = {
-      id: existingIndex > -1 ? db.feeStructures[existingIndex].id : `FSTR-${studentClass}`,
+      id: existingIndex > -1 ? db.feeStructures[existingIndex].id : `FSTR-${studentClass}-${frequency || 'Yearly'}-${finalMonthRange || 'All'}`.replace(/\s+/g, '-'),
       studentClass,
       admissionFee: admission,
       tuitionFee: tuition,
@@ -211,6 +219,8 @@ export const createFeeStructure = (req, res) => {
       libraryFee: library,
       otherCharges: other,
       totalFee,
+      frequency: frequency || 'Yearly',
+      monthRange: finalMonthRange,
       updatedAt: new Date().toISOString()
     };
 
@@ -283,7 +293,7 @@ export const getFees = (req, res) => {
 
 export const collectFee = (req, res) => {
   try {
-    const { studentId, studentName, admissionNumber, studentClass, section, feeType, amount, discount, fine, paidAmount, paymentMethod, remarks } = req.body;
+    const { studentId, studentName, admissionNumber, studentClass, section, feeType, amount, discount, fine, paidAmount, paymentMethod, remarks, billingPeriod } = req.body;
 
     if (!studentId || !feeType || !amount) {
       return res.status(400).json({ error: 'Student ID, fee type, and amount are required.' });
@@ -321,6 +331,7 @@ export const collectFee = (req, res) => {
       receiptNumber,
       paymentDate: new Date().toISOString().split('T')[0],
       remarks: remarks || '',
+      billingPeriod: billingPeriod || 'Yearly',
       createdAt: new Date().toISOString()
     };
 
@@ -339,7 +350,7 @@ export const collectFee = (req, res) => {
 export const updateFee = (req, res) => {
   try {
     const { id } = req.params;
-    const { studentId, studentName, admissionNumber, studentClass, section, feeType, amount, discount, fine, paidAmount, paymentMethod, remarks } = req.body;
+    const { studentId, studentName, admissionNumber, studentClass, section, feeType, amount, discount, fine, paidAmount, paymentMethod, remarks, billingPeriod } = req.body;
 
     const db = readDb();
     const idx = db.fees.findIndex(f => (f.id === id || f.feeId === id));
@@ -371,6 +382,7 @@ export const updateFee = (req, res) => {
       paymentStatus: due <= 0 ? 'Paid' : (paid > 0 ? 'Partial' : 'Pending'),
       paymentMethod: paymentMethod || db.fees[idx].paymentMethod,
       remarks: remarks || '',
+      billingPeriod: billingPeriod || db.fees[idx].billingPeriod || 'Yearly',
       updatedAt: new Date().toISOString()
     };
 
@@ -983,7 +995,7 @@ export const deleteStaffSalaryStructure = (req, res) => {
 export const updateFeeStructure = (req, res) => {
   try {
     const { id } = req.params;
-    const { studentClass, admissionFee, tuitionFee, examFee, transportFee, hostelFee, libraryFee, otherCharges } = req.body;
+    const { studentClass, admissionFee, tuitionFee, examFee, transportFee, hostelFee, libraryFee, otherCharges, frequency, monthRange } = req.body;
     const db = readDb();
 
     const idx = db.feeStructures.findIndex(fs => fs.id === id);
@@ -998,6 +1010,9 @@ export const updateFeeStructure = (req, res) => {
     const other = Number(otherCharges) || 0;
     const totalFee = admission + tuition + exam + transport + hostel + library + other;
 
+    const isQuarterlyOrHalf = frequency === 'Quarterly' || frequency === 'Half-Yearly';
+    const finalMonthRange = isQuarterlyOrHalf ? monthRange : null;
+
     db.feeStructures[idx] = {
       ...db.feeStructures[idx],
       studentClass: studentClass || db.feeStructures[idx].studentClass,
@@ -1009,6 +1024,8 @@ export const updateFeeStructure = (req, res) => {
       libraryFee: library,
       otherCharges: other,
       totalFee,
+      frequency: frequency || db.feeStructures[idx].frequency || 'Yearly',
+      monthRange: finalMonthRange,
       updatedAt: new Date().toISOString()
     };
 
@@ -1206,5 +1223,56 @@ export const getExpenseHistory = (req, res) => {
   } catch (err) {
     console.error('Error fetching expense history:', err);
     res.status(500).json({ error: 'Server error loading expense history.' });
+  }
+};
+
+// ===== Fee Periods (Custom Month Ranges) =====
+export const getFeePeriods = (req, res) => {
+  try {
+    const db = readDb();
+    res.json(db.feePeriods || []);
+  } catch (err) {
+    console.error('Error fetching fee periods:', err);
+    res.status(500).json({ error: 'Server error loading fee periods.' });
+  }
+};
+
+export const createFeePeriod = (req, res) => {
+  try {
+    const db = readDb();
+    const { frequency, name } = req.body;
+    if (!frequency || !name) {
+      return res.status(400).json({ error: 'Frequency and name are required.' });
+    }
+    const duplicate = db.feePeriods.find(fp => fp.frequency === frequency && fp.name.toLowerCase() === name.toLowerCase());
+    if (duplicate) {
+      return res.status(409).json({ error: `Period "${name}" already exists for ${frequency}.` });
+    }
+    const newPeriod = {
+      id: `FP-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`,
+      frequency,
+      name,
+      sortOrder: db.feePeriods.filter(fp => fp.frequency === frequency).length
+    };
+    db.feePeriods.push(newPeriod);
+    writeDb(db);
+    res.status(201).json(newPeriod);
+  } catch (err) {
+    console.error('Error creating fee period:', err);
+    res.status(500).json({ error: 'Server error creating fee period.' });
+  }
+};
+
+export const deleteFeePeriod = (req, res) => {
+  try {
+    const db = readDb();
+    const idx = db.feePeriods.findIndex(fp => fp.id === req.params.id);
+    if (idx === -1) return res.status(404).json({ error: 'Fee period not found.' });
+    const removed = db.feePeriods.splice(idx, 1)[0];
+    writeDb(db);
+    res.json({ success: true, deleted: removed });
+  } catch (err) {
+    console.error('Error deleting fee period:', err);
+    res.status(500).json({ error: 'Server error deleting fee period.' });
   }
 };

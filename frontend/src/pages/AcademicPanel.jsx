@@ -852,7 +852,7 @@ export default function AcademicPanel({ subView, setAdminView }) {
         body: JSON.stringify({ type, identifier })
       });
       if (res.ok) {
-        showToast(`${type === 'class' ? 'Class ' + identifier : 'Teacher ' + identifier} timetable published successfully!`, 'success');
+        showToast(`${type === 'class' ? 'Class ' + identifier : 'Staff ' + identifier} timetable published successfully!`, 'success');
         fetchAllData();
       } else {
         const data = await res.json();
@@ -5843,7 +5843,7 @@ export default function AcademicPanel({ subView, setAdminView }) {
                         style={{ background: 'var(--bg-form)', color: 'var(--text-main)' }}
                       >
                         <option value="All">All Portal Users</option>
-                        <option value="Teachers">Teachers Only</option>
+                        <option value="Teachers">Staff Only</option>
                         <option value="Students">Students Only</option>
                         <option value="Parents">Parents Only</option>
                       </select>

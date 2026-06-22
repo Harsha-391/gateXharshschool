@@ -48,6 +48,7 @@ const AttendanceHistoryView = lazy(() => import('./AdminAttendanceViews').then(m
 
 const CollectFeesView = lazy(() => import('./AccountantPanel').then(m => ({ default: m.CollectFeesView })));
 const FeeStructureView = lazy(() => import('./AccountantPanel').then(m => ({ default: m.FeeStructureView })));
+const FeesHistoryView = lazy(() => import('./AccountantPanel').then(m => ({ default: m.FeesHistoryView })));
 const PayrollView = lazy(() => import('./AccountantPanel').then(m => ({ default: m.PayrollView })));
 const TeacherSalaryStructureView = lazy(() => import('./AccountantPanel').then(m => ({ default: m.TeacherSalaryStructureView })));
 const ExpensesView = lazy(() => import('./AccountantPanel').then(m => ({ default: m.ExpensesView })));
@@ -569,6 +570,10 @@ export default function AdminPanel({ setActiveView, onLogout, adminView, setAdmi
 
         <KeepAlive active={adminView === 'fee-structure'}>
           <FeeStructureView showToast={showToast} />
+        </KeepAlive>
+
+        <KeepAlive active={adminView === 'fees-history'}>
+          <FeesHistoryView showToast={showToast} />
         </KeepAlive>
 
         <KeepAlive active={adminView === 'payroll'}>

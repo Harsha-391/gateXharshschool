@@ -361,22 +361,25 @@ export default function App() {
       const placeholder = (target.getAttribute('placeholder') || '').toLowerCase();
       const label = target.labels && target.labels.length > 0 ? target.labels[0].textContent.toLowerCase() : '';
 
-      // Check if it is a phone number, pin number, or PAN card field:
-      const isPhone = name.includes('phone') || name.includes('contact') || name.includes('mobile') || id.includes('phone') || id.includes('contact') || id.includes('mobile') || placeholder.includes('phone') || placeholder.includes('contact') || placeholder.includes('mobile');
-      const isPin = name.includes('pin') || id.includes('pin') || placeholder.includes('pin') || placeholder.includes('postal') || name.includes('postal') || id.includes('postal') || name.includes('zip') || id.includes('zip');
-      const isPan = name.includes('pan') || id.includes('pan') || placeholder.includes('pan') || label.includes('pan');
-
-      const isNumericType = type === 'number' || target.getAttribute('inputmode') === 'numeric';
-      const isNumericField = isNumericType || name.includes('amount') || name.includes('salary') || name.includes('marks') || name.includes('roll') || name.includes('price') || name.includes('fee') || name.includes('budget') || name.includes('rate') || name.includes('count') || name.includes('limit') || name.includes('percentage');
-
       const isEmail = type === 'email' || name.includes('email');
       const isPassword = type === 'password' || name.includes('password');
       const isUsername = name.includes('username') || name.includes('user') || id.includes('username') || id.includes('user');
       const isSubdomain = name.includes('subdomain') || id.includes('subdomain');
       const isUrl = type === 'url' || name.includes('url') || name.includes('logo') || name.includes('website') || name.includes('attachment') || name.includes('photo') || name.includes('file');
       const isDocFile = type === 'file';
+      const isDate = type === 'date' || type === 'datetime-local' || type === 'month' || type === 'time' || type === 'week';
+      const isPeriodName = name.includes('period') || id.includes('period') || placeholder.includes('period') || label.includes('period') || name.includes('range') || id.includes('range') || placeholder.includes('range') || label.includes('range');
 
-      const isBypassedString = isEmail || isPassword || isUsername || isSubdomain || isUrl || isDocFile;
+      const isBypassedString = isEmail || isPassword || isUsername || isSubdomain || isUrl || isDocFile || isDate || isPeriodName;
+
+      // Check if it is a phone number, pin number, or PAN card field:
+      const isPhone = !isBypassedString && (name.includes('phone') || name.includes('contact') || name.includes('mobile') || id.includes('phone') || id.includes('contact') || id.includes('mobile') || placeholder.includes('phone') || placeholder.includes('contact') || placeholder.includes('mobile'));
+      const isPin = !isBypassedString && (name.includes('pin') || id.includes('pin') || placeholder.includes('pin') || placeholder.includes('postal') || name.includes('postal') || id.includes('postal') || name.includes('zip') || id.includes('zip'));
+      const isPan = !isBypassedString && (name.includes('pan') || id.includes('pan') || placeholder.includes('pan') || label.includes('pan'));
+      const isAadhaar = !isBypassedString && (name.includes('aadhaar') || name.includes('aadhar') || id.includes('aadhaar') || id.includes('aadhar') || placeholder.includes('aadhaar') || placeholder.includes('aadhar') || label.includes('aadhaar') || label.includes('aadhar') || placeholder.includes('uidai') || label.includes('uidai'));
+
+      const isNumericType = type === 'number' || target.getAttribute('inputmode') === 'numeric';
+      const isNumericField = !isBypassedString && (isNumericType || name.includes('amount') || name.includes('salary') || name.includes('marks') || name.includes('roll') || name.includes('price') || name.includes('fee') || name.includes('budget') || name.includes('rate') || name.includes('count') || name.includes('limit') || name.includes('percentage'));
       const isGradeName = name === 'gradename' || 
                           (target.classList && target.classList.contains('grade-name-input')) || 
                           target.getAttribute('data-type') === 'grade-name' || 
@@ -400,6 +403,10 @@ export default function App() {
         // Enforce PAN card format: only letters and digits, max length 10
         val = val.replace(/[^a-zA-Z0-9]/g, '');
         if (val.length > 10) val = val.substring(0, 10);
+      } else if (isAadhaar) {
+        // Enforce Aadhaar card format: only digits, max length 12
+        val = val.replace(/[^0-9]/g, '');
+        if (val.length > 12) val = val.substring(0, 12);
       } else if (isGradeName) {
         // Enforce Grade Name/Class format: allow letters, digits, and spaces, max length 50
         val = val.replace(/[^a-zA-Z0-9\s]/g, '');

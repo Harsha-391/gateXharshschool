@@ -15,6 +15,7 @@ import gradeRoutes from './routes/gradeRoutes.js';
 import upload from './middleware/upload.js';
 import { readDb, writeDb, addActivity, tenantStorage, slugify, restoreTenantContext, ensureTenantSqlLoaded, isSqlActive } from './utils/db.js';
 import { auth, generateToken } from './middleware/auth.js';
+import { checkPermission } from './middleware/permissionMiddleware.js';
 import { generateQrCode } from './utils/qrService.js';
 
 
@@ -1104,13 +1105,13 @@ app.use('/api/grades', gradeRoutes);
 // ==========================================
 // 2B. STAFF ENDPOINTS (Complete Module)
 // ==========================================
-app.get('/api/staff', (req, res) => {
+app.get('/api/staff', auth, restoreTenantContext, checkPermission('staff-directory', 'view'), (req, res) => {
   const db = readDb();
   res.json(db.staff || []);
 });
 
 // Get single staff by ID
-app.get('/api/staff/:id', (req, res) => {
+app.get('/api/staff/:id', auth, restoreTenantContext, checkPermission('staff-directory', 'view'), (req, res) => {
   const db = readDb();
   if (!db.staff) db.staff = [];
   const staff = db.staff.find(s => s.id === req.params.id);
@@ -1130,7 +1131,7 @@ const staffUploadFields = upload.fields([
   { name: 'otherFile', maxCount: 1 }
 ]);
 
-app.post('/api/staff', staffUploadFields, restoreTenantContext, async (req, res) => {
+app.post('/api/staff', auth, staffUploadFields, restoreTenantContext, checkPermission('add-employee', 'create'), async (req, res) => {
   try {
     const body = req.body;
 
@@ -1294,7 +1295,7 @@ app.post('/api/staff', staffUploadFields, restoreTenantContext, async (req, res)
 });
 
 // UPDATE STAFF
-app.put('/api/staff/:id', staffUploadFields, (req, res) => {
+app.put('/api/staff/:id', auth, staffUploadFields, restoreTenantContext, checkPermission('staff-directory', 'edit'), (req, res) => {
   try {
     const db = readDb();
     if (!db.staff) db.staff = [];
@@ -1362,7 +1363,7 @@ app.put('/api/staff/:id', staffUploadFields, (req, res) => {
   }
 });
 
-app.delete('/api/staff/:id', (req, res) => {
+app.delete('/api/staff/:id', auth, restoreTenantContext, checkPermission('staff-directory', 'delete'), (req, res) => {
   const db = readDb();
   if (!db.staff) db.staff = [];
   const staffIndex = db.staff.findIndex(s => s.id === req.params.id);

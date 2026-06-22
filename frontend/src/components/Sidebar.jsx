@@ -77,7 +77,7 @@ export default function Sidebar({
   const [adminRecepOpen, setAdminRecepOpen] = useState(false);
   const [adminFinanceOpen, setAdminFinanceOpen] = useState(() => {
     return typeof adminView === 'string' && ([
-      'collect-fees', 'fee-structure', 
+      'collect-fees', 'fee-structure', 'fees-history',
       'payroll', 'teacher-pay-structure', 'staff-pay', 'staff-pay-structure'
     ].includes(adminView));
   });
@@ -512,7 +512,7 @@ export default function Sidebar({
                   type="button"
                   onClick={() => setAdminFinanceOpen(!adminFinanceOpen)}
                   className={`nav-item ${[
-                    'collect-fees', 'fee-structure', 
+                    'collect-fees', 'fee-structure', 'fees-history', 
                     'payroll', 'teacher-pay-structure', 'staff-pay', 'staff-pay-structure'
                   ].includes(adminView) ? 'parent-active' : ''}`}
                   style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', cursor: 'pointer' }}
@@ -543,6 +543,14 @@ export default function Sidebar({
                       <Calculator size={18} className="flex-shrink-0" />
                       <span className="nav-label">Fee Structure</span>
                     </button>
+                    <button
+                      onClick={() => { setAdminView('fees-history'); setMobileOpen(false); }}
+                      className={`nav-item ${adminView === 'fees-history' ? 'active' : ''}`}
+                      style={{ padding: '10px 12px', fontSize: '0.88rem', position: 'relative' }}
+                    >
+                      <History size={18} className="flex-shrink-0" />
+                      <span className="nav-label">Fees History</span>
+                    </button>
 
                     <span className="nav-label" style={{ fontWeight: 700, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-muted)', padding: '8px 12px 4px' }}>Payroll</span>
                     <button
@@ -551,7 +559,7 @@ export default function Sidebar({
                       style={{ padding: '10px 12px', fontSize: '0.88rem', position: 'relative' }}
                     >
                       <Banknote size={18} className="flex-shrink-0" />
-                      <span className="nav-label">Manage Payroll</span>
+                      <span className="nav-label">Pay Staff</span>
                     </button>
                     <button
                       onClick={() => { setAdminView('teacher-pay-structure'); setMobileOpen(false); }}
@@ -559,7 +567,7 @@ export default function Sidebar({
                       style={{ padding: '10px 12px', fontSize: '0.88rem', position: 'relative' }}
                     >
                       <Calculator size={18} className="flex-shrink-0" />
-                      <span className="nav-label">Teacher Pay Structure</span>
+                      <span className="nav-label">Staff Pay Structure</span>
                     </button>
                     <button
                       onClick={() => { setAdminView('staff-pay'); setMobileOpen(false); }}
@@ -567,7 +575,7 @@ export default function Sidebar({
                       style={{ padding: '10px 12px', fontSize: '0.88rem', position: 'relative' }}
                     >
                       <Banknote size={18} className="flex-shrink-0" />
-                      <span className="nav-label">Pay Staff</span>
+                      <span className="nav-label">Pay Employee</span>
                     </button>
                     <button
                       onClick={() => { setAdminView('staff-pay-structure'); setMobileOpen(false); }}
@@ -575,7 +583,7 @@ export default function Sidebar({
                       style={{ padding: '10px 12px', fontSize: '0.88rem', position: 'relative' }}
                     >
                       <Calculator size={18} className="flex-shrink-0" />
-                      <span className="nav-label">Staff Pay Structure</span>
+                      <span className="nav-label">Employee Pay Structure</span>
                     </button>
 
                   </div>

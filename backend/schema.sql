@@ -555,6 +555,7 @@ CREATE TABLE IF NOT EXISTS fee_structures (
   classId VARCHAR(50) NOT NULL,
   amount DECIMAL(10,2) NOT NULL,
   frequency VARCHAR(50) DEFAULT 'Yearly',
+  monthRange VARCHAR(100) DEFAULT NULL,
   tenantId VARCHAR(100)
 );
 
@@ -787,6 +788,16 @@ CREATE TABLE IF NOT EXISTS published_timetables (
   publishedAt VARCHAR(100) NOT NULL,
   tenantId VARCHAR(100) NOT NULL,
   UNIQUE KEY unique_pub_tt (type, identifier, tenantId)
+);
+
+-- 48. Fee Periods Table (Custom Month Ranges)
+CREATE TABLE IF NOT EXISTS fee_periods (
+  id VARCHAR(50) PRIMARY KEY,
+  frequency VARCHAR(50) NOT NULL,
+  name VARCHAR(100) NOT NULL,
+  sortOrder INT DEFAULT 0,
+  tenantId VARCHAR(100) NOT NULL,
+  UNIQUE KEY unique_fp_freq_name (frequency, name, tenantId)
 );
 
 -- Re-enable foreign key checks
