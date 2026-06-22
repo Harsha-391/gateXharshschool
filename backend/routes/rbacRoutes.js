@@ -219,8 +219,8 @@ router.get('/users', (req, res) => {
         email: t.email || '',
         phone: t.phone || '',
         userType: 'Teacher',
-        roleId: access ? access.roleId : 'role-subject-teacher', // default
-        roleName: assignedRole ? assignedRole.name : 'Subject Teacher',
+        roleId: access ? access.roleId : 'role-teacher', // default
+        roleName: assignedRole ? assignedRole.name : 'Teacher',
         status: access ? access.status : (t.status || 'Active'),
         overrides: access ? access.overrides : {}
       });

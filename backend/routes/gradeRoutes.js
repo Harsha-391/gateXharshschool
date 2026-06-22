@@ -101,14 +101,26 @@ router.get('/active-options', (req, res) => {
             if (dept) {
               options.push({
                 id: `${g.id}-${dept.id}`,
-                name: `${g.name} (${dept.name})`,
+                name: g.name.includes('(') ? g.name : `${g.name} (${dept.name})`,
                 gradeId: g.id,
                 gradeName: g.name,
                 departmentId: dept.id,
                 departmentName: dept.name,
-                sections: g.sections || []
+                sections: map.sections || []
               });
             }
+          });
+        } else if (!g.name.includes('(') && activeDepartments.length > 0) {
+          activeDepartments.forEach(dept => {
+            options.push({
+              id: `${g.id}-${dept.id}`,
+              name: `${g.name} (${dept.name})`,
+              gradeId: g.id,
+              gradeName: g.name,
+              departmentId: dept.id,
+              departmentName: dept.name,
+              sections: []
+            });
           });
         } else {
           options.push({
@@ -118,7 +130,7 @@ router.get('/active-options', (req, res) => {
             gradeName: g.name,
             departmentId: null,
             departmentName: null,
-            sections: g.sections || []
+            sections: []
           });
         }
       } else {
@@ -192,6 +204,7 @@ router.post('/', (req, res) => {
           gradeId,
           departmentId: deptId,
           status: 'Active',
+          sections: [],
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString()
         };
@@ -211,7 +224,7 @@ router.post('/', (req, res) => {
 router.put('/:id', (req, res) => {
   try {
     const { id } = req.params;
-    const { name, status, sections, departments } = req.body;
+    const { name, status, sections, departments, departmentId } = req.body;
 
     const db = readDb();
     const index = db.grades.findIndex(g => g.id === id);
@@ -238,20 +251,173 @@ router.put('/:id', (req, res) => {
     }
 
     if (sections !== undefined) {
-      currentGrade.sections = sections;
+      if (departmentId) {
+        // Mapped grade section updates
+        const map = (db.gradeDepartments || []).find(gd => gd.gradeId === id && gd.departmentId === departmentId);
+        if (map) {
+          const prevSections = map.sections || [];
+          const deletedSections = prevSections.filter(s => !sections.includes(s));
+          map.sections = sections;
+          map.updatedAt = new Date().toISOString();
+
+          if (deletedSections.length > 0) {
+            const dept = (db.departments || []).find(d => d.id === departmentId);
+            const targetCohortNames = dept ? [`${currentGrade.name} (${dept.name})`] : [];
+            
+            deletedSections.forEach(secName => {
+              const cohortsToDelete = targetCohortNames.map(gn => `${gn}-${secName}`);
+
+              // 1. Delete timetables
+              if (db.timetables) {
+                db.timetables = db.timetables.filter(t => 
+                  !t.cohort || !cohortsToDelete.some(c => t.cohort.toLowerCase() === c.toLowerCase())
+                );
+              }
+              if (db.publishedClassTimetables) {
+                db.publishedClassTimetables = db.publishedClassTimetables.filter(pt => 
+                  !pt.cohort || !cohortsToDelete.some(c => pt.cohort.toLowerCase() === c.toLowerCase())
+                );
+              }
+
+              // 2. Delete exam timetables
+              if (db.examTimetables) {
+                db.examTimetables = db.examTimetables.filter(et => 
+                  (!et.cohort || !cohortsToDelete.some(c => et.cohort.toLowerCase() === c.toLowerCase())) &&
+                  !(targetCohortNames.some(gn => et.grade?.toLowerCase() === gn.toLowerCase()) && et.section?.toLowerCase() === secName.toLowerCase())
+                );
+              }
+
+              // 3. Filter exams gradeSections
+              if (db.exams) {
+                db.exams.forEach(ex => {
+                  if (ex.gradeSections) {
+                    ex.gradeSections = ex.gradeSections.filter(gs => 
+                      !(targetCohortNames.some(gn => gs.grade?.toLowerCase() === gn.toLowerCase()) && gs.section?.toLowerCase() === secName.toLowerCase())
+                    );
+                  }
+                });
+                db.exams = db.exams.filter(ex => !ex.gradeSections || ex.gradeSections.length > 0);
+              }
+
+              // 4. Delete attendance
+              if (db.attendance) {
+                db.attendance = db.attendance.filter(att => 
+                  !(targetCohortNames.some(gn => att.classId?.toLowerCase() === gn.toLowerCase()) && att.sectionId?.toLowerCase() === secName.toLowerCase())
+                );
+              }
+
+              // 5. Delete overall results
+              if (db.overallResults) {
+                db.overallResults = db.overallResults.filter(o => 
+                  !(targetCohortNames.some(gn => o.classId?.toLowerCase() === gn.toLowerCase()) && o.sectionId?.toLowerCase() === secName.toLowerCase()) &&
+                  (!o.cohort || !cohortsToDelete.some(c => o.cohort.toLowerCase() === c.toLowerCase()))
+                );
+              }
+
+              // 6. Clear section for students in the deleted section
+              if (db.students) {
+                db.students.forEach(s => {
+                  if (s.section && s.section.toLowerCase() === secName.toLowerCase() && s.studentClass && targetCohortNames.some(gn => s.studentClass.toLowerCase() === gn.toLowerCase())) {
+                    s.section = '';
+                  }
+                });
+              }
+            });
+          }
+        }
+      } else {
+        // Standard grade section updates
+        const prevSections = currentGrade.sections || [];
+        const deletedSections = prevSections.filter(s => !sections.includes(s));
+        currentGrade.sections = sections;
+
+        if (deletedSections.length > 0) {
+          const gradeNames = [currentGrade.name];
+          const relatedMappings = (db.gradeDepartments || []).filter(gd => gd.gradeId === id);
+          relatedMappings.forEach(m => {
+            const dept = (db.departments || []).find(d => d.id === m.departmentId);
+            if (dept) {
+              gradeNames.push(`${currentGrade.name} (${dept.name})`);
+            }
+          });
+
+          deletedSections.forEach(secName => {
+            const cohortsToDelete = gradeNames.map(gn => `${gn}-${secName}`);
+
+            // 1. Delete timetables
+            if (db.timetables) {
+              db.timetables = db.timetables.filter(t => 
+                !t.cohort || !cohortsToDelete.some(c => t.cohort.toLowerCase() === c.toLowerCase())
+              );
+            }
+            if (db.publishedClassTimetables) {
+              db.publishedClassTimetables = db.publishedClassTimetables.filter(pt => 
+                !pt.cohort || !cohortsToDelete.some(c => pt.cohort.toLowerCase() === c.toLowerCase())
+              );
+            }
+
+            // 2. Delete exam timetables
+            if (db.examTimetables) {
+              db.examTimetables = db.examTimetables.filter(et => 
+                (!et.cohort || !cohortsToDelete.some(c => et.cohort.toLowerCase() === c.toLowerCase())) &&
+                !(gradeNames.some(gn => et.grade?.toLowerCase() === gn.toLowerCase()) && et.section?.toLowerCase() === secName.toLowerCase())
+              );
+            }
+
+            // 3. Filter exams gradeSections
+            if (db.exams) {
+              db.exams.forEach(ex => {
+                if (ex.gradeSections) {
+                  ex.gradeSections = ex.gradeSections.filter(gs => 
+                    !(gradeNames.some(gn => gs.grade?.toLowerCase() === gn.toLowerCase()) && gs.section?.toLowerCase() === secName.toLowerCase())
+                  );
+                }
+              });
+              db.exams = db.exams.filter(ex => !ex.gradeSections || ex.gradeSections.length > 0);
+            }
+
+            // 4. Delete attendance
+            if (db.attendance) {
+              db.attendance = db.attendance.filter(att => 
+                !(gradeNames.some(gn => att.classId?.toLowerCase() === gn.toLowerCase()) && att.sectionId?.toLowerCase() === secName.toLowerCase())
+              );
+            }
+
+            // 5. Delete overall results
+            if (db.overallResults) {
+              db.overallResults = db.overallResults.filter(o => 
+                !(gradeNames.some(gn => o.classId?.toLowerCase() === gn.toLowerCase()) && o.sectionId?.toLowerCase() === secName.toLowerCase()) &&
+                (!o.cohort || !cohortsToDelete.some(c => o.cohort.toLowerCase() === c.toLowerCase()))
+              );
+            }
+
+            // 6. Clear section for students in the deleted section
+            if (db.students) {
+              db.students.forEach(s => {
+                if (s.section && s.section.toLowerCase() === secName.toLowerCase() && s.studentClass && gradeNames.some(gn => s.studentClass.toLowerCase() === gn.toLowerCase())) {
+                  s.section = '';
+                }
+              });
+            }
+          });
+        }
+      }
     }
 
     // Sync mappings if provided
     if (departments !== undefined && Array.isArray(departments)) {
+      const prevMappings = db.gradeDepartments || [];
       db.gradeDepartments = (db.gradeDepartments || []).filter(gd => gd.gradeId !== id);
       departments.forEach(deptId => {
         const mappingId = `map-${id}-${deptId}`;
+        const existingMap = prevMappings.find(m => m.id === mappingId);
         const mappingObj = {
           id: mappingId,
           gradeId: id,
           departmentId: deptId,
           status: 'Active',
-          createdAt: new Date().toISOString(),
+          sections: existingMap ? (existingMap.sections || []) : [],
+          createdAt: existingMap ? existingMap.createdAt : new Date().toISOString(),
           updatedAt: new Date().toISOString()
         };
         db.gradeDepartments.push(mappingObj);
@@ -309,6 +475,97 @@ router.delete('/:id', (req, res) => {
       }
     }
     */
+
+    // Delete subjects associated with this grade's name or mapped names
+    const namesToDelete = [grade.name];
+    const relatedMappings = (db.gradeDepartments || []).filter(gd => gd.gradeId === id);
+    relatedMappings.forEach(m => {
+      const dept = (db.departments || []).find(d => d.id === m.departmentId);
+      if (dept) {
+        namesToDelete.push(`${grade.name} (${dept.name})`);
+      }
+    });
+
+    if (db.subjects) {
+      db.subjects = db.subjects.filter(sub => 
+        !sub.grade || !namesToDelete.some(n => sub.grade.toLowerCase() === n.toLowerCase())
+      );
+    }
+
+    // 2. Delete timetables
+    if (db.timetables) {
+      db.timetables = db.timetables.filter(t => 
+        !t.cohort || !namesToDelete.some(n => t.cohort.toLowerCase() === n.toLowerCase() || t.cohort.toLowerCase().startsWith(n.toLowerCase() + '-'))
+      );
+    }
+    if (db.publishedClassTimetables) {
+      db.publishedClassTimetables = db.publishedClassTimetables.filter(pt => 
+        !pt.cohort || !namesToDelete.some(n => pt.cohort.toLowerCase() === n.toLowerCase() || pt.cohort.toLowerCase().startsWith(n.toLowerCase() + '-'))
+      );
+    }
+
+    // 3. Delete exam timetables
+    if (db.examTimetables) {
+      db.examTimetables = db.examTimetables.filter(et => 
+        !et.grade || !namesToDelete.some(n => et.grade.toLowerCase() === n.toLowerCase())
+      );
+    }
+
+    // 4. Filter exams gradeSections
+    if (db.exams) {
+      db.exams.forEach(ex => {
+        if (ex.gradeSections) {
+          ex.gradeSections = ex.gradeSections.filter(gs => 
+            !gs.grade || !namesToDelete.some(n => gs.grade.toLowerCase() === n.toLowerCase())
+          );
+        }
+      });
+      db.exams = db.exams.filter(ex => !ex.gradeSections || ex.gradeSections.length > 0);
+    }
+
+    // 5. Delete attendance
+    if (db.attendance) {
+      db.attendance = db.attendance.filter(att => 
+        !att.classId || !namesToDelete.some(n => att.classId.toLowerCase() === n.toLowerCase())
+      );
+    }
+
+    // 6. Delete overall results
+    if (db.overallResults) {
+      db.overallResults = db.overallResults.filter(o => 
+        !o.classId || !namesToDelete.some(n => o.classId.toLowerCase() === n.toLowerCase())
+      );
+    }
+
+    // 7. Delete results
+    if (db.results) {
+      db.results = db.results.filter(r => 
+        !r.studentClass || !namesToDelete.some(n => r.studentClass.toLowerCase() === n.toLowerCase() || r.studentClass.toLowerCase().startsWith(n.toLowerCase() + '-'))
+      );
+    }
+
+    // 8. Delete students & student enrollments
+    let deletedStudentIds = [];
+    if (db.students) {
+      db.students = db.students.filter(s => {
+        const matches = s.studentClass && namesToDelete.some(n => s.studentClass.toLowerCase() === n.toLowerCase() || s.studentClass.toLowerCase().startsWith(n.toLowerCase() + '-'));
+        if (matches) {
+          deletedStudentIds.push(s.id);
+          return false;
+        }
+        return true;
+      });
+    }
+
+    if (deletedStudentIds.length > 0) {
+      if (db.parentAccounts) db.parentAccounts = db.parentAccounts.filter(pa => !deletedStudentIds.includes(pa.studentId));
+      if (db.studentAccounts) db.studentAccounts = db.studentAccounts.filter(sa => !deletedStudentIds.includes(sa.studentId));
+      if (db.parents) db.parents = db.parents.filter(p => !deletedStudentIds.includes(p.studentId));
+      if (db.addresses) db.addresses = db.addresses.filter(a => !deletedStudentIds.includes(a.studentId));
+      if (db.medicalRecords) db.medicalRecords = db.medicalRecords.filter(m => !deletedStudentIds.includes(m.studentId));
+      if (db.documents) db.documents = db.documents.filter(d => !deletedStudentIds.includes(d.studentId));
+      if (db.feeAssignments) db.feeAssignments = db.feeAssignments.filter(f => !deletedStudentIds.includes(f.studentId));
+    }
 
     // Delete mappings & grade
     db.gradeDepartments = (db.gradeDepartments || []).filter(gd => gd.gradeId !== id);
@@ -474,6 +731,7 @@ router.post('/mappings', (req, res) => {
       gradeId,
       departmentId,
       status: status || 'Active',
+      sections: [],
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
@@ -504,9 +762,89 @@ router.delete('/mappings/:id', (req, res) => {
     const dept = (db.departments || []).find(d => d.id === map.departmentId);
 
     if (grade && dept) {
-      const usageError = checkGradeUsage(db, grade.name, dept.name);
-      if (usageError) {
-        return res.status(400).json({ error: `Mapped option "${grade.name} (${dept.name})" is active: ${usageError}` });
+      const mappedName = `${grade.name} (${dept.name})`;
+      const namesToDelete = [mappedName];
+
+      // 1. Delete subjects
+      if (db.subjects) {
+        db.subjects = db.subjects.filter(sub => 
+          !sub.grade || !namesToDelete.some(n => sub.grade.toLowerCase() === n.toLowerCase())
+        );
+      }
+
+      // 2. Delete timetables
+      if (db.timetables) {
+        db.timetables = db.timetables.filter(t => 
+          !t.cohort || !namesToDelete.some(n => t.cohort.toLowerCase() === n.toLowerCase() || t.cohort.toLowerCase().startsWith(n.toLowerCase() + '-'))
+        );
+      }
+      if (db.publishedClassTimetables) {
+        db.publishedClassTimetables = db.publishedClassTimetables.filter(pt => 
+          !pt.cohort || !namesToDelete.some(n => pt.cohort.toLowerCase() === n.toLowerCase() || pt.cohort.toLowerCase().startsWith(n.toLowerCase() + '-'))
+        );
+      }
+
+      // 3. Delete exam timetables
+      if (db.examTimetables) {
+        db.examTimetables = db.examTimetables.filter(et => 
+          !et.grade || !namesToDelete.some(n => et.grade.toLowerCase() === n.toLowerCase())
+        );
+      }
+
+      // 4. Filter exams gradeSections
+      if (db.exams) {
+        db.exams.forEach(ex => {
+          if (ex.gradeSections) {
+            ex.gradeSections = ex.gradeSections.filter(gs => 
+              !gs.grade || !namesToDelete.some(n => gs.grade.toLowerCase() === n.toLowerCase())
+            );
+          }
+        });
+        db.exams = db.exams.filter(ex => !ex.gradeSections || ex.gradeSections.length > 0);
+      }
+
+      // 5. Delete attendance
+      if (db.attendance) {
+        db.attendance = db.attendance.filter(att => 
+          !att.classId || !namesToDelete.some(n => att.classId.toLowerCase() === n.toLowerCase())
+        );
+      }
+
+      // 6. Delete overall results
+      if (db.overallResults) {
+        db.overallResults = db.overallResults.filter(o => 
+          !o.classId || !namesToDelete.some(n => o.classId.toLowerCase() === n.toLowerCase())
+        );
+      }
+
+      // 7. Delete results
+      if (db.results) {
+        db.results = db.results.filter(r => 
+          !r.studentClass || !namesToDelete.some(n => r.studentClass.toLowerCase() === n.toLowerCase() || r.studentClass.toLowerCase().startsWith(n.toLowerCase() + '-'))
+        );
+      }
+
+      // 8. Delete students & student enrollments
+      let deletedStudentIds = [];
+      if (db.students) {
+        db.students = db.students.filter(s => {
+          const matches = s.studentClass && namesToDelete.some(n => s.studentClass.toLowerCase() === n.toLowerCase() || s.studentClass.toLowerCase().startsWith(n.toLowerCase() + '-'));
+          if (matches) {
+            deletedStudentIds.push(s.id);
+            return false;
+          }
+          return true;
+        });
+      }
+
+      if (deletedStudentIds.length > 0) {
+        if (db.parentAccounts) db.parentAccounts = db.parentAccounts.filter(pa => !deletedStudentIds.includes(pa.studentId));
+        if (db.studentAccounts) db.studentAccounts = db.studentAccounts.filter(sa => !deletedStudentIds.includes(sa.studentId));
+        if (db.parents) db.parents = db.parents.filter(p => !deletedStudentIds.includes(p.studentId));
+        if (db.addresses) db.addresses = db.addresses.filter(a => !deletedStudentIds.includes(a.studentId));
+        if (db.medicalRecords) db.medicalRecords = db.medicalRecords.filter(m => !deletedStudentIds.includes(m.studentId));
+        if (db.documents) db.documents = db.documents.filter(d => !deletedStudentIds.includes(d.studentId));
+        if (db.feeAssignments) db.feeAssignments = db.feeAssignments.filter(f => !deletedStudentIds.includes(f.studentId));
       }
     }
 

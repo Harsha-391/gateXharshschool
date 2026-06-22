@@ -25,34 +25,8 @@ export default function SuspendedScreen({ schoolDetails, onUnsuspended }) {
   const logoUrl = schoolDetails?.logo || null;
 
   return (
-    <div style={{
-      width: '100vw',
-      minHeight: '100vh',
-      background: 'radial-gradient(circle at 50% 50%, #0c0a1c 0%, #05040d 100%)',
-      display: 'flex',
-      flexDirection: 'column',
-      justifyContent: 'center',
-      alignItems: 'center',
-      padding: '24px',
-      boxSizing: 'border-box',
-      fontFamily: "'Outfit', sans-serif"
-    }}>
-      <div style={{
-        width: '100%',
-        maxWidth: '480px',
-        background: 'rgba(20, 20, 35, 0.6)',
-        backdropFilter: 'blur(16px)',
-        WebkitBackdropFilter: 'blur(16px)',
-        border: '1px solid rgba(255, 255, 255, 0.08)',
-        borderRadius: '24px',
-        padding: '40px 32px',
-        boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 0 40px rgba(239, 68, 68, 0.1)',
-        textAlign: 'center',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        gap: '24px'
-      }}>
+    <div className="suspended-screen-wrapper">
+      <div className="suspended-screen-card">
         {/* Glowing Warning Icon */}
         <div style={{
           position: 'relative',
@@ -123,32 +97,17 @@ export default function SuspendedScreen({ schoolDetails, onUnsuspended }) {
         </div>
 
         {/* Footer Support Info */}
-        <div style={{
-          background: 'rgba(255, 255, 255, 0.02)',
-          border: '1px solid rgba(255, 255, 255, 0.05)',
-          borderRadius: '12px',
-          padding: '12px 16px',
-          width: '100%',
-          fontSize: '0.78rem',
-          color: '#64748b',
-          boxSizing: 'border-box'
-        }}>
+        <div className="suspended-support-box">
           Please contact platform support to resolve billing issues or restore service.
         </div>
 
         {/* Checking Connection */}
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '8px',
-          fontSize: '0.78rem',
-          color: '#475569',
-          marginTop: '8px'
-        }}>
-          <RefreshCw size={12} className="animate-spin" style={{ color: '#475569' }} />
+        <div className="suspended-status-indicator">
+          <RefreshCw size={12} className="animate-spin" style={{ color: '#ef4444' }} />
           <span>Monitoring status in real-time...</span>
         </div>
       </div>
     </div>
+
   );
 }

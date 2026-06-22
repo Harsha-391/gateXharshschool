@@ -382,6 +382,7 @@ export const getGradesSections = (req, res) => {
   const db = readDb();
   const activeGrades = (db.grades || []).filter(g => g.status === 'Active');
   const activeDepartments = (db.departments || []).filter(d => d.status === 'Active');
+  const gradeDepartments = db.gradeDepartments || [];
 
   const isGrade11or12 = (name) => {
     if (!name) return false;
@@ -390,17 +391,41 @@ export const getGradesSections = (req, res) => {
   };
 
   const gradeOptions = [];
+  const gradeSectionPairs = [];
+
   activeGrades.forEach(g => {
     if (isGrade11or12(g.name)) {
-      if (activeDepartments.length > 0) {
+      const mappingsForGrade = gradeDepartments.filter(gd => gd.gradeId === g.id && gd.status === 'Active');
+      if (mappingsForGrade.length > 0) {
+        mappingsForGrade.forEach(map => {
+          const dept = activeDepartments.find(d => d.id === map.departmentId);
+          if (dept) {
+            const mappedName = `${g.name} (${dept.name})`;
+            gradeOptions.push(mappedName);
+            const mapSections = map.sections || [];
+            mapSections.forEach(s => {
+              gradeSectionPairs.push({ grade: mappedName, section: s });
+            });
+          }
+        });
+      } else if (!g.name.includes('(') && activeDepartments.length > 0) {
         activeDepartments.forEach(dept => {
-          gradeOptions.push(`${g.name} (${dept.name})`);
+          const mappedName = `${g.name} (${dept.name})`;
+          gradeOptions.push(mappedName);
         });
       } else {
         gradeOptions.push(g.name);
+        const gradeSecs = g.sections || [];
+        gradeSecs.forEach(s => {
+          gradeSectionPairs.push({ grade: g.name, section: s });
+        });
       }
     } else {
       gradeOptions.push(g.name);
+      const gradeSecs = g.sections || [];
+      gradeSecs.forEach(s => {
+        gradeSectionPairs.push({ grade: g.name, section: s });
+      });
     }
   });
 
@@ -422,13 +447,6 @@ export const getGradesSections = (req, res) => {
   const grades = gradeOptions.sort(sortGrades);
   const activeSections = (db.sections || []).filter(s => s.status === 'Active');
   const sections = activeSections.map(s => s.name);
-  const gradeSectionPairs = [];
-  
-  grades.forEach(g => {
-    sections.forEach(s => {
-      gradeSectionPairs.push({ grade: g, section: s });
-    });
-  });
 
   res.json({ grades, sections, gradeSectionPairs });
 };

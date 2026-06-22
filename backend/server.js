@@ -167,7 +167,7 @@ app.post('/api/auth/login', (req, res) => {
         const access = (db.userAccess || []).find(ua => ua.userId === teacher.id && ua.userType === 'Teacher');
         let roleRecord = access ? (db.roles || []).find(r => r.id === access.roleId) : null;
         if (!roleRecord) {
-          roleRecord = (db.roles || []).find(r => r.id === 'role-subject-teacher' || r.id === 'role-teacher' || r.name === 'Subject Teacher' || r.name === 'Teacher');
+          roleRecord = (db.roles || []).find(r => r.id === 'role-teacher' || r.name === 'Teacher');
         }
         const roleName = roleRecord ? roleRecord.name : 'Teacher';
         const permissions = roleRecord ? roleRecord.permissions : {};
@@ -796,7 +796,7 @@ app.get('/api/auth/profile', auth, restoreTenantContext, (req, res) => {
     const access = (db.userAccess || []).find(ua => ua.userId === teacher.id && ua.userType === 'Teacher');
     let roleRecord = access ? (db.roles || []).find(r => r.id === access.roleId) : null;
     if (!roleRecord) {
-      roleRecord = (db.roles || []).find(r => r.id === 'role-subject-teacher' || r.id === 'role-teacher' || r.name === 'Subject Teacher' || r.name === 'Teacher');
+      roleRecord = (db.roles || []).find(r => r.id === 'role-teacher' || r.name === 'Teacher');
     }
     if (roleRecord) {
       permissions = roleRecord.permissions;

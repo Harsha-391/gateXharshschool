@@ -1,7 +1,7 @@
 import { readDb, writeDb, addActivity, getDefaultRoles } from '../utils/db.js';
 
 const mapDesignationToRoleId = (designation, dbRoles = []) => {
-  if (!designation) return 'role-subject-teacher';
+  if (!designation) return 'role-teacher';
   
   // Try to find matching role name in dbRoles (case insensitive)
   const matchedRole = dbRoles.find(r => r.name.toLowerCase() === designation.toLowerCase());
@@ -26,17 +26,14 @@ const mapDesignationToRoleId = (designation, dbRoles = []) => {
     case 'Receptionist':
     case 'role-receptionist':
       return 'role-receptionist';
-    case 'Subject Teacher':
-    case 'role-subject-teacher':
-      return 'role-subject-teacher';
     case 'Teacher':
     case 'role-teacher':
-      return 'role-subject-teacher';
+      return 'role-teacher';
     case 'Expense Manager':
     case 'role-expense-manager':
       return 'role-expense-manager';
     default:
-      return 'role-subject-teacher';
+      return 'role-teacher';
   }
 };
 

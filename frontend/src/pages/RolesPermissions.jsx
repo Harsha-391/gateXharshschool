@@ -24,7 +24,7 @@ import {
 } from 'lucide-react';
 import { hasPermission, isSuperAdmin } from '../utils/permissions';
 
-const TEACHER_ROLES = ['Principal', 'Vice Principal', 'Academic Coordinator', 'Subject Teacher', 'Librarian', 'Receptionist', 'Accountant', 'Expense Manager'];
+const TEACHER_ROLES = ['Principal', 'Vice Principal', 'Academic Coordinator', 'Teacher', 'Receptionist', 'Accountant', 'Expense Manager'];
 
 const LEGACY_MODULE_MAP = {
   'student-directory': 'core-registers',

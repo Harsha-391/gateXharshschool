@@ -161,7 +161,10 @@ export default function GradeManagement({ currentSubView, setAdminView, showToas
       const res = await fetch(`/api/grades/${sectionModalGrade.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sections: selectedModalSections })
+        body: JSON.stringify({ 
+          sections: selectedModalSections,
+          departmentId: sectionModalGrade.deptId 
+        })
       });
       const data = await res.json();
       if (res.ok) {
@@ -179,13 +182,15 @@ export default function GradeManagement({ currentSubView, setAdminView, showToas
   };
 
   const handleRemoveSectionDirectly = async (grade, secName) => {
-    if (!window.confirm(`Are you sure you want to remove Section "${secName}" from ${grade.name}?`)) return;
     const remainingSections = (grade.sections || []).filter(name => name !== secName);
     try {
       const res = await fetch(`/api/grades/${grade.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sections: remainingSections })
+        body: JSON.stringify({ 
+          sections: remainingSections,
+          departmentId: grade.deptId
+        })
       });
       const data = await res.json();
       if (res.ok) {
@@ -263,8 +268,6 @@ export default function GradeManagement({ currentSubView, setAdminView, showToas
   };
 
   const handleDeleteModalSubject = async (subId, subName) => {
-    if (!window.confirm(`Are you sure you want to delete subject "${subName}"?`)) return;
-
     try {
       const res = await fetch(`/api/academics/subjects/${subId}`, {
         method: 'DELETE'
@@ -512,21 +515,39 @@ export default function GradeManagement({ currentSubView, setAdminView, showToas
 
   const convertToRoman = (str) => {
     if (!str) return '';
-    const clean = str.trim().toUpperCase();
+    let temp = str.toUpperCase();
+    const romanList = ['XII', 'XI', 'X', 'IX', 'VIII', 'VII', 'VI', 'V', 'IV', 'III', 'II', 'I'];
+    const romanToNum = {
+      'XII': 12, 'XI': 11, 'X': 10, 'IX': 9, 'VIII': 8, 'VII': 7, 'VI': 6, 'V': 5, 'IV': 4, 'III': 3, 'II': 2, 'I': 1
+    };
     
-    if (['LKG', 'UKG', 'NURSERY'].includes(clean)) {
-      return clean;
+    for (const r of romanList) {
+      if (temp.includes(r)) {
+        temp = temp.replace(r, romanToNum[r]);
+        break;
+      }
     }
     
-    const match = clean.match(/\d+/);
+    const match = temp.match(/\d+/);
     if (match) {
       const num = parseInt(match[0], 10);
       const lookup = {
         1: 'I', 2: 'II', 3: 'III', 4: 'IV', 5: 'V', 6: 'VI', 7: 'VII', 8: 'VIII', 9: 'IX', 10: 'X', 11: 'XI', 12: 'XII'
       };
       if (lookup[num]) {
-        return lookup[num];
+        const digitStr = match[0];
+        const digitIndex = temp.indexOf(digitStr);
+        if (digitIndex !== -1) {
+          const originalDigitStr = str.substring(digitIndex, digitIndex + digitStr.length);
+          return str.replace(originalDigitStr, lookup[num]);
+        }
+        return temp.replace(match[0], lookup[num]);
       }
+    }
+    
+    const clean = str.trim().toUpperCase();
+    if (['LKG', 'UKG', 'NURSERY'].includes(clean)) {
+      return clean;
     }
     
     const wordsLookup = {
@@ -566,7 +587,8 @@ export default function GradeManagement({ currentSubView, setAdminView, showToas
               displayId: `${g.id}-${d.id}`,
               displayName: `${g.name} (${d.name})`,
               deptName: d.name,
-              deptId: d.id
+              deptId: d.id,
+              sections: m.sections || []
             });
           }
         });
@@ -576,7 +598,8 @@ export default function GradeManagement({ currentSubView, setAdminView, showToas
           displayId: g.id,
           displayName: g.name,
           deptName: 'None',
-          deptId: null
+          deptId: null,
+          sections: []
         });
       }
     } else {
@@ -812,7 +835,10 @@ export default function GradeManagement({ currentSubView, setAdminView, showToas
                                       {secName}
                                       <button
                                         type="button"
-                                        onClick={() => handleRemoveSectionDirectly(g, secName)}
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleRemoveSectionDirectly(g, secName);
+                                        }}
                                         style={{
                                           background: 'none',
                                           border: 'none',
@@ -838,7 +864,7 @@ export default function GradeManagement({ currentSubView, setAdminView, showToas
                                 )}
                               </div>
                             </div>
-
+ 
                             {/* Card Subjects List */}
                             <div>
                               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-muted)', fontSize: '0.8rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '8px' }}>
@@ -865,7 +891,10 @@ export default function GradeManagement({ currentSubView, setAdminView, showToas
                                       {sub.subjectName}
                                       <button
                                         type="button"
-                                        onClick={() => handleDeleteModalSubject(sub.id, sub.subjectName)}
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleDeleteModalSubject(sub.id, sub.subjectName);
+                                        }}
                                         style={{
                                           background: 'none',
                                           border: 'none',
@@ -947,17 +976,21 @@ export default function GradeManagement({ currentSubView, setAdminView, showToas
 
               {/* Edit Grade Modal */}
               {editingGrade && (
-                <div onClick={() => setEditingGrade(null)} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', zIndex: 10000000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
-                  <form onSubmit={handleUpdateGrade} onClick={(e) => e.stopPropagation()} className="glass-panel" style={{ padding: '24px', width: '90%', maxWidth: '400px', display: 'flex', flexDirection: 'column', gap: '16px', background: 'var(--bg-elevated)', borderRadius: '16px', boxShadow: '0 25px 50px rgba(0,0,0,0.3)' }}>
+                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', zIndex: 10000000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+                  <form onSubmit={handleUpdateGrade} className="glass-panel" style={{ padding: '24px', width: '90%', maxWidth: '400px', display: 'flex', flexDirection: 'column', gap: '16px', background: 'var(--bg-elevated)', borderRadius: '16px', boxShadow: '0 25px 50px rgba(0,0,0,0.3)', position: 'relative' }}>
+                    <button type="button" onClick={() => setEditingGrade(null)} style={{ position: 'absolute', top: '16px', right: '16px', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }} title="Close Form">
+                      <X size={20} />
+                    </button>
                     <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 800 }}>Edit Grade</h3>
                     <div>
                       <label style={{ fontSize: '0.8rem', fontWeight: 600, display: 'block', marginBottom: '6px' }}>Grade Name</label>
                       <input 
                         type="text" 
-                        className="form-control" 
+                        name="gradeName"
+                        data-type="grade-name"
+                        className="form-control grade-name-input" 
                         value={editingGrade.name} 
                         onChange={(e) => setEditingGrade({ ...editingGrade, name: e.target.value })}
-                        onBlur={(e) => setEditingGrade({ ...editingGrade, name: convertToRoman(e.target.value) })}
                         required
                       />
                     </div>
@@ -1015,11 +1048,12 @@ export default function GradeManagement({ currentSubView, setAdminView, showToas
                   <label style={{ fontSize: '0.85rem', fontWeight: 700, display: 'block', marginBottom: '6px', color: 'var(--text-main)' }}>Grade Name / Class</label>
                   <input 
                     type="text" 
+                    name="gradeName"
+                    data-type="grade-name"
                     placeholder="e.g. XI, XII, Grade 5, LKG"
-                    className="form-control"
+                    className="form-control grade-name-input"
                     value={newGrade.name}
                     onChange={(e) => setNewGrade({ ...newGrade, name: e.target.value })}
-                    onBlur={(e) => setNewGrade({ ...newGrade, name: convertToRoman(e.target.value) })}
                     required
                   />
                   <small style={{ color: 'var(--text-muted)', fontSize: '0.75rem', marginTop: '4px', display: 'block' }}>
@@ -1138,8 +1172,11 @@ export default function GradeManagement({ currentSubView, setAdminView, showToas
 
               {/* Edit Department Modal */}
               {editingDept && (
-                <div onClick={() => setEditingDept(null)} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', zIndex: 10000000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
-                  <form onSubmit={handleUpdateDept} onClick={(e) => e.stopPropagation()} className="glass-panel" style={{ padding: '24px', width: '90%', maxWidth: '400px', display: 'flex', flexDirection: 'column', gap: '16px', background: 'var(--bg-elevated)', borderRadius: '16px', boxShadow: '0 25px 50px rgba(0,0,0,0.3)' }}>
+                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', zIndex: 10000000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+                  <form onSubmit={handleUpdateDept} className="glass-panel" style={{ padding: '24px', width: '90%', maxWidth: '400px', display: 'flex', flexDirection: 'column', gap: '16px', background: 'var(--bg-elevated)', borderRadius: '16px', boxShadow: '0 25px 50px rgba(0,0,0,0.3)', position: 'relative' }}>
+                    <button type="button" onClick={() => setEditingDept(null)} style={{ position: 'absolute', top: '16px', right: '16px', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }} title="Close Form">
+                      <X size={20} />
+                    </button>
                     <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 800 }}>Edit Department</h3>
                     <div>
                       <label style={{ fontSize: '0.8rem', fontWeight: 600, display: 'block', marginBottom: '6px' }}>Department Name</label>
@@ -1169,8 +1206,11 @@ export default function GradeManagement({ currentSubView, setAdminView, showToas
 
       {/* Add Section Modal */}
       {sectionModalGrade && (
-        <div onClick={() => setSectionModalGrade(null)} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', zIndex: 10000000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
-          <div onClick={(e) => e.stopPropagation()} className="glass-panel" style={{ padding: '24px', width: '90%', maxWidth: '450px', display: 'flex', flexDirection: 'column', gap: '16px', background: 'var(--bg-elevated)', borderRadius: '16px', boxShadow: '0 25px 50px rgba(0,0,0,0.3)', maxHeight: '90vh', overflowY: 'auto' }}>
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', zIndex: 10000000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+          <div className="glass-panel" style={{ padding: '24px', width: '90%', maxWidth: '450px', display: 'flex', flexDirection: 'column', gap: '16px', background: 'var(--bg-elevated)', borderRadius: '16px', boxShadow: '0 25px 50px rgba(0,0,0,0.3)', maxHeight: '90vh', overflowY: 'auto', position: 'relative' }}>
+            <button type="button" onClick={() => setSectionModalGrade(null)} style={{ position: 'absolute', top: '16px', right: '16px', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }} title="Close Form">
+              <X size={20} />
+            </button>
             <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 800 }}>Manage Sections for {sectionModalGrade.displayName}</h3>
             
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -1252,8 +1292,11 @@ export default function GradeManagement({ currentSubView, setAdminView, showToas
 
       {/* Grade Subjects Modal */}
       {subjectModalGrade && (
-        <div onClick={() => setSubjectModalGrade(null)} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', zIndex: 10000000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
-          <div onClick={(e) => e.stopPropagation()} className="glass-panel" style={{ padding: '24px', width: '95%', maxWidth: '600px', display: 'flex', flexDirection: 'column', gap: '16px', background: 'var(--bg-elevated)', borderRadius: '16px', boxShadow: '0 25px 50px rgba(0,0,0,0.3)', maxHeight: '90vh', overflowY: 'auto' }}>
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', zIndex: 10000000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+          <div className="glass-panel" style={{ padding: '24px', width: '95%', maxWidth: '600px', display: 'flex', flexDirection: 'column', gap: '16px', background: 'var(--bg-elevated)', borderRadius: '16px', boxShadow: '0 25px 50px rgba(0,0,0,0.3)', maxHeight: '90vh', overflowY: 'auto', position: 'relative' }}>
+            <button type="button" onClick={() => setSubjectModalGrade(null)} style={{ position: 'absolute', top: '16px', right: '16px', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }} title="Close Form">
+              <X size={20} />
+            </button>
             <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 800 }}>Manage Subjects for {subjectModalGrade.displayName}</h3>
             
             {/* Display subjects lists */}

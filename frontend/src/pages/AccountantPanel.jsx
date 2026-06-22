@@ -2113,7 +2113,7 @@ export function PayrollView({ showToast }) {
     if (t) {
       const isStandardRole = [
         'Principal', 'Vice Principal', 'Academic Coordinator',
-        'Librarian', 'Receptionist', 'Accountant', 'Expense Manager'
+        'Receptionist', 'Accountant', 'Expense Manager'
       ].includes(t.designation);
 
       let basicSalary = '45000';
@@ -2215,7 +2215,7 @@ export function PayrollView({ showToast }) {
     if (form.designation) {
       const formDesg = form.designation.toLowerCase();
       const teacherDesg = (t.designation || '').toLowerCase();
-      const isMatch = (formDesg === 'subject teacher' && (teacherDesg === 'subject teacher' || teacherDesg === 'teacher')) ||
+      const isMatch = (formDesg === 'teacher' && (teacherDesg === 'subject teacher' || teacherDesg === 'teacher')) ||
                       (formDesg === teacherDesg);
       if (!isMatch) return false;
     }
@@ -2343,17 +2343,16 @@ export function PayrollView({ showToast }) {
                     style={{ ...inputStyle, cursor: 'pointer' }}
                   >
                     <option value="" style={optionStyle}>Select designation</option>
-                    <option value="Subject Teacher" style={optionStyle}>Subject Teacher</option>
+                    <option value="Teacher" style={optionStyle}>Teacher</option>
                     <option value="Principal" style={optionStyle}>Principal</option>
                     <option value="Vice Principal" style={optionStyle}>Vice Principal</option>
                     <option value="Academic Coordinator" style={optionStyle}>Academic Coordinator</option>
-                    <option value="Librarian" style={optionStyle}>Librarian</option>
                     <option value="Receptionist" style={optionStyle}>Receptionist</option>
                     <option value="Accountant" style={optionStyle}>Accountant</option>
                     <option value="Expense Manager" style={optionStyle}>Expense Manager</option>
                   </select>
                 </div>
-                {form.designation === 'Subject Teacher' && (
+                {form.designation === 'Teacher' && (
                   <div>
                     <label style={labelStyle}>Grade Range Pay Tier</label>
                     <select
@@ -3903,7 +3902,7 @@ export function TeacherSalaryStructureView({ showToast }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const finalDesignation = selectedRole === 'Subject Teacher' ? gradeRange : selectedRole;
+    const finalDesignation = selectedRole === 'Teacher' ? gradeRange : selectedRole;
     if (!finalDesignation) {
       showToast('Please specify a designation or grade range.', 'error');
       return;
@@ -3945,14 +3944,14 @@ export function TeacherSalaryStructureView({ showToast }) {
   const handleEdit = (s) => {
     const isStandardRole = [
       'Principal', 'Vice Principal', 'Academic Coordinator',
-      'Librarian', 'Receptionist', 'Accountant', 'Expense Manager'
+      'Receptionist', 'Accountant', 'Expense Manager'
     ].includes(s.designation);
 
     if (isStandardRole) {
       setSelectedRole(s.designation);
       setGradeRange('');
     } else {
-      setSelectedRole('Subject Teacher');
+      setSelectedRole('Teacher');
       setGradeRange(s.designation || '');
     }
 
@@ -4011,7 +4010,7 @@ export function TeacherSalaryStructureView({ showToast }) {
                     value={selectedRole}
                     onChange={e => {
                       setSelectedRole(e.target.value);
-                      if (e.target.value !== 'Subject Teacher') {
+                      if (e.target.value !== 'Teacher') {
                         setGradeRange('');
                       }
                     }}
@@ -4019,17 +4018,16 @@ export function TeacherSalaryStructureView({ showToast }) {
                     style={{ ...inputStyle, cursor: 'pointer' }}
                   >
                     <option value="" style={optionStyle}>Select designation</option>
-                    <option value="Subject Teacher" style={optionStyle}>Subject Teacher</option>
+                    <option value="Teacher" style={optionStyle}>Teacher</option>
                     <option value="Principal" style={optionStyle}>Principal</option>
                     <option value="Vice Principal" style={optionStyle}>Vice Principal</option>
                     <option value="Academic Coordinator" style={optionStyle}>Academic Coordinator</option>
-                    <option value="Librarian" style={optionStyle}>Librarian</option>
                     <option value="Receptionist" style={optionStyle}>Receptionist</option>
                     <option value="Accountant" style={optionStyle}>Accountant</option>
                     <option value="Expense Manager" style={optionStyle}>Expense Manager</option>
                   </select>
                 </div>
-                {selectedRole === 'Subject Teacher' && (
+                {selectedRole === 'Teacher' && (
                   <div>
                     <label style={labelStyle}>Create Range / Grade Range</label>
                     <input
@@ -4102,8 +4100,8 @@ export function TeacherSalaryStructureView({ showToast }) {
                   <h4 style={{ fontSize: '1rem', fontWeight: 800, color: '#10b981' }}>
                     {[
                       'Principal', 'Vice Principal', 'Academic Coordinator',
-                      'Librarian', 'Receptionist', 'Accountant', 'Expense Manager'
-                    ].includes(s.designation) ? s.designation : `Subject Teacher (${s.designation})`}
+                      'Receptionist', 'Accountant', 'Expense Manager'
+                    ].includes(s.designation) ? s.designation : `Teacher (${s.designation})`}
                   </h4>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>

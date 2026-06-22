@@ -377,6 +377,13 @@ export default function App() {
       const isDocFile = type === 'file';
 
       const isBypassedString = isEmail || isPassword || isUsername || isSubdomain || isUrl || isDocFile;
+      const isGradeName = name === 'gradename' || 
+                          (target.classList && target.classList.contains('grade-name-input')) || 
+                          target.getAttribute('data-type') === 'grade-name' || 
+                          placeholder.includes('xi, xii') || 
+                          label.includes('grade name') ||
+                          label.includes('grade/class') ||
+                          label.includes('class/grade');
 
       let val = target.value;
       let originalVal = val;
@@ -393,6 +400,10 @@ export default function App() {
         // Enforce PAN card format: only letters and digits, max length 10
         val = val.replace(/[^a-zA-Z0-9]/g, '');
         if (val.length > 10) val = val.substring(0, 10);
+      } else if (isGradeName) {
+        // Enforce Grade Name/Class format: allow letters, digits, and spaces, max length 50
+        val = val.replace(/[^a-zA-Z0-9\s]/g, '');
+        if (val.length > 50) val = val.substring(0, 50);
       } else if (isNumericField) {
         // Enforce numeric field: allow only digits and optional decimal point
         val = val.replace(/[^0-9.]/g, '');

@@ -570,7 +570,7 @@ export default function AddTeacher({ setActiveView, editData }) {
   const handleSelectChange = (fieldName, value) => {
     setFormData(prev => {
       const updated = { ...prev, [fieldName]: value };
-      if (fieldName === 'designation' && !['Teacher', 'Subject Teacher'].includes(value)) {
+      if (fieldName === 'designation' && value !== 'Teacher') {
         updated.department = '';
         updated.primarySubject = '';
         updated.secondarySubject = '';
@@ -1158,7 +1158,7 @@ export default function AddTeacher({ setActiveView, editData }) {
                 />
               </div>
 
-              {['Teacher', 'Subject Teacher'].includes(formData.designation) && (
+              {formData.designation === 'Teacher' && (
                 <>
                   <div className="form-group animate-slide-down">
                     <label>Primary Subject</label>
@@ -1742,7 +1742,7 @@ export default function AddTeacher({ setActiveView, editData }) {
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '0.85rem' }}>
                   <div><strong>Role:</strong> {formData.designation || 'N/A'}</div>
-                  {['Teacher', 'Subject Teacher'].includes(formData.designation) && (
+                  {formData.designation === 'Teacher' && (
                     <>
                       <div><strong>Subjects:</strong> {formData.primarySubject || 'N/A'} {formData.secondarySubject ? `, ${formData.secondarySubject}` : ''}</div>
                     </>

@@ -315,6 +315,7 @@ const createTablesFromSchema = async () => {
       "ALTER TABLE academic_calendar_events ADD COLUMN attachments JSON NULL",
       "ALTER TABLE academic_calendar_events ADD COLUMN notifications JSON NULL",
       "ALTER TABLE grades ADD COLUMN sections JSON NULL",
+      "ALTER TABLE grade_departments ADD COLUMN sections JSON NULL",
       "CREATE TABLE IF NOT EXISTS sections (id VARCHAR(50) PRIMARY KEY, name VARCHAR(100) NOT NULL, status VARCHAR(50) DEFAULT 'Active', createdAt VARCHAR(100), updatedAt VARCHAR(100), tenantId VARCHAR(100) NOT NULL, UNIQUE KEY unique_sec_name (name, tenantId))",
       "CREATE TABLE IF NOT EXISTS published_timetables (id VARCHAR(50) PRIMARY KEY, type VARCHAR(50) NOT NULL, identifier VARCHAR(100) NOT NULL, slots JSON NOT NULL, publishedAt VARCHAR(100) NOT NULL, tenantId VARCHAR(100) NOT NULL, UNIQUE KEY unique_pub_tt (type, identifier, tenantId))"
     ];
@@ -924,17 +925,9 @@ export const getDefaultRoles = () => {
       permissions: createEmptyMatrix()
     },
     {
-      id: 'role-subject-teacher',
-      name: 'Subject Teacher',
-      description: 'Subject teacher. Records attendance, enters marks, manages academic activities, and views student profiles.',
-      active: true,
-      isSystem: true,
-      permissions: createEmptyMatrix()
-    },
-    {
-      id: 'role-librarian',
-      name: 'Librarian',
-      description: 'School librarian. Manages library resources, student access, and catalog records.',
+      id: 'role-teacher',
+      name: 'Teacher',
+      description: 'Teacher. Records attendance, enters marks, manages academic activities, and views student profiles.',
       active: true,
       isSystem: true,
       permissions: createEmptyMatrix()
@@ -959,23 +952,6 @@ export const getDefaultRoles = () => {
       id: 'role-expense-manager',
       name: 'Expense Manager',
       description: 'Expense manager. Oversees school expenses, financial reporting, and budgeting.',
-      active: true,
-      isSystem: true,
-      permissions: createEmptyMatrix()
-    },
-    // ===== PORTAL ROLES =====
-    {
-      id: 'role-student',
-      name: 'Student',
-      description: 'Student portal. Views timetables, exam reports, notices, and events.',
-      active: true,
-      isSystem: true,
-      permissions: createEmptyMatrix()
-    },
-    {
-      id: 'role-parent',
-      name: 'Parent',
-      description: 'Parent portal. Views children attendance, fees, academic cards, and school notices.',
       active: true,
       isSystem: true,
       permissions: createEmptyMatrix()
@@ -1522,10 +1498,36 @@ export const loadTenantSqlIntoMemory = async (tenantId) => {
       console.log(`[SQL Preload] Seeded default roles for tenant: ${tId}`);
     }
 
+    // Filter out parent, student, librarian roles in memory cache
+    data.roles = data.roles.filter(r => r.name !== 'Parent' && r.name !== 'Student' && r.name !== 'Librarian' && r.id !== 'role-parent' && r.id !== 'role-student' && r.id !== 'role-librarian');
+    
+    // Rename Subject Teacher to Teacher in memory cache
+    data.roles.forEach(r => {
+      if (r.id === 'role-subject-teacher' || r.name === 'Subject Teacher') {
+        r.id = 'role-teacher';
+        r.name = 'Teacher';
+        r.description = 'Teacher. Records attendance, enters marks, manages academic activities, and views student profiles.';
+      }
+    });
+
     data.userAccess = dbUserAccess.map(ua => ({
       ...ua,
       overrides: typeof ua.overrides === 'string' ? JSON.parse(ua.overrides) : (ua.overrides || {})
     }));
+
+    // Clean up userAccess references in memory cache
+    data.userAccess.forEach(ua => {
+      if (ua.roleId === 'role-subject-teacher') {
+        ua.roleId = 'role-teacher';
+      }
+    });
+
+    // Clean up SQL database roles & user_access table entries if SQL is active
+    if (isSqlActive()) {
+      sqlDb.query("DELETE FROM roles WHERE tenantId = ? AND (name IN ('Parent', 'Student', 'Librarian') OR id IN ('role-parent', 'role-student', 'role-librarian'))", [tId]).catch(() => {});
+      sqlDb.query("UPDATE roles SET id = 'role-teacher', name = 'Teacher', description = 'Teacher. Records attendance, enters marks, manages academic activities, and views student profiles.' WHERE tenantId = ? AND (name = 'Subject Teacher' OR id = 'role-subject-teacher')", [tId]).catch(() => {});
+      sqlDb.query("UPDATE user_access SET roleId = 'role-teacher' WHERE tenantId = ? AND roleId = 'role-subject-teacher'", [tId]).catch(() => {});
+    }
 
     data.auditLogs = dbAuditLogs;
     data.employeeQrCodes = dbQrCodes;
@@ -1568,7 +1570,8 @@ export const loadTenantSqlIntoMemory = async (tenantId) => {
 
     data.gradeDepartments = dbGradeDepts.map(gd => ({
       ...gd,
-      status: gd.status || 'Active'
+      status: gd.status || 'Active',
+      sections: gd.sections ? (typeof gd.sections === 'string' ? JSON.parse(gd.sections) : gd.sections) : []
     }));
 
     dbCache[queryTenantId] = data;
@@ -1732,7 +1735,7 @@ export const saveMemoryDbToSql = async (tenantId, db, previousDb) => {
       const tasks = [];
 
       // 1. Sync global platforms
-      if (db.schools && Array.isArray(db.schools) && hasTableChanged('schools')) {
+      if (tId === 'platform' && db.schools && Array.isArray(db.schools) && hasTableChanged('schools')) {
         tasks.push((async () => {
           const activeSchoolIds = db.schools.map(s => s.id).filter(Boolean);
           let deletedSubdomains = [];
@@ -2808,10 +2811,10 @@ export const saveMemoryDbToSql = async (tenantId, db, previousDb) => {
             await sqlDb.query('DELETE FROM grade_departments WHERE tenantId = ?', [tId]);
           }
 
-          const columns = ['id', 'gradeId', 'departmentId', 'status', 'tenantId', 'createdAt', 'updatedAt'];
-          const updateColumns = ['status', 'updatedAt'];
+          const columns = ['id', 'gradeId', 'departmentId', 'status', 'tenantId', 'createdAt', 'updatedAt', 'sections'];
+          const updateColumns = ['status', 'updatedAt', 'sections'];
           const valueRows = db.gradeDepartments.filter(gd => gd.id).map(gd => [
-            gd.id, gd.gradeId, gd.departmentId, gd.status || 'Active', tId, gd.createdAt || new Date().toISOString(), gd.updatedAt || new Date().toISOString()
+            gd.id, gd.gradeId, gd.departmentId, gd.status || 'Active', tId, gd.createdAt || new Date().toISOString(), gd.updatedAt || new Date().toISOString(), gd.sections ? (typeof gd.sections === 'string' ? gd.sections : JSON.stringify(gd.sections)) : null
           ]);
           await bulkInsertOrUpdate('grade_departments', columns, valueRows, updateColumns);
         })());
@@ -2914,7 +2917,7 @@ export const readDb = () => {
   const activeTenant = tenantId ? slugify(tenantId) : 'platform';
   
   if (isSqlActive() && dbCache[activeTenant]) {
-    return dbCache[activeTenant];
+    return JSON.parse(JSON.stringify(dbCache[activeTenant]));
   }
 
   // Fallback to synchronous local file read
@@ -2977,11 +2980,21 @@ export const readDb = () => {
         '02:00 PM - 03:00 PM'
       ];
     }
-    // Defensive normalization of subjects' grades
-    if (db.subjects && Array.isArray(db.subjects)) {
-      db.subjects.forEach(sub => {
-        if (sub.grade) {
-          sub.grade = convertToRoman(sub.grade);
+    // Clean up Parent, Student, and Librarian roles from local JSON DB
+    if (db.roles) {
+      db.roles = db.roles.filter(r => r.name !== 'Parent' && r.name !== 'Student' && r.name !== 'Librarian' && r.id !== 'role-parent' && r.id !== 'role-student' && r.id !== 'role-librarian');
+      db.roles.forEach(r => {
+        if (r.id === 'role-subject-teacher' || r.name === 'Subject Teacher') {
+          r.id = 'role-teacher';
+          r.name = 'Teacher';
+          r.description = 'Teacher. Records attendance, enters marks, manages academic activities, and views student profiles.';
+        }
+      });
+    }
+    if (db.userAccess) {
+      db.userAccess.forEach(ua => {
+        if (ua.roleId === 'role-subject-teacher') {
+          ua.roleId = 'role-teacher';
         }
       });
     }
@@ -3036,7 +3049,7 @@ export const writeDb = (data) => {
   const activeTenant = tenantId ? slugify(tenantId) : 'platform';
 
   if (isSqlActive()) {
-    const previousData = dbCache[activeTenant];
+    const previousData = dbCache[activeTenant] ? JSON.parse(JSON.stringify(dbCache[activeTenant])) : null;
     
     // Preserve cache validation tokens when updating cache
     if (previousData) {
@@ -3044,10 +3057,12 @@ export const writeDb = (data) => {
       if (previousData._signature) data._signature = previousData._signature;
     }
 
+    const clonedData = JSON.parse(JSON.stringify(data));
+
     // 1. Update memory cache instantly
-    dbCache[activeTenant] = data;
+    dbCache[activeTenant] = clonedData;
     // 2. Dispatch MySQL sync asynchronously in the background
-    saveMemoryDbToSql(activeTenant, data, previousData);
+    saveMemoryDbToSql(activeTenant, clonedData, previousData);
   }
 
   // Backup to JSON file asynchronously to avoid blocking (always for platform owner, or when SQL is inactive)

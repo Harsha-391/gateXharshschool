@@ -2127,8 +2127,11 @@ export default function AcademicPanel({ subView, setAdminView }) {
                     {(() => {
                       const targetG = activeClass.split('-')[0] || '';
                       const matchedG = activeGrades.find(g => g.name === targetG);
-                      const allowedSecs = matchedG ? (matchedG.sections || []) : [];
-                      return allowedSecs.map(secName => (
+                      let allowedSecs = matchedG ? (matchedG.sections || []) : [];
+                      if (allowedSecs.length === 0) {
+                        allowedSecs = activeSections.map(s => s.name);
+                      }
+                      return [...new Set(allowedSecs)].map(secName => (
                         <option key={secName} value={secName}>Section {secName}</option>
                       ));
                     })()}
@@ -2190,9 +2193,12 @@ export default function AcademicPanel({ subView, setAdminView }) {
             >
               <option value="All">All Sections</option>
               {(() => {
-                const allowedSecs = searchGrade !== 'All'
+                let allowedSecs = searchGrade !== 'All'
                   ? (activeGrades.find(g => g.name === searchGrade)?.sections || [])
-                  : activeSections.map(s => s.name);
+                  : [];
+                if (allowedSecs.length === 0) {
+                  allowedSecs = activeSections.map(s => s.name);
+                }
                 return [...new Set(allowedSecs)].map(secName => (
                   <option key={secName} value={secName}>Section {secName}</option>
                 ));

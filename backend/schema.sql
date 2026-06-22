@@ -761,6 +761,7 @@ CREATE TABLE IF NOT EXISTS grade_departments (
   tenantId VARCHAR(100),
   createdAt VARCHAR(100),
   updatedAt VARCHAR(100),
+  sections JSON NULL,
   FOREIGN KEY (gradeId) REFERENCES grades(id) ON DELETE CASCADE,
   FOREIGN KEY (departmentId) REFERENCES departments(id) ON DELETE CASCADE,
   UNIQUE KEY unique_grade_dept (gradeId, departmentId, tenantId)
