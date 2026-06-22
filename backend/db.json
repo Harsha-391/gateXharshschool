@@ -56,33 +56,7 @@
       ]
     }
   ],
-  "schools": [
-    {
-      "id": "SCH-GV-001",
-      "name": "Green Valley Public School",
-      "code": "SCH-GV-001",
-      "subdomain": "greenvalley",
-      "logo": "",
-      "principalName": "Dr. John Miller",
-      "email": "contact@greenvalley.edu",
-      "phone": "1234567890",
-      "address": "Khimel Rani Station Rd",
-      "city": "Bali",
-      "state": "Rajasthan",
-      "country": "India",
-      "academicSession": "2026-2027",
-      "subscriptionPlan": "Growth",
-      "url": "http://greenvalley.localhost:3000",
-      "status": "Active",
-      "adminName": "Zachary Langley",
-      "adminEmail": "qino@mailinator.com",
-      "adminUsername": "school_admin",
-      "adminPassword": "uttam@2004",
-      "ratePerStudent": "250.00",
-      "createdAt": "2026-06-22T04:55:22.768Z",
-      "updatedAt": "2026-06-22T05:01:00.015Z"
-    }
-  ],
+  "schools": [],
   "roles": [
     {
       "id": "role-principal",
@@ -2250,5 +2224,5 @@
   "attendanceRecords": [],
   "attendanceLogs": [],
   "attendanceReports": [],
-  "_signature": "SCH-GV-001-Green Valley Public School-SCH-GV-001-greenvalley--Dr. John Miller-contact@greenvalley.edu-1234567890-Khimel Rani Station Rd-Bali-Rajasthan-India-2026-2027-Growth-http://greenvalley.localhost:3000-Suspended-Zachary Langley-qino@mailinator.com-school_admin-uttam@2004-2026-06-22T04:55:22.768Z"
+  "_signature": ""
 }
