@@ -27,7 +27,15 @@ const app = express();
 const PORT = 5000;
 
 app.use(compression());
-app.use(cors());
+app.use(cors({
+  origin: (origin, callback) => {
+    // Dynamically echo the origin to support credentialed/header requests
+    callback(null, origin || '*');
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-tenant-id']
+}));
 app.use(express.json());
 
 // Multi-Tenant context middleware
