@@ -3,7 +3,14 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.jsx'
 
-// Intercept and redirect all relative /api and /uploads fetch requests to VITE_API_URL in production
+// Intercept, cache, deduplicate, and redirect all relative /api and /uploads fetch requests
+const getCache = new Map();
+const activeRequests = new Map();
+
+const clearGetCache = () => {
+  getCache.clear();
+};
+
 const originalFetch = window.fetch;
 window.fetch = (input, init) => {
   let url = '';
@@ -15,29 +22,89 @@ window.fetch = (input, init) => {
     url = input.toString();
   }
 
+  const method = (init && init.method) ? init.method.toUpperCase() : 'GET';
+  
+  const getTenantHeader = () => {
+    if (init && init.headers) {
+      if (init.headers['x-tenant-id']) return init.headers['x-tenant-id'];
+      if (init.headers.get && typeof init.headers.get === 'function') {
+        return init.headers.get('x-tenant-id');
+      }
+    }
+    if (input instanceof Request && input.headers) {
+      return input.headers.get('x-tenant-id');
+    }
+    return '';
+  };
+  const tenantId = getTenantHeader();
+
   const baseUrl = import.meta.env.VITE_API_URL || '';
+  let target = url;
   if (baseUrl) {
     if (url.startsWith('/api') || url.startsWith('/uploads')) {
-      const target = `${baseUrl}${url}`;
+      target = `${baseUrl}${url}`;
+    } else {
+      const currentOrigin = window.location.origin;
+      if (url.startsWith(currentOrigin)) {
+        const relativePath = url.substring(currentOrigin.length);
+        if (relativePath.startsWith('/api') || relativePath.startsWith('/uploads')) {
+          target = `${baseUrl}${relativePath}`;
+        }
+      }
+    }
+  }
+
+  const isApiGet = method === 'GET' && target.includes('/api/');
+
+  if (!isApiGet) {
+    if (method !== 'GET' && target.includes('/api/')) {
+      clearGetCache();
+    }
+    if (baseUrl && target !== url) {
       if (input instanceof Request) {
         return originalFetch(new Request(target, input), init);
       }
       return originalFetch(target, init);
     }
-    const currentOrigin = window.location.origin;
-    if (url.startsWith(currentOrigin)) {
-      const relativePath = url.substring(currentOrigin.length);
-      if (relativePath.startsWith('/api') || relativePath.startsWith('/uploads')) {
-        const target = `${baseUrl}${relativePath}`;
-        if (input instanceof Request) {
-          return originalFetch(new Request(target, input), init);
-        }
-        return originalFetch(target, init);
-      }
+    return originalFetch(input, init);
+  }
+
+  const cacheKey = `${target}::${tenantId || ''}`;
+  const now = Date.now();
+
+  if (getCache.has(cacheKey)) {
+    const cached = getCache.get(cacheKey);
+    if (now - cached.timestamp < 5000) {
+      return Promise.resolve(cached.response.clone());
+    } else {
+      getCache.delete(cacheKey);
     }
   }
 
-  return originalFetch(input, init);
+  if (activeRequests.has(cacheKey)) {
+    return activeRequests.get(cacheKey).then(res => res.clone());
+  }
+
+  const fetchInput = (input instanceof Request && baseUrl && target !== url) ? new Request(target, input) : (target !== url ? target : input);
+
+  const fetchPromise = originalFetch(fetchInput, init)
+    .then(async (res) => {
+      activeRequests.delete(cacheKey);
+      if (res.ok) {
+        getCache.set(cacheKey, {
+          response: res.clone(),
+          timestamp: Date.now()
+        });
+      }
+      return res;
+    })
+    .catch((err) => {
+      activeRequests.delete(cacheKey);
+      throw err;
+    });
+
+  activeRequests.set(cacheKey, fetchPromise);
+  return fetchPromise.then(res => res.clone());
 };
 
 createRoot(document.getElementById('root')).render(

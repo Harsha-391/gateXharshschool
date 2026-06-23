@@ -812,12 +812,42 @@ const migrateJsonToSql = async () => {
   }
 };
 
+const addTenantIndexes = async () => {
+  const tables = [
+    'students', 'student_enrollments', 'parents', 'addresses', 'medical_records',
+    'documents', 'fee_assignments', 'student_accounts', 'parent_accounts',
+    'employees', 'staff', 'timetables', 'invoices', 'fees', 'expenses',
+    'payroll', 'staff_payments', 'activities', 'exams', 'exam_timetables',
+    'notices', 'holidays', 'events', 'academic_calendar_events', 'academic_calendar_imports',
+    'results', 'overall_results', 'subjects', 'timeslots', 'fee_structures',
+    'salary_structures', 'staff_salary_structures', 'income', 'attendance',
+    'roles', 'user_access', 'audit_logs', 'grades', 'departments', 'grade_departments',
+    'sections', 'published_timetables', 'fee_periods'
+  ];
+  for (const table of tables) {
+    try {
+      const columns = await sqlDb.query(`SHOW COLUMNS FROM \`${table}\` LIKE 'tenantId'`);
+      if (columns && columns.length > 0) {
+        const indexes = await sqlDb.query(`SHOW INDEX FROM \`${table}\` WHERE Key_name = 'idx_tenantId'`);
+        if (!indexes || indexes.length === 0) {
+          await sqlDb.query(`ALTER TABLE \`${table}\` ADD INDEX idx_tenantId (tenantId)`);
+          console.log(`[SQL Init] Created index idx_tenantId on ${table}`);
+        }
+      }
+    } catch (err) {
+      console.warn(`[SQL Init] Could not add index idx_tenantId on ${table}:`, err.message);
+    }
+  }
+};
+
 // Initial database check called on server boot
 export const initSqlDb = async () => {
   const isConnected = await sqlDb.testConnection();
   if (isConnected) {
     // 1. Create tables
     await createTablesFromSchema();
+    // Dynamic database indexing
+    await addTenantIndexes();
     // 2. JSON migration disabled — all data is now managed directly in MySQL
     // await migrateJsonToSql();
     
@@ -1603,6 +1633,7 @@ export const loadTenantSqlIntoMemory = async (tenantId) => {
 };
 
 const activeLoads = {};
+export const lastCheckTimes = {};
 
 // Express middleware to ensure SQL cache is loaded on incoming requests
 export const ensureTenantSqlLoaded = async (req, res, next) => {
@@ -1629,6 +1660,16 @@ export const ensureTenantSqlLoaded = async (req, res, next) => {
 
   const activeTenant = tenantId ? slugify(tenantId) : 'platform';
   
+  const now = Date.now();
+  const cachedData = dbCache[activeTenant];
+  const lastCheck = lastCheckTimes[activeTenant];
+  const hasValidCache = cachedData && lastCheck && (now - lastCheck < 2000);
+  const hasValidPlatform = dbCache['platform'] && lastCheckTimes['platform'] && (now - lastCheckTimes['platform'] < 2000);
+
+  if (hasValidCache && (activeTenant === 'platform' || hasValidPlatform)) {
+    return next();
+  }
+
   try {
     // 1. Validate both platform schools and active tenant context in parallel
     const promises = [
@@ -1638,6 +1679,11 @@ export const ensureTenantSqlLoaded = async (req, res, next) => {
       promises.push(sqlDb.query('SELECT updatedAt FROM schools WHERE subdomain = ?', [activeTenant]));
     }
     const [schoolRows, tenantRows] = await Promise.all(promises);
+
+    lastCheckTimes['platform'] = now;
+    if (activeTenant !== 'platform') {
+      lastCheckTimes[activeTenant] = now;
+    }
 
     const platformSignature = schoolRows.map(s => `${s.id}-${s.name || ''}-${s.code || ''}-${s.subdomain || ''}-${s.logo || ''}-${s.principalName || ''}-${s.email || ''}-${s.phone || ''}-${s.address || ''}-${s.city || ''}-${s.state || ''}-${s.country || ''}-${s.academicSession || ''}-${s.subscriptionPlan || ''}-${s.url || ''}-${s.status || ''}-${s.adminName || ''}-${s.adminEmail || ''}-${s.adminUsername || ''}-${s.adminPassword || ''}-${s.createdAt || ''}`).join('|');
     
@@ -3082,6 +3128,10 @@ export const readDb = () => {
 export const writeDb = (data) => {
   const tenantId = tenantStorage.getStore();
   const activeTenant = tenantId ? slugify(tenantId) : 'platform';
+
+  // Invalidate cache timing checks on database modifications
+  delete lastCheckTimes[activeTenant];
+  delete lastCheckTimes['platform'];
 
   if (isSqlActive()) {
     const previousData = dbCache[activeTenant] ? JSON.parse(JSON.stringify(dbCache[activeTenant])) : null;

@@ -255,14 +255,34 @@ export default function TeacherList({ setActiveView, readOnly = true, onAddClick
   // ==========================================
   const handleDeleteTeacher = async (teacherId, teacherName) => {
     if (window.confirm(`Are you sure you want to dismiss ${teacherName} (${teacherId}) from the faculty roster?`)) {
+      const originalTeachers = [...teachers];
+      const originalTotalCount = totalCount;
+
+      // Optimistically update local state
+      setTeachers(prev => prev.filter(t => (t.employeeId !== teacherId && t.id !== teacherId)));
+      setTotalCount(prev => Math.max(0, prev - 1));
+      if (selectedTeacher && (selectedTeacher.employeeId === teacherId || selectedTeacher.id === teacherId)) {
+        setSelectedTeacher(null);
+      }
+
       try {
         const res = await fetch(`/api/teachers/${teacherId}`, { method: 'DELETE' });
-        if (res.ok) {
+        if (!res.ok) {
+          // Rollback on server failure
+          setTeachers(originalTeachers);
+          setTotalCount(originalTotalCount);
+          const errData = await res.json();
+          alert(errData.error || 'Server error occurred while dismissing teacher.');
+        } else {
+          // Sync with database
           fetchTeachers();
-          setSelectedTeacher(null);
         }
       } catch (err) {
         console.error('Error removing teacher record:', err);
+        // Rollback on network failure
+        setTeachers(originalTeachers);
+        setTotalCount(originalTotalCount);
+        alert('Network error dismissing teacher.');
       }
     }
   };

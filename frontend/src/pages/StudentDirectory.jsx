@@ -394,14 +394,34 @@ export default function StudentDirectory({ readOnly = true, onAddClick, onEditCl
   // Delete Student Profile
   const handleDeleteStudent = async (studentId, studentName) => {
     if (window.confirm(`Are you sure you want to completely dismiss student ${studentName} (${studentId}) from the ERP registry?`)) {
+      const originalStudents = [...students];
+      const originalTotalCount = totalCount;
+
+      // Optimistically update local states
+      setStudents(prev => prev.filter(s => s.id !== studentId));
+      setTotalCount(prev => Math.max(0, prev - 1));
+      if (selectedStudent && selectedStudent.id === studentId) {
+        setSelectedStudent(null);
+      }
+
       try {
         const res = await fetch(`/api/students/${studentId}`, { method: 'DELETE' });
-        if (res.ok) {
+        if (!res.ok) {
+          // Rollback on server failure
+          setStudents(originalStudents);
+          setTotalCount(originalTotalCount);
+          const errData = await res.json();
+          alert(errData.error || 'Server error occurred while deleting student.');
+        } else {
+          // Re-fetch in background to synchronize pagination
           fetchStudents();
-          setSelectedStudent(null);
         }
       } catch (err) {
         console.error('Error removing student record:', err);
+        // Rollback on network failure
+        setStudents(originalStudents);
+        setTotalCount(originalTotalCount);
+        alert('Network error removing student record.');
       }
     }
   };

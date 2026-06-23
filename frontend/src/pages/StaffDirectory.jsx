@@ -227,14 +227,26 @@ export default function StaffDirectory({ readOnly = true, onAddClick, onEditClic
 
   const handleDeleteStaff = async (staffId) => {
     if (window.confirm('Are you sure you want to dismiss this employee?')) {
+      const originalStaffList = [...staffList];
+
+      // Optimistically update local state
+      setStaffList(prev => prev.filter(s => s.id !== staffId));
+      if (inspectStaff?.id === staffId) {
+        setInspectStaff(null);
+      }
+
       try {
         const res = await fetch(`/api/staff/${staffId}`, { method: 'DELETE' });
-        if (res.ok) {
-          setStaffList(staffList.filter(s => s.id !== staffId));
-          if (inspectStaff?.id === staffId) setInspectStaff(null);
+        if (!res.ok) {
+          // Rollback on server failure
+          setStaffList(originalStaffList);
+          alert('Failed to delete staff member.');
         }
       } catch (err) {
         console.error('Error removing staff:', err);
+        // Rollback on network failure
+        setStaffList(originalStaffList);
+        alert('Network error removing staff member.');
       }
     }
   };
