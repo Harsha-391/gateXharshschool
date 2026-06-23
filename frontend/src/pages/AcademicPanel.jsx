@@ -4952,6 +4952,8 @@ export default function AcademicPanel({ subView, setAdminView }) {
       const parts = host.split('.');
       if (parts.length > 2 || (parts.length === 2 && parts[1] === 'localhost')) {
         tenant = parts[0];
+      } else if (parts.length === 1 && !['localhost', 'platform', 'www', 'admin'].includes(parts[0].toLowerCase())) {
+        tenant = parts[0];
       }
     }
     if (!tenant) {

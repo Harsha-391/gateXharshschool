@@ -45,6 +45,15 @@ window.fetch = function (url, options = {}) {
     targetUrl = url.url || url.href || '';
   }
 
+  if (targetUrl) {
+    targetUrl = targetUrl.replace(/([^:]\/)\/+/g, "$1");
+    if (targetUrl.startsWith('//')) {
+      if (targetUrl.startsWith('//api') || targetUrl.startsWith('//uploads')) {
+        targetUrl = targetUrl.substring(1);
+      }
+    }
+  }
+
   let pathname = targetUrl;
   try {
     const parsed = new URL(targetUrl, window.location.origin);
@@ -64,6 +73,8 @@ window.fetch = function (url, options = {}) {
       if (!isIp) {
         const parts = host.split('.');
         if (parts.length > 2 || (parts.length === 2 && parts[1] === 'localhost')) {
+          tenant = parts[0];
+        } else if (parts.length === 1 && !['localhost', 'platform', 'www', 'admin'].includes(parts[0].toLowerCase())) {
           tenant = parts[0];
         }
       }
@@ -87,7 +98,7 @@ window.fetch = function (url, options = {}) {
   // For mutations (POST, PUT, DELETE, PATCH), invalidate the cache
   if (isApiCall && ['POST', 'PUT', 'DELETE', 'PATCH'].includes(method)) {
     apiCache.clear();
-    return originalFetch(url, options).then(async (response) => {
+    return originalFetch(targetUrl || url, options).then(async (response) => {
       if (response.status === 403) {
         try {
           const clone = response.clone();
@@ -103,7 +114,7 @@ window.fetch = function (url, options = {}) {
 
   // Only apply caching to API GET requests
   if (method !== 'GET' || !isApiCall) {
-    return originalFetch(url, options);
+    return originalFetch(targetUrl || url, options);
   }
 
   const cacheKey = getCacheKey(targetUrl, options);
@@ -118,7 +129,7 @@ window.fetch = function (url, options = {}) {
   // Return stale cache (between 5s and 5m) and trigger background revalidation (SWR)
   if (cached && (now - cached.timestamp < 300000)) {
     if (!pendingRequests.has(cacheKey)) {
-      const revalidatePromise = originalFetch(url, options)
+      const revalidatePromise = originalFetch(targetUrl || url, options)
         .then(async (response) => {
           pendingRequests.delete(cacheKey);
           if (response.ok) {
@@ -144,7 +155,7 @@ window.fetch = function (url, options = {}) {
   }
 
   // Perform full fresh fetch
-  const fetchPromise = originalFetch(url, options)
+  const fetchPromise = originalFetch(targetUrl || url, options)
     .then(async (response) => {
       pendingRequests.delete(cacheKey);
       
@@ -276,6 +287,9 @@ export default function App() {
     const host = window.location.hostname;
     const parts = host.split('.');
     if (parts.length > 2 || (parts.length === 2 && parts[1] === 'localhost')) {
+      return parts[0];
+    }
+    if (parts.length === 1 && !['localhost', 'platform', 'www', 'admin'].includes(parts[0].toLowerCase())) {
       return parts[0];
     }
     const urlParams = new URLSearchParams(window.location.search);
@@ -549,7 +563,7 @@ export default function App() {
     const tenant = getActiveTenant();
     const host = window.location.hostname;
     const parts = host.split('.');
-    const isSubdomainResolved = parts.length > 2 || (parts.length === 2 && parts[1] === 'localhost');
+    const isSubdomainResolved = parts.length > 2 || (parts.length === 2 && parts[1] === 'localhost') || (parts.length === 1 && !['localhost', 'platform', 'www', 'admin'].includes(parts[0].toLowerCase()));
     const query = (tenant && !isSubdomainResolved) ? `?tenant=${tenant}` : '';
 
     const isLoggedIn = isDeveloperAdmin || isAdmin || isSchoolAdmin;
@@ -661,7 +675,7 @@ export default function App() {
             // Remove username/password query params but keep the tenant (only if not resolved from subdomain)
             const host = window.location.hostname;
             const parts = host.split('.');
-            const isSubdomainResolved = parts.length > 2 || (parts.length === 2 && parts[1] === 'localhost');
+            const isSubdomainResolved = parts.length > 2 || (parts.length === 2 && parts[1] === 'localhost') || (parts.length === 1 && !['localhost', 'platform', 'www', 'admin'].includes(parts[0].toLowerCase()));
             const cleanUrl = window.location.pathname + (isSubdomainResolved ? '' : `?tenant=${tenantParam}`);
             window.history.replaceState(null, '', cleanUrl);
 
@@ -712,7 +726,7 @@ export default function App() {
     const tenant = getActiveTenant();
     const host = window.location.hostname;
     const parts = host.split('.');
-    const isSubdomainResolved = parts.length > 2 || (parts.length === 2 && parts[1] === 'localhost');
+    const isSubdomainResolved = parts.length > 2 || (parts.length === 2 && parts[1] === 'localhost') || (parts.length === 1 && !['localhost', 'platform', 'www', 'admin'].includes(parts[0].toLowerCase()));
     const query = (tenant && !isSubdomainResolved) ? `?tenant=${tenant}` : '';
     window.history.pushState(null, '', `/${query}`);
   };
@@ -725,6 +739,9 @@ export default function App() {
     sessionStorage.setItem('portal_role', 'Main Admin');
 
     const tenant = getActiveTenant();
+    const host = window.location.hostname;
+    const parts = host.split('.');
+    const isSubdomainResolved = parts.length > 2 || (parts.length === 2 && parts[1] === 'localhost') || (parts.length === 1 && !['localhost', 'platform', 'www', 'admin'].includes(parts[0].toLowerCase()));
     const query = (tenant && !isSubdomainResolved) ? `?tenant=${tenant}` : '';
     window.history.pushState(null, '', `/students${query}`);
   };
@@ -823,7 +840,7 @@ export default function App() {
     const host = window.location.hostname;
     const parts = host.split('.');
     let loginTenant = null;
-    if (parts.length > 2 || (parts.length === 2 && parts[1] === 'localhost')) {
+    if (parts.length > 2 || (parts.length === 2 && parts[1] === 'localhost') || (parts.length === 1 && !['localhost', 'platform', 'www', 'admin'].includes(parts[0].toLowerCase()))) {
       loginTenant = parts[0];
     } else {
       const urlParams = new URLSearchParams(window.location.search);

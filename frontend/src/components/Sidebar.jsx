@@ -776,10 +776,10 @@ export default function Sidebar({
                   setMobileOpen(false);
                   
                   const parts = window.location.hostname.split('.');
-                  const isSubdomainResolved = parts.length > 2 || (parts.length === 2 && parts[1] === 'localhost');
+                  const isSubdomainResolved = parts.length > 2 || (parts.length === 2 && parts[1] === 'localhost') || (parts.length === 1 && !['localhost', 'platform', 'www', 'admin'].includes(parts[0].toLowerCase()));
                   let targetUrl = '/';
                   if (isSubdomainResolved) {
-                    const baseHostname = parts.length === 2 && parts[1] === 'localhost' ? 'localhost' : parts.slice(1).join('.');
+                    const baseHostname = parts.length === 2 && parts[1] === 'localhost' ? 'localhost' : (parts.length === 1 ? 'localhost' : parts.slice(1).join('.'));
                     targetUrl = `${window.location.protocol}//${baseHostname}${window.location.port ? `:${window.location.port}` : ''}/`;
                   }
                   window.location.href = targetUrl;

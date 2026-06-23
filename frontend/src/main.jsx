@@ -41,18 +41,24 @@ window.fetch = (input, init) => {
   const baseUrl = import.meta.env.VITE_API_URL || '';
   let target = url;
   if (baseUrl) {
+    const cleanBaseUrl = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
+    const cleanUrl = url.startsWith('/') ? url : `/${url}`;
     if (url.startsWith('/api') || url.startsWith('/uploads')) {
-      target = `${baseUrl}${url}`;
+      target = `${cleanBaseUrl}${cleanUrl}`;
     } else {
       const currentOrigin = window.location.origin;
       if (url.startsWith(currentOrigin)) {
         const relativePath = url.substring(currentOrigin.length);
+        const cleanRelativePath = relativePath.startsWith('/') ? relativePath : `/${relativePath}`;
         if (relativePath.startsWith('/api') || relativePath.startsWith('/uploads')) {
-          target = `${baseUrl}${relativePath}`;
+          target = `${cleanBaseUrl}${cleanRelativePath}`;
         }
       }
     }
   }
+
+  // Prevent double slashes in target URL (preserving protocol double slash)
+  target = target.replace(/([^:]\/)\/+/g, "$1");
 
   const isApiGet = method === 'GET' && target.includes('/api/');
 
@@ -60,7 +66,7 @@ window.fetch = (input, init) => {
     if (method !== 'GET' && target.includes('/api/')) {
       clearGetCache();
     }
-    if (baseUrl && target !== url) {
+    if (target !== url) {
       if (input instanceof Request) {
         return originalFetch(new Request(target, input), init);
       }

@@ -55,6 +55,8 @@ app.use((req, res, next) => {
       const parts = host.split('.');
       if (parts.length > 2 || (parts.length === 2 && parts[1] === 'localhost')) {
         tenantId = parts[0];
+      } else if (parts.length === 1 && !['localhost', 'platform', 'www', 'admin'].includes(parts[0].toLowerCase())) {
+        tenantId = parts[0];
       }
     }
   }
@@ -127,7 +129,7 @@ app.post('/api/auth/login', (req, res) => {
   const db = readDb(); // This will read the tenant-specific db because tenantId is set!
   
   // Find school info
-  const schoolRecord = (globalDb.schools || []).find(s => s.subdomain === tenantId);
+  const schoolRecord = (globalDb.schools || []).find(s => slugify(s.subdomain) === slugify(tenantId));
   if (!schoolRecord) {
     return res.status(404).json({ error: 'School domain registration not found.' });
   }

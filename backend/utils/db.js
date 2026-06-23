@@ -70,6 +70,8 @@ export const restoreTenantContext = (req, res, next) => {
       const parts = host.split('.');
       if (parts.length > 2 || (parts.length === 2 && parts[1] === 'localhost')) {
         tenantId = parts[0];
+      } else if (parts.length === 1 && !['localhost', 'platform', 'www', 'admin'].includes(parts[0].toLowerCase())) {
+        tenantId = parts[0];
       }
     }
   }
@@ -1205,7 +1207,7 @@ export const loadTenantSqlIntoMemory = async (tenantId) => {
     }));
 
     if (!isGlobal) {
-      const matchedSchool = globalSchools.find(s => s.subdomain === tenantId);
+      const matchedSchool = globalSchools.find(s => slugify(s.subdomain) === slugify(tenantId));
       if (matchedSchool) {
         data.school = {
           name: matchedSchool.name,
@@ -1654,6 +1656,8 @@ export const ensureTenantSqlLoaded = async (req, res, next) => {
     const host = req.headers.host.split(':')[0]; // Remove port
     const parts = host.split('.');
     if (parts.length > 2 || (parts.length === 2 && parts[1] === 'localhost')) {
+      tenantId = parts[0];
+    } else if (parts.length === 1 && !['localhost', 'platform', 'www', 'admin'].includes(parts[0].toLowerCase())) {
       tenantId = parts[0];
     }
   }
