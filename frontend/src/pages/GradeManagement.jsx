@@ -182,6 +182,7 @@ export default function GradeManagement({ currentSubView, setAdminView, showToas
   };
 
   const handleRemoveSectionDirectly = async (grade, secName) => {
+    if (!window.confirm(`Are you sure you want to remove section "${secName}"?`)) return;
     const remainingSections = (grade.sections || []).filter(name => name !== secName);
     try {
       const res = await fetch(`/api/grades/${grade.id}`, {
@@ -268,6 +269,7 @@ export default function GradeManagement({ currentSubView, setAdminView, showToas
   };
 
   const handleDeleteModalSubject = async (subId, subName) => {
+    if (!window.confirm(`Are you sure you want to delete subject "${subName}"?`)) return;
     try {
       const res = await fetch(`/api/academics/subjects/${subId}`, {
         method: 'DELETE'
