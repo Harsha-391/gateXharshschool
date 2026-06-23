@@ -1799,6 +1799,7 @@ export const saveMemoryDbToSql = async (tenantId, db, changedKeys, newUpdatedAt)
       console.log(`[SQL Sync] Initiating async MySQL database update for tenant: ${tId} (${changedKeys.size} changed)`);
 
       const tasks = [];
+      const dependentTasks = [];
 
       // 1. Sync global platforms
       if (tId === 'platform' && db.schools && Array.isArray(db.schools) && hasTableChanged('schools')) {
@@ -2666,7 +2667,7 @@ export const saveMemoryDbToSql = async (tenantId, db, changedKeys, newUpdatedAt)
 
       // 20. Sync Employee QR Codes
       if (db.employeeQrCodes && Array.isArray(db.employeeQrCodes) && hasTableChanged('employeeQrCodes')) {
-        tasks.push((async () => {
+        dependentTasks.push(async () => {
           const activeQrIds = db.employeeQrCodes.map(q => q.id).filter(Boolean);
           if (activeQrIds.length > 0) {
             await sqlDb.query(`DELETE FROM employee_qr_codes WHERE tenantId = ? AND id NOT IN (${activeQrIds.map(() => '?').join(',')})`, [tId, ...activeQrIds]);
@@ -2693,12 +2694,12 @@ export const saveMemoryDbToSql = async (tenantId, db, changedKeys, newUpdatedAt)
             ]);
           }
           await bulkInsertOrUpdate('employee_qr_codes', columns, valueRows, updateColumns);
-        })());
+        });
       }
 
       // 21. Sync Attendance Records
       if (db.attendanceRecords && Array.isArray(db.attendanceRecords) && hasTableChanged('attendanceRecords')) {
-        tasks.push((async () => {
+        dependentTasks.push(async () => {
           const activeAttIds = db.attendanceRecords.map(a => a.id).filter(Boolean);
           if (activeAttIds.length > 0) {
             await sqlDb.query(`DELETE FROM attendance_records WHERE tenantId = ? AND id NOT IN (${activeAttIds.map(() => '?').join(',')})`, [tId, ...activeAttIds]);
@@ -2725,12 +2726,12 @@ export const saveMemoryDbToSql = async (tenantId, db, changedKeys, newUpdatedAt)
             ]);
           }
           await bulkInsertOrUpdate('attendance_records', columns, valueRows, updateColumns);
-        })());
+        });
       }
 
       // 22. Sync Attendance Logs
       if (db.attendanceLogs && Array.isArray(db.attendanceLogs) && hasTableChanged('attendanceLogs')) {
-        tasks.push((async () => {
+        dependentTasks.push(async () => {
           const activeLogIds = db.attendanceLogs.map(l => l.id).filter(Boolean);
           if (activeLogIds.length > 0) {
             await sqlDb.query(`DELETE FROM attendance_logs WHERE tenantId = ? AND id NOT IN (${activeLogIds.map(() => '?').join(',')})`, [tId, ...activeLogIds]);
@@ -2757,7 +2758,7 @@ export const saveMemoryDbToSql = async (tenantId, db, changedKeys, newUpdatedAt)
             ]);
           }
           await bulkInsertOrUpdate('attendance_logs', columns, valueRows, updateColumns);
-        })());
+        });
       }
 
       // 23. Sync Attendance Reports
@@ -2884,7 +2885,7 @@ export const saveMemoryDbToSql = async (tenantId, db, changedKeys, newUpdatedAt)
 
       // Sync central grade mappings
       if (db.gradeDepartments && Array.isArray(db.gradeDepartments) && hasTableChanged('gradeDepartments')) {
-        tasks.push((async () => {
+        dependentTasks.push(async () => {
           const activeMappingIds = db.gradeDepartments.map(gd => gd.id).filter(Boolean);
           if (activeMappingIds.length > 0) {
             await sqlDb.query(`DELETE FROM grade_departments WHERE tenantId = ? AND id NOT IN (${activeMappingIds.map(() => '?').join(',')})`, [tId, ...activeMappingIds]);
@@ -2898,7 +2899,7 @@ export const saveMemoryDbToSql = async (tenantId, db, changedKeys, newUpdatedAt)
             gd.id, gd.gradeId, gd.departmentId, gd.status || 'Active', tId, gd.createdAt || new Date().toISOString(), gd.updatedAt || new Date().toISOString(), gd.sections ? (typeof gd.sections === 'string' ? gd.sections : JSON.stringify(gd.sections)) : null
           ]);
           await bulkInsertOrUpdate('grade_departments', columns, valueRows, updateColumns);
-        })());
+        });
       }
 
       // Sync sections
@@ -2966,8 +2967,13 @@ export const saveMemoryDbToSql = async (tenantId, db, changedKeys, newUpdatedAt)
       // Execute all synchronization tasks concurrently!
       await Promise.all(tasks);
 
+      // Execute dependent tasks after independent tasks have completed to satisfy Foreign Key constraints
+      if (dependentTasks.length > 0) {
+        await Promise.all(dependentTasks.map(fn => fn()));
+      }
+
       // 27. Update schools.updatedAt timestamp to trigger cache validation for other instances
-      if (tId !== 'platform' && tasks.length > 0) {
+      if (tId !== 'platform' && (tasks.length > 0 || dependentTasks.length > 0)) {
         const syncTs = newUpdatedAt || new Date().toISOString();
         await sqlDb.query("UPDATE schools SET updatedAt = ? WHERE subdomain = ?", [syncTs, tId]);
         if (dbCache[tId]) {
