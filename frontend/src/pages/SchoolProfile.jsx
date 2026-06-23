@@ -257,10 +257,17 @@ export default function SchoolProfile({ schoolDetails, fetchSchoolDetails, isDev
   }, []);
 
   const handleInputChange = (e) => {
+    const { name, value } = e.target;
     setFormData({
       ...formData,
-      [e.target.name]: e.target.value
+      [name]: value
     });
+    if (formErrors[name]) {
+      setFormErrors({
+        ...formErrors,
+        [name]: ''
+      });
+    }
   };
 
   const handleOpenAddModal = () => {
@@ -325,8 +332,8 @@ export default function SchoolProfile({ schoolDetails, fetchSchoolDetails, isDev
     if (modalMode === 'add') {
       if (!formData.subdomain.trim()) {
         errors.subdomain = 'Subdomain is required.';
-      } else if (!/^[a-z]+(-[a-z]+)*$/.test(formData.subdomain.toLowerCase())) {
-        errors.subdomain = 'Subdomain must contain only letters (a-z) and hyphens.';
+      } else if (!/^[a-zA-Z]+(-[a-zA-Z]+)*$/.test(formData.subdomain)) {
+        errors.subdomain = 'Subdomain must contain only letters (a-z, A-Z) and hyphens.';
       }
       
       if (!formData.adminEmail.trim()) {
