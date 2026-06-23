@@ -1016,6 +1016,34 @@ export const getDefaultRoles = () => {
   ];
 };
 
+const repairGradesAndMappings = async (tId) => {
+  try {
+    const dbGrades = await sqlDb.query('SELECT * FROM grades WHERE tenantId = ?', [tId]);
+    for (const g of dbGrades) {
+      const correctId = `grade-${tId}-${slugify(convertToRoman(g.name))}`;
+      if (g.id !== correctId) {
+        console.log(`[SQL Repair] Grade ID mismatch for tenant ${tId}: "${g.name}" has ID "${g.id}", expected "${correctId}". Repairing...`);
+        await sqlDb.query('SET FOREIGN_KEY_CHECKS = 0');
+        await sqlDb.query('UPDATE grades SET id = ? WHERE id = ? AND tenantId = ?', [correctId, g.id, tId]);
+        await sqlDb.query('UPDATE grade_departments SET gradeId = ?, id = CONCAT("map-", ?, "-", departmentId) WHERE gradeId = ? AND tenantId = ?', [correctId, correctId, g.id, tId]);
+        await sqlDb.query('SET FOREIGN_KEY_CHECKS = 1');
+      }
+    }
+    const dbMappings = await sqlDb.query('SELECT * FROM grade_departments WHERE tenantId = ?', [tId]);
+    for (const m of dbMappings) {
+      const correctMapId = `map-${m.gradeId}-${m.departmentId}`;
+      if (m.id !== correctMapId) {
+        console.log(`[SQL Repair] Mapping ID mismatch for tenant ${tId}: ID "${m.id}", expected "${correctMapId}". Repairing...`);
+        await sqlDb.query('SET FOREIGN_KEY_CHECKS = 0');
+        await sqlDb.query('UPDATE grade_departments SET id = ? WHERE id = ? AND tenantId = ?', [correctMapId, m.id, tId]);
+        await sqlDb.query('SET FOREIGN_KEY_CHECKS = 1');
+      }
+    }
+  } catch (err) {
+    console.error(`[SQL Repair ERROR] Failed to repair grades/mappings for tenant ${tId}:`, err);
+  }
+};
+
 // Load dynamic cached tenant details from MySQL database
 export const loadTenantSqlIntoMemory = async (tenantId) => {
   try {
@@ -1024,6 +1052,10 @@ export const loadTenantSqlIntoMemory = async (tenantId) => {
     const isGlobal = !tenantId || tenantId === 'localhost' || tenantId === 'platform';
     const queryTenantId = isGlobal ? 'platform' : tenantId;
     const tId = queryTenantId;
+
+    if (!isGlobal) {
+      await repairGradesAndMappings(tId);
+    }
     
     // Create base data structure
     const data = {
