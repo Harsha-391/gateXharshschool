@@ -1023,19 +1023,52 @@ const repairGradesAndMappings = async (tId) => {
       const correctId = `grade-${tId}-${slugify(convertToRoman(g.name))}`;
       if (g.id !== correctId) {
         console.log(`[SQL Repair] Grade ID mismatch for tenant ${tId}: "${g.name}" has ID "${g.id}", expected "${correctId}". Repairing...`);
+        
         await sqlDb.query('SET FOREIGN_KEY_CHECKS = 0');
-        await sqlDb.query('UPDATE grades SET id = ? WHERE id = ? AND tenantId = ?', [correctId, g.id, tId]);
-        await sqlDb.query('UPDATE grade_departments SET gradeId = ?, id = CONCAT("map-", ?, "-", departmentId) WHERE gradeId = ? AND tenantId = ?', [correctId, correctId, g.id, tId]);
+        
+        // Check if correctId already exists
+        const exists = dbGrades.some(x => x.id === correctId);
+        if (exists) {
+          // Merge mappings to the existing correct grade
+          const mappingsToUpdate = await sqlDb.query('SELECT * FROM grade_departments WHERE gradeId = ? AND tenantId = ?', [g.id, tId]);
+          for (const m of mappingsToUpdate) {
+            const correctMapId = `map-${correctId}-${m.departmentId}`;
+            // Check if mapping already exists under the correct grade
+            const mapExists = await sqlDb.query('SELECT * FROM grade_departments WHERE id = ? AND tenantId = ?', [correctMapId, tId]);
+            if (mapExists.length > 0) {
+              // Delete duplicate mapping
+              await sqlDb.query('DELETE FROM grade_departments WHERE id = ? AND tenantId = ?', [m.id, tId]);
+            } else {
+              // Update mapping to use correct grade ID
+              await sqlDb.query('UPDATE grade_departments SET gradeId = ?, id = ? WHERE id = ? AND tenantId = ?', [correctId, correctMapId, m.id, tId]);
+            }
+          }
+          // Delete duplicate grade
+          await sqlDb.query('DELETE FROM grades WHERE id = ? AND tenantId = ?', [g.id, tId]);
+        } else {
+          // Standard rename
+          await sqlDb.query('UPDATE grades SET id = ? WHERE id = ? AND tenantId = ?', [correctId, g.id, tId]);
+          await sqlDb.query('UPDATE grade_departments SET gradeId = ?, id = CONCAT("map-", ?, "-", departmentId) WHERE gradeId = ? AND tenantId = ?', [correctId, correctId, g.id, tId]);
+        }
+        
         await sqlDb.query('SET FOREIGN_KEY_CHECKS = 1');
       }
     }
+    
+    // Ensure all remaining mappings have correct map IDs
     const dbMappings = await sqlDb.query('SELECT * FROM grade_departments WHERE tenantId = ?', [tId]);
     for (const m of dbMappings) {
       const correctMapId = `map-${m.gradeId}-${m.departmentId}`;
       if (m.id !== correctMapId) {
         console.log(`[SQL Repair] Mapping ID mismatch for tenant ${tId}: ID "${m.id}", expected "${correctMapId}". Repairing...`);
         await sqlDb.query('SET FOREIGN_KEY_CHECKS = 0');
-        await sqlDb.query('UPDATE grade_departments SET id = ? WHERE id = ? AND tenantId = ?', [correctMapId, m.id, tId]);
+        // Delete if target mapping ID already exists, otherwise update
+        const mapExists = await sqlDb.query('SELECT * FROM grade_departments WHERE id = ? AND tenantId = ?', [correctMapId, tId]);
+        if (mapExists.length > 0) {
+          await sqlDb.query('DELETE FROM grade_departments WHERE id = ? AND tenantId = ?', [m.id, tId]);
+        } else {
+          await sqlDb.query('UPDATE grade_departments SET id = ? WHERE id = ? AND tenantId = ?', [correctMapId, m.id, tId]);
+        }
         await sqlDb.query('SET FOREIGN_KEY_CHECKS = 1');
       }
     }
@@ -1043,6 +1076,7 @@ const repairGradesAndMappings = async (tId) => {
     console.error(`[SQL Repair ERROR] Failed to repair grades/mappings for tenant ${tId}:`, err);
   }
 };
+
 
 // Load dynamic cached tenant details from MySQL database
 export const loadTenantSqlIntoMemory = async (tenantId) => {
