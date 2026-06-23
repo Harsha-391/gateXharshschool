@@ -1013,7 +1013,7 @@ function AllExpensesView({ expenses, showToast, fetchExpenses, autoOpenAddForm =
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ background: 'rgba(255,255,255,0.01)', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                {['ID', 'Expense Title', 'Category', 'Vendor', 'Amount', 'Date', 'Method', 'Actions'].map(h => (
+                {['ID', 'Expense Title', 'Category', 'Vendor', 'Amount', 'Date', 'Method'].map(h => (
                   <th key={h} style={{ padding: '14px 16px', textAlign: 'left', fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{h}</th>
                 ))}
               </tr>
@@ -1021,7 +1021,7 @@ function AllExpensesView({ expenses, showToast, fetchExpenses, autoOpenAddForm =
             <tbody>
               {paginated.length === 0 ? (
                 <tr>
-                  <td colSpan={8} style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)', fontSize: '0.85rem' }}>No expenses found matching the selected filters.</td>
+                  <td colSpan={7} style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)', fontSize: '0.85rem' }}>No expenses found matching the selected filters.</td>
                 </tr>
               ) : (
                 paginated.map((exp, i) => (
@@ -1033,43 +1033,6 @@ function AllExpensesView({ expenses, showToast, fetchExpenses, autoOpenAddForm =
                     <td style={{ padding: '12px 16px', fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-main)' }}>₹{exp.amount?.toLocaleString()}</td>
                     <td style={{ padding: '12px 16px', fontSize: '0.78rem', color: 'var(--text-muted)' }}>{exp.date}</td>
                     <td style={{ padding: '12px 16px', fontSize: '0.78rem', color: 'var(--text-muted)' }}>{exp.paymentDetails?.method || 'Cash'}</td>
-                    <td style={{ padding: '12px 16px' }}>
-                      <div style={{ display: 'flex', gap: '8px' }}>
-                        <button 
-                          onClick={() => setSelectedExpense(exp)}
-                          style={{
-                            background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)',
-                            color: '#3b82f6', cursor: 'pointer', padding: '6px', borderRadius: '6px'
-                          }}
-                          title="View Details"
-                        >
-                          <Eye size={14} />
-                        </button>
-                        <button 
-                          onClick={() => {
-                            setEditingExpense(exp);
-                            setShowAddForm(true);
-                          }}
-                          style={{
-                            background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)',
-                            color: '#f59e0b', cursor: 'pointer', padding: '6px', borderRadius: '6px'
-                          }}
-                          title="Edit Expense"
-                        >
-                          <Edit2 size={14} />
-                        </button>
-                        <button 
-                          onClick={() => handleDelete(exp.expenseId, exp.title)}
-                          style={{
-                            background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)',
-                            color: '#ef4444', cursor: 'pointer', padding: '6px', borderRadius: '6px'
-                          }}
-                          title="Delete Record"
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      </div>
-                    </td>
                   </tr>
                 ))
               )}
@@ -2501,7 +2464,7 @@ function HistoryView({ expenses, expenseHistory, fetchExpenses, showToast, budge
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ background: 'rgba(255,255,255,0.01)', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                {['ID', 'Expense Title', 'Category', 'Vendor', 'Amount', 'Date', 'Method', 'Actions'].map(h => (
+                {['ID', 'Expense Title', 'Category', 'Vendor', 'Amount', 'Date', 'Method'].map(h => (
                   <th key={h} style={{ padding: '14px 16px', textAlign: 'left', fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{h}</th>
                 ))}
               </tr>
@@ -2509,7 +2472,7 @@ function HistoryView({ expenses, expenseHistory, fetchExpenses, showToast, budge
             <tbody>
               {filteredPeriodExpenses.length === 0 ? (
                 <tr>
-                  <td colSpan={8} style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)', fontSize: '0.82rem' }}>
+                  <td colSpan={7} style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)', fontSize: '0.82rem' }}>
                     No recorded operational expenses found in this fiscal period.
                   </td>
                 </tr>
@@ -2528,18 +2491,7 @@ function HistoryView({ expenses, expenseHistory, fetchExpenses, showToast, budge
                     <td style={{ padding: '12px 16px', fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-main)', textDecoration: exp.deleted ? 'line-through' : 'none' }}>₹{exp.amount?.toLocaleString()}</td>
                     <td style={{ padding: '12px 16px', fontSize: '0.78rem', color: 'var(--text-muted)', textDecoration: exp.deleted ? 'line-through' : 'none' }}>{exp.date}</td>
                     <td style={{ padding: '12px 16px', fontSize: '0.78rem', color: 'var(--text-muted)', textDecoration: exp.deleted ? 'line-through' : 'none' }}>{exp.paymentDetails?.method || 'Cash'}</td>
-                    <td style={{ padding: '12px 16px' }}>
-                      <button 
-                        onClick={() => setSelectedExpense(exp)}
-                        style={{
-                          background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)',
-                          color: '#3b82f6', cursor: 'pointer', padding: '6px', borderRadius: '6px', display: 'flex', alignItems: 'center'
-                        }}
-                        title="View Details"
-                      >
-                        <Eye size={14} />
-                      </button>
-                    </td>
+
                   </tr>
                 ))
               )}

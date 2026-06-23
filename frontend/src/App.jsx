@@ -76,7 +76,7 @@ window.fetch = function (url, options = {}) {
       }
     }
     const token = sessionStorage.getItem('token');
-    if (token) {
+    if (token && token !== 'null' && token !== 'undefined') {
       options.headers['Authorization'] = `Bearer ${token}`;
     }
   }
@@ -223,8 +223,20 @@ export default function App() {
 
   const fetchUserProfile = async () => {
     try {
+      const role = sessionStorage.getItem('role') || sessionStorage.getItem('portal_role');
+      if (role === 'Developer Admin') {
+        setUserProfile({
+          role: 'Developer Admin',
+          name: sessionStorage.getItem('name') || 'Platform Owner',
+          username: sessionStorage.getItem('username') || 'dev@admin.com',
+          email: 'dev@admin.com',
+          phone: 'N/A',
+          photo: ''
+        });
+        return;
+      }
       const token = sessionStorage.getItem('token');
-      if (!token) return;
+      if (!token || token === 'null' || token === 'undefined') return;
       const res = await fetch('/api/auth/profile', {
         headers: {
           'Authorization': `Bearer ${token}`
@@ -238,6 +250,8 @@ export default function App() {
         if (data.photo) {
           sessionStorage.setItem('photo', data.photo);
         }
+      } else if (res.status === 401) {
+        handleLogout();
       }
     } catch (err) {
       console.error('Error fetching user profile:', err);
@@ -599,9 +613,13 @@ export default function App() {
       const passwordParam = urlParams.get('password');
       const tenantParam = urlParams.get('tenant');
       const fromDevAdminParam = urlParams.get('from_dev_admin');
+      const devTokenParam = urlParams.get('dev_token');
 
       if (fromDevAdminParam === 'true') {
         sessionStorage.setItem('from_dev_admin', 'true');
+      }
+      if (devTokenParam) {
+        sessionStorage.setItem('dev_token', devTokenParam);
       }
 
       if (usernameParam && passwordParam && tenantParam) {

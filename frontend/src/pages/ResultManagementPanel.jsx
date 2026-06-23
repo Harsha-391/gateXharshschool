@@ -888,6 +888,68 @@ export default function ResultManagementPanel({ activeTab: propActiveTab = 'anal
     return { student, examSections, grandTotalObtained, grandTotalMax, grandPercentage };
   }, [reportStudentId, students, exams, overallResults, results, publishedExams]);
 
+  const handleExportCSV = () => {
+    if (!activeReportCardData) return;
+    const { student, examSections, grandPercentage } = activeReportCardData;
+    
+    // Construct CSV lines
+    const csvRows = [];
+    
+    // Student Info
+    csvRows.push(['Green Valley Public School']);
+    csvRows.push(['Consolidated Academic Report Card']);
+    csvRows.push([]);
+    csvRows.push(['Student Information']);
+    csvRows.push(['Name', student.name]);
+    csvRows.push(['Admission No', student.admissionNumber || '']);
+    csvRows.push(['Class', `Class ${student.studentClass}`]);
+    csvRows.push(['Section', student.section || 'A']);
+    csvRows.push(['Roll Number', student.rollNumber || student.roll || '']);
+    csvRows.push(['Father Name', student.fatherName || '']);
+    csvRows.push(['Overall Percentage', `${grandPercentage}%`]);
+    csvRows.push([]);
+    
+    // Exam Data headers
+    csvRows.push(['Exam Name', 'Subject', 'Max Marks', 'Obtained Marks', 'Grade', 'Remarks']);
+    
+    examSections.forEach(section => {
+      section.subjectMarks.forEach(m => {
+        csvRows.push([
+          section.exam.examName,
+          m.subject,
+          m.totalMarks,
+          m.obtainedMarks,
+          m.grade,
+          m.remarks || (m.percentage >= 40 ? 'Pass' : 'Fail')
+        ]);
+      });
+      // Add exam overall row
+      if (section.overall) {
+        csvRows.push([
+          `${section.exam.examName} Total`,
+          'All Subjects',
+          section.overall.totalMax,
+          section.overall.totalObtained,
+          section.overall.grade,
+          `Rank: ${section.overall.rank || 'N/A'}`
+        ]);
+      }
+      csvRows.push([]); // blank line between exams
+    });
+    
+    const csvContent = "data:text/csv;charset=utf-8,\uFEFF"
+      + csvRows.map(row => row.map(val => `"${String(val).replace(/"/g, '""')}"`).join(',')).join('\n');
+      
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    const fileName = `Report_Card_${student.name.replace(/\s+/g, '_')}_${student.rollNumber || student.roll || ''}.csv`;
+    link.setAttribute('download', fileName);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   const filteredHistoryEntries = useMemo(() => {
     // Start with overallResults entries
     const entriesMap = {};
@@ -1622,26 +1684,68 @@ export default function ResultManagementPanel({ activeTab: propActiveTab = 'anal
                         <span style={{ fontSize: '0.8rem', background: '#f1f5f9', padding: '4px 12px', borderRadius: '99px', fontWeight: 700, color: '#334155' }}>
                           Consolidated Academic Report Card
                         </span>
-                        <button 
-                          className="no-print btn-primary"
-                          style={{
-                            padding: '6px 12px',
-                            fontSize: '0.78rem',
-                            borderRadius: '8px',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '4px',
-                            background: 'linear-gradient(135deg, hsl(var(--color-primary)) 0%, #4f46e5 100%)',
-                            border: 'none',
-                            color: '#ffffff',
-                            cursor: 'pointer',
-                            fontWeight: 600,
-                            boxShadow: '0 2px 8px rgba(99, 102, 241, 0.25)'
-                          }}
-                          onClick={() => handlePrint('printable-academic-report')}
-                        >
-                          <Printer size={12} /> Print Report Card
-                        </button>
+                        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }} className="no-print">
+                          <button 
+                            className="btn-primary"
+                            style={{
+                              padding: '6px 12px',
+                              fontSize: '0.78rem',
+                              borderRadius: '8px',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              background: 'linear-gradient(135deg, hsl(var(--color-primary)) 0%, #4f46e5 100%)',
+                              border: 'none',
+                              color: '#ffffff',
+                              cursor: 'pointer',
+                              fontWeight: 600,
+                              boxShadow: '0 2px 8px rgba(99, 102, 241, 0.25)'
+                            }}
+                            onClick={() => handlePrint('printable-academic-report')}
+                          >
+                            <Printer size={12} /> Print
+                          </button>
+                          <button 
+                            className="btn-primary"
+                            style={{
+                              padding: '6px 12px',
+                              fontSize: '0.78rem',
+                              borderRadius: '8px',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                              border: 'none',
+                              color: '#ffffff',
+                              cursor: 'pointer',
+                              fontWeight: 600,
+                              boxShadow: '0 2px 8px rgba(16, 185, 129, 0.25)'
+                            }}
+                            onClick={() => handlePrint('printable-academic-report')}
+                          >
+                            <Download size={12} /> Export PDF
+                          </button>
+                          <button 
+                            className="btn-primary"
+                            style={{
+                              padding: '6px 12px',
+                              fontSize: '0.78rem',
+                              borderRadius: '8px',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+                              border: 'none',
+                              color: '#ffffff',
+                              cursor: 'pointer',
+                              fontWeight: 600,
+                              boxShadow: '0 2px 8px rgba(245, 158, 11, 0.25)'
+                            }}
+                            onClick={handleExportCSV}
+                          >
+                            <Download size={12} /> Export CSV
+                          </button>
+                        </div>
                       </div>
                     </div>
 

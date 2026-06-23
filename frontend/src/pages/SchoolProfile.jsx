@@ -325,8 +325,8 @@ export default function SchoolProfile({ schoolDetails, fetchSchoolDetails, isDev
     if (modalMode === 'add') {
       if (!formData.subdomain.trim()) {
         errors.subdomain = 'Subdomain is required.';
-      } else if (!/^[a-z0-9-]+$/i.test(formData.subdomain)) {
-        errors.subdomain = 'Subdomain must be alphanumeric with no spaces.';
+      } else if (!/^[a-z]+(-[a-z]+)*$/.test(formData.subdomain.toLowerCase())) {
+        errors.subdomain = 'Subdomain must contain only letters (a-z) and hyphens.';
       }
       
       if (!formData.adminEmail.trim()) {
@@ -439,7 +439,8 @@ export default function SchoolProfile({ schoolDetails, fetchSchoolDetails, isDev
   // Launch School Portal - opens in a new tab without ending superadmin session
   const handleLaunchPortal = (school) => {
     sessionStorage.setItem('from_dev_admin', 'true');
-    const targetUrl = getSchoolSubdomainUrl(school.subdomain, `/?username=${encodeURIComponent(school.adminUsername)}&password=${encodeURIComponent(school.adminPassword)}&from_dev_admin=true`);
+    const devToken = sessionStorage.getItem('token') || '';
+    const targetUrl = getSchoolSubdomainUrl(school.subdomain, `/?username=${encodeURIComponent(school.adminUsername)}&password=${encodeURIComponent(school.adminPassword)}&from_dev_admin=true&dev_token=${encodeURIComponent(devToken)}`);
     window.open(targetUrl, '_blank');
   };
 

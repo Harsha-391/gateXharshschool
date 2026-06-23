@@ -85,10 +85,27 @@
 .sidebar-nav {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 0;
   flex: 1;
   overflow-y: auto;
   padding-right: 2px;
+}
+
+.sidebar-nav > * + * {
+  margin-top: 18px;
+}
+
+/* Dropdown sub-items: lighter weight and muted color */
+.sidebar-nav div div .nav-item,
+.sidebar-nav div div .nav-item .nav-label {
+  font-weight: 400 !important;
+  color: var(--text-muted) !important;
+}
+
+.sidebar-nav div div .nav-item.active,
+.sidebar-nav div div .nav-item.active .nav-label {
+  font-weight: 500 !important;
+  color: hsl(var(--color-primary)) !important;
 }
 
 /* Sleek modern translucent scrollbar */
@@ -114,7 +131,7 @@
   border-radius: 12px;
   color: var(--text-muted);
   text-decoration: none;
-  font-weight: 500;
+  font-weight: 600;
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   border: 1px solid transparent;
@@ -124,6 +141,12 @@
   min-width: 0;
   overflow: hidden;
   position: relative;
+  outline: none;
+}
+
+.nav-item:focus,
+.nav-item:focus-visible {
+  outline: none !important;
 }
 
 .nav-item svg {
@@ -149,10 +172,10 @@
 }
 
 .nav-item.active {
-  color: hsl(var(--color-primary));
-  background: linear-gradient(135deg, rgba(hsl(var(--color-primary)), 0.07) 0%, rgba(hsl(var(--color-secondary)), 0.02) 100%);
-  border-color: rgba(hsl(var(--color-primary)), 0.12);
-  box-shadow: var(--shadow-sm);
+  color: hsl(var(--color-primary)) !important;
+  background: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
   font-weight: 600;
 }
 
@@ -165,15 +188,7 @@
 }
 
 .nav-item.active::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 4px;
-  height: 20px;
-  background: linear-gradient(to bottom, hsl(var(--color-primary)), hsl(var(--color-secondary)));
-  border-radius: 0 4px 4px 0;
+  display: none !important;
 }
 
 .nav-item.active .nav-label {
@@ -185,6 +200,7 @@
   white-space: nowrap;
   transition: opacity 0.2s ease, transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   font-size: 0.925rem;
+  font-weight: 600;
   overflow: hidden;
   text-overflow: ellipsis;
   min-width: 0;
@@ -250,4 +266,30 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* Styling for options under Revenue & Reports and Security & Privacy headings */
+.sidebar-section-group .nav-item,
+.sidebar-section-group .nav-item .nav-label {
+  font-weight: 400 !important;
+  color: var(--text-muted) !important;
+}
+
+.sidebar-section-group .nav-item.active,
+.sidebar-section-group .nav-item.active .nav-label {
+  font-weight: 500 !important;
+  color: hsl(var(--color-primary)) !important;
+}
+
+/* Remove active background, border, shadow, and vertical indicator bar from section groups & dropdown sub-items */
+.sidebar-section-group .nav-item.active,
+.sidebar-nav div div .nav-item.active {
+  background: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+
+.sidebar-section-group .nav-item.active::before,
+.sidebar-nav div div .nav-item.active::before {
+  display: none !important;
 }

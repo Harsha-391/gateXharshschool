@@ -37,6 +37,7 @@ const AttendanceManager = lazy(() => import('./AttendanceManager'));
 const RolesPermissions = lazy(() => import('./RolesPermissions'));
 const GradeManagement = lazy(() => import('./GradeManagement'));
 const UserProfile = lazy(() => import('./UserProfile'));
+const AuxiliaryIncome = lazy(() => import('./AuxiliaryIncome'));
 
 // Lazy load sub-components (Named Exports)
 const StudentReportsView = lazy(() => import('./TeacherPanel').then(m => ({ default: m.StudentReportsView })));
@@ -597,7 +598,7 @@ export default function AdminPanel({ setActiveView, onLogout, adminView, setAdmi
         </KeepAlive>
 
         <KeepAlive active={adminView === 'income'}>
-          <IncomeView showToast={showToast} />
+          <IncomeView showToast={showToast} active={adminView === 'income'} />
         </KeepAlive>
 
         <KeepAlive active={adminView === 'reports'}>
@@ -772,6 +773,10 @@ export default function AdminPanel({ setActiveView, onLogout, adminView, setAdmi
 
         <KeepAlive active={adminView === 'profile'}>
           <UserProfile onProfileUpdate={setUserProfile} showToast={showToast} onLogout={onLogout} />
+        </KeepAlive>
+
+        <KeepAlive active={adminView === 'auxiliary-income'}>
+          <AuxiliaryIncome showToast={showToast} />
         </KeepAlive>
       </>
     );

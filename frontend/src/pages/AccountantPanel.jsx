@@ -65,7 +65,7 @@ export default function AccountantPanel({ setActiveView, onLogout, accountantVie
       case 'payroll': return <PayrollView showToast={showToast} />;
       case 'teacher-pay-structure': return <TeacherSalaryStructureView showToast={showToast} />;
       case 'expenses': return <ExpensesView showToast={showToast} />;
-      case 'income': return <IncomeView showToast={showToast} />;
+      case 'income': return <IncomeView showToast={showToast} active={true} />;
       case 'reports': return <ReportsView showToast={showToast} />;
       case 'staff-pay': return <StaffPaymentsView showToast={showToast} />;
       case 'staff-pay-structure': return <StaffPaymentStructureView showToast={showToast} />;
@@ -1209,7 +1209,7 @@ export function CollectFeesView({ showToast }) {
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ background: 'rgba(255,255,255,0.02)' }}>
-                {['Receipt #', 'Student', 'Class', 'Period', 'Fee Type', 'Amount', 'Discount', 'Fine', 'Paid', 'Due', 'Status', 'Method', 'Date', 'Actions'].map(h => (
+                {['Receipt #', 'Student', 'Class', 'Period', 'Fee Type', 'Amount', 'Discount', 'Fine', 'Paid', 'Due', 'Status', 'Method', 'Date'].map(h => (
                   <th key={h} style={{ padding: '14px 16px', textAlign: 'left', fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', borderBottom: '1px solid rgba(255,255,255,0.04)', whiteSpace: 'nowrap' }}>{h}</th>
                 ))}
               </tr>
@@ -1249,16 +1249,7 @@ export function CollectFeesView({ showToast }) {
                       </td>
                       <td style={{ padding: '12px 16px', fontSize: '0.8rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{fee.paymentMethod}</td>
                       <td style={{ padding: '12px 16px', fontSize: '0.8rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{fee.paymentDate}</td>
-                      <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
-                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                          <button onClick={() => handleEdit(fee)} style={{
-                            background: 'transparent', border: 'none', color: '#3b82f6', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center'
-                          }} title="Edit"><Pencil size={14} /></button>
-                          <button onClick={() => setShowConfirmDelete(fee)} style={{
-                            background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center'
-                          }} title="Delete"><Trash2 size={14} /></button>
-                        </div>
-                      </td>
+
                     </tr>
                   );
                 })
@@ -2937,7 +2928,7 @@ export function ExpensesView({ showToast }) {
     Promise.all([
       fetch('/api/finance/overview').then(r => r.ok ? r.json() : null),
       fetch('/api/finance/fees').then(r => r.ok ? r.json() : []),
-      fetch('/api/finance/income').then(r => r.ok ? r.json() : []),
+      fetch('/api/finance/income?includeAuxiliary=true').then(r => r.ok ? r.json() : []),
       fetch('/api/finance/expenses').then(r => r.ok ? r.json() : []),
     ]).then(([overviewData, feesData, incomeData, expensesData]) => {
       setOverview(overviewData);
@@ -3194,7 +3185,7 @@ export function ExpensesView({ showToast }) {
 /* ============================================================
    INCOME VIEW
    ============================================================ */
-export function IncomeView({ showToast }) {
+export function IncomeView({ showToast, active = true }) {
   const [income, setIncome] = useState([]);
   const [fees, setFees] = useState([]);
   const [expenses, setExpenses] = useState([]);
@@ -3207,6 +3198,9 @@ export function IncomeView({ showToast }) {
   const [feeClassFilter, setFeeClassFilter] = useState('All');
   const [feeTypeFilter, setFeeTypeFilter] = useState('All');
   const [receiptData, setReceiptData] = useState(null);
+  const [auxSearch, setAuxSearch] = useState('');
+  const [auxCategoryFilter, setAuxCategoryFilter] = useState('All');
+  const [feeDateFilter, setFeeDateFilter] = useState('');
 
   const sources = ['Donations', 'Grants', 'Event Revenue', 'Canteen', 'Rental', 'Sponsorship', 'Other'];
 
@@ -3215,7 +3209,7 @@ export function IncomeView({ showToast }) {
     Promise.all([
       fetch('/api/finance/overview').then(r => r.ok ? r.json() : null),
       fetch('/api/finance/fees').then(r => r.ok ? r.json() : []),
-      fetch('/api/finance/income').then(r => r.ok ? r.json() : []),
+      fetch('/api/finance/income?includeAuxiliary=true').then(r => r.ok ? r.json() : []),
       fetch('/api/finance/expenses').then(r => r.ok ? r.json() : []),
     ]).then(([overviewData, feesData, incomeData, expensesData]) => {
       setOverview(overviewData);
@@ -3230,8 +3224,10 @@ export function IncomeView({ showToast }) {
   };
 
   useEffect(() => {
-    fetchData();
-  }, []);
+    if (active) {
+      fetchData();
+    }
+  }, [active]);
 
   // Aggregations
   const totalTuitionFees = fees.reduce((sum, f) => sum + (f.paidAmount || 0), 0);
@@ -3275,9 +3271,50 @@ export function IncomeView({ showToast }) {
       
     const matchesClass = feeClassFilter === 'All' || f.studentClass === feeClassFilter;
     const matchesType = feeTypeFilter === 'All' || f.feeType === feeTypeFilter;
+    const matchesDate = !feeDateFilter || f.paymentDate === feeDateFilter;
     
-    return matchesSearch && matchesClass && matchesType;
+    return matchesSearch && matchesClass && matchesType && matchesDate;
   });
+
+  const filteredAuxiliaryIncome = income.filter(inc => {
+    if (auxCategoryFilter !== 'All' && inc.source !== auxCategoryFilter) {
+      return false;
+    }
+    if (auxSearch) {
+      const q = auxSearch.toLowerCase();
+      const matchSearch =
+        (inc.source || '').toLowerCase().includes(q) ||
+        (inc.description || '').toLowerCase().includes(q) ||
+        (inc.receiptNumber || inc.incomeId ? String(inc.receiptNumber || inc.incomeId) : '').toLowerCase().includes(q) ||
+        (inc.receivedBy || '').toLowerCase().includes(q);
+      if (!matchSearch) return false;
+    }
+    return true;
+  });
+
+  const auxiliaryCategories = [...new Set(income.map(i => i.source).filter(Boolean))].sort();
+
+  const handleExportAuxiliaryCSV = () => {
+    const rows = filteredAuxiliaryIncome.map(inc => ({
+      'Receipt No / ID': inc.receiptNumber || inc.incomeId,
+      'Category / Source': inc.source,
+      'Description / Remarks': inc.description || '',
+      'Amount': inc.amount,
+      'Date': inc.date,
+      'Received By / From': inc.receivedBy || ''
+    }));
+    if (!rows.length) return showToast('No data to export', 'error');
+    const headers = Object.keys(rows[0]);
+    const csvContent = [headers.join(','), ...rows.map(r => headers.map(h => `"${(String(r[h] ?? '')).replace(/"/g, '""')}"`).join(','))].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'auxiliary_income_entries.csv';
+    link.click();
+    URL.revokeObjectURL(url);
+    showToast('Auxiliary Income CSV downloaded!');
+  };
 
   const inputStyle = {
     width: '100%', padding: '10px 14px', background: 'var(--bg-form)',
@@ -3548,6 +3585,13 @@ export function IncomeView({ showToast }) {
                 <option key={t} value={t} style={optionStyle}>{t}</option>
               ))}
             </select>
+            <input 
+              type="date"
+              value={feeDateFilter} 
+              onChange={e => setFeeDateFilter(e.target.value)} 
+              style={{ ...inputStyle, width: 'auto', minWidth: '150px', cursor: 'pointer' }}
+              title="Filter by payment date"
+            />
             <button 
               onClick={() => {
                 const rows = filteredFees.map(f => ({
@@ -3599,13 +3643,13 @@ export function IncomeView({ showToast }) {
                   <th style={{ padding: '14px 16px', fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>Due Balance</th>
                   <th style={{ padding: '14px 16px', fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>Status</th>
                   <th style={{ padding: '14px 16px', fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>Date</th>
-                  <th style={{ padding: '14px 16px', fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', textAlign: 'center', whiteSpace: 'nowrap' }}>Action</th>
+
                 </tr>
               </thead>
               <tbody>
                 {filteredFees.length === 0 ? (
                   <tr>
-                    <td colSpan={9} style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                    <td colSpan={8} style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
                       No fee records found matching filter criteria.
                     </td>
                   </tr>
@@ -3638,21 +3682,7 @@ export function IncomeView({ showToast }) {
                           }}>{status}</span>
                         </td>
                         <td style={{ padding: '14px 16px', fontSize: '0.8rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{fee.paymentDate}</td>
-                        <td style={{ padding: '14px 16px', textAlign: 'center', whiteSpace: 'nowrap' }}>
-                          <button 
-                            onClick={() => setReceiptData(fee)}
-                            style={{
-                              background: 'rgba(16,185,129,0.1)', border: 'none', padding: '6px',
-                              borderRadius: '8px', color: '#10b981', cursor: 'pointer',
-                              display: 'inline-flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s'
-                            }}
-                            title="View Receipt"
-                            onMouseEnter={e => { e.currentTarget.style.background = '#10b981'; e.currentTarget.style.color = '#fff'; }}
-                            onMouseLeave={e => { e.currentTarget.style.background = 'rgba(16,185,129,0.1)'; e.currentTarget.style.color = '#10b981'; }}
-                          >
-                            <Eye size={15} />
-                          </button>
-                        </td>
+
                       </tr>
                     );
                   })
@@ -3662,34 +3692,97 @@ export function IncomeView({ showToast }) {
           </div>
         </div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <h3 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--text-main)', margin: 0 }}>Auxiliary Revenue Entries</h3>
+            <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: 'var(--text-main)', margin: 0 }}>Auxiliary Revenue Entries</h3>
           </div>
-          {/* Income Cards Grid */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
-            {income.length === 0 ? (
-              <div className="glass-panel" style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)', gridColumn: '1 / -1' }}>
-                No revenue entries recorded yet.
-              </div>
-            ) : (
-              income.map((inc, i) => (
-                <div key={i} className="glass-panel" style={{ padding: '20px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.04)', display: 'flex', flexDirection: 'column', gap: '12px', position: 'relative' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                    <span style={{ fontSize: '0.68rem', fontWeight: 700, color: '#f59e0b', background: 'rgba(245,158,11,0.08)', padding: '2px 8px', borderRadius: '10px' }}>{inc.source}</span>
-                    <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>{inc.date}</span>
-                  </div>
-                  <div>
-                    <h4 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#10b981', margin: 0 }}>₹{inc.amount?.toLocaleString()}</h4>
-                    <p style={{ fontSize: '0.8rem', color: 'var(--text-main)', marginTop: '6px', minHeight: '36px' }}>{inc.description || 'No description provided'}</p>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '10px', borderTop: '1px solid rgba(255,255,255,0.03)', fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                    <span>Received: {inc.receivedBy || 'Finance Dept'}</span>
-                    <span>ID: {inc.incomeId}</span>
-                  </div>
-                </div>
-              ))
-            )}
+
+          {/* Filter Toolbar */}
+          <div className="glass-panel" style={{ padding: '16px 20px', borderRadius: '12px', display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
+            <div style={{ position: 'relative', flex: 1, minWidth: '240px' }}>
+              <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+              <input 
+                value={auxSearch} 
+                onChange={e => setAuxSearch(e.target.value)} 
+                placeholder="Search category, receipt number, description..." 
+                style={{ ...inputStyle, paddingLeft: '38px' }}
+              />
+            </div>
+            
+            <select 
+              value={auxCategoryFilter} 
+              onChange={e => setAuxCategoryFilter(e.target.value)} 
+              style={{ ...inputStyle, width: 'auto', minWidth: '160px', cursor: 'pointer' }}
+            >
+              <option value="All" style={optionStyle}>All Categories</option>
+              {auxiliaryCategories.map(cat => (
+                <option key={cat} value={cat} style={optionStyle}>{cat}</option>
+              ))}
+            </select>
+
+            <button 
+              onClick={handleExportAuxiliaryCSV}
+              style={{
+                padding: '10px 18px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)',
+                borderRadius: '10px', color: 'var(--text-main)', fontWeight: 600, cursor: 'pointer',
+                display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem', transition: 'all 0.2s',
+                height: '42px', boxSizing: 'border-box'
+              }}
+              onMouseEnter={e => { e.currentTarget.style.borderColor = '#10b98144'; e.currentTarget.style.background = '#10b98108'; }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.06)'; e.currentTarget.style.background = 'rgba(255,255,255,0.02)'; }}
+            >
+              <Download size={16} /> Export CSV
+            </button>
+          </div>
+
+          {/* Data Table */}
+          <div style={{ overflowX: 'auto', borderRadius: '12px', border: '1px solid var(--border-glass)' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+              <thead>
+                <tr style={{ background: 'var(--bg-card-subtle)', borderBottom: '1px solid var(--border-glass)' }}>
+                  <th style={{ padding: '14px 16px', fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>Receipt No</th>
+                  <th style={{ padding: '14px 16px', fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>Category / Source</th>
+                  <th style={{ padding: '14px 16px', fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>Description</th>
+                  <th style={{ padding: '14px 16px', fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>Amount</th>
+                  <th style={{ padding: '14px 16px', fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>Date</th>
+                  <th style={{ padding: '14px 16px', fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>Received By / From</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredAuxiliaryIncome.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                      No auxiliary income records found matching filter criteria.
+                    </td>
+                  </tr>
+                ) : (
+                  filteredAuxiliaryIncome.map((inc, idx) => (
+                    <tr key={idx} style={{ borderBottom: '1px solid rgba(255,255,255,0.02)', transition: 'background 0.2s' }}
+                      onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.02)'}
+                      onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                      <td style={{ padding: '14px 16px', fontSize: '0.8rem', fontWeight: 700, color: '#10b981', whiteSpace: 'nowrap' }}>
+                        {inc.receiptNumber || `REC-AUX-${inc.incomeId}`}
+                      </td>
+                      <td style={{ padding: '14px 16px', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-main)', whiteSpace: 'nowrap' }}>
+                        {inc.source}
+                      </td>
+                      <td style={{ padding: '14px 16px', fontSize: '0.8rem', color: 'var(--text-main)' }}>
+                        {inc.description || '-'}
+                      </td>
+                      <td style={{ padding: '14px 16px', fontSize: '0.82rem', fontWeight: 700, color: '#10b981', whiteSpace: 'nowrap' }}>
+                        ₹{inc.amount?.toLocaleString()}
+                      </td>
+                      <td style={{ padding: '14px 16px', fontSize: '0.8rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
+                        {inc.date}
+                      </td>
+                      <td style={{ padding: '14px 16px', fontSize: '0.8rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
+                        {inc.receivedBy || 'N/A'}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
           </div>
         </div>
       )}
@@ -3711,8 +3804,6 @@ export function ReportsView({ showToast }) {
   const [income, setIncome] = useState([]);
 
   // States
-  const [activeLedgerTab, setActiveLedgerTab] = useState('fees');
-  const [ledgerSearch, setLedgerSearch] = useState('');
   const [breakdownType, setBreakdownType] = useState('inflow'); // 'inflow' | 'outflow'
   const [trendPeriod, setTrendPeriod] = useState('daily'); // 'daily' | 'monthly' | 'yearly'
 
@@ -3723,7 +3814,7 @@ export function ReportsView({ showToast }) {
       fetch('/api/finance/payroll').then(r => r.ok ? r.json() : []),
       fetch('/api/finance/staff-payments').then(r => r.ok ? r.json() : []),
       fetch('/api/finance/expenses').then(r => r.ok ? r.json() : []),
-      fetch('/api/finance/income').then(r => r.ok ? r.json() : []),
+      fetch('/api/finance/income?includeAuxiliary=true').then(r => r.ok ? r.json() : []),
     ]).then(([overviewData, feesData, payrollData, staffPaymentsData, expensesData, incomeData]) => {
       setOverview(overviewData);
       setFees(feesData);
@@ -3737,46 +3828,6 @@ export function ReportsView({ showToast }) {
       setLoading(false);
     });
   }, []);
-
-  const exportCSV = (rows, filename) => {
-    if (!rows.length) return showToast('No data to export', 'error');
-    const headers = Object.keys(rows[0]);
-    const csv = [headers.join(','), ...rows.map(r => headers.map(h => `"${r[h] ?? ''}"`).join(','))].join('\n');
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = filename; a.click();
-    URL.revokeObjectURL(url);
-    showToast(`${filename} downloaded!`);
-  };
-
-  const handleExport = () => {
-    let rows = [];
-    let filename = '';
-    if (activeLedgerTab === 'fees') {
-      rows = fees.map(f => ({
-        ReceiptNo: f.receiptNumber, Student: f.studentName, Class: f.studentClass, Type: f.feeType, Paid: f.paidAmount, Due: f.dueAmount, Status: f.paymentStatus, Date: f.paymentDate
-      }));
-      filename = 'fees_report.csv';
-    } else if (activeLedgerTab === 'expenses') {
-      rows = expenses.filter(e => !e.deleted && e.category !== 'Salary').map(e => ({
-        ID: e.expenseId, Title: e.title, Category: e.category, Amount: e.amount, Date: e.date, PaidBy: e.paidBy
-      }));
-      filename = 'expenses_report.csv';
-    } else if (activeLedgerTab === 'salaries') {
-      rows = [
-        ...payroll.map(p => ({ ID: p.payrollId, Name: p.teacherName, Role: p.designation, Amount: p.netSalary, Method: p.paymentMethod, Date: p.paymentDate })),
-        ...staffPayments.map(s => ({ ID: s.paymentId, Name: s.staffName, Role: s.staffRole, Amount: s.netSalary, Method: s.paymentMethod, Date: s.paymentDate }))
-      ];
-      filename = 'salaries_report.csv';
-    } else if (activeLedgerTab === 'auxiliary') {
-      rows = income.map(i => ({
-        ID: i.incomeId, Source: i.source, Description: i.description, Amount: i.amount, Date: i.date
-      }));
-      filename = 'auxiliary_income_report.csv';
-    }
-    exportCSV(rows, filename);
-  };
 
   if (loading) return (
     <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '300px' }}>
@@ -3826,20 +3877,6 @@ export function ReportsView({ showToast }) {
     .filter(([_, val]) => val > 0)
     .sort((a, b) => b[1] - a[1]);
 
-  // Unified salaries list
-  const salariesList = [
-    ...payroll.map(p => ({ id: p.payrollId, name: p.teacherName, role: p.designation, amount: p.netSalary, method: p.paymentMethod, date: p.paymentDate })),
-    ...staffPayments.map(s => ({ id: s.paymentId, name: s.staffName, role: s.staffRole, amount: s.netSalary, method: s.paymentMethod, date: s.paymentDate }))
-  ].sort((a,b) => b.date.localeCompare(a.date));
-
-  // Styles
-  const inputStyle = {
-    width: '100%', padding: '10px 14px', background: 'var(--bg-form)',
-    border: '1.5px solid var(--border-glass)', borderRadius: '10px', color: 'var(--text-main)',
-    fontSize: '0.85rem', outline: 'none', boxSizing: 'border-box'
-  };
-  const optionStyle = { background: 'var(--bg-form)', color: 'var(--text-main)' };
-
   const categoryColors = {
     'Tuition Fee': '#3b82f6',
     'Admission Fee': '#8b5cf6',
@@ -3856,25 +3893,6 @@ export function ReportsView({ showToast }) {
     Events: '#f97316',
     Other: '#6b7280'
   };
-
-  const getFilteredData = () => {
-    const q = ledgerSearch.toLowerCase();
-    if (activeLedgerTab === 'fees') {
-      return fees.filter(f => !ledgerSearch || f.studentName?.toLowerCase().includes(q) || f.receiptNumber?.toLowerCase().includes(q) || f.admissionNumber?.toLowerCase().includes(q));
-    }
-    if (activeLedgerTab === 'expenses') {
-      return expenses.filter(e => !e.deleted && e.category !== 'Salary').filter(e => !ledgerSearch || e.title?.toLowerCase().includes(q) || e.category?.toLowerCase().includes(q) || e.expenseId?.toLowerCase().includes(q));
-    }
-    if (activeLedgerTab === 'salaries') {
-      return salariesList.filter(s => !ledgerSearch || s.name?.toLowerCase().includes(q) || s.role?.toLowerCase().includes(q) || s.id?.toLowerCase().includes(q));
-    }
-    if (activeLedgerTab === 'auxiliary') {
-      return income.filter(i => !ledgerSearch || i.source?.toLowerCase().includes(q) || i.description?.toLowerCase().includes(q) || i.incomeId?.toLowerCase().includes(q));
-    }
-    return [];
-  };
-
-  const filteredItems = getFilteredData();
 
   // Dynamic Trend calculations
   // 1. Daily cash flow trend (June 2026)
@@ -3967,132 +3985,7 @@ export function ReportsView({ showToast }) {
   const maxOutflow = Math.max(...trendData.map(t => t.outflow), 1);
   const maxOverall = Math.max(maxInflow, maxOutflow, 1);
 
-  const renderLedgerTable = () => {
-    if (activeLedgerTab === 'fees') {
-      return (
-        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-          <thead>
-            <tr style={{ background: 'var(--bg-card-subtle)', borderBottom: '1px solid var(--border-glass)' }}>
-              {['Receipt No', 'Student Name', 'Class', 'Category', 'Paid', 'Due', 'Status', 'Date'].map(h => (
-                <th key={h} style={{ padding: '14px 16px', fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {filteredItems.length === 0 ? (
-              <tr><td colSpan={8} style={{ padding: '30px', textAlign: 'center', color: 'var(--text-muted)' }}>No records found</td></tr>
-            ) : (
-              filteredItems.map((f, i) => (
-                <tr key={i} style={{ borderBottom: '1px solid rgba(255,255,255,0.02)' }} onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.02)'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-                  <td style={{ padding: '14px 16px', fontSize: '0.8rem', fontWeight: 700, color: '#10b981' }}>{f.receiptNumber}</td>
-                  <td style={{ padding: '14px 16px', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-main)' }}>{f.studentName}</td>
-                  <td style={{ padding: '14px 16px', fontSize: '0.8rem', color: 'var(--text-main)', fontWeight: 600 }}>{f.studentClass}-{f.section}</td>
-                  <td style={{ padding: '14px 16px', fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600 }}>{f.feeType}</td>
-                  <td style={{ padding: '14px 16px', fontSize: '0.82rem', fontWeight: 700, color: '#10b981' }}>₹{f.paidAmount?.toLocaleString()}</td>
-                  <td style={{ padding: '14px 16px', fontSize: '0.82rem', fontWeight: 700, color: f.dueAmount > 0 ? '#f59e0b' : 'var(--text-muted)' }}>₹{f.dueAmount?.toLocaleString()}</td>
-                  <td style={{ padding: '14px 16px' }}>
-                    <span style={{
-                      padding: '4px 10px', borderRadius: '20px', fontSize: '0.7rem', fontWeight: 700,
-                      background: f.paymentStatus === 'Paid' ? 'rgba(16,185,129,0.08)' : f.paymentStatus === 'Partial' ? 'rgba(245,158,11,0.08)' : 'rgba(239,68,68,0.08)',
-                      color: f.paymentStatus === 'Paid' ? '#10b981' : f.paymentStatus === 'Partial' ? '#f59e0b' : '#ef4444'
-                    }}>{f.paymentStatus}</span>
-                  </td>
-                  <td style={{ padding: '14px 16px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>{f.paymentDate}</td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      );
-    }
-    if (activeLedgerTab === 'expenses') {
-      return (
-        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-          <thead>
-            <tr style={{ background: 'var(--bg-card-subtle)', borderBottom: '1px solid var(--border-glass)' }}>
-              {['Expense ID', 'Title', 'Category', 'Subcategory', 'Amount', 'Paid By', 'Date'].map(h => (
-                <th key={h} style={{ padding: '14px 16px', fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {filteredItems.length === 0 ? (
-              <tr><td colSpan={7} style={{ padding: '30px', textAlign: 'center', color: 'var(--text-muted)' }}>No records found</td></tr>
-            ) : (
-              filteredItems.map((e, i) => (
-                <tr key={i} style={{ borderBottom: '1px solid rgba(255,255,255,0.02)' }} onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.02)'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-                  <td style={{ padding: '14px 16px', fontSize: '0.8rem', fontWeight: 700, color: '#ef4444' }}>{e.expenseId}</td>
-                  <td style={{ padding: '14px 16px', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-main)' }}>{e.title}</td>
-                  <td style={{ padding: '14px 16px', fontSize: '0.8rem', color: 'var(--text-main)', fontWeight: 600 }}>{e.category}</td>
-                  <td style={{ padding: '14px 16px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>{e.subcategory || '-'}</td>
-                  <td style={{ padding: '14px 16px', fontSize: '0.82rem', fontWeight: 700, color: '#ef4444' }}>₹{e.amount?.toLocaleString()}</td>
-                  <td style={{ padding: '14px 16px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>{e.paidBy}</td>
-                  <td style={{ padding: '14px 16px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>{e.date}</td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      );
-    }
-    if (activeLedgerTab === 'salaries') {
-      return (
-        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-          <thead>
-            <tr style={{ background: 'var(--bg-card-subtle)', borderBottom: '1px solid var(--border-glass)' }}>
-              {['Payment ID', 'Employee Name', 'Role/Designation', 'Net Paid', 'Payment Method', 'Payout Date'].map(h => (
-                <th key={h} style={{ padding: '14px 16px', fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {filteredItems.length === 0 ? (
-              <tr><td colSpan={6} style={{ padding: '30px', textAlign: 'center', color: 'var(--text-muted)' }}>No records found</td></tr>
-            ) : (
-              filteredItems.map((s, i) => (
-                <tr key={i} style={{ borderBottom: '1px solid rgba(255,255,255,0.02)' }} onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.02)'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-                  <td style={{ padding: '14px 16px', fontSize: '0.8rem', fontWeight: 700, color: '#8b5cf6' }}>{s.id}</td>
-                  <td style={{ padding: '14px 16px', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-main)' }}>{s.name}</td>
-                  <td style={{ padding: '14px 16px', fontSize: '0.8rem', color: 'var(--text-main)', fontWeight: 600 }}>{s.role}</td>
-                  <td style={{ padding: '14px 16px', fontSize: '0.82rem', fontWeight: 700, color: '#8b5cf6' }}>₹{s.amount?.toLocaleString()}</td>
-                  <td style={{ padding: '14px 16px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>{s.method}</td>
-                  <td style={{ padding: '14px 16px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>{s.date}</td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      );
-    }
-    if (activeLedgerTab === 'auxiliary') {
-      return (
-        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-          <thead>
-            <tr style={{ background: 'var(--bg-card-subtle)', borderBottom: '1px solid var(--border-glass)' }}>
-              {['Income ID', 'Source Category', 'Description', 'Amount Inflow', 'Date Received'].map(h => (
-                <th key={h} style={{ padding: '14px 16px', fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {filteredItems.length === 0 ? (
-              <tr><td colSpan={5} style={{ padding: '30px', textAlign: 'center', color: 'var(--text-muted)' }}>No records found</td></tr>
-            ) : (
-              filteredItems.map((inc, i) => (
-                <tr key={i} style={{ borderBottom: '1px solid rgba(255,255,255,0.02)' }} onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.02)'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-                  <td style={{ padding: '14px 16px', fontSize: '0.8rem', fontWeight: 700, color: '#06b6d4' }}>{inc.incomeId}</td>
-                  <td style={{ padding: '14px 16px', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-main)' }}>{inc.source}</td>
-                  <td style={{ padding: '14px 16px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>{inc.description || 'No description'}</td>
-                  <td style={{ padding: '14px 16px', fontSize: '0.82rem', fontWeight: 700, color: '#10b981' }}>₹{inc.amount?.toLocaleString()}</td>
-                  <td style={{ padding: '14px 16px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>{inc.date}</td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      );
-    }
-  };
+
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}>
@@ -4244,66 +4137,7 @@ export function ReportsView({ showToast }) {
 
       </div>
 
-      {/* Transaction Ledger */}
-      <div className="glass-panel" style={{ padding: '24px', borderRadius: '16px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '14px' }}>
-          <div>
-            <h3 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--text-main)', margin: 0 }}>Real-Time Transaction Ledger</h3>
-            <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: '4px 0 0 0' }}>Inspect all double-entry ledger listings on the fly</p>
-          </div>
-          <button 
-            onClick={handleExport}
-            style={{
-              padding: '10px 18px', background: 'linear-gradient(135deg, #10b981, #059669)', border: 'none',
-              borderRadius: '10px', color: '#fff', fontWeight: 700, cursor: 'pointer',
-              display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.82rem',
-              boxShadow: '0 4px 15px rgba(16,185,129,0.15)'
-            }}
-          >
-            <Download size={16} /> Export Selected Ledger
-          </button>
-        </div>
 
-        {/* Tab Controls */}
-        <div style={{ display: 'flex', gap: '10px', borderBottom: '1px solid var(--border-glass)', paddingBottom: '2px', flexWrap: 'wrap' }}>
-          {[
-            { key: 'fees', label: 'Fee Collections', color: '#10b981' },
-            { key: 'expenses', label: 'Operational Expenses', color: '#ef4444' },
-            { key: 'salaries', label: 'Salary Payouts', color: '#8b5cf6' },
-            { key: 'auxiliary', label: 'Auxiliary Revenue', color: '#06b6d4' }
-          ].map(tab => (
-            <button
-              key={tab.key}
-              onClick={() => { setActiveLedgerTab(tab.key); setLedgerSearch(''); }}
-              style={{
-                background: 'none', border: 'none', padding: '10px 14px', cursor: 'pointer',
-                fontSize: '0.82rem', fontWeight: 700,
-                color: activeLedgerTab === tab.key ? tab.color : 'var(--text-muted)',
-                borderBottom: activeLedgerTab === tab.key ? `3px solid ${tab.color}` : 'none',
-                transition: 'all 0.15s'
-              }}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-
-        {/* Search Input */}
-        <div style={{ position: 'relative' }}>
-          <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-          <input 
-            value={ledgerSearch} 
-            onChange={e => setLedgerSearch(e.target.value)} 
-            placeholder={`Search by name, ID or details...`}
-            style={{ ...inputStyle, paddingLeft: '38px' }}
-          />
-        </div>
-
-        {/* Table View */}
-        <div style={{ overflowX: 'auto', borderRadius: '12px', border: '1px solid var(--border-glass)' }}>
-          {renderLedgerTable()}
-        </div>
-      </div>
 
     </div>
   );
@@ -5240,7 +5074,6 @@ export function FeesHistoryView({ showToast }) {
                               <th style={{ padding: '12px 16px', color: 'var(--text-muted)', fontWeight: 700 }}>Due</th>
                               <th style={{ padding: '12px 16px', color: 'var(--text-muted)', fontWeight: 700 }}>Status</th>
                               <th style={{ padding: '12px 16px', color: 'var(--text-muted)', fontWeight: 700 }}>Method</th>
-                              <th style={{ padding: '12px 16px', color: 'var(--text-muted)', fontWeight: 700 }}>Action</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -5262,31 +5095,7 @@ export function FeesHistoryView({ showToast }) {
                                     </span>
                                   </td>
                                   <td style={{ padding: '12px 16px', color: 'var(--text-muted)' }}>{fee.paymentMethod}</td>
-                                  <td style={{ padding: '12px 16px' }}>
-                                    <button 
-                                      onClick={async (e) => {
-                                        e.stopPropagation();
-                                        if (window.confirm(`Are you sure you want to delete receipt ${fee.receiptNumber}?`)) {
-                                          try {
-                                            const res = await fetch(`/api/finance/fees/${fee.id || fee.feeId}`, { method: 'DELETE' });
-                                            if (res.ok) {
-                                              showToast('Receipt deleted successfully!');
-                                              setSelectedStudentHistory(null);
-                                              fetchData();
-                                            } else {
-                                              showToast('Failed to delete receipt', 'error');
-                                            }
-                                          } catch {
-                                            showToast('Network error', 'error');
-                                          }
-                                        }
-                                      }}
-                                      style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '4px' }}
-                                      title="Delete Transaction"
-                                    >
-                                      <Trash2 size={14} />
-                                    </button>
-                                  </td>
+
                                 </tr>
                               );
                             })}

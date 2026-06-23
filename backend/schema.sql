@@ -800,6 +800,34 @@ CREATE TABLE IF NOT EXISTS fee_periods (
   UNIQUE KEY unique_fp_freq_name (frequency, name, tenantId)
 );
 
+-- 49. Auxiliary Income Categories Table
+CREATE TABLE IF NOT EXISTS auxiliary_income_categories (
+  id VARCHAR(50) PRIMARY KEY,
+  name VARCHAR(255) NOT NULL,
+  description TEXT,
+  tenantId VARCHAR(100) NOT NULL,
+  createdAt VARCHAR(100) NOT NULL,
+  updatedAt VARCHAR(100) NOT NULL,
+  UNIQUE KEY unique_aux_cat_name (name, tenantId)
+);
+
+-- 50. Auxiliary Income Table
+CREATE TABLE IF NOT EXISTS auxiliary_income (
+  id VARCHAR(50) PRIMARY KEY,
+  categoryId VARCHAR(50) NOT NULL,
+  amount DECIMAL(10,2) NOT NULL,
+  date VARCHAR(50) NOT NULL,
+  receivedFrom VARCHAR(255),
+  paymentMethod VARCHAR(100),
+  referenceNumber VARCHAR(100),
+  description TEXT,
+  receiptNumber VARCHAR(100),
+  tenantId VARCHAR(100) NOT NULL,
+  createdAt VARCHAR(100) NOT NULL,
+  updatedAt VARCHAR(100) NOT NULL,
+  FOREIGN KEY (categoryId) REFERENCES auxiliary_income_categories(id) ON DELETE CASCADE
+);
+
 -- Re-enable foreign key checks
 SET FOREIGN_KEY_CHECKS = 1;
 

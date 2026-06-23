@@ -7,7 +7,7 @@
     "dev:frontend": "npm run dev --prefix frontend",
     "dev:backend": "npm run dev --prefix backend",
     "dev": "npx concurrently --kill-others \"npm run dev:backend\" \"npm run dev:frontend\"",
-    "build": "vite build"
+    "build": "npm run build --prefix frontend"
   },
   "devDependencies": {
     "esbuild": "^0.24.2",

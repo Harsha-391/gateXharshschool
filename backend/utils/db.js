@@ -320,7 +320,9 @@ const createTablesFromSchema = async () => {
       "ALTER TABLE grade_departments ADD COLUMN sections JSON NULL",
       "CREATE TABLE IF NOT EXISTS sections (id VARCHAR(50) PRIMARY KEY, name VARCHAR(100) NOT NULL, status VARCHAR(50) DEFAULT 'Active', createdAt VARCHAR(100), updatedAt VARCHAR(100), tenantId VARCHAR(100) NOT NULL, UNIQUE KEY unique_sec_name (name, tenantId))",
       "CREATE TABLE IF NOT EXISTS published_timetables (id VARCHAR(50) PRIMARY KEY, type VARCHAR(50) NOT NULL, identifier VARCHAR(100) NOT NULL, slots JSON NOT NULL, publishedAt VARCHAR(100) NOT NULL, tenantId VARCHAR(100) NOT NULL, UNIQUE KEY unique_pub_tt (type, identifier, tenantId))",
-      "CREATE TABLE IF NOT EXISTS fee_periods (id VARCHAR(50) PRIMARY KEY, frequency VARCHAR(50) NOT NULL, name VARCHAR(100) NOT NULL, sortOrder INT DEFAULT 0, tenantId VARCHAR(100) NOT NULL, UNIQUE KEY unique_fp_freq_name (frequency, name, tenantId))"
+      "CREATE TABLE IF NOT EXISTS fee_periods (id VARCHAR(50) PRIMARY KEY, frequency VARCHAR(50) NOT NULL, name VARCHAR(100) NOT NULL, sortOrder INT DEFAULT 0, tenantId VARCHAR(100) NOT NULL, UNIQUE KEY unique_fp_freq_name (frequency, name, tenantId))",
+      "CREATE TABLE IF NOT EXISTS auxiliary_income_categories (id VARCHAR(50) PRIMARY KEY, name VARCHAR(255) NOT NULL, description TEXT, tenantId VARCHAR(100) NOT NULL, createdAt VARCHAR(100) NOT NULL, updatedAt VARCHAR(100) NOT NULL, UNIQUE KEY unique_aux_cat_name (name, tenantId))",
+      "CREATE TABLE IF NOT EXISTS auxiliary_income (id VARCHAR(50) PRIMARY KEY, categoryId VARCHAR(50) NOT NULL, amount DECIMAL(10,2) NOT NULL, date VARCHAR(50) NOT NULL, receivedFrom VARCHAR(255), paymentMethod VARCHAR(100), referenceNumber VARCHAR(100), description TEXT, receiptNumber VARCHAR(100), tenantId VARCHAR(100) NOT NULL, createdAt VARCHAR(100) NOT NULL, updatedAt VARCHAR(100) NOT NULL, FOREIGN KEY (categoryId) REFERENCES auxiliary_income_categories(id) ON DELETE CASCADE)"
     ];
 
     for (const sql of extraSchemaAlters) {
@@ -375,7 +377,9 @@ const createTablesFromSchema = async () => {
       "CREATE INDEX idx_grades_tenant ON grades (tenantId)",
       "CREATE INDEX idx_departments_tenant ON departments (tenantId)",
       "CREATE INDEX idx_grade_dept_tenant ON grade_departments (tenantId)",
-      "CREATE INDEX idx_fee_periods_tenant ON fee_periods (tenantId)"
+      "CREATE INDEX idx_fee_periods_tenant ON fee_periods (tenantId)",
+      "CREATE INDEX idx_aux_income_cat_tenant ON auxiliary_income_categories (tenantId)",
+      "CREATE INDEX idx_aux_income_tenant ON auxiliary_income (tenantId)"
     ];
 
     console.log(`[SQL Init] Constructing performance optimization indexes...`);
@@ -814,8 +818,8 @@ export const initSqlDb = async () => {
   if (isConnected) {
     // 1. Create tables
     await createTablesFromSchema();
-    // 2. Run data migration
-    await migrateJsonToSql();
+    // 2. JSON migration disabled — all data is now managed directly in MySQL
+    // await migrateJsonToSql();
     
     // 3. Ensure live database admin username matches local seed/fallback settings
     try {
@@ -883,11 +887,12 @@ export const getDefaultRoles = () => {
     'finance',
     'expense-dashboard',
     'expense-all-expenses',
-    'expense-tracker',
     'expense-history',
     'income',
+    'expense-tracker',
     'financial-reports',
-    'roles-permissions'
+    'roles-permissions',
+    'auxiliary-income'
   ];
   const actions = ['view', 'create', 'edit', 'delete', 'approve', 'publish', 'export', 'import', 'manage-settings'];
 

@@ -18,7 +18,23 @@ export default function UserProfile({ onProfileUpdate, showToast, onLogout }) {
   const fetchProfile = async () => {
     try {
       setLoading(true);
+      const role = sessionStorage.getItem('role') || sessionStorage.getItem('portal_role');
+      if (role === 'Developer Admin') {
+        setProfile({
+          role: 'Developer Admin',
+          name: sessionStorage.getItem('name') || 'Platform Owner',
+          username: sessionStorage.getItem('username') || 'dev@admin.com',
+          email: 'dev@admin.com',
+          phone: 'N/A',
+          photo: ''
+        });
+        return;
+      }
       const token = sessionStorage.getItem('token');
+      if (!token || token === 'null' || token === 'undefined') {
+        if (onLogout) onLogout();
+        return;
+      }
       const res = await fetch('/api/auth/profile', {
         headers: {
           'Authorization': `Bearer ${token}`
@@ -28,7 +44,11 @@ export default function UserProfile({ onProfileUpdate, showToast, onLogout }) {
         const data = await res.json();
         setProfile(data);
       } else {
-        const errData = await res.json();
+        if (res.status === 401 && onLogout) {
+          onLogout();
+          return;
+        }
+        const errData = await res.json().catch(() => ({}));
         setError(errData.error || 'Failed to load profile.');
       }
     } catch (err) {

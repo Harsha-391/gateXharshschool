@@ -117,10 +117,11 @@ export default function RolesPermissions({ initialTab = 'dashboard', hideTabs = 
     { id: 'finance', label: 'Finance' },
     { id: 'expense-dashboard', label: 'Expense Panel' },
     { id: 'expense-all-expenses', label: 'Expenses' },
-    { id: 'expense-tracker', label: 'Expense Tracker' },
     { id: 'expense-history', label: 'Expense History' },
     { id: 'income', label: 'Income Tracker' },
+    { id: 'expense-tracker', label: 'Expense Tracker' },
     { id: 'financial-reports', label: 'Financial Reports' },
+    { id: 'auxiliary-income', label: 'Auxiliary & Other Income' },
     { id: 'roles-permissions', label: 'Roles & Permissions' }
   ];
 

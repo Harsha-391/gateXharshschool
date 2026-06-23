@@ -9,6 +9,7 @@ import teacherRoutes from './routes/teacherRoutes.js';
 import attendanceRoutes from './routes/attendanceRoutes.js';
 import employeeAttendanceRoutes from './routes/employeeAttendanceRoutes.js';
 import accountManagementRoutes from './routes/accountManagementRoutes.js';
+import auxiliaryIncomeRoutes from './routes/auxiliaryIncomeRoutes.js';
 import academicRoutes from './routes/academicRoutes.js';
 import rbacRoutes from './routes/rbacRoutes.js';
 import gradeRoutes from './routes/gradeRoutes.js';
@@ -955,28 +956,30 @@ app.put('/api/auth/profile', auth, upload.single('photo'), restoreTenantContext,
       writeDb(tenantDb);
     }
 
-    const tenantDbPath = path.join(__dirname, 'tenants', `db_${currentSchool.subdomain}.json`);
-    if (fs.existsSync(tenantDbPath)) {
-      try {
-        const raw = fs.readFileSync(tenantDbPath, 'utf8');
-        const tenantData = JSON.parse(raw);
-        tenantData.school = {
-          ...tenantData.school,
-          name: platformDb.schools[index].name,
-          address: platformDb.schools[index].address,
-          city: platformDb.schools[index].city,
-          state: platformDb.schools[index].state,
-          phone: platformDb.schools[index].phone,
-          email: platformDb.schools[index].adminEmail,
-          adminName: platformDb.schools[index].adminName,
-          adminUsername: platformDb.schools[index].adminUsername,
-          adminPassword: platformDb.schools[index].adminPassword,
-          principal: platformDb.schools[index].principalName,
-          updatedAt: nowStr
-        };
-        fs.writeFileSync(tenantDbPath, JSON.stringify(tenantData, null, 2), 'utf8');
-      } catch (e) {
-        console.error('Failed to sync school update to tenant DB:', e);
+    if (!isSqlActive()) {
+      const tenantDbPath = path.join(__dirname, 'tenants', `db_${currentSchool.subdomain}.json`);
+      if (fs.existsSync(tenantDbPath)) {
+        try {
+          const raw = fs.readFileSync(tenantDbPath, 'utf8');
+          const tenantData = JSON.parse(raw);
+          tenantData.school = {
+            ...tenantData.school,
+            name: platformDb.schools[index].name,
+            address: platformDb.schools[index].address,
+            city: platformDb.schools[index].city,
+            state: platformDb.schools[index].state,
+            phone: platformDb.schools[index].phone,
+            email: platformDb.schools[index].adminEmail,
+            adminName: platformDb.schools[index].adminName,
+            adminUsername: platformDb.schools[index].adminUsername,
+            adminPassword: platformDb.schools[index].adminPassword,
+            principal: platformDb.schools[index].principalName,
+            updatedAt: nowStr
+          };
+          fs.writeFileSync(tenantDbPath, JSON.stringify(tenantData, null, 2), 'utf8');
+        } catch (e) {
+          console.error('Failed to sync school update to tenant DB:', e);
+        }
       }
     }
 
@@ -1086,6 +1089,7 @@ app.use('/api/employee-attendance', employeeAttendanceRoutes);
 // ==========================================
 app.use('/api/account-management', accountManagementRoutes);
 app.use('/api/finance', accountManagementRoutes);
+app.use('/api/finance/auxiliary', auxiliaryIncomeRoutes);
 
 // ==========================================
 // 2C. ACADEMICS ROUTER

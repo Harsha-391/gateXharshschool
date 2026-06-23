@@ -23,6 +23,7 @@ import {
   Receipt,
   Wallet,
   Banknote,
+  Tags,
   ClipboardList,
   ShieldAlert,
   Plus,
@@ -182,6 +183,29 @@ export default function Sidebar({
               </button>
             )}
 
+            {hasPermission('grade-management', 'view') && (
+              <button
+                onClick={() => { setAdminView('grade-list'); setMobileOpen(false); }}
+                className={`nav-item ${['grade-list', 'add-grade', 'grade-departments', 'grade-dept-mapping', 'grade-academic-settings', 'academic-grade-subjects'].includes(adminView) ? 'active' : ''}`}
+              >
+                <GraduationCap size={20} className="flex-shrink-0" />
+                <span className="nav-label">Grade Management</span>
+              </button>
+            )}
+
+            {hasPermission('student-manager', 'view') && (
+              <button
+                onClick={() => { setAdminView('student-manager'); setMobileOpen(false); }}
+                onMouseEnter={() => {
+                  prefetchApi('/api/grades/active-options');
+                }}
+                className={`nav-item ${adminView === 'student-manager' ? 'active' : ''}`}
+              >
+                <UserPlus2 size={20} className="flex-shrink-0" />
+                <span className="nav-label">Student Manager</span>
+              </button>
+            )}
+
             {(hasPermission('student-directory', 'view') || hasPermission('teacher-directory', 'view') || hasPermission('staff-directory', 'view')) && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
                 <button
@@ -246,15 +270,7 @@ export default function Sidebar({
               </div>
             )}
 
-            {hasPermission('grade-management', 'view') && (
-              <button
-                onClick={() => { setAdminView('grade-list'); setMobileOpen(false); }}
-                className={`nav-item ${['grade-list', 'add-grade', 'grade-departments', 'grade-dept-mapping', 'grade-academic-settings', 'academic-grade-subjects'].includes(adminView) ? 'active' : ''}`}
-              >
-                <GraduationCap size={20} className="flex-shrink-0" />
-                <span className="nav-label">Grade Management</span>
-              </button>
-            )}
+
 
             {(hasPermission('register-student', 'create') || hasPermission('register-student', 'view') || 
               hasPermission('add-staff', 'create') || hasPermission('add-staff', 'view') || 
@@ -309,18 +325,6 @@ export default function Sidebar({
               </div>
             )}
 
-            {hasPermission('student-manager', 'view') && (
-              <button
-                onClick={() => { setAdminView('student-manager'); setMobileOpen(false); }}
-                onMouseEnter={() => {
-                  prefetchApi('/api/grades/active-options');
-                }}
-                className={`nav-item ${adminView === 'student-manager' ? 'active' : ''}`}
-              >
-                <UserPlus2 size={20} className="flex-shrink-0" />
-                <span className="nav-label">Student Manager</span>
-              </button>
-            )}
 
             {(hasPermission('employee-attendance', 'view') || hasPermission('attendance', 'view') || hasPermission('attendance-history', 'view')) && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
@@ -596,7 +600,7 @@ export default function Sidebar({
                 <button
                   type="button"
                   onClick={() => setAdminExpensesOpen(!adminExpensesOpen)}
-                  className={`nav-item ${['expense-dashboard', 'expense-all-expenses', 'expense-tracker', 'expense-history'].includes(adminView) ? 'parent-active' : ''}`}
+                  className={`nav-item ${['expense-dashboard', 'expense-all-expenses', 'expense-history'].includes(adminView) ? 'parent-active' : ''}`}
                   style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', cursor: 'pointer' }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
@@ -627,16 +631,7 @@ export default function Sidebar({
                         <span className="nav-label">Expenses</span>
                       </button>
                     )}
-                    {hasPermission('expense-tracker', 'view') && (
-                      <button
-                        onClick={() => { setAdminView('expense-tracker'); setMobileOpen(false); }}
-                        className={`nav-item ${adminView === 'expense-tracker' ? 'active' : ''}`}
-                        style={{ padding: '10px 12px', fontSize: '0.88rem', position: 'relative' }}
-                      >
-                        <TrendingDown size={18} className="flex-shrink-0" />
-                        <span className="nav-label">Expense Tracker</span>
-                      </button>
-                    )}
+
                     {hasPermission('expense-history', 'view') && (
                       <button
                         onClick={() => { setAdminView('expense-history'); setMobileOpen(false); }}
@@ -652,52 +647,86 @@ export default function Sidebar({
               </div>
             )}
 
-            {hasPermission('income', 'view') && (
+            {hasPermission('auxiliary-income', 'view') && (
               <button
-                onClick={() => { setAdminView('income'); setMobileOpen(false); }}
-                className={`nav-item ${adminView === 'income' ? 'active' : ''}`}
+                onClick={() => { setAdminView('auxiliary-income'); setMobileOpen(false); }}
+                className={`nav-item ${adminView === 'auxiliary-income' ? 'active' : ''}`}
               >
-                <CreditCard size={20} className="flex-shrink-0" />
-                <span className="nav-label">Income Tracker</span>
+                <Tags size={20} className="flex-shrink-0" />
+                <span className="nav-label" style={{ fontWeight: 600 }}>Auxiliary & Other Income</span>
               </button>
             )}
 
-            {hasPermission('financial-reports', 'view') && (
-              <button
-                onClick={() => { setAdminView('reports'); setMobileOpen(false); }}
-                className={`nav-item ${adminView === 'reports' ? 'active' : ''}`}
-              >
-                <List size={20} className="flex-shrink-0" />
-                <span className="nav-label">Financial Reports</span>
-              </button>
+            {(hasPermission('income', 'view') || hasPermission('expense-tracker', 'view') || hasPermission('financial-reports', 'view')) && (
+              <div className="sidebar-section-group" style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <span style={{ fontWeight: 700, fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-muted)', padding: '4px 4px 0' }}>
+                  Revenue & Reports
+                </span>
+                {hasPermission('income', 'view') && (
+                  <button
+                    onClick={() => { setAdminView('income'); setMobileOpen(false); }}
+                    className={`nav-item ${adminView === 'income' ? 'active' : ''}`}
+                    style={{ fontWeight: 500 }}
+                  >
+                    <CreditCard size={20} className="flex-shrink-0" />
+                    <span className="nav-label">Income Tracker</span>
+                  </button>
+                )}
+
+                {hasPermission('expense-tracker', 'view') && (
+                  <button
+                    onClick={() => { setAdminView('expense-tracker'); setMobileOpen(false); }}
+                    className={`nav-item ${adminView === 'expense-tracker' ? 'active' : ''}`}
+                    style={{ fontWeight: 500 }}
+                  >
+                    <TrendingDown size={20} className="flex-shrink-0" />
+                    <span className="nav-label">Expense Tracker</span>
+                  </button>
+                )}
+
+                {hasPermission('financial-reports', 'view') && (
+                  <button
+                    onClick={() => { setAdminView('reports'); setMobileOpen(false); }}
+                    className={`nav-item ${adminView === 'reports' ? 'active' : ''}`}
+                    style={{ fontWeight: 500 }}
+                  >
+                    <List size={20} className="flex-shrink-0" />
+                    <span className="nav-label">Financial Reports</span>
+                  </button>
+                )}
+              </div>
             )}
 
             {(isSuperAdmin() || hasPermission('roles-permissions', 'view')) && (
-              <button
-                onClick={() => { setAdminView('security-audit'); setMobileOpen(false); }}
-                onMouseEnter={() => {
-                  prefetchApi('/api/rbac/audit-logs');
-                }}
-                className={`nav-item ${adminView === 'security-audit' ? 'active' : ''}`}
-              >
-                <ClipboardList size={20} className="flex-shrink-0" />
-                <span className="nav-label">Security Audit Ledger</span>
-              </button>
-            )}
-
-            {(isSuperAdmin() || hasPermission('roles-permissions', 'view')) && (
-              <button
-                onClick={() => { setAdminView('roles-permissions'); setMobileOpen(false); }}
-                onMouseEnter={() => {
-                  prefetchApi('/api/rbac/roles');
-                  prefetchApi('/api/rbac/users');
-                  prefetchApi('/api/rbac/audit-logs');
-                }}
-                className={`nav-item ${adminView === 'roles-permissions' ? 'active' : ''}`}
-              >
-                <Shield size={20} className="flex-shrink-0" />
-                <span className="nav-label">Roles & Permissions</span>
-              </button>
+              <div className="sidebar-section-group" style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <span style={{ fontWeight: 700, fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-muted)', padding: '4px 4px 0' }}>
+                  Security & Privacy
+                </span>
+                <button
+                  onClick={() => { setAdminView('security-audit'); setMobileOpen(false); }}
+                  onMouseEnter={() => {
+                    prefetchApi('/api/rbac/audit-logs');
+                  }}
+                  className={`nav-item ${adminView === 'security-audit' ? 'active' : ''}`}
+                  style={{ fontWeight: 500 }}
+                >
+                  <ClipboardList size={20} className="flex-shrink-0" />
+                  <span className="nav-label">Security Audit Ledger</span>
+                </button>
+                <button
+                  onClick={() => { setAdminView('roles-permissions'); setMobileOpen(false); }}
+                  onMouseEnter={() => {
+                    prefetchApi('/api/rbac/roles');
+                    prefetchApi('/api/rbac/users');
+                    prefetchApi('/api/rbac/audit-logs');
+                  }}
+                  className={`nav-item ${adminView === 'roles-permissions' ? 'active' : ''}`}
+                  style={{ fontWeight: 500 }}
+                >
+                  <Shield size={20} className="flex-shrink-0" />
+                  <span className="nav-label">Roles & Permissions</span>
+                </button>
+              </div>
             )}
 
           </>
@@ -734,14 +763,26 @@ export default function Sidebar({
             {sessionStorage.getItem('from_dev_admin') === 'true' && (
               <button
                 onClick={() => {
+                  const devToken = sessionStorage.getItem('dev_token');
                   sessionStorage.clear();
                   sessionStorage.setItem('role', 'Developer Admin');
                   sessionStorage.setItem('portal_role', 'Developer Admin');
                   sessionStorage.setItem('username', 'dev@admin.com');
                   sessionStorage.setItem('name', 'Platform Owner');
+                  if (devToken) {
+                    sessionStorage.setItem('token', devToken);
+                  }
                   localStorage.removeItem('tenant_subdomain');
                   setMobileOpen(false);
-                  window.location.href = '/';
+                  
+                  const parts = window.location.hostname.split('.');
+                  const isSubdomainResolved = parts.length > 2 || (parts.length === 2 && parts[1] === 'localhost');
+                  let targetUrl = '/';
+                  if (isSubdomainResolved) {
+                    const baseHostname = parts.length === 2 && parts[1] === 'localhost' ? 'localhost' : parts.slice(1).join('.');
+                    targetUrl = `${window.location.protocol}//${baseHostname}${window.location.port ? `:${window.location.port}` : ''}/`;
+                  }
+                  window.location.href = targetUrl;
                 }}
                 className="nav-item"
                 style={{ color: 'hsl(var(--color-primary))', marginTop: '16px', border: '1px dashed rgba(99, 102, 241, 0.4)', background: 'rgba(99, 102, 241, 0.04)', borderRadius: '8px' }}

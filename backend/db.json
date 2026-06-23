@@ -11,6 +11,16 @@
   "staffPayments": [],
   "activities": [
     {
+      "id": "ACT-1782189771850",
+      "type": "alert",
+      "title": "New School Onboarded",
+      "desc": "School \"Noble School\" registered on the platform.",
+      "time": "Just now",
+      "timestamp": "2026-06-23T04:42:51.850Z",
+      "color": "hsl(var(--color-primary))",
+      "bg": "rgba(hsl(var(--color-primary)), 0.1)"
+    },
+    {
       "id": "ACT-1782105881104",
       "type": "alert",
       "title": "New School Onboarded",
@@ -69,7 +79,32 @@
       ]
     }
   ],
-  "schools": [],
+  "schools": [
+    {
+      "id": "SCH-1782189771850",
+      "name": "Noble School",
+      "code": "SCH-525",
+      "subdomain": "noble",
+      "logo": "",
+      "principalName": "Barbara Fischer",
+      "email": "uttamrajpurohit306115@gmail.com",
+      "phone": "0787846835",
+      "address": "Khimel Rani Station Rd",
+      "city": "Bali",
+      "state": "",
+      "country": "India",
+      "academicSession": "2026-2027",
+      "subscriptionPlan": "Starter",
+      "url": "https://noble.myschoolerp.com",
+      "status": "Active",
+      "adminName": "uttam rajpurohit",
+      "adminEmail": "ur61849@gmail.com",
+      "adminUsername": "school_admin",
+      "adminPassword": "uttam@2004",
+      "createdAt": "2026-06-23T04:42:51.850Z",
+      "updatedAt": "2026-06-23T04:42:51.850Z"
+    }
+  ],
   "roles": [
     {
       "id": "role-principal",
@@ -2237,5 +2272,5 @@
   "attendanceRecords": [],
   "attendanceLogs": [],
   "attendanceReports": [],
-  "_signature": "SCH-1782105881104-Noble school-SCH-732-noble21--Barbara Fischer-ur61849@gmail.com-0787846835-khimel,pali,rajasthan-pali-Rajasthan-India-2026-2027-Starter-https://noble21.myschoolerp.com-Active-Kellie Davidson-vucyti@mailinator.com-school_admin-uttam@20004-2026-06-22T05:24:41.104Z"
+  "_signature": ""
 }

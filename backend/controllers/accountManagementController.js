@@ -5,7 +5,8 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const DB_FILE = path.join(__dirname, '..', 'db.json');
-import { readDb as centralReadDb, writeDb as centralWriteDb, addActivity } from '../utils/db.js';
+import { readDb as centralReadDb, writeDb as centralWriteDb, addActivity, isSqlActive, tenantStorage, slugify } from '../utils/db.js';
+import * as sqlDb from '../utils/sqlDb.js';
 
 const DEFAULT_STAFF_SALARY_STRUCTURE_IDS = new Set([
   'SSSTR-ADMIN',
@@ -87,7 +88,7 @@ const writeDb = (data) => {
 // =============================================
 // 1. ACCOUNT MANAGEMENT OVERVIEW / DASHBOARD TELEMETRY
 // =============================================
-export const getAccountManagementOverview = (req, res) => {
+export const getAccountManagementOverview = async (req, res) => {
   try {
     const db = readDb();
 
@@ -102,7 +103,7 @@ export const getAccountManagementOverview = (req, res) => {
       .filter(e => !e.deleted)
       .reduce((sum, e) => sum + (e.amount || 0), 0);
 
-    const totalIncome = db.income
+    let totalIncome = db.income
       .reduce((sum, i) => sum + (i.amount || 0), 0);
 
     const totalPayrollPaid = db.payroll
@@ -116,6 +117,35 @@ export const getAccountManagementOverview = (req, res) => {
     const totalStaffPaymentsPaid = db.staffPayments
       .filter(p => p.paymentStatus === 'Paid')
       .reduce((sum, p) => sum + (p.netSalary || 0), 0);
+
+    // Fetch and aggregate auxiliary income if SQL active
+    let totalAuxiliaryIncome = 0;
+    const auxIncomeByMonth = {}; // Key: "YYYY-MM" -> amount
+
+    if (isSqlActive()) {
+      const tenantId = tenantStorage.getStore();
+      const tId = tenantId ? slugify(tenantId) : 'platform';
+      try {
+        const rows = await sqlDb.query(
+          'SELECT amount, date FROM auxiliary_income WHERE tenantId = ?',
+          [tId]
+        );
+        if (rows && rows.length > 0) {
+          rows.forEach(r => {
+            const amt = Number(r.amount) || 0;
+            totalAuxiliaryIncome += amt;
+            if (r.date && r.date.length >= 7) {
+              const yMonth = r.date.substring(0, 7); // "YYYY-MM"
+              auxIncomeByMonth[yMonth] = (auxIncomeByMonth[yMonth] || 0) + amt;
+            }
+          });
+        }
+      } catch (err) {
+        console.error('Error loading auxiliary income sum for dashboard:', err);
+      }
+    }
+
+    totalIncome += totalAuxiliaryIncome;
 
     const netProfit = totalFeeCollected + totalIncome - totalExpenses;
 
@@ -135,11 +165,22 @@ export const getAccountManagementOverview = (req, res) => {
         .filter(e => !e.deleted && e.date?.startsWith(yearMonth))
         .reduce((sum, e) => sum + (e.amount || 0), 0);
 
+      const monthPayroll = db.payroll
+        .filter(p => p.paymentStatus === 'Paid' && p.paymentDate?.startsWith(yearMonth))
+        .reduce((sum, p) => sum + (p.netSalary || 0), 0);
+
+      const monthStaffPayments = db.staffPayments
+        .filter(p => (p.paymentStatus === 'Paid' || p.status === 'Paid') && p.paymentDate?.startsWith(yearMonth))
+        .reduce((sum, p) => sum + (p.netSalary || p.amount || 0), 0);
+
+      const totalMonthExpenses = monthExpenses + monthPayroll + monthStaffPayments;
+      const monthAuxIncome = auxIncomeByMonth[yearMonth] || 0;
+
       monthlyData.push({
         month: monthStr,
-        fees: monthFees,
-        expenses: monthExpenses,
-        profit: monthFees - monthExpenses
+        fees: monthFees + monthAuxIncome,
+        expenses: totalMonthExpenses,
+        profit: (monthFees + monthAuxIncome) - totalMonthExpenses
       });
     }
 
@@ -904,9 +945,9 @@ export const deleteExpense = (req, res) => {
 // =============================================
 // 7. INCOME
 // =============================================
-export const getIncome = (req, res) => {
+export const getIncome = async (req, res) => {
   try {
-    const { source, search } = req.query;
+    const { source, search, includeAuxiliary } = req.query;
     const db = readDb();
     let income = db.income || [];
 
@@ -921,7 +962,52 @@ export const getIncome = (req, res) => {
       );
     }
 
-    res.json(income);
+    // Map to array copy to prevent modifying cache directly
+    let result = income.map(i => ({ ...i }));
+
+    if (includeAuxiliary === 'true' && isSqlActive()) {
+      const tenantId = tenantStorage.getStore();
+      const tId = tenantId ? slugify(tenantId) : 'platform';
+      try {
+        const sql = `
+          SELECT ai.*, aic.name as categoryName 
+          FROM auxiliary_income ai
+          INNER JOIN auxiliary_income_categories aic ON ai.categoryId = aic.id
+          WHERE ai.tenantId = ?
+        `;
+        const rows = await sqlDb.query(sql, [tId]);
+        if (rows && rows.length > 0) {
+          const auxMapped = rows.map(row => ({
+            incomeId: row.id,
+            receiptNumber: row.receiptNumber,
+            source: row.categoryName,
+            amount: Number(row.amount),
+            description: row.description || `Received from ${row.receivedFrom || 'N/A'} via ${row.paymentMethod || 'Cash'}`,
+            date: row.date,
+            receivedBy: row.receivedFrom || 'Auxiliary Portal',
+            isAuxiliary: true
+          }));
+
+          // Apply filters to auxiliary income
+          let filteredAux = auxMapped;
+          if (source && source !== 'All') {
+            filteredAux = filteredAux.filter(i => i.source === source);
+          }
+          if (search && search.trim()) {
+            const q = search.toLowerCase();
+            filteredAux = filteredAux.filter(i =>
+              i.source?.toLowerCase().includes(q) ||
+              i.description?.toLowerCase().includes(q)
+            );
+          }
+          result = [...result, ...filteredAux];
+        }
+      } catch (err) {
+        console.error('Failed to query auxiliary income for financial reports:', err);
+      }
+    }
+
+    res.json(result);
   } catch (err) {
     res.status(500).json({ error: 'Server error loading income.' });
   }
