@@ -17,8 +17,10 @@ const config = {
   database: process.env.DB_NAME || 'school_management',
   ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : undefined,
   waitForConnections: true,
-  connectionLimit: 10,
-  queueLimit: 0
+  connectionLimit: 30,
+  queueLimit: 0,
+  enableKeepAlive: true,
+  keepAliveInitialDelay: 10000
 };
 
 let pool;
@@ -38,7 +40,7 @@ export const query = async (sql, params) => {
   if (Array.isArray(params)) {
     safeParams = params.map(v => v === undefined ? null : v);
   }
-  const [results] = await pool.execute(sql, safeParams);
+  const [results] = await pool.query(sql, safeParams);
   return results;
 };
 

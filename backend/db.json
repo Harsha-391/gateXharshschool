@@ -103,6 +103,30 @@
       "adminPassword": "uttam@2004",
       "createdAt": "2026-06-23T04:42:51.850Z",
       "updatedAt": "2026-06-23T04:42:51.850Z"
+    },
+    {
+      "id": "SCH-1782204040203",
+      "name": "Test Onboard School 1782204040201",
+      "code": "SCH-660",
+      "subdomain": "testonboard802",
+      "logo": "",
+      "principalName": "Principal",
+      "email": "admin@test.com",
+      "phone": "",
+      "address": "",
+      "city": "Test City",
+      "state": "Test State",
+      "country": "India",
+      "academicSession": "2026-2027",
+      "subscriptionPlan": "Starter",
+      "url": "https://testonboard802.myschoolerp.com",
+      "status": "Active",
+      "adminName": "School Admin",
+      "adminEmail": "admin@test.com",
+      "adminUsername": "admin_test",
+      "adminPassword": "password123",
+      "createdAt": "2026-06-23T08:40:40.203Z",
+      "updatedAt": "2026-06-23T08:40:40.204Z"
     }
   ],
   "roles": [
@@ -2272,5 +2296,6 @@
   "attendanceRecords": [],
   "attendanceLogs": [],
   "attendanceReports": [],
-  "_signature": ""
+  "_signature": "",
+  "teacherTimetables": []
 }
