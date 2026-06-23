@@ -387,7 +387,8 @@ export const getGradesSections = (req, res) => {
   const isGrade11or12 = (name) => {
     if (!name) return false;
     const clean = name.trim().toUpperCase();
-    return clean.includes('11') || clean.includes('12') || clean.includes('XI') || clean.includes('XII');
+    const tokens = clean.split(/[\s()\-]+/);
+    return tokens.some(t => ['11', '12', 'XI', 'XII'].includes(t));
   };
 
   const gradeOptions = [];

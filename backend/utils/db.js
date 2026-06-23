@@ -34,26 +34,34 @@ export const convertToRoman = (str) => {
     return clean;
   }
   
-  const match = clean.match(/\d+/);
+  // Exact lookup first
+  const exactLookup = {
+    '1': 'I', '2': 'II', '3': 'III', '4': 'IV', '5': 'V', '6': 'VI', '7': 'VII', '8': 'VIII', '9': 'IX', '10': 'X', '11': 'XI', '12': 'XII',
+    'I': 'I', 'II': 'II', 'III': 'III', 'IV': 'IV', 'V': 'V', 'VI': 'VI', 'VII': 'VII', 'VIII': 'VIII', 'IX': 'IX', 'X': 'X', 'XI': 'XI', 'XII': 'XII',
+    'FIRST': 'I', 'SECOND': 'II', 'THIRD': 'III', 'FOURTH': 'IV', 'FIFTH': 'V', 'SIXTH': 'VI', 'SEVENTH': 'VII', 'EIGHTH': 'VIII', 'NINTH': 'IX', 'TENTH': 'X', 'ELEVENTH': 'XI', 'TWELFTH': 'XII',
+    '1ST': 'I', '2ND': 'II', '3RD': 'III', '4TH': 'IV', '5TH': 'V', '6TH': 'VI', '7TH': 'VII', '8TH': 'VIII', '9TH': 'IX', '10TH': 'X', '11TH': 'XI', '12TH': 'XII'
+  };
+
+  if (exactLookup[clean]) {
+    return exactLookup[clean];
+  }
+  
+  // Find any isolated standalone number
+  const match = clean.match(/\b\d+\b/);
   if (match) {
     const num = parseInt(match[0], 10);
     const lookup = {
       1: 'I', 2: 'II', 3: 'III', 4: 'IV', 5: 'V', 6: 'VI', 7: 'VII', 8: 'VIII', 9: 'IX', 10: 'X', 11: 'XI', 12: 'XII'
     };
     if (lookup[num]) {
-      return lookup[num];
+      const digitStr = match[0];
+      const digitIndex = clean.indexOf(digitStr);
+      if (digitIndex !== -1) {
+        const originalDigitStr = str.substring(digitIndex, digitIndex + digitStr.length);
+        return str.replace(originalDigitStr, lookup[num]);
+      }
+      return str.replace(match[0], lookup[num]);
     }
-  }
-  
-  const wordsLookup = {
-    'FIRST': 'I', 'SECOND': 'II', 'THIRD': 'III', 'FOURTH': 'IV', 'FIFTH': 'V', 'SIXTH': 'VI',
-    'SEVENTH': 'VII', 'EIGHTH': 'VIII', 'NINTH': 'IX', 'TENTH': 'X', 'ELEVENTH': 'XI', 'TWELFTH': 'XII',
-    '1ST': 'I', '2ND': 'II', '3RD': 'III', '4TH': 'IV', '5TH': 'V', '6TH': 'VI', '7TH': 'VII',
-    '8TH': 'VIII', '9TH': 'IX', '10TH': 'X', '11TH': 'XI', '12TH': 'XII'
-  };
-  
-  if (wordsLookup[clean]) {
-    return wordsLookup[clean];
   }
   
   return str;

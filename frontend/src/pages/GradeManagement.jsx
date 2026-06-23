@@ -515,59 +515,42 @@ export default function GradeManagement({ currentSubView, setAdminView, showToas
 
   const convertToRoman = (str) => {
     if (!str) return '';
-    let temp = str.toUpperCase();
-    const romanList = ['XII', 'XI', 'X', 'IX', 'VIII', 'VII', 'VI', 'V', 'IV', 'III', 'II', 'I'];
-    const romanToNum = {
-      'XII': 12, 'XI': 11, 'X': 10, 'IX': 9, 'VIII': 8, 'VII': 7, 'VI': 6, 'V': 5, 'IV': 4, 'III': 3, 'II': 2, 'I': 1
-    };
+    const clean = str.trim().toUpperCase();
     
-    for (const r of romanList) {
-      if (temp.includes(r)) {
-        temp = temp.replace(r, romanToNum[r]);
-        break;
-      }
+    if (['LKG', 'UKG', 'NURSERY'].includes(clean)) {
+      return clean;
     }
     
-    const match = temp.match(/\d+/);
+    const exactLookup = {
+      '1': 'I', '2': 'II', '3': 'III', '4': 'IV', '5': 'V', '6': 'VI', '7': 'VII', '8': 'VIII', '9': 'IX', '10': 'X', '11': 'XI', '12': 'XII',
+      'I': 'I', 'II': 'II', 'III': 'III', 'IV': 'IV', 'V': 'V', 'VI': 'VI', 'VII': 'VII', 'VIII': 'VIII', 'IX': 'IX', 'X': 'X', 'XI': 'XI', 'XII': 'XII',
+      'FIRST': 'I', 'SECOND': 'II', 'THIRD': 'III', 'FOURTH': 'IV', 'FIFTH': 'V', 'SIXTH': 'VI', 'SEVENTH': 'VII', 'EIGHTH': 'VIII', 'NINTH': 'IX', 'TENTH': 'X', 'ELEVENTH': 'XI', 'TWELFTH': 'XII',
+      '1ST': 'I', '2ND': 'II', '3RD': 'III', '4TH': 'IV', '5TH': 'V', '6TH': 'VI', '7TH': 'VII', '8TH': 'VIII', '9TH': 'IX', '10TH': 'X', '11TH': 'XI', '12TH': 'XII'
+    };
+
+    if (exactLookup[clean]) {
+      return exactLookup[clean];
+    }
+    
+    const match = clean.match(/\b\d+\b/);
     if (match) {
       const num = parseInt(match[0], 10);
       const lookup = {
         1: 'I', 2: 'II', 3: 'III', 4: 'IV', 5: 'V', 6: 'VI', 7: 'VII', 8: 'VIII', 9: 'IX', 10: 'X', 11: 'XI', 12: 'XII'
       };
       if (lookup[num]) {
-        const digitStr = match[0];
-        const digitIndex = temp.indexOf(digitStr);
-        if (digitIndex !== -1) {
-          const originalDigitStr = str.substring(digitIndex, digitIndex + digitStr.length);
-          return str.replace(originalDigitStr, lookup[num]);
-        }
-        return temp.replace(match[0], lookup[num]);
+        return lookup[num];
       }
     }
     
-    const clean = str.trim().toUpperCase();
-    if (['LKG', 'UKG', 'NURSERY'].includes(clean)) {
-      return clean;
-    }
-    
-    const wordsLookup = {
-      'FIRST': 'I', 'SECOND': 'II', 'THIRD': 'III', 'FOURTH': 'IV', 'FIFTH': 'V', 'SIXTH': 'VI',
-      'SEVENTH': 'VII', 'EIGHTH': 'VIII', 'NINTH': 'IX', 'TENTH': 'X', 'ELEVENTH': 'XI', 'TWELFTH': 'XII',
-      '1ST': 'I', '2ND': 'II', '3RD': 'III', '4TH': 'IV', '5TH': 'V', '6TH': 'VI', '7TH': 'VII',
-      '8TH': 'VIII', '9TH': 'IX', '10TH': 'X', '11TH': 'XI', '12TH': 'XII'
-    };
-    
-    if (wordsLookup[clean]) {
-      return wordsLookup[clean];
-    }
-    
-    return str;
+    return clean;
   };
 
   const isGrade11or12 = (name) => {
     if (!name) return false;
     const clean = name.trim().toUpperCase();
-    return clean.includes('11') || clean.includes('12') || clean.includes('XI') || clean.includes('XII');
+    const tokens = clean.split(/[\s()\-]+/);
+    return tokens.some(t => ['11', '12', 'XI', 'XII'].includes(t));
   };
 
   const filteredGrades = grades
