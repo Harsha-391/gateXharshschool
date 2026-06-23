@@ -755,7 +755,7 @@ CREATE TABLE IF NOT EXISTS departments (
 
 -- 45. Grade-Department Mapping Table
 CREATE TABLE IF NOT EXISTS grade_departments (
-  id VARCHAR(50) PRIMARY KEY,
+  id VARCHAR(100) PRIMARY KEY,
   gradeId VARCHAR(50) NOT NULL,
   departmentId VARCHAR(50) NOT NULL,
   status VARCHAR(50) DEFAULT 'Active',

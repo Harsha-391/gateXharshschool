@@ -154,6 +154,14 @@ const createTablesFromSchema = async () => {
       }
     }
 
+    // Ensure grade_departments id column is VARCHAR(100)
+    try {
+      await sqlDb.query("ALTER TABLE grade_departments MODIFY COLUMN id VARCHAR(100)");
+      console.log("[SQL Init] Ensured grade_departments id is VARCHAR(100).");
+    } catch (err) {
+      console.warn("[SQL Init WARNING] Failed to modify grade_departments id column:", err.message);
+    }
+
     // Ensure updatedAt column exists in schools table
     try {
       await sqlDb.query("ALTER TABLE schools ADD COLUMN updatedAt VARCHAR(100)");

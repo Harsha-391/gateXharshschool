@@ -1,8 +1,12 @@
 import express from 'express';
-import { readDb, writeDb, slugify, convertToRoman } from '../utils/db.js';
+import { readDb, writeDb, slugify, convertToRoman, tenantStorage } from '../utils/db.js';
 import { auth } from '../middleware/auth.js';
 
 const router = express.Router();
+
+const getActiveTenantId = () => {
+  return tenantStorage.getStore() || 'platform';
+};
 
 // Helper to log audit trails
 const logAudit = (db, req, action, details) => {
@@ -201,7 +205,7 @@ router.post('/', (req, res) => {
       return res.status(400).json({ error: 'A grade with this name already exists.' });
     }
 
-    const gradeId = `grade-${slugify(formattedName)}`;
+    const gradeId = `grade-${getActiveTenantId()}-${slugify(formattedName)}`;
     const newGrade = {
       id: gradeId,
       name: formattedName,
@@ -624,7 +628,7 @@ router.post('/departments', (req, res) => {
       return res.status(400).json({ error: 'A department with this name already exists.' });
     }
 
-    const deptId = `dept-${slugify(name)}`;
+    const deptId = `dept-${getActiveTenantId()}-${slugify(name)}`;
     const newDept = {
       id: deptId,
       name: name.trim(),
@@ -920,7 +924,7 @@ router.post('/sections', (req, res) => {
       return res.status(400).json({ error: 'A section with this name already exists.' });
     }
 
-    const sectionId = `section-${slugify(name)}-${Date.now()}`;
+    const sectionId = `section-${getActiveTenantId()}-${slugify(name)}-${Date.now()}`;
     const newSection = {
       id: sectionId,
       name: name.trim(),
