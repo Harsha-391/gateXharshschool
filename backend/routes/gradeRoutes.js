@@ -689,10 +689,16 @@ router.delete('/departments/:id', (req, res) => {
       return res.status(404).json({ error: 'Department not found.' });
     }
 
-    // Check if department is currently mapped to any grade in the DB mappings
-    const mapped = (db.gradeDepartments || []).some(gd => gd.departmentId === id);
-    if (mapped) {
-      return res.status(400).json({ error: 'This department is mapped to a grade and cannot be deleted.' });
+    // Check if department is currently mapped to any grade in the DB mappings and if those mappings are in use
+    const activeMappings = (db.gradeDepartments || []).filter(gd => gd.departmentId === id);
+    for (const m of activeMappings) {
+      const grade = (db.grades || []).find(g => g.id === m.gradeId);
+      if (grade) {
+        const optionUsageError = checkGradeUsage(db, grade.name, dept.name);
+        if (optionUsageError) {
+          return res.status(400).json({ error: `Mapped option "${grade.name} (${dept.name})" is active and in use: ${optionUsageError}` });
+        }
+      }
     }
 
     // Dynamic mapping usage check for XI/XII
@@ -704,11 +710,13 @@ router.delete('/departments/:id', (req, res) => {
       }
     }
 
+    // Clean up mapping entries and delete department
+    db.gradeDepartments = (db.gradeDepartments || []).filter(gd => gd.departmentId !== id);
     db.departments = db.departments.filter(d => d.id !== id);
     logAudit(db, req, 'Delete Department', `Deleted department: ${dept.name}`);
     writeDb(db);
 
-    res.json({ success: true, message: `Department ${dept.name} deleted successfully.` });
+    res.json({ success: true, message: `Department ${dept.name} and its mappings deleted successfully.` });
   } catch (error) {
     res.status(500).json({ error: 'Failed to delete department: ' + error.message });
   }
