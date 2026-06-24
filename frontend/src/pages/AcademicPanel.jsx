@@ -52,6 +52,27 @@ const getTeacherSubjects = (t) => {
   return Array.from(subjects).filter(Boolean).join(', ');
 };
 
+const isTeacherProfile = (t) => {
+  if (!t) return false;
+  const role = (t.roleName || '').toLowerCase().trim();
+  const designation = (t.designation || '').toLowerCase().trim();
+  
+  if (role.includes('teacher') || designation.includes('teacher')) {
+    return true;
+  }
+  
+  const nonTeacherRoles = ['principal', 'accountant', 'receptionist', 'expense manager', 'academic coordinator'];
+  if (role && !nonTeacherRoles.includes(role)) {
+    return true;
+  }
+  
+  if (!role && !designation) {
+    return true;
+  }
+  
+  return false;
+};
+
 
 export default function AcademicPanel({ subView, setAdminView }) {
   // Master API states
@@ -752,7 +773,7 @@ export default function AcademicPanel({ subView, setAdminView }) {
   // Sync active teacher selection on load
   useEffect(() => {
     if (Array.isArray(teachers) && teachers.length > 0 && !activeTeacher) {
-      const filtered = teachers.filter(t => t.roleName?.toLowerCase() === 'teacher');
+      const filtered = teachers.filter(isTeacherProfile);
       if (filtered.length > 0) {
         setActiveTeacher(filtered[0].name);
       } else {
@@ -2407,9 +2428,9 @@ export default function AcademicPanel({ subView, setAdminView }) {
   };
 
   const renderTeacherTimetable = () => {
-    // Filter teachers who have roleName === 'Teacher' and match the select dropdown search input
+    // Filter teachers using isTeacherProfile helper and match the select dropdown search input
     const filteredTeachersForSelect = (Array.isArray(teachers) ? teachers : [])
-      .filter(t => t.roleName?.toLowerCase() === 'teacher')
+      .filter(isTeacherProfile)
       .filter(t => {
         if (!teacherDropdownSearch) return true;
         const q = teacherDropdownSearch.toLowerCase();

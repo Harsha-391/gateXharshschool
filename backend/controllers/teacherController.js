@@ -329,7 +329,10 @@ export const getTeachers = async (req, res) => {
     const userAccess = db.userAccess || [];
     const roles = db.roles || [];
     const mapped = result.map(t => {
-      const access = userAccess.find(ua => ua.userId === t.id || ua.userId === t.employeeId);
+      const access = userAccess.find(ua => 
+        (ua.userId && t.id && ua.userId.toLowerCase().trim() === t.id.toLowerCase().trim()) ||
+        (ua.userId && t.employeeId && ua.userId.toLowerCase().trim() === t.employeeId.toLowerCase().trim())
+      );
       const role = access ? roles.find(r => r.id === access.roleId) : null;
       return {
         ...t,
