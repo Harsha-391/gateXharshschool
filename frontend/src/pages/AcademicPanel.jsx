@@ -732,7 +732,7 @@ export default function AcademicPanel({ subView, setAdminView }) {
       ? teachers.find(t => t.name.toLowerCase() === activeTeacher.toLowerCase())
       : null;
     const teacherSubject = currentTeacherObj
-      ? (currentTeacherObj.subject || currentTeacherObj.subjectSpecialization || '')
+      ? (currentTeacherObj.primarySubject || currentTeacherObj.subject || currentTeacherObj.subjectSpecialization || '')
       : '';
 
     const formattedTimetables = [];

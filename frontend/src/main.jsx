@@ -28,15 +28,37 @@ window.fetch = (input, init) => {
     if (init && init.headers) {
       if (init.headers['x-tenant-id']) return init.headers['x-tenant-id'];
       if (init.headers.get && typeof init.headers.get === 'function') {
-        return init.headers.get('x-tenant-id');
+        const val = init.headers.get('x-tenant-id');
+        if (val) return val;
       }
     }
     if (input instanceof Request && input.headers) {
-      return input.headers.get('x-tenant-id');
+      const val = input.headers.get('x-tenant-id');
+      if (val) return val;
     }
-    return '';
+    return localStorage.getItem('tenant_subdomain') || '';
   };
   const tenantId = getTenantHeader();
+
+  if (tenantId) {
+    if (!init) init = {};
+    if (!init.headers) {
+      init.headers = {};
+    }
+    if (init.headers instanceof Headers) {
+      if (!init.headers.has('x-tenant-id')) {
+        init.headers.set('x-tenant-id', tenantId);
+      }
+    } else if (Array.isArray(init.headers)) {
+      if (!init.headers.some(h => h[0].toLowerCase() === 'x-tenant-id')) {
+        init.headers.push(['x-tenant-id', tenantId]);
+      }
+    } else {
+      if (!init.headers['x-tenant-id']) {
+        init.headers['x-tenant-id'] = tenantId;
+      }
+    }
+  }
 
   const baseUrl = import.meta.env.VITE_API_URL || '';
   let target = url;

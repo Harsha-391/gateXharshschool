@@ -1523,30 +1523,36 @@ export const loadTenantSqlIntoMemory = async (tenantId) => {
         if (typeof val === 'string') {
           try { val = JSON.parse(val); } catch (e) { val = null; }
         }
-        if (val && val.subject && val.subject.trim() !== '') {
+        if (val) {
+          const subjectVal = val.subject || '';
+          const cohortVal = val.cohort || '';
           if (isTeacherRow) {
-            const teacherName = t.cohort.substring(TEACHER_PREFIX.length);
-            loadedTeacherSlots.push({
-              id: `TT-TEACHER-${teacherName}-${t.time}-${d}`.replace(/\s+/g, '-'),
-              cohort: val.cohort || '',
-              day: dayMap[d],
-              time: t.time,
-              subject: val.subject,
-              teacher: teacherName,
-              room: val.room || '',
-              session: '2026-2027'
-            });
+            if (cohortVal.trim() !== '' || subjectVal.trim() !== '') {
+              const teacherName = t.cohort.substring(TEACHER_PREFIX.length);
+              loadedTeacherSlots.push({
+                id: `TT-TEACHER-${teacherName}-${t.time}-${d}`.replace(/\s+/g, '-'),
+                cohort: cohortVal,
+                day: dayMap[d],
+                time: t.time,
+                subject: subjectVal,
+                teacher: teacherName,
+                room: val.room || '',
+                session: '2026-2027'
+              });
+            }
           } else {
-            loadedSlots.push({
-              id: `TT-${t.cohort}-${t.time}-${d}`.replace(/\s+/g, '-'),
-              cohort: t.cohort,
-              day: dayMap[d],
-              time: t.time,
-              subject: val.subject,
-              teacher: val.teacher || '',
-              room: val.room || '',
-              session: '2026-2027'
-            });
+            if (subjectVal.trim() !== '') {
+              loadedSlots.push({
+                id: `TT-${t.cohort}-${t.time}-${d}`.replace(/\s+/g, '-'),
+                cohort: t.cohort,
+                day: dayMap[d],
+                time: t.time,
+                subject: subjectVal,
+                teacher: val.teacher || '',
+                room: val.room || '',
+                session: '2026-2027'
+              });
+            }
           }
         }
       }
