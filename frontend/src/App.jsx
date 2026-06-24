@@ -365,33 +365,52 @@ export default function App() {
       if (!isInput && !isTextarea) return;
 
       // Bypass validation entirely for login forms, login pages, and password fields
+      const nameAttr = (target.getAttribute('name') || target.name || '').toLowerCase();
+      const idAttr = (target.getAttribute('id') || target.id || '').toLowerCase();
+      const placeholderAttr = (target.getAttribute('placeholder') || '').toLowerCase();
+      
+      let labelAttr = '';
+      if (target.labels && target.labels.length > 0) {
+        labelAttr = target.labels[0].textContent.toLowerCase();
+      } else {
+        const parentGroup = target.closest('.form-group') || target.closest('div');
+        if (parentGroup) {
+          const lblEl = parentGroup.querySelector('label');
+          if (lblEl) labelAttr = lblEl.textContent.toLowerCase();
+        }
+      }
+
       const isLoginForm = target.closest('[class*="login"]') || 
                            target.closest('[id*="login"]') || 
                            target.closest('form') && (
                              (target.closest('form').className || '').toLowerCase().includes('login') ||
                              (target.closest('form').getAttribute('id') || '').toLowerCase().includes('login')
-                           );
+                           ) ||
+                           nameAttr.includes('username') || nameAttr.includes('email') || nameAttr.includes('password') ||
+                           idAttr.includes('username') || idAttr.includes('email') || idAttr.includes('password') ||
+                           placeholderAttr.includes('username') || placeholderAttr.includes('email') || placeholderAttr.includes('password') ||
+                           labelAttr.includes('username') || labelAttr.includes('email') || labelAttr.includes('password');
       
       const isLoginView = !isDeveloperAdmin && !isAdmin && !isSchoolAdmin;
       const isSubadminLoginActive = !!activeSubadminLogin;
       
       const isPasswordField = target.getAttribute('type') === 'password' || 
-                              (target.getAttribute('name') || target.name || '').toLowerCase().includes('password') || 
-                              (target.getAttribute('id') || target.id || '').toLowerCase().includes('password');
+                              nameAttr.includes('password') || 
+                              idAttr.includes('password');
 
       if (isLoginForm || isLoginView || isSubadminLoginActive || isPasswordField) {
         return;
       }
 
       const type = target.getAttribute('type') || 'text';
-      const name = (target.getAttribute('name') || target.name || '').toLowerCase();
-      const id = (target.getAttribute('id') || target.id || '').toLowerCase();
-      const placeholder = (target.getAttribute('placeholder') || '').toLowerCase();
-      const label = target.labels && target.labels.length > 0 ? target.labels[0].textContent.toLowerCase() : '';
+      const name = nameAttr;
+      const id = idAttr;
+      const placeholder = placeholderAttr;
+      const label = labelAttr;
 
-      const isEmail = type === 'email' || name.includes('email');
+      const isEmail = type === 'email' || name.includes('email') || name.includes('mail') || id.includes('email') || id.includes('mail') || placeholder.includes('email') || placeholder.includes('mail') || label.includes('email') || label.includes('mail');
       const isPassword = type === 'password' || name.includes('password');
-      const isUsername = name.includes('username') || name.includes('user') || id.includes('username') || id.includes('user');
+      const isUsername = name.includes('username') || name.includes('user') || id.includes('username') || id.includes('user') || placeholder.includes('username') || label.includes('username');
       const isSubdomain = name.includes('subdomain') || id.includes('subdomain');
       const isUrl = type === 'url' || name.includes('url') || name.includes('logo') || name.includes('website') || name.includes('attachment') || name.includes('photo') || name.includes('file');
       const isDocFile = type === 'file';
@@ -809,6 +828,8 @@ export default function App() {
             onLogin={() => {
               sessionStorage.setItem('role', 'Admin Dashboard');
               sessionStorage.setItem('portal_role', 'Admin Dashboard');
+              sessionStorage.setItem('name', 'Admin');
+              sessionStorage.setItem('username', 'dev@admin.com');
               setIsAdmin(true);
               setIsSchoolAdmin(false);
               setAdminView('students');
@@ -879,6 +900,8 @@ export default function App() {
               onLogin={() => {
                 sessionStorage.setItem('role', 'Admin Dashboard');
                 sessionStorage.setItem('portal_role', 'Admin Dashboard');
+                sessionStorage.setItem('name', 'Admin');
+                sessionStorage.setItem('username', 'dev@admin.com');
                 setIsAdmin(true);
                 setIsSchoolAdmin(false);
                 setAdminView('dashboard');

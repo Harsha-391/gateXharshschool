@@ -178,6 +178,8 @@ export default function SchoolLogin({ tenantSubdomain, onLoginSuccess }) {
               <Mail size={16} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
               <input
                 type="text"
+                name="username"
+                id="username"
                 className="form-control"
                 placeholder="e.g. school_admin or teacher_user"
                 value={username}

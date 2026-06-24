@@ -32,6 +32,18 @@ export default function UserProfile({ onProfileUpdate, showToast, onLogout }) {
       }
       const token = sessionStorage.getItem('token');
       if (!token || token === 'null' || token === 'undefined') {
+        const savedRole = sessionStorage.getItem('role') || sessionStorage.getItem('portal_role');
+        if (savedRole) {
+          setProfile({
+            role: savedRole,
+            name: sessionStorage.getItem('name') || 'Local User',
+            username: sessionStorage.getItem('username') || 'local_user',
+            email: savedRole.toLowerCase().includes('admin') ? 'dev@admin.com' : 'local@example.com',
+            phone: 'N/A',
+            photo: ''
+          });
+          return;
+        }
         if (onLogout) onLogout();
         return;
       }
