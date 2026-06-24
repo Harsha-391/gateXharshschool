@@ -121,17 +121,6 @@ export default function AcademicPanel({ subView, setAdminView }) {
   const [activeSubject, setActiveSubject] = useState('Mathematics');
   const [activeMonth, setActiveMonth] = useState(new Date().getMonth()); // 0-11
   const [calendarYear, setCalendarYear] = useState(new Date().getFullYear());
-  const [examSubTab, setExamSubTab] = useState('active');
-
-  useEffect(() => {
-    if (subView === 'academic-exams') {
-      setExamSubTab('active');
-    } else if (subView === 'academic-exam-timetable') {
-      setExamSubTab('timetable');
-    } else if (subView === 'academic-exams-history') {
-      setExamSubTab('history');
-    }
-  }, [subView]);
 
   useEffect(() => {
     const loadGradesAndSections = async () => {
@@ -2788,62 +2777,7 @@ export default function AcademicPanel({ subView, setAdminView }) {
 
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-        {/* Internal Sub-navigation Menu Header for Exam Management */}
-        <div className="glass-panel" style={{ padding: '6px', display: 'inline-flex', alignSelf: 'flex-start', gap: '6px', borderRadius: '10px', background: 'rgba(255, 255, 255, 0.03)', border: '1px solid var(--border-glass)', marginBottom: '8px' }}>
-          <button 
-            onClick={() => {
-              setExamSubTab('active');
-              setAdminView('academic-exams');
-            }}
-            className={`tab-btn-custom ${examSubTab === 'active' ? 'active' : ''}`}
-            style={{
-              display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px', borderRadius: '8px', fontSize: '0.8rem', fontWeight: 600, border: 'none', cursor: 'pointer',
-              background: examSubTab === 'active' ? 'rgba(99,102,241,0.1)' : 'transparent',
-              color: examSubTab === 'active' ? 'rgb(99,102,241)' : 'var(--text-muted)',
-              transition: 'all 0.2s ease'
-            }}
-          >
-            <ClipboardList size={14} /> Active Exams
-          </button>
-          <button 
-            onClick={() => {
-              setExamSubTab('timetable');
-              setAdminView('academic-exam-timetable');
-            }}
-            className={`tab-btn-custom ${examSubTab === 'timetable' ? 'active' : ''}`}
-            style={{
-              display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px', borderRadius: '8px', fontSize: '0.8rem', fontWeight: 600, border: 'none', cursor: 'pointer',
-              background: examSubTab === 'timetable' ? 'rgba(99,102,241,0.1)' : 'transparent',
-              color: examSubTab === 'timetable' ? 'rgb(99,102,241)' : 'var(--text-muted)',
-              transition: 'all 0.2s ease'
-            }}
-          >
-            <Calendar size={14} /> Exam Timetable
-          </button>
-          <button 
-            onClick={() => {
-              setExamSubTab('history');
-              setAdminView('academic-exams-history');
-            }}
-            className={`tab-btn-custom ${examSubTab === 'history' ? 'active' : ''}`}
-            style={{
-              display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px', borderRadius: '8px', fontSize: '0.8rem', fontWeight: 600, border: 'none', cursor: 'pointer',
-              background: examSubTab === 'history' ? 'rgba(99,102,241,0.1)' : 'transparent',
-              color: examSubTab === 'history' ? 'rgb(99,102,241)' : 'var(--text-muted)',
-              transition: 'all 0.2s ease'
-            }}
-          >
-            <History size={14} /> Exam History
-          </button>
-        </div>
-
-        {examSubTab === 'timetable' ? (
-          renderExamTimetable()
-        ) : examSubTab === 'history' ? (
-          renderExamsHistory()
-        ) : (
-          <>
-            {/* Header */}
+        {/* Header */}
         <div className="glass-panel" style={{ padding: '20px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
           <div>
             <h3 style={{ fontSize: '1.1rem', fontWeight: 700 }}>Exam Management</h3>
@@ -3216,8 +3150,6 @@ export default function AcademicPanel({ subView, setAdminView }) {
             <span style={{ fontSize: '1rem', fontWeight: 600 }}>No exams found</span>
             <p style={{ fontSize: '0.85rem', margin: 0 }}>Click "Create New Exam" to get started with the multi-step wizard.</p>
           </div>
-        )}
-          </>
         )}
       </div>
     );
@@ -6913,9 +6845,11 @@ export default function AcademicPanel({ subView, setAdminView }) {
       case 'academic-teacher-timetable':
         return renderTeacherTimetable();
       case 'academic-exams':
-      case 'academic-exams-history':
-      case 'academic-exam-timetable':
         return renderExams();
+      case 'academic-exams-history':
+        return renderExamsHistory();
+      case 'academic-exam-timetable':
+        return renderExamTimetable();
       case 'academic-published-timetable':
         return renderPublishedTimetables();
       case 'academic-published-exam':
@@ -7007,17 +6941,45 @@ export default function AcademicPanel({ subView, setAdminView }) {
           </button>
           <button 
             onClick={() => {
-              setAdminView('academic-exams');
+              setAdminView('academic-exam-timetable');
             }}
-            className={`tab-btn-custom ${['academic-exams', 'academic-exams-history', 'academic-exam-timetable'].includes(subView) ? 'active' : ''}`}
+            className={`tab-btn-custom ${subView === 'academic-exam-timetable' ? 'active' : ''}`}
             style={{
               display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px', borderRadius: '8px', fontSize: '0.85rem', fontWeight: 600, border: 'none', cursor: 'pointer',
-              background: ['academic-exams', 'academic-exams-history', 'academic-exam-timetable'].includes(subView) ? 'rgba(99,102,241,0.1)' : 'transparent',
-              color: ['academic-exams', 'academic-exams-history', 'academic-exam-timetable'].includes(subView) ? 'rgb(99,102,241)' : 'var(--text-muted)',
+              background: subView === 'academic-exam-timetable' ? 'rgba(99,102,241,0.1)' : 'transparent',
+              color: subView === 'academic-exam-timetable' ? 'rgb(99,102,241)' : 'var(--text-muted)',
+              transition: 'all 0.2s ease'
+            }}
+          >
+            <Calendar size={16} /> Exam Timetable
+          </button>
+          <button 
+            onClick={() => {
+              setAdminView('academic-exams');
+            }}
+            className={`tab-btn-custom ${subView === 'academic-exams' ? 'active' : ''}`}
+            style={{
+              display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px', borderRadius: '8px', fontSize: '0.85rem', fontWeight: 600, border: 'none', cursor: 'pointer',
+              background: subView === 'academic-exams' ? 'rgba(99,102,241,0.1)' : 'transparent',
+              color: subView === 'academic-exams' ? 'rgb(99,102,241)' : 'var(--text-muted)',
               transition: 'all 0.2s ease'
             }}
           >
             <ClipboardList size={16} /> Exam Management
+          </button>
+          <button 
+            onClick={() => {
+              setAdminView('academic-exams-history');
+            }}
+            className={`tab-btn-custom ${subView === 'academic-exams-history' ? 'active' : ''}`}
+            style={{
+              display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px', borderRadius: '8px', fontSize: '0.85rem', fontWeight: 600, border: 'none', cursor: 'pointer',
+              background: subView === 'academic-exams-history' ? 'rgba(99,102,241,0.1)' : 'transparent',
+              color: subView === 'academic-exams-history' ? 'rgb(99,102,241)' : 'var(--text-muted)',
+              transition: 'all 0.2s ease'
+            }}
+          >
+            <History size={16} /> Exam History
           </button>
         </div>
       )}
