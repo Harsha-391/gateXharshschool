@@ -896,6 +896,16 @@ export const initSqlDb = async () => {
     } catch (err) {
       console.warn('[SQL Init WARNING] Failed to run school_admin username update query:', err.message);
     }
+
+    // Recovery migration: restore adminUsername to 'school_admin' for any schools with blank/null usernames
+    try {
+      const res = await sqlDb.query("UPDATE schools SET adminUsername = 'school_admin' WHERE adminUsername IS NULL OR adminUsername = ''");
+      if (res && res.affectedRows > 0) {
+        console.log(`[SQL Init] Restored adminUsername to 'school_admin' for ${res.affectedRows} school(s) with blank usernames.`);
+      }
+    } catch (err) {
+      console.warn('[SQL Init WARNING] Failed to run adminUsername recovery query:', err.message);
+    }
     // 4. Ensure subjects' classId (grade) are normalized to Roman numerals
     try {
       const subjectsRows = await sqlDb.query("SELECT id, classId FROM subjects");
@@ -1323,6 +1333,7 @@ export const loadTenantSqlIntoMemory = async (tenantId) => {
           ratePerStudent: matchedSchool.ratePerStudent || '250.00',
           adminName: matchedSchool.adminName || '',
           adminEmail: matchedSchool.adminEmail || '',
+          adminUsername: matchedSchool.adminUsername || '',
           adminPassword: matchedSchool.adminPassword || '',
           principal: matchedSchool.principalName || ''
         };
