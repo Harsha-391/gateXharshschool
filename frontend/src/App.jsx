@@ -364,6 +364,9 @@ export default function App() {
       const isTextarea = target.tagName === 'TEXTAREA';
       if (!isInput && !isTextarea) return;
 
+      const typeAttr = (target.getAttribute('type') || '').toLowerCase();
+      if (typeAttr === 'file') return;
+
       // Bypass validation entirely for login forms, login pages, and password fields
       const nameAttr = (target.getAttribute('name') || target.name || '').toLowerCase();
       const idAttr = (target.getAttribute('id') || target.id || '').toLowerCase();
