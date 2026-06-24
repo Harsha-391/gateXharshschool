@@ -42,6 +42,16 @@ import ResultManagementPanel from './ResultManagementPanel';
 import EXAM_TYPES from '../utils/examTypes';
 import { getGradesWithSubjects, getGradeOptions, GRADE_ORDER, fetchActiveGrades, fetchActiveSections } from '../utils/grades';
 
+const getTeacherSubjects = (t) => {
+  if (!t) return '';
+  const subjects = new Set();
+  if (t.primarySubject) subjects.add(t.primarySubject);
+  if (t.secondarySubject) subjects.add(t.secondarySubject);
+  if (t.subjectSpecialization) subjects.add(t.subjectSpecialization);
+  if (t.subject) subjects.add(t.subject);
+  return Array.from(subjects).filter(Boolean).join(', ');
+};
+
 
 export default function AcademicPanel({ subView, setAdminView }) {
   // Master API states
@@ -85,6 +95,7 @@ export default function AcademicPanel({ subView, setAdminView }) {
   const [activeClass, setActiveClass] = useState('I-A');
   const [activeTeacher, setActiveTeacher] = useState('');
   const [activeExam, setActiveExam] = useState('');
+  const [teacherDropdownSearch, setTeacherDropdownSearch] = useState('');
   const [timetableSession, setTimetableSession] = useState('2026-2027');
   const [activeSubject, setActiveSubject] = useState('Mathematics');
   const [activeMonth, setActiveMonth] = useState(new Date().getMonth()); // 0-11
@@ -741,7 +752,12 @@ export default function AcademicPanel({ subView, setAdminView }) {
   // Sync active teacher selection on load
   useEffect(() => {
     if (Array.isArray(teachers) && teachers.length > 0 && !activeTeacher) {
-      setActiveTeacher(teachers[0].name);
+      const filtered = teachers.filter(t => t.roleName?.toLowerCase() === 'teacher');
+      if (filtered.length > 0) {
+        setActiveTeacher(filtered[0].name);
+      } else {
+        setActiveTeacher(teachers[0].name);
+      }
     }
   }, [teachers]);
 
@@ -852,7 +868,7 @@ export default function AcademicPanel({ subView, setAdminView }) {
         body: JSON.stringify({ type, identifier })
       });
       if (res.ok) {
-        showToast(`${type === 'class' ? 'Class ' + identifier : 'Staff ' + identifier} timetable published successfully!`, 'success');
+        showToast(`${type === 'class' ? 'Class ' + identifier : 'Teacher ' + identifier} timetable published successfully!`, 'success');
         fetchAllData();
       } else {
         const data = await res.json();
@@ -2391,6 +2407,18 @@ export default function AcademicPanel({ subView, setAdminView }) {
   };
 
   const renderTeacherTimetable = () => {
+    // Filter teachers who have roleName === 'Teacher' and match the select dropdown search input
+    const filteredTeachersForSelect = (Array.isArray(teachers) ? teachers : [])
+      .filter(t => t.roleName?.toLowerCase() === 'teacher')
+      .filter(t => {
+        if (!teacherDropdownSearch) return true;
+        const q = teacherDropdownSearch.toLowerCase();
+        const nameMatch = (t.fullName || t.name || '').toLowerCase().includes(q);
+        const subjects = getTeacherSubjects(t);
+        const subjectMatch = subjects.toLowerCase().includes(q);
+        return nameMatch || subjectMatch;
+      });
+
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
         
@@ -2403,22 +2431,36 @@ export default function AcademicPanel({ subView, setAdminView }) {
                 <Calendar size={20} />
               </div>
               <div>
-                <h4 style={{ fontSize: '0.95rem', fontWeight: 800, margin: 0 }}>Configure Staff Schedule</h4>
-                <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: 0 }}>Setup the weekly matrix for a faculty member.</p>
+                <h4 style={{ fontSize: '0.95rem', fontWeight: 800, margin: 0 }}>Configure Teacher Schedule</h4>
+                <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: 0 }}>Setup the weekly matrix for a teacher.</p>
               </div>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               <div className="form-group" style={{ margin: 0 }}>
-                <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Select Staff</label>
+                <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Search/Filter Teacher</label>
+                <input 
+                  type="text" 
+                  className="form-control" 
+                  placeholder="Type to filter teachers..." 
+                  value={teacherDropdownSearch}
+                  onChange={(e) => setTeacherDropdownSearch(e.target.value)}
+                  style={{ width: '100%', padding: '6px 12px', borderRadius: '8px', fontSize: '0.82rem', background: 'var(--bg-glass-active)', border: '1px solid var(--border-glass)', color: 'var(--text-main)', marginTop: '4px', marginBottom: '8px' }}
+                />
+                <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Select Teacher</label>
                 <select 
                   className="select-custom" 
                   value={activeTeacher} 
                   onChange={(e) => setActiveTeacher(e.target.value)}
                   style={{ width: '100%', marginTop: '4px', background: 'var(--bg-glass-active)', border: '1px solid var(--border-glass)' }}
                 >
-                  {Array.isArray(teachers) && teachers.map((t, idx) => (
-                    <option key={idx} value={t.name}>{t.name} ({t.department || 'Academic'})</option>
-                  ))}
+                  <option value="">-- Select Teacher --</option>
+                  {filteredTeachersForSelect.map((t, idx) => {
+                    const subjects = getTeacherSubjects(t);
+                    const label = subjects ? `${t.fullName || t.name} (${subjects})` : (t.fullName || t.name);
+                    return (
+                      <option key={idx} value={t.name}>{label}</option>
+                    );
+                  })}
                 </select>
               </div>
               <button 
@@ -2443,13 +2485,13 @@ export default function AcademicPanel({ subView, setAdminView }) {
         <div className="glass-panel" style={{ padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <Search size={18} style={{ color: 'var(--text-muted)' }} />
-               <h4 style={{ fontSize: '0.9rem', fontWeight: 800, margin: 0, color: 'var(--text-main)' }}>Search Staff Timetables</h4>
+               <h4 style={{ fontSize: '0.9rem', fontWeight: 800, margin: 0, color: 'var(--text-main)' }}>Search Teacher Timetables</h4>
           </div>
           <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
             <input 
               type="text" 
               className="form-control" 
-              placeholder="Search staff by name..." 
+              placeholder="Search teacher by name..." 
               value={teacherSearchQuery}
               onChange={(e) => setTeacherSearchQuery(e.target.value)}
               style={{ width: '250px', padding: '6px 12px', borderRadius: '8px', fontSize: '0.82rem', background: 'var(--bg-glass-active)', border: '1px solid var(--border-glass)', color: 'var(--text-main)' }}
@@ -2480,14 +2522,15 @@ export default function AcademicPanel({ subView, setAdminView }) {
                 
                 // Get teacher details for department/specialization
                 const teacherObj = Array.isArray(teachers) ? teachers.find(t => t.name.toLowerCase() === tName.toLowerCase()) : null;
-                const deptStr = teacherObj ? (teacherObj.department || teacherObj.subjectSpecialization || 'Academic') : 'Academic';
+                const subjects = teacherObj ? getTeacherSubjects(teacherObj) : '';
+                const displaySubjects = subjects ? `(${subjects})` : '';
 
                 return (
                   <div key={tName} className="glass-panel" style={{ padding: '24px', overflowX: 'auto', display: 'flex', flexDirection: 'column', gap: '16px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-glass)', paddingBottom: '12px' }}>
                       <div>
                         <h3 style={{ fontSize: '1.15rem', fontWeight: 800, margin: 0 }}>
-                          Staff Timetable: <span style={{ color: 'hsl(var(--color-info))' }}>{tName}</span> <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 500 }}>({deptStr})</span>
+                          Teacher Timetable: <span style={{ color: 'hsl(var(--color-info))' }}>{tName}</span> <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 500 }}>{displaySubjects}</span>
                         </h3>
                         <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: '2px 0 0 0' }}>
                           Weekly matrix layout mapping classroom workloads for {tName}.
@@ -2625,7 +2668,7 @@ export default function AcademicPanel({ subView, setAdminView }) {
               })
             ) : (
               <div className="glass-panel" style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>
-                No staff timetables scheduled yet. Use the card above to set up a schedule for a staff member.
+                No teacher timetables scheduled yet. Use the card above to set up a schedule for a teacher.
               </div>
             );
           })()}
@@ -4247,7 +4290,7 @@ export default function AcademicPanel({ subView, setAdminView }) {
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-glass)', paddingBottom: '12px' }}>
                     <div>
                       <h3 style={{ fontSize: '1.15rem', fontWeight: 800, margin: 0 }}>
-                        Staff Timetable: <span style={{ color: 'hsl(var(--color-info))' }}>{pub.teacher}</span>
+                        Teacher Timetable: <span style={{ color: 'hsl(var(--color-info))' }}>{pub.teacher}</span>
                       </h3>
                       <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: '2px 0 0 0' }}>
                         Published on {formatDate(pub.publishedAt)}
@@ -7809,10 +7852,10 @@ export default function AcademicPanel({ subView, setAdminView }) {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-glass)', paddingBottom: '16px' }}>
               <div>
                 <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-main)', margin: 0, display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <Calendar size={22} style={{ color: 'hsl(var(--color-primary))' }} /> Weekly Staff Timetable Bulk Editor
+                  <Calendar size={22} style={{ color: 'hsl(var(--color-primary))' }} /> Weekly Teacher Timetable Bulk Editor
                 </h3>
                 <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', margin: '4px 0 0 0' }}>
-                   Configure the entire weekly schedule workload for staff member <strong style={{ color: 'hsl(var(--color-primary))' }}>{activeTeacher}</strong> at once.
+                   Configure the entire weekly schedule workload for teacher <strong style={{ color: 'hsl(var(--color-primary))' }}>{activeTeacher}</strong> at once.
                 </p>
               </div>
               <button 

@@ -325,18 +325,16 @@ export const getTeachers = async (req, res) => {
       result = result.filter(t => t.designation === designationFilter);
     }
 
-    // 5. Sorting
-    const sortBy = req.query.sortBy || 'name'; // 'name', 'employeeId', 'joiningDate', 'department'
-    const sortOrder = req.query.sortOrder || 'asc';
-    result.sort((a, b) => {
-      let valA = a[sortBy] ? a[sortBy].toString().toLowerCase() : '';
-      let valB = b[sortBy] ? b[sortBy].toString().toLowerCase() : '';
-      
-      if (sortOrder === 'asc') {
-        return valA.localeCompare(valB, undefined, { numeric: true });
-      } else {
-        return valB.localeCompare(valA, undefined, { numeric: true });
-      }
+    // Map each teacher to include their actual roleName from userAccess/roles tables
+    const userAccess = db.userAccess || [];
+    const roles = db.roles || [];
+    const mapped = result.map(t => {
+      const access = userAccess.find(ua => ua.userId === t.id || ua.userId === t.employeeId);
+      const role = access ? roles.find(r => r.id === access.roleId) : null;
+      return {
+        ...t,
+        roleName: role ? role.name : (t.designation || 'Teacher')
+      };
     });
 
     // 6. Pagination
@@ -345,7 +343,7 @@ export const getTeachers = async (req, res) => {
     const startIndex = (page - 1) * limit;
     const endIndex = page * limit;
     
-    const paginatedItems = result.slice(startIndex, endIndex);
+    const paginatedItems = mapped.slice(startIndex, endIndex);
 
     res.json({
       totalCount: result.length,
