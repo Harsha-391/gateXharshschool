@@ -92,6 +92,7 @@ export default function StaffDirectory({ readOnly = true, onAddClick, onEditClic
   const [editLoading, setEditLoading] = useState(false);
   const [editSuccess, setEditSuccess] = useState(false);
   const [qrLoading, setQrLoading] = useState(false);
+  const [designations, setDesignations] = useState([]);
 
   const handleRegenerateQR = async (empId) => {
     try {
@@ -223,7 +224,15 @@ export default function StaffDirectory({ readOnly = true, onAddClick, onEditClic
     }
   };
 
-  useEffect(() => { fetchStaff(); }, []);
+  useEffect(() => {
+    fetchStaff();
+    fetch('/api/designations')
+      .then(res => res.json())
+      .then(data => {
+        setDesignations(data.map(d => d.name));
+      })
+      .catch(err => console.error('Error fetching designations in StaffDirectory:', err));
+  }, []);
 
   const handleDeleteStaff = async (staffId) => {
     if (window.confirm('Are you sure you want to dismiss this employee?')) {
@@ -531,7 +540,7 @@ export default function StaffDirectory({ readOnly = true, onAddClick, onEditClic
                   <label style={{ fontSize: '0.8rem', fontWeight: 600 }}>Designation</label>
                   <select name="designation" value={editData.designation || ''} onChange={handleEditDesignationChange} className="form-control" style={inputStyle}>
                     <option value="">Select Designation</option>
-                    {DESIGNATIONS.map(d => <option key={d} value={d}>{d}</option>)}
+                    {designations.map(d => <option key={d} value={d}>{d}</option>)}
                   </select>
                 </div>
                 <div className="form-group">
@@ -582,7 +591,7 @@ export default function StaffDirectory({ readOnly = true, onAddClick, onEditClic
         <div className="filter-group" style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
           <select className="select-custom" value={designationFilter} onChange={(e) => setDesignationFilter(e.target.value)}>
             <option value="All">All Designations</option>
-            {DESIGNATIONS.map(d => <option key={d} value={d}>{d}</option>)}
+            {designations.map(d => <option key={d} value={d}>{d}</option>)}
           </select>
           <select className="select-custom" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
             <option value="All">All Status</option>

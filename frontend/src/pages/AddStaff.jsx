@@ -247,6 +247,7 @@ export default function AddStaff({ setActiveView, editData }) {
   const [staffId, setStaffId] = useState('');
   const [validationErrors, setValidationErrors] = useState({});
   const [roles, setRoles] = useState([]);
+  const [designations, setDesignations] = useState([]);
   const isSubmitting = React.useRef(false);
 
   useEffect(() => {
@@ -256,6 +257,14 @@ export default function AddStaff({ setActiveView, editData }) {
         setRoles(data.filter(r => r.active));
       })
       .catch(err => console.error('Error fetching roles in AddStaff:', err));
+
+    fetch('/api/designations')
+      .then(res => res.json())
+      .then(data => {
+        const active = data.filter(d => d.status === 'Active' || !d.status);
+        setDesignations(active.map(d => d.name));
+      })
+      .catch(err => console.error('Error fetching designations in AddStaff:', err));
   }, []);
 
   // Generate Staff ID on mount
@@ -772,7 +781,7 @@ export default function AddStaff({ setActiveView, editData }) {
       <div style={gridStyle}>
         <div className="form-group">
           <label>Designation *</label>
-          <CustomSelect name="designation" value={formData.designation} onChange={handleDesignationChange} options={DESIGNATIONS} placeholder="Select Designation" className="form-control" style={{...inputStyle, border: validationErrors.designation ? '1.5px solid #ef4444' : '1.5px solid #cbd5e1'}} />
+          <CustomSelect name="designation" value={formData.designation} onChange={handleDesignationChange} options={designations} placeholder="Select Designation" className="form-control" style={{...inputStyle, border: validationErrors.designation ? '1.5px solid #ef4444' : '1.5px solid #cbd5e1'}} />
           {validationErrors.designation && <span style={{ color: '#ef4444', fontSize: '0.75rem', marginTop: '4px', display: 'block' }}>{validationErrors.designation}</span>}
         </div>
         <div className="form-group">

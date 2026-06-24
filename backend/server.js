@@ -14,6 +14,7 @@ import auxiliaryIncomeRoutes from './routes/auxiliaryIncomeRoutes.js';
 import academicRoutes from './routes/academicRoutes.js';
 import rbacRoutes from './routes/rbacRoutes.js';
 import gradeRoutes from './routes/gradeRoutes.js';
+import designationRoutes from './routes/designationRoutes.js';
 import upload from './middleware/upload.js';
 import { readDb, writeDb, addActivity, tenantStorage, slugify, restoreTenantContext, ensureTenantSqlLoaded, isSqlActive, initializeOnboardedSchoolDatabase } from './utils/db.js';
 import { auth, generateToken } from './middleware/auth.js';
@@ -1070,6 +1071,7 @@ app.use('/api/rbac', rbacRoutes);
 // 2E. GRADE MANAGEMENT ROUTER
 // ==========================================
 app.use('/api/grades', gradeRoutes);
+app.use('/api/designations', designationRoutes);
 
 // ==========================================
 // 2B. STAFF ENDPOINTS (Complete Module)

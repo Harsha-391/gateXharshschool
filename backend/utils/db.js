@@ -953,7 +953,7 @@ const executeSchemaOnPool = async (pool, isMaster = false) => {
 };
 
 // Helper to apply database structural updates (ALTER TABLE columns)
-const applySchemaUpdates = async (pool, isMaster = false) => {
+const applySchemaUpdates = async (pool, isMaster = false, tenantId = null) => {
   if (isMaster) {
     const masterAlters = [
       "ALTER TABLE schools ADD COLUMN ratePerStudent VARCHAR(50) DEFAULT '250.00'",
@@ -1052,12 +1052,59 @@ const applySchemaUpdates = async (pool, isMaster = false) => {
       "ALTER TABLE fee_structures ADD COLUMN libraryFee DECIMAL(10,2) DEFAULT 0.00",
       "ALTER TABLE fee_structures ADD COLUMN otherCharges DECIMAL(10,2) DEFAULT 0.00",
       "ALTER TABLE fee_structures ADD COLUMN totalFee DECIMAL(10,2) DEFAULT 0.00",
-      "ALTER TABLE fee_structures ADD COLUMN monthRange VARCHAR(100) DEFAULT NULL"
+      "ALTER TABLE fee_structures ADD COLUMN monthRange VARCHAR(100) DEFAULT NULL",
+      "CREATE TABLE IF NOT EXISTS designations (id VARCHAR(50) PRIMARY KEY, name VARCHAR(100) NOT NULL, status VARCHAR(50) DEFAULT 'Active', createdAt VARCHAR(100), updatedAt VARCHAR(100), tenantId VARCHAR(100))"
     ];
     for (const sql of schoolAlters) {
       try {
         await pool.query(sql);
       } catch (err) {}
+    }
+    
+    // Seed default designations if empty
+    if (!isMaster && tenantId) {
+      try {
+        const [existingDesigs] = await pool.query("SELECT COUNT(*) as count FROM designations");
+        if (existingDesigs[0].count === 0) {
+          console.log(`[SQL Init] Seeding default designations for tenant ${tenantId}...`);
+          const defaultDesignations = [
+            { id: 'desig-admin-officer', name: 'Administrative Officer' },
+            { id: 'desig-office-asst', name: 'Office Assistant' },
+            { id: 'desig-data-entry', name: 'Data Entry Operator' },
+            { id: 'desig-it-admin', name: 'IT Administrator' },
+            { id: 'desig-comp-op', name: 'Computer Operator' },
+            { id: 'desig-transport-coord', name: 'Transport Coordinator' },
+            { id: 'desig-driver', name: 'Driver' },
+            { id: 'desig-hostel-warden', name: 'Hostel Warden' },
+            { id: 'desig-sec-supervisor', name: 'Security Supervisor' },
+            { id: 'desig-sec-guard', name: 'Security Guard' },
+            { id: 'desig-maint-staff', name: 'Maintenance Staff' },
+            { id: 'desig-electrician', name: 'Electrician' },
+            { id: 'desig-plumber', name: 'Plumber' },
+            { id: 'desig-house-supervisor', name: 'Housekeeping Supervisor' },
+            { id: 'desig-house-staff', name: 'Housekeeping Staff' },
+            { id: 'desig-cleaner', name: 'Cleaner' },
+            { id: 'desig-nurse', name: 'School Nurse' },
+            { id: 'desig-store-keeper', name: 'Store Keeper' },
+            { id: 'desig-peon', name: 'Peon' },
+            { id: 'desig-attendant', name: 'Attendant' },
+            { id: 'desig-office-boy', name: 'Office Boy' },
+            { id: 'desig-gardener', name: 'Gardener' }
+          ];
+          const now = new Date().toISOString();
+          const columns = ['id', 'name', 'status', 'createdAt', 'updatedAt', 'tenantId'];
+          const values = defaultDesignations.map(d => [
+            d.id, d.name, 'Active', now, now, tenantId
+          ]);
+          
+          const placeholders = values.map(() => `(?, ?, ?, ?, ?, ?)`).join(', ');
+          const sql = `INSERT INTO \`designations\` (${columns.map(col => `\`${col}\``).join(', ')}) VALUES ${placeholders}`;
+          await pool.query(sql, values.flat());
+          console.log(`[SQL Init] Successfully seeded ${defaultDesignations.length} designations for tenant ${tenantId}`);
+        }
+      } catch (err) {
+        console.warn(`[SQL Init WARNING] Failed to seed default designations:`, err.message);
+      }
     }
   }
 };
@@ -1076,7 +1123,7 @@ export const migrateTenantDataToDedicatedDb = async (subdomain) => {
     
     // Initialize schema and apply structural updates
     await executeSchemaOnPool(pool);
-    await applySchemaUpdates(pool, false);
+    await applySchemaUpdates(pool, false, subdomain);
 
     // Drop duplicate master tables from school database to ensure isolation and cleanliness
     // Prior to dropping, recover data to the master database to prevent data loss
@@ -1319,7 +1366,7 @@ export const initializeOnboardedSchoolDatabase = async (subdomain) => {
     
     // 4. Initialize schema and updates (non-master tables)
     await executeSchemaOnPool(pool, false);
-    await applySchemaUpdates(pool, false);
+    await applySchemaUpdates(pool, false, subdomain);
 
     // 5. Seed default roles in master database
     const defaultRoles = getDefaultRoles();
@@ -1566,11 +1613,12 @@ export const loadTenantSqlIntoMemory = async (tenantId) => {
     const queryTenantId = isGlobal ? 'platform' : tenantId;
     const tId = queryTenantId;
 
-    if (!isGlobal) {
-      await repairGradesAndMappings(tId);
-    }
-    
-    // Create base data structure
+    return await tenantStorage.run(tId, async () => {
+      if (!isGlobal) {
+        await repairGradesAndMappings(tId);
+      }
+      
+      // Create base data structure
     const data = {
       school: {},
       students: [],
@@ -1606,6 +1654,7 @@ export const loadTenantSqlIntoMemory = async (tenantId) => {
       grades: [],
       departments: [],
       gradeDepartments: [],
+      designations: [],
       sections: [],
       publishedClassTimetables: [],
       publishedTeacherTimetables: [],
@@ -1663,7 +1712,8 @@ export const loadTenantSqlIntoMemory = async (tenantId) => {
       dbGrades,
       dbDepts,
       dbGradeDepts,
-      dbFeePeriods
+      dbFeePeriods,
+      dbDesignations
     ] = await Promise.all([
       !isGlobal ? sqlDb.query('SELECT * FROM sections WHERE tenantId = ?', [tId]) : Promise.resolve([]),
       !isGlobal ? sqlDb.query('SELECT * FROM published_timetables WHERE tenantId = ?', [tId]) : Promise.resolve([]),
@@ -1714,7 +1764,8 @@ export const loadTenantSqlIntoMemory = async (tenantId) => {
       sqlDb.query('SELECT * FROM grades WHERE tenantId = ?', [tId]),
       sqlDb.query('SELECT * FROM departments WHERE tenantId = ?', [tId]),
       sqlDb.query('SELECT * FROM grade_departments WHERE tenantId = ?', [tId]),
-      sqlDb.query('SELECT * FROM fee_periods WHERE tenantId = ? ORDER BY sortOrder', [tId])
+      sqlDb.query('SELECT * FROM fee_periods WHERE tenantId = ? ORDER BY sortOrder', [tId]),
+      !isGlobal ? sqlDb.query('SELECT * FROM designations WHERE tenantId = ?', [tId]) : Promise.resolve([])
     ]);
 
     // Load custom fields
@@ -2210,14 +2261,20 @@ export const loadTenantSqlIntoMemory = async (tenantId) => {
       status: d.status || 'Active'
     }));
 
+    data.designations = dbDesignations.map(d => ({
+      ...d,
+      status: d.status || 'Active'
+    }));
+
     data.gradeDepartments = dbGradeDepts.map(gd => ({
       ...gd,
       status: gd.status || 'Active',
       sections: gd.sections ? (typeof gd.sections === 'string' ? JSON.parse(gd.sections) : gd.sections) : []
     }));
 
-    dbCache[queryTenantId] = data;
-    return data;
+      dbCache[queryTenantId] = data;
+      return data;
+    });
   } catch (err) {
     console.error(`[SQL Preload ERROR] Failed to load SQL tenant ${tenantId}:`, err);
     return null;
@@ -2413,7 +2470,7 @@ export const saveMemoryDbToSql = async (tenantId, db, changedKeys, newUpdatedAt)
               'holidays', 'events', 'results', 'overall_results', 'subjects', 'timeslots',
               'fee_structures', 'salary_structures', 'staff_salary_structures', 'income',
               'attendance', 'roles', 'user_access', 'audit_logs', 'employee_qr_codes',
-              'attendance_records', 'attendance_logs', 'attendance_reports'
+              'attendance_records', 'attendance_logs', 'attendance_reports', 'designations'
             ];
             await Promise.all(deletedSubdomains.flatMap(sub => 
               tenantTables.map(tbl => 
@@ -3507,6 +3564,25 @@ export const saveMemoryDbToSql = async (tenantId, db, changedKeys, newUpdatedAt)
         })());
       }
 
+      // Sync central designations
+      if (db.designations && Array.isArray(db.designations) && hasTableChanged('designations')) {
+        tasks.push((async () => {
+          const activeDesigIds = db.designations.map(d => d.id).filter(Boolean);
+          if (activeDesigIds.length > 0) {
+            await sqlDb.query(`DELETE FROM designations WHERE tenantId = ? AND id NOT IN (${activeDesigIds.map(() => '?').join(',')})`, [tId, ...activeDesigIds]);
+          } else {
+            await sqlDb.query('DELETE FROM designations WHERE tenantId = ?', [tId]);
+          }
+
+          const columns = ['id', 'name', 'status', 'createdAt', 'updatedAt', 'tenantId'];
+          const updateColumns = ['name', 'status', 'updatedAt'];
+          const valueRows = db.designations.filter(d => d.id).map(d => [
+            d.id, d.name, d.status || 'Active', d.createdAt || new Date().toISOString(), d.updatedAt || new Date().toISOString(), tId
+          ]);
+          await bulkInsertOrUpdate('designations', columns, valueRows, updateColumns);
+        })());
+      }
+
       // Sync central grade mappings
       if (db.gradeDepartments && Array.isArray(db.gradeDepartments) && hasTableChanged('gradeDepartments')) {
         dependentTasks.push(async () => {
@@ -3678,6 +3754,7 @@ export const readDb = () => {
       });
     }
     if (!db.departments) db.departments = [];
+    if (!db.designations) db.designations = [];
     if (!db.gradeDepartments) db.gradeDepartments = [];
     if (!db.sections) {
       db.sections = [];
@@ -3740,6 +3817,7 @@ export const readDb = () => {
       attendanceReports: [],
       grades: [],
       departments: [],
+      designations: [],
       gradeDepartments: [],
       sections: [],
       timeslots: [
@@ -3781,7 +3859,7 @@ export const writeDb = (data) => {
       'attendance', 'roles', 'userAccess', 'auditLogs', 'employeeQrCodes',
       'attendanceRecords', 'attendanceLogs', 'attendanceReports',
       'academicCalendarEvents', 'academicCalendarImports',
-      'publishedCalendarEvents', 'grades', 'departments', 'gradeDepartments',
+      'publishedCalendarEvents', 'grades', 'departments', 'designations', 'gradeDepartments',
       'sections', 'publishedClassTimetables', 'publishedTeacherTimetables'
     ];
 

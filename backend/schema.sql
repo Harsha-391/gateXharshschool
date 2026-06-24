@@ -829,6 +829,16 @@ CREATE TABLE IF NOT EXISTS auxiliary_income (
   FOREIGN KEY (categoryId) REFERENCES auxiliary_income_categories(id) ON DELETE CASCADE
 );
 
+-- 51. Designations Table
+CREATE TABLE IF NOT EXISTS designations (
+  id VARCHAR(50) PRIMARY KEY,
+  name VARCHAR(100) NOT NULL,
+  status VARCHAR(50) DEFAULT 'Active',
+  createdAt VARCHAR(100),
+  updatedAt VARCHAR(100),
+  tenantId VARCHAR(100)
+);
+
 -- Re-enable foreign key checks
 SET FOREIGN_KEY_CHECKS = 1;
 

@@ -37,6 +37,7 @@ import {
   History,
   FileSpreadsheet,
   Award,
+  Briefcase,
   RefreshCw,
   QrCode,
   CheckCircle
@@ -203,6 +204,16 @@ export default function Sidebar({
               >
                 <UserPlus2 size={20} className="flex-shrink-0" />
                 <span className="nav-label">Student Manager</span>
+              </button>
+            )}
+
+            {(hasPermission('add-employee', 'view') || hasPermission('staff-directory', 'view') || hasPermission('add-staff', 'view')) && (
+              <button
+                onClick={() => { setAdminView('designation-manage'); setMobileOpen(false); }}
+                className={`nav-item ${adminView === 'designation-manage' ? 'active' : ''}`}
+              >
+                <Briefcase size={20} className="flex-shrink-0" />
+                <span className="nav-label">Designation Manage</span>
               </button>
             )}
 

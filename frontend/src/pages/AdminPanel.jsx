@@ -32,6 +32,7 @@ const RegisterStudent = lazy(() => import('./RegisterStudent'));
 const StudentManager = lazy(() => import('./StudentManager'));
 const AddTeacher = lazy(() => import('./AddTeacher'));
 const AddStaff = lazy(() => import('./AddStaff'));
+const DesignationManager = lazy(() => import('./DesignationManager'));
 import ExpensePanel from './ExpensePanel';
 const AttendanceManager = lazy(() => import('./AttendanceManager'));
 const RolesPermissions = lazy(() => import('./RolesPermissions'));
@@ -621,6 +622,10 @@ export default function AdminPanel({ setActiveView, onLogout, adminView, setAdmi
 
         <KeepAlive active={adminView === 'student-manager'}>
           <StudentManager showToast={showToast} />
+        </KeepAlive>
+
+        <KeepAlive active={adminView === 'designation-manage'}>
+          <DesignationManager showToast={showToast} />
         </KeepAlive>
 
         {adminView === 'add-teacher' && (
