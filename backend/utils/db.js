@@ -169,13 +169,15 @@ const createTablesFromSchema = async () => {
     } catch (err) {
       console.warn("[SQL Init WARNING] Failed to modify grade_departments id column:", err.message);
     }
-    // Ensure published_timetables id column is VARCHAR(150)
+
+    // Ensure published_timetables id column is VARCHAR(255)
     try {
-      await sqlDb.query("ALTER TABLE published_timetables MODIFY COLUMN id VARCHAR(150)");
-      console.log("[SQL Init] Ensured published_timetables id is VARCHAR(150).");
+      await sqlDb.query("ALTER TABLE published_timetables MODIFY COLUMN id VARCHAR(255)");
+      console.log("[SQL Init] Ensured published_timetables id is VARCHAR(255).");
     } catch (err) {
       console.warn("[SQL Init WARNING] Failed to modify published_timetables id column:", err.message);
     }
+
     // Ensure updatedAt column exists in schools table
     try {
       await sqlDb.query("ALTER TABLE schools ADD COLUMN updatedAt VARCHAR(100)");
@@ -887,8 +889,10 @@ export const initSqlDb = async () => {
     
     // 3. Ensure live database admin username matches local seed/fallback settings
     try {
-      await sqlDb.query("UPDATE schools SET adminUsername = 'school_admin' WHERE subdomain = 'greenvalley' AND adminUsername = 'greenvalley_admin'");
-      console.log('[SQL Init] Ensured greenvalley adminUsername is updated to school_admin.');
+      const res = await sqlDb.query("UPDATE schools SET adminUsername = 'school_admin' WHERE subdomain = 'greenvalley' AND adminUsername = 'greenvalley_admin'");
+      if (res && res.affectedRows > 0) {
+        console.log('[SQL Init] Ensured greenvalley adminUsername is updated to school_admin.');
+      }
     } catch (err) {
       console.warn('[SQL Init WARNING] Failed to run school_admin username update query:', err.message);
     }
@@ -3104,7 +3108,7 @@ export const saveMemoryDbToSql = async (tenantId, db, changedKeys, newUpdatedAt)
             db.publishedTeacherTimetables.forEach(pt => {
               if (pt.teacher) {
                 valueRows.push([
-                  `pub-teacher-${slugify(pt.teacher).substring(0, 50)}-${tId}`,
+                  `pub-teacher-${slugify(pt.teacher)}-${tId}`,
                   'teacher',
                   pt.teacher,
                   JSON.stringify(pt.slots || []),
