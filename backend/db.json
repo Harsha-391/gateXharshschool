@@ -69,7 +69,21 @@
   "salaryStructures": [],
   "staffSalaryStructures": [],
   "income": [],
-  "attendance": [],
+  "attendance": [
+    {
+      "attendanceId": "ATT-TEST-001",
+      "studentId": "STU-1001",
+      "classId": "IV",
+      "sectionId": "A",
+      "attendanceDate": "2026-06-01",
+      "attendanceStatus": "Present",
+      "remarks": "Test",
+      "markedBy": "test",
+      "createdAt": "2026-06-24T07:06:53.949Z",
+      "updatedAt": "2026-06-24T07:06:53.950Z",
+      "tenantId": "greenvalley"
+    }
+  ],
   "subscriptionPlans": [
     {
       "id": "PLAN-001",
@@ -2361,5 +2375,6 @@
   "attendanceRecords": [],
   "attendanceLogs": [],
   "attendanceReports": [],
-  "_signature": "SCH-1782278272692-siyyu-Active-Bruce Ashley-SCH-113"
+  "_signature": "SCH-1782278272692-siyyu-Active-Bruce Ashley-SCH-113",
+  "teacherTimetables": []
 }

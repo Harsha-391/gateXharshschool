@@ -1185,7 +1185,7 @@ export function AttendanceHistoryView({ date, showToast }) {
               {submittedDates.map((item, idx) => (
                 <button
                   key={idx}
-                  onClick={() => { setDate(item.date); setActiveTab('all'); }}
+                  onClick={() => { setHistoryDate(item.date); setActiveTab('all'); }}
                   style={{
                     padding: '8px 16px', borderRadius: '8px', border: '1px solid rgba(16,185,129,0.2)',
                     background: 'rgba(16,185,129,0.06)', cursor: 'pointer', fontWeight: 600, fontSize: '0.85rem',

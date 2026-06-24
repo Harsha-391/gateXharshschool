@@ -608,7 +608,8 @@ CREATE TABLE IF NOT EXISTS attendance (
   markedBy VARCHAR(255),
   createdAt VARCHAR(100),
   updatedAt VARCHAR(100),
-  tenantId VARCHAR(100)
+  tenantId VARCHAR(100),
+  submitted TINYINT(1) DEFAULT 0
 );
 
 -- 34. Subscription Plans Table (Global Platforms)

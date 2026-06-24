@@ -198,6 +198,16 @@ const createTablesFromSchema = async () => {
       }
     }
 
+    // Ensure submitted column exists in attendance table
+    try {
+      await sqlDb.query("ALTER TABLE attendance ADD COLUMN submitted TINYINT(1) DEFAULT 0");
+      console.log("[SQL Init] Added missing column submitted to attendance table.");
+    } catch (err) {
+      if (err.code !== 'ER_DUP_FIELDNAME') {
+        console.warn("[SQL Init WARNING] Failed to check/add submitted column to attendance table:", err.message);
+      }
+    }
+
     // Ensure new teacher columns exist in staff table
     const teacherAlters = [
       "ALTER TABLE staff MODIFY COLUMN qualification TEXT",
@@ -1434,7 +1444,10 @@ export const loadTenantSqlIntoMemory = async (tenantId) => {
     }));
 
     data.subjects = dbSubjects.map(s => ({ ...s, subjectName: s.name, grade: s.classId }));
-    data.attendance = dbAttendance;
+    data.attendance = dbAttendance.map(att => ({
+      ...att,
+      submitted: att.submitted === 1 || att.submitted === true
+    }));
 
     data.overallResults = rawOverall.map(o => ({
       ...o,
@@ -2677,10 +2690,10 @@ export const saveMemoryDbToSql = async (tenantId, db, changedKeys, newUpdatedAt)
             await sqlDb.query('DELETE FROM attendance WHERE tenantId = ?', [tId]);
           }
 
-          const columns = ['attendanceId', 'studentId', 'classId', 'sectionId', 'attendanceDate', 'attendanceStatus', 'remarks', 'markedBy', 'createdAt', 'updatedAt', 'tenantId'];
-          const updateColumns = ['attendanceStatus', 'remarks', 'updatedAt'];
+          const columns = ['attendanceId', 'studentId', 'classId', 'sectionId', 'attendanceDate', 'attendanceStatus', 'remarks', 'markedBy', 'createdAt', 'updatedAt', 'tenantId', 'submitted'];
+          const updateColumns = ['attendanceStatus', 'remarks', 'updatedAt', 'submitted'];
           const valueRows = db.attendance.map(att => [
-            att.attendanceId, att.studentId, att.classId, att.sectionId, att.attendanceDate, att.attendanceStatus, att.remarks || '', att.markedBy || '', att.createdAt, att.updatedAt, tId
+            att.attendanceId, att.studentId, att.classId, att.sectionId, att.attendanceDate, att.attendanceStatus, att.remarks || '', att.markedBy || '', att.createdAt, att.updatedAt, tId, att.submitted ? 1 : 0
           ]);
           await bulkInsertOrUpdate('attendance', columns, valueRows, updateColumns);
         })());
