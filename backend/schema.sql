@@ -782,7 +782,7 @@ CREATE TABLE IF NOT EXISTS sections (
 
 -- 47. Published Timetables Table
 CREATE TABLE IF NOT EXISTS published_timetables (
-  id VARCHAR(50) PRIMARY KEY,
+  id VARCHAR(150) PRIMARY KEY,
   type VARCHAR(50) NOT NULL,
   identifier VARCHAR(100) NOT NULL,
   slots JSON NOT NULL,

@@ -1202,7 +1202,7 @@ export const publishTimetable = (req, res) => {
     }
 
     const teacherName = slots[0].teacher;
-    const existingIdx = db.publishedTeacherTimetables.findIndex(pt => pt.teacher.toLowerCase() === identifier.toLowerCase());
+    const existingIdx = db.publishedTeacherTimetables.findIndex(pt => pt.teacher && pt.teacher.toLowerCase() === identifier.toLowerCase());
     const newEntry = {
       teacher: teacherName,
       slots: slots.map(s => ({ cohort: s.cohort, day: s.day, time: s.time, subject: s.subject })),

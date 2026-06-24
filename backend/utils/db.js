@@ -169,7 +169,13 @@ const createTablesFromSchema = async () => {
     } catch (err) {
       console.warn("[SQL Init WARNING] Failed to modify grade_departments id column:", err.message);
     }
-
+    // Ensure published_timetables id column is VARCHAR(150)
+    try {
+      await sqlDb.query("ALTER TABLE published_timetables MODIFY COLUMN id VARCHAR(150)");
+      console.log("[SQL Init] Ensured published_timetables id is VARCHAR(150).");
+    } catch (err) {
+      console.warn("[SQL Init WARNING] Failed to modify published_timetables id column:", err.message);
+    }
     // Ensure updatedAt column exists in schools table
     try {
       await sqlDb.query("ALTER TABLE schools ADD COLUMN updatedAt VARCHAR(100)");
@@ -3098,7 +3104,7 @@ export const saveMemoryDbToSql = async (tenantId, db, changedKeys, newUpdatedAt)
             db.publishedTeacherTimetables.forEach(pt => {
               if (pt.teacher) {
                 valueRows.push([
-                  `pub-teacher-${slugify(pt.teacher)}-${tId}`,
+                  `pub-teacher-${slugify(pt.teacher).substring(0, 50)}-${tId}`,
                   'teacher',
                   pt.teacher,
                   JSON.stringify(pt.slots || []),
