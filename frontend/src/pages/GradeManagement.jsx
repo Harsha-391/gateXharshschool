@@ -740,10 +740,10 @@ export default function GradeManagement({ currentSubView, setAdminView, showToas
                 )}
               </div>
 
-              <div className="glass-panel" style={{ padding: '24px' }}>
+              <div className="glass-panel" style={{ padding: '24px', maxHeight: '720px', overflowY: 'auto' }}>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '24px' }}>
-                  {paginatedGrades.length > 0 ? (
-                    paginatedGrades.map((g) => {
+                  {displayGrades.length > 0 ? (
+                    displayGrades.map((g) => {
                       const rowKey = g.displayId || g.id;
                       const gradeSections = g.sections || [];
                       const gradeSubjectsList = subjects.filter(sub => sub.grade?.toUpperCase() === g.displayName?.toUpperCase());
@@ -941,22 +941,6 @@ export default function GradeManagement({ currentSubView, setAdminView, showToas
                     </div>
                   )}
                 </div>
-
-                {gradeTotalPages > 1 && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '20px' }}>
-                    <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                      Showing Page <strong>{gradePage}</strong> of <strong>{gradeTotalPages}</strong>
-                    </span>
-                    <div style={{ display: 'flex', gap: '6px' }}>
-                      <button disabled={gradePage === 1} onClick={() => setGradePage(p => p - 1)} className="btn-secondary" style={{ padding: '6px 10px' }}>
-                        <ChevronLeft size={14} />
-                      </button>
-                      <button disabled={gradePage === gradeTotalPages} onClick={() => setGradePage(p => p + 1)} className="btn-secondary" style={{ padding: '6px 10px' }}>
-                        <ChevronRight size={14} />
-                      </button>
-                    </div>
-                  </div>
-                )}
               </div>
 
               {/* Edit Grade Modal */}
