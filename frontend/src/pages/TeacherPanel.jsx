@@ -97,7 +97,6 @@ export default function TeacherPanel({ setActiveView, onLogout, teacherView, set
 
   // Trigger notification helper
   const showToast = (message, type = 'success') => {
-    if (type === 'success' || type === 'info') return;
     setNotification({ message, type });
     setTimeout(() => setNotification(null), 3500);
   };
@@ -461,7 +460,45 @@ export function MarkAttendanceView({ date, setDate, studentClass, setClass, sect
   // Submit Attendance (finalize)
   const submitAttendance = async () => {
     try {
+      // 1. Validations: check for unmarked students
+      const unlogged = roster.filter(r => !r.attendanceStatus);
+      if (unlogged.length > 0) {
+        if (!window.confirm(`You have ${unlogged.length} unmarked students. Would you like to submit and save remaining records?`)) {
+          return;
+        }
+      }
+
       setSubmitting(true);
+
+      // 2. Save current roster state first
+      const recordsToSave = roster
+        .filter(r => r.attendanceStatus) // Save only marked ones
+        .map(r => ({
+          studentId: r.id,
+          status: r.attendanceStatus,
+          remarks: r.remarks
+        }));
+
+      const saveRes = await fetch('/api/attendance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          date,
+          studentClass,
+          section,
+          records: recordsToSave,
+          markedBy: 'uttam306115@gmail.com'
+        })
+      });
+
+      if (!saveRes.ok) {
+        const err = await saveRes.json();
+        showToast(err.error || 'Failed to save attendance logs before submitting.', 'error');
+        setSubmitting(false);
+        return;
+      }
+
+      // 3. Submit/Finalize attendance
       const res = await fetch('/api/attendance/submit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
