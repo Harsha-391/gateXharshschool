@@ -1139,7 +1139,8 @@ export const loadTenantSqlIntoMemory = async (tenantId) => {
       gradeDepartments: [],
       sections: [],
       publishedClassTimetables: [],
-      publishedTeacherTimetables: []
+      publishedTeacherTimetables: [],
+      teacherTimetables: []
     };
 
     // 1. Fetch all datasets from MySQL in parallel to minimize network latency roundtrips
@@ -1511,8 +1512,11 @@ export const loadTenantSqlIntoMemory = async (tenantId) => {
     }));
 
     const loadedSlots = [];
+    const loadedTeacherSlots = [];
     const dayMap = { mon: 'Monday', tue: 'Tuesday', wed: 'Wednesday', thu: 'Thursday', fri: 'Friday', sat: 'Saturday' };
+    const TEACHER_PREFIX = 'TEACHER::';
     for (const t of dbTimetables) {
+      const isTeacherRow = t.cohort && t.cohort.startsWith(TEACHER_PREFIX);
       const days = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
       for (const d of days) {
         let val = t[d];
@@ -1520,20 +1524,35 @@ export const loadTenantSqlIntoMemory = async (tenantId) => {
           try { val = JSON.parse(val); } catch (e) { val = null; }
         }
         if (val && val.subject && val.subject.trim() !== '') {
-          loadedSlots.push({
-            id: `TT-${t.cohort}-${t.time}-${d}`.replace(/\s+/g, '-'),
-            cohort: t.cohort,
-            day: dayMap[d],
-            time: t.time,
-            subject: val.subject,
-            teacher: val.teacher || '',
-            room: val.room || '',
-            session: '2026-2027'
-          });
+          if (isTeacherRow) {
+            const teacherName = t.cohort.substring(TEACHER_PREFIX.length);
+            loadedTeacherSlots.push({
+              id: `TT-TEACHER-${teacherName}-${t.time}-${d}`.replace(/\s+/g, '-'),
+              cohort: val.cohort || '',
+              day: dayMap[d],
+              time: t.time,
+              subject: val.subject,
+              teacher: teacherName,
+              room: val.room || '',
+              session: '2026-2027'
+            });
+          } else {
+            loadedSlots.push({
+              id: `TT-${t.cohort}-${t.time}-${d}`.replace(/\s+/g, '-'),
+              cohort: t.cohort,
+              day: dayMap[d],
+              time: t.time,
+              subject: val.subject,
+              teacher: val.teacher || '',
+              room: val.room || '',
+              session: '2026-2027'
+            });
+          }
         }
       }
     }
     data.timetables = loadedSlots;
+    data.teacherTimetables = loadedTeacherSlots;
 
     data.students = sqlStudents.map(s => {
       const enrollment = sqlEnrollments.find(e => e.studentId === s.id) || {};
@@ -2162,8 +2181,9 @@ export const saveMemoryDbToSql = async (tenantId, db, changedKeys, newUpdatedAt)
         })());
       }
 
-      // 6. Sync Timetables
-      if (db.timetables && Array.isArray(db.timetables) && hasTableChanged('timetables')) {
+      // 6. Sync Timetables (class + teacher)
+      if ((db.timetables && Array.isArray(db.timetables) && hasTableChanged('timetables')) ||
+          (db.teacherTimetables && Array.isArray(db.teacherTimetables) && hasTableChanged('teacherTimetables'))) {
         tasks.push((async () => {
           await sqlDb.query('DELETE FROM timetables WHERE tenantId = ?', [tId]);
           
@@ -2177,7 +2197,8 @@ export const saveMemoryDbToSql = async (tenantId, db, changedKeys, newUpdatedAt)
             saturday: 'sat', sat: 'sat'
           };
 
-          for (const t of db.timetables) {
+          // Class timetables
+          for (const t of (db.timetables || [])) {
             if (!t.cohort || !t.time) continue;
             const key = `${t.cohort}_${t.time}`;
             if (!weekRows[key]) {
@@ -2214,6 +2235,37 @@ export const saveMemoryDbToSql = async (tenantId, db, changedKeys, newUpdatedAt)
                     weekRows[key][d] = val;
                   }
                 }
+              }
+            }
+          }
+
+          // Teacher timetables - stored with TEACHER:: prefix on cohort
+          const TEACHER_PREFIX = 'TEACHER::';
+          for (const t of (db.teacherTimetables || [])) {
+            if (!t.teacher || !t.time) continue;
+            const prefixedCohort = `${TEACHER_PREFIX}${t.teacher}`;
+            const key = `${prefixedCohort}_${t.time}`;
+            if (!weekRows[key]) {
+              weekRows[key] = {
+                cohort: prefixedCohort,
+                time: t.time,
+                mon: null,
+                tue: null,
+                wed: null,
+                thu: null,
+                fri: null,
+                sat: null
+              };
+            }
+
+            if (t.day) {
+              const dKey = dayKeyMap[t.day.toLowerCase()];
+              if (dKey) {
+                weekRows[key][dKey] = {
+                  subject: t.subject || '',
+                  cohort: t.cohort || '',
+                  room: t.room || ''
+                };
               }
             }
           }
@@ -3244,6 +3296,7 @@ export const writeDb = (data) => {
     const changedKeys = new Set();
     const trackKeys = [
       'schools', 'school', 'teachers', 'staff', 'students', 'timetables',
+      'teacherTimetables',
       'invoices', 'fees', 'expenses', 'payroll', 'staffPayments', 'activities',
       'exams', 'examTimetables', 'results', 'overallResults', 'notices',
       'holidays', 'events', 'subjects', 'timeslots', 'feeStructures',
