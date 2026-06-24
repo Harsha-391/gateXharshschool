@@ -207,7 +207,7 @@ export default function Sidebar({
               </button>
             )}
 
-            {(hasPermission('add-employee', 'view') || hasPermission('staff-directory', 'view') || hasPermission('add-staff', 'view')) && (
+            {hasPermission('designation-manager', 'view') && (
               <button
                 onClick={() => { setAdminView('designation-manage'); setMobileOpen(false); }}
                 className={`nav-item ${adminView === 'designation-manage' ? 'active' : ''}`}

@@ -414,13 +414,13 @@ export default function AddStaff({ setActiveView, editData }) {
 
   const handleDesignationChange = (e) => {
     const { value } = e.target;
-    const details = DESIGNATION_DETAILS[value] || { category: '', department: '' };
+    const details = DESIGNATION_DETAILS[value] || { category: 'Other', department: 'Other' };
     
     setFormData(prev => ({
       ...prev,
       designation: value,
-      department: details.department || prev.department,
-      staffCategory: details.category || prev.staffCategory
+      department: details.department,
+      staffCategory: details.category
     }));
     
     if (validationErrors.designation || validationErrors.staffCategory) {

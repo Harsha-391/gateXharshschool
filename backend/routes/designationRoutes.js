@@ -1,6 +1,7 @@
 import express from 'express';
-import { readDb, writeDb, slugify, tenantStorage } from '../utils/db.js';
+import { readDb, writeDb, slugify, tenantStorage, restoreTenantContext } from '../utils/db.js';
 import { auth } from '../middleware/auth.js';
+import { checkPermission } from '../middleware/permissionMiddleware.js';
 
 const router = express.Router();
 
@@ -37,10 +38,58 @@ const checkDesignationUsage = (db, designationName) => {
   return null;
 };
 
+// Inline helper for GET request viewing permission fallback
+const checkViewDesignationPermission = (req, res, next) => {
+  const user = req.admin;
+  if (!user) {
+    return res.status(401).json({ error: 'Access denied. User not authenticated.' });
+  }
+
+  const role = user.role;
+  if (
+    role === 'Developer Admin' || 
+    role === 'Main Admin' || 
+    role === 'Admin Dashboard' ||
+    role === 'Principal'
+  ) {
+    return next();
+  }
+
+  const db = readDb();
+  const access = (db.userAccess || []).find(ua => ua.userId === user.id);
+  let roleRecord = access ? (db.roles || []).find(r => r.id === access.roleId) : null;
+  if (!roleRecord) {
+    const defaultRoleName = user.userType === 'Teacher' ? 'Teacher' : 'Staff';
+    roleRecord = (db.roles || []).find(r => r.id === `role-${defaultRoleName.toLowerCase()}` || r.name.toLowerCase() === defaultRoleName.toLowerCase());
+  }
+
+  const permissions = roleRecord ? (typeof roleRecord.permissions === 'string' ? JSON.parse(roleRecord.permissions) : roleRecord.permissions) : {};
+
+  // Check if user has view on designation-manager, OR any permission on add-employee, add-staff, staff-directory, teacher-directory
+  const allowedModules = ['designation-manager', 'add-employee', 'add-staff', 'staff-directory', 'teacher-directory'];
+  const actions = ['view', 'create', 'edit', 'delete'];
+
+  const hasAnyPerm = allowedModules.some(mod => {
+    return actions.some(action => {
+      if (permissions[mod] && permissions[mod][action] !== undefined) {
+        return !!permissions[mod][action];
+      }
+      return false;
+    });
+  });
+
+  if (hasAnyPerm) {
+    return next();
+  }
+
+  return res.status(403).json({ error: "Access denied. Insufficient permissions to view designations lookup." });
+};
+
 router.use(auth);
+router.use(restoreTenantContext);
 
 // GET /api/designations
-router.get('/', (req, res) => {
+router.get('/', checkViewDesignationPermission, (req, res) => {
   try {
     const db = readDb();
     res.json(db.designations || []);
@@ -50,7 +99,7 @@ router.get('/', (req, res) => {
 });
 
 // POST /api/designations
-router.post('/', (req, res) => {
+router.post('/', checkPermission('designation-manager', 'create'), (req, res) => {
   try {
     const { name, status } = req.body;
     if (!name || !name.trim()) {
@@ -85,7 +134,7 @@ router.post('/', (req, res) => {
 });
 
 // PUT /api/designations/:id
-router.put('/:id', (req, res) => {
+router.put('/:id', checkPermission('designation-manager', 'edit'), (req, res) => {
   try {
     const { id } = req.params;
     const { name, status } = req.body;
@@ -137,7 +186,7 @@ router.put('/:id', (req, res) => {
 });
 
 // DELETE /api/designations/:id
-router.delete('/:id', (req, res) => {
+router.delete('/:id', checkPermission('designation-manager', 'delete'), (req, res) => {
   try {
     const { id } = req.params;
 

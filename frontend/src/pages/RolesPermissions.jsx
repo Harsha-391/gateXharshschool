@@ -103,6 +103,7 @@ export default function RolesPermissions({ initialTab = 'dashboard', hideTabs = 
     { id: 'register-student', label: 'Register Student' },
     { id: 'add-staff', label: 'Add Staff' },
     { id: 'add-employee', label: 'Add Employee' },
+    { id: 'designation-manager', label: 'Designation Manage' },
     { id: 'student-manager', label: 'Student Manager' },
     { id: 'employee-attendance', label: 'Staff/Employee Attendance' },
     { id: 'attendance', label: 'Student Attendance' },

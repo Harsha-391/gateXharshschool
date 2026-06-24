@@ -1060,52 +1060,7 @@ const applySchemaUpdates = async (pool, isMaster = false, tenantId = null) => {
         await pool.query(sql);
       } catch (err) {}
     }
-    
-    // Seed default designations if empty
-    if (!isMaster && tenantId) {
-      try {
-        const [existingDesigs] = await pool.query("SELECT COUNT(*) as count FROM designations");
-        if (existingDesigs[0].count === 0) {
-          console.log(`[SQL Init] Seeding default designations for tenant ${tenantId}...`);
-          const defaultDesignations = [
-            { id: 'desig-admin-officer', name: 'Administrative Officer' },
-            { id: 'desig-office-asst', name: 'Office Assistant' },
-            { id: 'desig-data-entry', name: 'Data Entry Operator' },
-            { id: 'desig-it-admin', name: 'IT Administrator' },
-            { id: 'desig-comp-op', name: 'Computer Operator' },
-            { id: 'desig-transport-coord', name: 'Transport Coordinator' },
-            { id: 'desig-driver', name: 'Driver' },
-            { id: 'desig-hostel-warden', name: 'Hostel Warden' },
-            { id: 'desig-sec-supervisor', name: 'Security Supervisor' },
-            { id: 'desig-sec-guard', name: 'Security Guard' },
-            { id: 'desig-maint-staff', name: 'Maintenance Staff' },
-            { id: 'desig-electrician', name: 'Electrician' },
-            { id: 'desig-plumber', name: 'Plumber' },
-            { id: 'desig-house-supervisor', name: 'Housekeeping Supervisor' },
-            { id: 'desig-house-staff', name: 'Housekeeping Staff' },
-            { id: 'desig-cleaner', name: 'Cleaner' },
-            { id: 'desig-nurse', name: 'School Nurse' },
-            { id: 'desig-store-keeper', name: 'Store Keeper' },
-            { id: 'desig-peon', name: 'Peon' },
-            { id: 'desig-attendant', name: 'Attendant' },
-            { id: 'desig-office-boy', name: 'Office Boy' },
-            { id: 'desig-gardener', name: 'Gardener' }
-          ];
-          const now = new Date().toISOString();
-          const columns = ['id', 'name', 'status', 'createdAt', 'updatedAt', 'tenantId'];
-          const values = defaultDesignations.map(d => [
-            d.id, d.name, 'Active', now, now, tenantId
-          ]);
-          
-          const placeholders = values.map(() => `(?, ?, ?, ?, ?, ?)`).join(', ');
-          const sql = `INSERT INTO \`designations\` (${columns.map(col => `\`${col}\``).join(', ')}) VALUES ${placeholders}`;
-          await pool.query(sql, values.flat());
-          console.log(`[SQL Init] Successfully seeded ${defaultDesignations.length} designations for tenant ${tenantId}`);
-        }
-      } catch (err) {
-        console.warn(`[SQL Init WARNING] Failed to seed default designations:`, err.message);
-      }
-    }
+
   }
 };
 
@@ -1466,7 +1421,8 @@ export const getDefaultRoles = () => {
     'expense-tracker',
     'financial-reports',
     'roles-permissions',
-    'auxiliary-income'
+    'auxiliary-income',
+    'designation-manager'
   ];
   const actions = ['view', 'create', 'edit', 'delete', 'approve', 'publish', 'export', 'import', 'manage-settings'];
 

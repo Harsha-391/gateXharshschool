@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { hasPermission } from '../utils/permissions';
 import { 
   Briefcase, 
   Plus, 
@@ -16,6 +17,11 @@ import {
 } from 'lucide-react';
 
 export default function DesignationManager({ showToast }) {
+  const canView = hasPermission('designation-manager', 'view');
+  const canCreate = hasPermission('designation-manager', 'create');
+  const canEdit = hasPermission('designation-manager', 'edit');
+  const canDelete = hasPermission('designation-manager', 'delete');
+
   const [designations, setDesignations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -52,6 +58,14 @@ export default function DesignationManager({ showToast }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (editingId && !canEdit) {
+      showToast('You do not have permission to edit designations.', 'danger');
+      return;
+    }
+    if (!editingId && !canCreate) {
+      showToast('You do not have permission to create designations.', 'danger');
+      return;
+    }
     if (!name.trim()) {
       showToast('Designation name is required.', 'warning');
       return;
@@ -104,6 +118,10 @@ export default function DesignationManager({ showToast }) {
   };
 
   const handleDelete = async (id, designationName) => {
+    if (!canDelete) {
+      showToast('You do not have permission to delete designations.', 'danger');
+      return;
+    }
     if (!window.confirm(`Are you sure you want to delete the designation "${designationName}"?`)) {
       return;
     }
@@ -128,6 +146,10 @@ export default function DesignationManager({ showToast }) {
   };
 
   const handleToggleStatus = async (designation) => {
+    if (!canEdit) {
+      showToast('You do not have permission to edit designations.', 'danger');
+      return;
+    }
     const newStatus = designation.status === 'Active' ? 'Inactive' : 'Active';
     try {
       const res = await fetch(`/api/designations/${designation.id}`, {
@@ -160,6 +182,17 @@ export default function DesignationManager({ showToast }) {
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
   const currentItems = filteredDesignations.slice(indexOfFirstItem, indexOfLastItem);
 
+  if (!canView) {
+    return (
+      <div style={{ padding: '40px 24px', textAlign: 'center', color: 'var(--text-muted)' }}>
+        <h3 style={{ fontWeight: 700, color: 'var(--text-main)' }}>Access Denied</h3>
+        <p style={{ marginTop: '8px', fontSize: '0.9rem' }}>
+          You do not have permission to view the Designation Management module.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
       {/* Title Header */}
@@ -190,111 +223,128 @@ export default function DesignationManager({ showToast }) {
         alignItems: 'start'
       }}>
         {/* Left Form: Add / Edit Designation */}
-        <div style={{
-          background: 'var(--bg-card)',
-          border: '1px solid var(--border-glass)',
-          borderRadius: '16px',
-          padding: '24px',
-          boxShadow: 'var(--shadow-sm)'
-        }}>
-          <h3 style={{ margin: '0 0 20px 0', fontSize: '1.1rem', fontWeight: 600, color: 'var(--text-main)' }}>
-            {editingId ? 'Edit Designation' : 'Add New Designation'}
-          </h3>
-          
-          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <label style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-muted)' }}>Designation Name *</label>
-              <input
-                type="text"
-                placeholder="e.g. IT Administrator"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                style={{
-                  padding: '10px 14px',
-                  borderRadius: '8px',
-                  border: '1.5px solid var(--border-glass)',
-                  background: 'var(--bg-card-subtle)',
-                  color: 'var(--text-main)',
-                  fontSize: '0.9rem',
-                  outline: 'none'
-                }}
-                required
-              />
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <label style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-muted)' }}>Status</label>
-              <select
-                value={status}
-                onChange={(e) => setStatus(e.target.value)}
-                style={{
-                  padding: '10px 14px',
-                  borderRadius: '8px',
-                  border: '1.5px solid var(--border-glass)',
-                  background: 'var(--bg-card-subtle)',
-                  color: 'var(--text-main)',
-                  fontSize: '0.9rem',
-                  outline: 'none'
-                }}
-              >
-                <option value="Active">Active</option>
-                <option value="Inactive">Inactive</option>
-              </select>
-            </div>
-
-            <div style={{ display: 'flex', gap: '12px', marginTop: '8px' }}>
-              <button
-                type="submit"
-                disabled={submitting}
-                style={{
-                  flex: 1,
-                  padding: '10px',
-                  borderRadius: '8px',
-                  background: '#3b82f6',
-                  color: '#ffffff',
-                  fontSize: '0.9rem',
-                  fontWeight: 600,
-                  border: 'none',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '6px',
-                  opacity: submitting ? 0.7 : 1
-                }}
-              >
-                {submitting ? (
-                  <Loader2 size={16} className="animate-spin" />
-                ) : editingId ? (
-                  'Update'
-                ) : (
-                  <>
-                    <Plus size={16} /> Create
-                  </>
-                )}
-              </button>
-              
-              {editingId && (
-                <button
-                  type="button"
-                  onClick={handleCancelEdit}
+        {canCreate || (editingId && canEdit) ? (
+          <div style={{
+            background: 'var(--bg-card)',
+            border: '1px solid var(--border-glass)',
+            borderRadius: '16px',
+            padding: '24px',
+            boxShadow: 'var(--shadow-sm)'
+          }}>
+            <h3 style={{ margin: '0 0 20px 0', fontSize: '1.1rem', fontWeight: 600, color: 'var(--text-main)' }}>
+              {editingId ? 'Edit Designation' : 'Add New Designation'}
+            </h3>
+            
+            <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <label style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-muted)' }}>Designation Name *</label>
+                <input
+                  type="text"
+                  placeholder="e.g. IT Administrator"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
                   style={{
-                    padding: '10px 16px',
+                    padding: '10px 14px',
                     borderRadius: '8px',
-                    background: 'transparent',
-                    border: '1px solid var(--border-glass)',
-                    color: 'var(--text-muted)',
+                    border: '1.5px solid var(--border-glass)',
+                    background: 'var(--bg-card-subtle)',
+                    color: 'var(--text-main)',
                     fontSize: '0.9rem',
-                    fontWeight: 600,
-                    cursor: 'pointer'
+                    outline: 'none'
+                  }}
+                  required
+                />
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <label style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-muted)' }}>Status</label>
+                <select
+                  value={status}
+                  onChange={(e) => setStatus(e.target.value)}
+                  style={{
+                    padding: '10px 14px',
+                    borderRadius: '8px',
+                    border: '1.5px solid var(--border-glass)',
+                    background: 'var(--bg-card-subtle)',
+                    color: 'var(--text-main)',
+                    fontSize: '0.9rem',
+                    outline: 'none'
                   }}
                 >
-                  Cancel
+                  <option value="Active">Active</option>
+                  <option value="Inactive">Inactive</option>
+                </select>
+              </div>
+
+              <div style={{ display: 'flex', gap: '12px', marginTop: '8px' }}>
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  style={{
+                    flex: 1,
+                    padding: '10px',
+                    borderRadius: '8px',
+                    background: '#3b82f6',
+                    color: '#ffffff',
+                    fontSize: '0.9rem',
+                    fontWeight: 600,
+                    border: 'none',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px',
+                    opacity: submitting ? 0.7 : 1
+                  }}
+                >
+                  {submitting ? (
+                    <Loader2 size={16} className="animate-spin" />
+                  ) : editingId ? (
+                    'Update'
+                  ) : (
+                    <>
+                      <Plus size={16} /> Create
+                    </>
+                  )}
                 </button>
-              )}
-            </div>
-          </form>
-        </div>
+                
+                {editingId && (
+                  <button
+                    type="button"
+                    onClick={handleCancelEdit}
+                    style={{
+                      padding: '10px 16px',
+                      borderRadius: '8px',
+                      background: 'transparent',
+                      border: '1px solid var(--border-glass)',
+                      color: 'var(--text-muted)',
+                      fontSize: '0.9rem',
+                      fontWeight: 600,
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Cancel
+                  </button>
+                )}
+              </div>
+            </form>
+          </div>
+        ) : (
+          <div style={{
+            background: 'var(--bg-card)',
+            border: '1px solid var(--border-glass)',
+            borderRadius: '16px',
+            padding: '24px',
+            boxShadow: 'var(--shadow-sm)'
+          }}>
+            <h3 style={{ margin: '0 0 20px 0', fontSize: '1.1rem', fontWeight: 600, color: 'var(--text-main)' }}>
+              Designation Form
+            </h3>
+            <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>
+              Select a designation from the table to edit (requires edit permissions), or contact your system administrator to grant creation rights.
+            </p>
+          </div>
+        )}
 
         {/* Right Section: Designation Table */}
         <div style={{
@@ -378,11 +428,12 @@ export default function DesignationManager({ showToast }) {
                       <td style={{ padding: '12px 8px' }}>
                         <button
                           onClick={() => handleToggleStatus(item)}
-                          title="Click to toggle status"
+                          disabled={!canEdit}
+                          title={canEdit ? "Click to toggle status" : ""}
                           style={{
                             background: 'transparent',
                             border: 'none',
-                            cursor: 'pointer',
+                            cursor: canEdit ? 'pointer' : 'default',
                             display: 'flex',
                             alignItems: 'center',
                             gap: '6px',
@@ -403,45 +454,49 @@ export default function DesignationManager({ showToast }) {
                       </td>
                       <td style={{ padding: '12px 8px', textAlign: 'right' }}>
                         <div style={{ display: 'inline-flex', gap: '8px' }}>
-                          <button
-                            onClick={() => handleEdit(item)}
-                            title="Edit Designation"
-                            style={{
-                              background: 'transparent',
-                              border: 'none',
-                              color: 'var(--text-muted)',
-                              cursor: 'pointer',
-                              padding: '4px',
-                              borderRadius: '4px',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center'
-                            }}
-                            onMouseEnter={(e) => e.currentTarget.style.color = '#3b82f6'}
-                            onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text-muted)'}
-                          >
-                            <Edit3 size={16} />
-                          </button>
+                          {canEdit && (
+                            <button
+                              onClick={() => handleEdit(item)}
+                              title="Edit Designation"
+                              style={{
+                                background: 'transparent',
+                                border: 'none',
+                                color: 'var(--text-muted)',
+                                cursor: 'pointer',
+                                padding: '4px',
+                                borderRadius: '4px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                              }}
+                              onMouseEnter={(e) => e.currentTarget.style.color = '#3b82f6'}
+                              onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text-muted)'}
+                            >
+                              <Edit3 size={16} />
+                            </button>
+                          )}
                           
-                          <button
-                            onClick={() => handleDelete(item.id, item.name)}
-                            title="Delete Designation"
-                            style={{
-                              background: 'transparent',
-                              border: 'none',
-                              color: 'var(--text-muted)',
-                              cursor: 'pointer',
-                              padding: '4px',
-                              borderRadius: '4px',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center'
-                            }}
-                            onMouseEnter={(e) => e.currentTarget.style.color = '#ef4444'}
-                            onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text-muted)'}
-                          >
-                            <Trash2 size={16} />
-                          </button>
+                          {canDelete && (
+                            <button
+                              onClick={() => handleDelete(item.id, item.name)}
+                              title="Delete Designation"
+                              style={{
+                                background: 'transparent',
+                                border: 'none',
+                                color: 'var(--text-muted)',
+                                cursor: 'pointer',
+                                padding: '4px',
+                                borderRadius: '4px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                              }}
+                              onMouseEnter={(e) => e.currentTarget.style.color = '#ef4444'}
+                              onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text-muted)'}
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>

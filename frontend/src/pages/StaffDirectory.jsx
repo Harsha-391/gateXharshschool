@@ -273,7 +273,7 @@ export default function StaffDirectory({ readOnly = true, onAddClick, onEditClic
 
   const handleEditDesignationChange = (e) => {
     const { value } = e.target;
-    const mapping = DESIGNATION_DETAILS[value] || { category: '', department: '' };
+    const mapping = DESIGNATION_DETAILS[value] || { category: 'Other', department: 'Other' };
     setEditData(prev => ({
       ...prev,
       designation: value,

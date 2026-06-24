@@ -60,6 +60,7 @@ export default function Header({
     income: { title: 'Income Tracker', desc: 'Monitor additional revenue channels and non-fee inflows.' },
     reports: { title: 'Financial Reports', desc: 'Generate visual balance sheets, statement lists, and profit/loss reports.' },
     'student-manager': { title: 'Student Manager', desc: 'Allocate classrooms and sections to enrolled students.' },
+    'designation-manage': { title: 'Designation Manage', desc: 'Manage school staff and employee designations.' },
     'add-staff': { title: 'Add Employee', desc: 'Register a new administrative or support staff member.' },
     'roles-permissions': { title: 'Roles & Permissions', desc: 'Control user permissions and security roles.' },
     'grade-list': { title: 'Grade Management', desc: 'Configure academic classes and sections.' },
