@@ -281,24 +281,24 @@ app.get('/api/platform/schools', async (req, res) => {
   if (isSqlActive()) {
     try {
       const sqlDb = await import('./utils/sqlDb.js');
-      const [studentsRes, teachersRes, staffRes] = await Promise.all([
-        sqlDb.query('SELECT tenantId, COUNT(*) as cnt FROM students GROUP BY tenantId'),
-        sqlDb.query('SELECT tenantId, COUNT(*) as cnt FROM staff GROUP BY tenantId'),
-        sqlDb.query('SELECT tenantId, COUNT(*) as cnt FROM employees GROUP BY tenantId')
-      ]);
-      
-      studentsRes.forEach(r => {
-        if (!stats[r.tenantId]) stats[r.tenantId] = { students: 0, teachers: 0, staff: 0 };
-        stats[r.tenantId].students = r.cnt;
-      });
-      teachersRes.forEach(r => {
-        if (!stats[r.tenantId]) stats[r.tenantId] = { students: 0, teachers: 0, staff: 0 };
-        stats[r.tenantId].teachers = r.cnt;
-      });
-      staffRes.forEach(r => {
-        if (!stats[r.tenantId]) stats[r.tenantId] = { students: 0, teachers: 0, staff: 0 };
-        stats[r.tenantId].staff = r.cnt;
-      });
+      await Promise.all(schools.map(async (school) => {
+        const subdomain = school.subdomain;
+        try {
+          const [studentsRes, teachersRes, staffRes] = await Promise.all([
+            sqlDb.query('SELECT COUNT(*) as cnt FROM students', [], subdomain),
+            sqlDb.query('SELECT COUNT(*) as cnt FROM staff', [], subdomain),
+            sqlDb.query('SELECT COUNT(*) as cnt FROM employees', [], subdomain)
+          ]);
+          stats[subdomain] = {
+            students: studentsRes[0]?.cnt || 0,
+            teachers: teachersRes[0]?.cnt || 0,
+            staff: staffRes[0]?.cnt || 0
+          };
+        } catch (err) {
+          console.error(`Failed to query stats for tenant ${subdomain}:`, err);
+          stats[subdomain] = { students: 0, teachers: 0, staff: 0 };
+        }
+      }));
     } catch (err) {
       console.error('Failed to query stats from SQL:', err);
     }
@@ -637,14 +637,30 @@ app.get('/api/platform/analytics', async (req, res) => {
   if (isSqlActive()) {
     try {
       const sqlDb = await import('./utils/sqlDb.js');
-      const [studentsRes, teachersRes, staffRes] = await Promise.all([
-        sqlDb.query('SELECT COUNT(*) as cnt FROM students'),
-        sqlDb.query('SELECT COUNT(*) as cnt FROM staff'),
-        sqlDb.query('SELECT COUNT(*) as cnt FROM employees')
-      ]);
-      totalStudents = studentsRes[0]?.cnt || 0;
-      totalTeachers = teachersRes[0]?.cnt || 0;
-      totalStaff = staffRes[0]?.cnt || 0;
+      const tenantStats = await Promise.all(schools.map(async (school) => {
+        const subdomain = school.subdomain;
+        try {
+          const [studentsRes, teachersRes, staffRes] = await Promise.all([
+            sqlDb.query('SELECT COUNT(*) as cnt FROM students', [], subdomain),
+            sqlDb.query('SELECT COUNT(*) as cnt FROM staff', [], subdomain),
+            sqlDb.query('SELECT COUNT(*) as cnt FROM employees', [], subdomain)
+          ]);
+          return {
+            students: studentsRes[0]?.cnt || 0,
+            teachers: teachersRes[0]?.cnt || 0,
+            staff: staffRes[0]?.cnt || 0
+          };
+        } catch (err) {
+          console.error(`Failed to query stats for tenant ${subdomain}:`, err);
+          return { students: 0, teachers: 0, staff: 0 };
+        }
+      }));
+
+      tenantStats.forEach(ts => {
+        totalStudents += ts.students;
+        totalTeachers += ts.teachers;
+        totalStaff += ts.staff;
+      });
     } catch (err) {
       console.error('Failed to query global stats from SQL:', err);
     }
