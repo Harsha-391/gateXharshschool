@@ -472,7 +472,7 @@ export default function SchoolProfile({ schoolDetails, fetchSchoolDetails, isDev
           position: 'fixed',
           top: '24px',
           right: '24px',
-          zIndex: 999999,
+          zIndex: 30000010,
           background: notification.type === 'error' ? 'rgba(239, 68, 68, 0.95)' : 'rgba(16, 185, 129, 0.95)',
           color: 'white',
           padding: '16px 24px',
@@ -918,7 +918,7 @@ export default function SchoolProfile({ schoolDetails, fetchSchoolDetails, isDev
           position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
           background: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(4px)',
           display: 'flex', justifyContent: 'center', alignItems: 'center',
-          zIndex: 999999, padding: '20px'
+          zIndex: 30000000, padding: '20px'
         }}>
           <div className="animate-scale-up" style={{
             width: '100%', maxWidth: '720px', maxHeight: '88vh', overflowY: 'auto',
