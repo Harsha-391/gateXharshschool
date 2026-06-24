@@ -373,6 +373,7 @@ export const publishExam = (req, res) => {
   }
 
   db.exams[examIndex].status = 'Published';
+  db.exams[examIndex].timetablePublished = true;
   writeDb(db);
 
   res.json({ message: 'Exam published successfully.', exam: db.exams[examIndex] });

@@ -982,6 +982,34 @@ export default function AcademicPanel({ subView, setAdminView }) {
     }
   };
 
+  const handleEditExam = (examObj) => {
+    const startDates = {};
+    const endDates = {};
+    (examObj.gradeSections || []).forEach(gsItem => {
+      const key = `${gsItem.grade}-${gsItem.section}`;
+      startDates[key] = gsItem.startDate;
+      endDates[key] = gsItem.endDate || '';
+    });
+
+    setWizardForm({
+      id: examObj.id,
+      examName: examObj.examName,
+      examType: examObj.examType,
+      customExamName: examObj.examType === 'Custom Exam' ? examObj.examName : '',
+      academicSession: examObj.academicSession,
+      description: examObj.description || '',
+      totalMarks: examObj.totalMarks || 100,
+      selectedGrades: (examObj.gradeSections || []).map(gsItem => ({ grade: gsItem.grade, section: gsItem.section })),
+      startDates,
+      endDates,
+      subjectMarks: examObj.subjectMarks || {},
+      subjectIncluded: examObj.subjectIncluded || {},
+      gapDays: examObj.gapDays || 1
+    });
+    setExamWizardStep(1);
+    setShowExamWizard(true);
+  };
+
   // 3. Exam Timetable Slot
   const handleExamTimetableSubmit = async (e) => {
     e.preventDefault();
@@ -2829,33 +2857,7 @@ export default function AcademicPanel({ subView, setAdminView }) {
               const statusColors = { Draft: { bg: 'rgba(107,114,128,0.08)', color: '#6b7280', border: '1px solid rgba(107,114,128,0.15)' }, Scheduled: { bg: 'rgba(99,102,241,0.08)', color: 'hsl(var(--color-primary))', border: '1px solid rgba(99,102,241,0.15)' }, Published: { bg: 'rgba(16,185,129,0.08)', color: '#10b981', border: '1px solid rgba(16,185,129,0.15)' }, Completed: { bg: 'rgba(59,130,246,0.08)', color: '#3b82f6', border: '1px solid rgba(59,130,246,0.15)' } };
               const sc = statusColors[ex.status] || statusColors.Draft;
 
-              const handleEditExam = (examObj) => {
-                const startDates = {};
-                const endDates = {};
-                (examObj.gradeSections || []).forEach(gsItem => {
-                  const key = `${gsItem.grade}-${gsItem.section}`;
-                  startDates[key] = gsItem.startDate;
-                  endDates[key] = gsItem.endDate || '';
-                });
 
-                setWizardForm({
-                  id: examObj.id,
-                  examName: examObj.examName,
-                  examType: examObj.examType,
-                  customExamName: examObj.examType === 'Custom Exam' ? examObj.examName : '',
-                  academicSession: examObj.academicSession,
-                  description: examObj.description || '',
-                  totalMarks: examObj.totalMarks || 100,
-                  selectedGrades: (examObj.gradeSections || []).map(gsItem => ({ grade: gsItem.grade, section: gsItem.section })),
-                  startDates,
-                  endDates,
-                  subjectMarks: examObj.subjectMarks || {},
-                  subjectIncluded: examObj.subjectIncluded || {},
-                  gapDays: examObj.gapDays || 1
-                });
-                setExamWizardStep(1);
-                setShowExamWizard(true);
-              };
 
               return (
                 <div 
@@ -3030,7 +3032,7 @@ export default function AcademicPanel({ subView, setAdminView }) {
                                             const res = await fetch(`/api/academics/exams/${ex.id}`, {
                                               method: 'PUT',
                                               headers: { 'Content-Type': 'application/json' },
-                                              body: JSON.stringify({ timetablePublished: true })
+                                              body: JSON.stringify({ timetablePublished: true, status: 'Published' })
                                             });
                                             if (res.ok) {
                                               showToast('Exam timetable published successfully!', 'success');
@@ -3685,7 +3687,7 @@ export default function AcademicPanel({ subView, setAdminView }) {
                               const res = await fetch(`/api/academics/exams/${ex.id}`, {
                                 method: 'PUT',
                                 headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ timetablePublished: true })
+                                body: JSON.stringify({ timetablePublished: true, status: 'Published' })
                               });
                               if (res.ok) {
                                 showToast('Exam timetable published successfully!', 'success');
@@ -4143,6 +4145,28 @@ export default function AcademicPanel({ subView, setAdminView }) {
                         )}
                       </div>
                     )}
+                  </div>
+                  {/* Card Actions */}
+                  <div style={{ padding: '12px 20px', borderTop: '1px solid var(--border-glass)', background: 'rgba(255, 255, 255, 0.01)', display: 'flex', justifyContent: 'flex-end', gap: '8px' }} className="no-print">
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); handleEditExam(ex); }} 
+                      className="btn-secondary" 
+                      style={{ padding: '6px 10px', fontSize: '0.72rem', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '4px', border: '1px solid rgba(99,102,241,0.3)', color: 'hsl(var(--color-primary))' }}
+                    >
+                      <Edit3 size={13} /> Edit
+                    </button>
+                    <button 
+                      onClick={async (e) => { 
+                        e.stopPropagation(); 
+                        if (window.confirm('Are you sure you want to delete this exam configuration? This will permanently delete the exam, all its timetable schedules, and all related results.')) {
+                          await deleteExamConfig(ex.id);
+                        }
+                      }} 
+                      className="btn-secondary" 
+                      style={{ padding: '6px 10px', fontSize: '0.72rem', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '4px', border: '1px solid rgba(239,68,68,0.3)', color: '#ef4444' }}
+                    >
+                      <Trash2 size={13} /> Delete
+                    </button>
                   </div>
                 </div>
               );
@@ -6885,7 +6909,7 @@ export default function AcademicPanel({ subView, setAdminView }) {
 
 
       {/* Sub-navigation Menu Header for Academic Manager */}
-      {['academic-manager', 'academic-class-timetable', 'academic-teacher-timetable', 'academic-exams', 'academic-exams-history'].includes(subView) && (
+      {['academic-manager', 'academic-class-timetable', 'academic-teacher-timetable', 'academic-exams', 'academic-exams-history', 'academic-exam-timetable'].includes(subView) && (
         <div className="glass-panel" style={{ padding: '8px', display: 'flex', gap: '8px', overflowX: 'auto', borderRadius: '12px' }}>
           <button 
             onClick={() => {
@@ -6914,6 +6938,20 @@ export default function AcademicPanel({ subView, setAdminView }) {
             }}
           >
             <UserCheck size={16} /> Teacher Timetable
+          </button>
+          <button 
+            onClick={() => {
+              setAdminView('academic-exam-timetable');
+            }}
+            className={`tab-btn-custom ${subView === 'academic-exam-timetable' ? 'active' : ''}`}
+            style={{
+              display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px', borderRadius: '8px', fontSize: '0.85rem', fontWeight: 600, border: 'none', cursor: 'pointer',
+              background: subView === 'academic-exam-timetable' ? 'rgba(99,102,241,0.1)' : 'transparent',
+              color: subView === 'academic-exam-timetable' ? 'rgb(99,102,241)' : 'var(--text-muted)',
+              transition: 'all 0.2s ease'
+            }}
+          >
+            <Calendar size={16} /> Exam Timetable
           </button>
           <button 
             onClick={() => {
@@ -7394,7 +7432,8 @@ export default function AcademicPanel({ subView, setAdminView }) {
                           subjectMarks: wizardForm.subjectMarks,
                           subjectIncluded: wizardForm.subjectIncluded,
                           gradeSections,
-                          status: statusVal
+                          status: statusVal,
+                          timetablePublished: false
                         })
                       });
                       if (res.ok) {

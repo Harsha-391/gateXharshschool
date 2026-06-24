@@ -3,6 +3,7 @@ import cors from 'cors';
 import compression from 'compression';
 import fs from 'fs';
 import path from 'path';
+import { execSync } from 'child_process';
 import { fileURLToPath } from 'url';
 import studentRoutes from './routes/studentRoutes.js';
 import teacherRoutes from './routes/teacherRoutes.js';
@@ -14,7 +15,7 @@ import academicRoutes from './routes/academicRoutes.js';
 import rbacRoutes from './routes/rbacRoutes.js';
 import gradeRoutes from './routes/gradeRoutes.js';
 import upload from './middleware/upload.js';
-import { readDb, writeDb, addActivity, tenantStorage, slugify, restoreTenantContext, ensureTenantSqlLoaded, isSqlActive } from './utils/db.js';
+import { readDb, writeDb, addActivity, tenantStorage, slugify, restoreTenantContext, ensureTenantSqlLoaded, isSqlActive, initializeOnboardedSchoolDatabase } from './utils/db.js';
 import { auth, generateToken } from './middleware/auth.js';
 import { checkPermission } from './middleware/permissionMiddleware.js';
 import { generateQrCode } from './utils/qrService.js';
@@ -339,7 +340,7 @@ app.get('/api/platform/schools', async (req, res) => {
 });
 
 // Create new school
-app.post('/api/platform/schools', (req, res) => {
+app.post('/api/platform/schools', async (req, res) => {
   const { 
     name, 
     subdomain, 
@@ -394,6 +395,7 @@ app.post('/api/platform/schools', (req, res) => {
     adminEmail,
     adminUsername,
     adminPassword,
+    dbName: `school_${cleanSubdomain}`,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString()
   };
@@ -402,51 +404,12 @@ app.post('/api/platform/schools', (req, res) => {
   addActivity(db, 'alert', 'New School Onboarded', `School "${name}" registered on the platform.`, 'hsl(var(--color-primary))', 'rgba(hsl(var(--color-primary)), 0.1)');
   writeDb(db); // Write to global DB
 
-  // Initialize the tenant specific database file
-  const tenantDbPath = path.join(__dirname, 'tenants', `db_${cleanSubdomain}.json`);
-  const defaultTenantDb = {
-    school: {
-      name,
-      subdomain: cleanSubdomain,
-      address: address || '',
-      city: city || '',
-      state: state || '',
-      phone: phone || '',
-      email: email || adminEmail,
-      ratePerStudent: '250.00',
-      adminName: adminName || 'Admin',
-      adminEmail,
-      adminUsername,
-      adminPassword,
-      principal: principalName || 'Principal',
-      updatedAt: new Date().toISOString()
-    },
-    students: [],
-    teachers: [],
-    staff: [],
-    timetables: [],
-    invoices: [],
-    fees: [],
-    expenses: [],
-    payroll: [],
-    staffPayments: [],
-    activities: [],
-    exams: [],
-    examTimetables: [],
-    notices: [],
-    holidays: [],
-    results: []
-  };
-
-  if (!isSqlActive()) {
+  // If SQL is active, automatically provision and seed the school database
+  if (isSqlActive()) {
     try {
-      const dir = path.dirname(tenantDbPath);
-      if (!fs.existsSync(dir)) {
-        fs.mkdirSync(dir, { recursive: true });
-      }
-      fs.writeFileSync(tenantDbPath, JSON.stringify(defaultTenantDb, null, 2), 'utf8');
+      await initializeOnboardedSchoolDatabase(cleanSubdomain);
     } catch (err) {
-      console.error('Failed to create tenant DB:', err);
+      console.error('Failed to initialize school SQL database:', err);
     }
   }
 
@@ -1929,7 +1892,21 @@ app.use((err, req, res, next) => {
 });
 
 // Start Server
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`Aether Server running at http://localhost:${PORT}`);
 });
-// Trigger restart to sync database cache and reload server state v4
+
+server.on('error', (e) => {
+  if (e.code === 'EADDRINUSE') {
+    console.error(`[Server Error] Port ${PORT} is already in use. Force-killing zombie process on port ${PORT}...`);
+    try {
+      execSync(`npx kill-port ${PORT}`);
+      console.log(`[Server] Port ${PORT} freed successfully. Exiting to allow nodemon to restart...`);
+      process.exit(1);
+    } catch (err) {
+      console.error('[Server Error] Failed to auto-kill process on port:', err.message);
+      process.exit(1);
+    }
+  }
+});
+// Trigger restart to sync database cache and reload server state v9

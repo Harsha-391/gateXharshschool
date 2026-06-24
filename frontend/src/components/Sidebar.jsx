@@ -70,7 +70,7 @@ export default function Sidebar({
     return typeof adminView === 'string' && (adminView === 'employee-attendance' || adminView === 'attendance' || adminView === 'attendance-history');
   });
   const [adminAcademicOpen, setAdminAcademicOpen] = useState(() => {
-    return typeof adminView === 'string' && (['academic-manager', 'academic-class-timetable', 'academic-teacher-timetable', 'academic-exams', 'academic-exams-history', 'academic-published-exam', 'academic-published-timetable'].includes(adminView));
+    return typeof adminView === 'string' && (['academic-manager', 'academic-class-timetable', 'academic-teacher-timetable', 'academic-exams', 'academic-exams-history', 'academic-published-exam', 'academic-published-timetable', 'academic-exam-timetable'].includes(adminView));
   });
   const [adminAcademicActivitiesOpen, setAdminAcademicActivitiesOpen] = useState(() => {
     return typeof adminView === 'string' && (['academic-activities', 'academic-events', 'academic-notices', 'academic-holidays', 'academic-calendar'].includes(adminView));
@@ -382,7 +382,7 @@ export default function Sidebar({
                 <button
                   type="button"
                   onClick={() => setAdminAcademicOpen(!adminAcademicOpen)}
-                  className={`nav-item ${['academic-manager', 'academic-class-timetable', 'academic-teacher-timetable', 'academic-exams', 'academic-exams-history', 'academic-published-timetable', 'academic-published-exam'].includes(adminView) ? 'parent-active' : ''}`}
+                  className={`nav-item ${['academic-manager', 'academic-class-timetable', 'academic-teacher-timetable', 'academic-exams', 'academic-exams-history', 'academic-published-timetable', 'academic-published-exam', 'academic-exam-timetable'].includes(adminView) ? 'parent-active' : ''}`}
                   style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', cursor: 'pointer' }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: '16px', minWidth: 0, overflow: 'hidden' }}>
@@ -396,7 +396,7 @@ export default function Sidebar({
                     {hasPermission('academic-manager', 'view') && (
                       <button
                         onClick={() => { setAdminView('academic-manager'); setMobileOpen(false); }}
-                        className={`nav-item ${['academic-manager', 'academic-class-timetable', 'academic-teacher-timetable', 'academic-exams', 'academic-exams-history'].includes(adminView) ? 'active' : ''}`}
+                        className={`nav-item ${['academic-manager', 'academic-class-timetable', 'academic-teacher-timetable', 'academic-exams', 'academic-exams-history', 'academic-exam-timetable'].includes(adminView) ? 'active' : ''}`}
                         style={{ padding: '10px 12px', fontSize: '0.88rem', position: 'relative' }}
                       >
                         <BookOpen size={18} className="flex-shrink-0" />

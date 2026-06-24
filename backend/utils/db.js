@@ -1,8 +1,8 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { AsyncLocalStorage } from 'async_hooks';
 import * as sqlDb from './sqlDb.js';
+import { tenantStorage } from './tenantContext.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -10,8 +10,7 @@ const GLOBAL_DB_FILE = path.join(__dirname, '..', 'db.json');
 const TENANTS_DIR = path.join(__dirname, '..', 'tenants');
 const SCHEMA_FILE = path.join(__dirname, '..', 'schema.sql');
 
-// Global AsyncLocalStorage to store tenant subdomain for the active request context
-export const tenantStorage = new AsyncLocalStorage();
+export { tenantStorage };
 
 // Slugify helper
 export const slugify = (text) => {
@@ -876,57 +875,507 @@ const addTenantIndexes = async () => {
   }
 };
 
+// Helper to execute schema SQL queries on a dynamic pool config
+const executeSchemaOnPool = async (pool, isMaster = false) => {
+  try {
+    if (!fs.existsSync(SCHEMA_FILE)) {
+      console.warn(`[SQL Init] Schema file not found at ${SCHEMA_FILE}`);
+      return;
+    }
+    const schemaSql = fs.readFileSync(SCHEMA_FILE, 'utf8');
+    
+    // Strip comments
+    const cleanLines = schemaSql
+      .split('\n')
+      .map(line => line.trim())
+      .filter(line => line.length > 0 && !line.startsWith('--') && !line.startsWith('#'));
+    
+    const queries = cleanLines
+      .join(' ')
+      .split(';')
+      .map(q => q.trim())
+      .filter(q => q.length > 0);
+
+    // Disable foreign keys during table creation
+    await pool.query('SET FOREIGN_KEY_CHECKS = 0');
+    
+    const masterTables = ['schools', 'subscription_plans', 'roles', 'user_access', 'student_accounts', 'parent_accounts'];
+
+    const isMasterTableQuery = (querySql) => {
+      // Check if it's CREATE TABLE query for a master table
+      const match = querySql.match(/CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?`?(\w+)`?/i);
+      if (match) {
+        return masterTables.includes(match[1].toLowerCase());
+      }
+      
+      // Check if it's CREATE INDEX or ALTER TABLE query targeting a master table
+      const alterMatch = querySql.match(/(?:ALTER\s+TABLE|CREATE\s+(?:UNIQUE\s+)?INDEX\s+\w+\s+ON)\s+`?(\w+)`?/i);
+      if (alterMatch) {
+        return masterTables.includes(alterMatch[1].toLowerCase());
+      }
+      
+      return false;
+    };
+    
+    for (const sql of queries) {
+      const isMasterQ = isMasterTableQuery(sql);
+      if (isMaster) {
+        // Master DB: execute ONLY master queries OR generic DDL/helper queries
+        const isGeneric = !sql.toLowerCase().includes('create table') && 
+                          !sql.toLowerCase().includes('alter table') && 
+                          !sql.toLowerCase().includes('create index');
+        if (isMasterQ || isGeneric) {
+          // Strip foreign key references to school tables in master database
+          let sqlToRun = sql;
+          sqlToRun = sqlToRun.replace(/,\s*FOREIGN\s+KEY\s*\([^)]+\)\s*REFERENCES\s+students\s*\([^)]+\)(?:\s+ON\s+DELETE\s+CASCADE)?/gi, '');
+          try {
+            await pool.query(sqlToRun);
+          } catch (err) {
+            // Ignore duplicate errors during initial table generation
+          }
+        }
+      } else {
+        // School DB: execute ONLY school queries
+        if (!isMasterQ) {
+          try {
+            await pool.query(sql);
+          } catch (err) {
+            // Ignore duplicate errors during initial table generation
+          }
+        }
+      }
+    }
+    
+    await pool.query('SET FOREIGN_KEY_CHECKS = 1');
+  } catch (err) {
+    console.error('[SQL Schema Execute Error] Failed to run schema DDL statements:', err.message);
+  }
+};
+
+// Helper to apply database structural updates (ALTER TABLE columns)
+const applySchemaUpdates = async (pool, isMaster = false) => {
+  if (isMaster) {
+    const masterAlters = [
+      "ALTER TABLE schools ADD COLUMN ratePerStudent VARCHAR(50) DEFAULT '250.00'",
+      "ALTER TABLE schools ADD COLUMN updatedAt VARCHAR(100)",
+      "ALTER TABLE schools ADD COLUMN dbName VARCHAR(255)",
+      "ALTER TABLE student_accounts DROP FOREIGN KEY student_accounts_ibfk_1",
+      "ALTER TABLE parent_accounts DROP FOREIGN KEY parent_accounts_ibfk_1"
+    ];
+    for (const sql of masterAlters) {
+      try {
+        await pool.query(sql);
+      } catch (err) {}
+    }
+  } else {
+    const schoolAlters = [
+      "ALTER TABLE grade_departments MODIFY COLUMN id VARCHAR(100)",
+      "ALTER TABLE published_timetables MODIFY COLUMN id VARCHAR(255)",
+      "ALTER TABLE students ADD COLUMN transportRequired VARCHAR(50) DEFAULT 'No'",
+      "ALTER TABLE students ADD COLUMN hostelRequired VARCHAR(50) DEFAULT 'No'",
+      "ALTER TABLE attendance ADD COLUMN submitted TINYINT(1) DEFAULT 0",
+      
+      // Teacher alters
+      "ALTER TABLE staff MODIFY COLUMN qualification TEXT",
+      "ALTER TABLE staff MODIFY COLUMN experience TEXT",
+      "ALTER TABLE staff ADD COLUMN firstName VARCHAR(100)",
+      "ALTER TABLE staff ADD COLUMN middleName VARCHAR(100)",
+      "ALTER TABLE staff ADD COLUMN lastName VARCHAR(100)",
+      "ALTER TABLE staff ADD COLUMN fullName VARCHAR(255)",
+      "ALTER TABLE staff ADD COLUMN dob VARCHAR(50)",
+      "ALTER TABLE staff ADD COLUMN bloodGroup VARCHAR(20)",
+      "ALTER TABLE staff ADD COLUMN nationality VARCHAR(100) DEFAULT 'Indian'",
+      "ALTER TABLE staff ADD COLUMN maritalStatus VARCHAR(50)",
+      "ALTER TABLE staff ADD COLUMN aadhaarNumber VARCHAR(100)",
+      "ALTER TABLE staff ADD COLUMN panNumber VARCHAR(100)",
+      "ALTER TABLE staff ADD COLUMN joiningDate VARCHAR(50)",
+      "ALTER TABLE staff ADD COLUMN employmentType VARCHAR(50)",
+      "ALTER TABLE staff ADD COLUMN designation VARCHAR(100)",
+      "ALTER TABLE staff ADD COLUMN department VARCHAR(100)",
+      "ALTER TABLE staff ADD COLUMN primarySubject VARCHAR(100)",
+      "ALTER TABLE staff ADD COLUMN secondarySubject VARCHAR(100)",
+      "ALTER TABLE staff ADD COLUMN alternateMobile VARCHAR(50)",
+      "ALTER TABLE staff ADD COLUMN currentAddress TEXT",
+      "ALTER TABLE staff ADD COLUMN currentCity VARCHAR(100)",
+      "ALTER TABLE staff ADD COLUMN currentState VARCHAR(100)",
+      "ALTER TABLE staff ADD COLUMN currentCountry VARCHAR(100) DEFAULT 'India'",
+      "ALTER TABLE staff ADD COLUMN currentPostalCode VARCHAR(50)",
+      "ALTER TABLE staff ADD COLUMN permanentAddress TEXT",
+      "ALTER TABLE staff ADD COLUMN permanentCity VARCHAR(100)",
+      "ALTER TABLE staff ADD COLUMN permanentState VARCHAR(100)",
+      "ALTER TABLE staff ADD COLUMN permanentCountry VARCHAR(100) DEFAULT 'India'",
+      "ALTER TABLE staff ADD COLUMN permanentPostalCode VARCHAR(50)",
+      "ALTER TABLE staff ADD COLUMN sameAsPermanent VARCHAR(10) DEFAULT 'No'",
+      "ALTER TABLE staff ADD COLUMN panFile TEXT",
+      "ALTER TABLE staff ADD COLUMN resumeFile TEXT",
+      "ALTER TABLE staff ADD COLUMN joiningLetterFile TEXT",
+      "ALTER TABLE staff ADD COLUMN otherFile TEXT",
+      "ALTER TABLE staff ADD COLUMN experiences TEXT",
+      
+      // Other alters
+      "ALTER TABLE employees ADD COLUMN designation VARCHAR(100)",
+      "ALTER TABLE timetables ADD COLUMN sat JSON",
+      "ALTER TABLE exam_timetables ADD COLUMN startTime VARCHAR(50)",
+      "ALTER TABLE exam_timetables ADD COLUMN endTime VARCHAR(50)",
+      "ALTER TABLE exam_timetables ADD COLUMN duration VARCHAR(50)",
+      "ALTER TABLE exam_timetables ADD COLUMN invigilator VARCHAR(255)",
+      "ALTER TABLE exam_timetables ADD COLUMN cohort VARCHAR(100)",
+      "ALTER TABLE exam_timetables ADD COLUMN grade VARCHAR(50)",
+      "ALTER TABLE exam_timetables ADD COLUMN section VARCHAR(50)",
+      "ALTER TABLE exam_timetables ADD COLUMN examDate VARCHAR(50)",
+      "ALTER TABLE results ADD COLUMN term VARCHAR(100)",
+      "ALTER TABLE results ADD COLUMN percentage INT",
+      "ALTER TABLE results ADD COLUMN gpa DECIMAL(3,2)",
+      "ALTER TABLE results ADD COLUMN `rank` VARCHAR(50)",
+      "ALTER TABLE overall_results ADD COLUMN examId VARCHAR(50)",
+      "ALTER TABLE overall_results ADD COLUMN cohort VARCHAR(100)",
+      "ALTER TABLE overall_results ADD COLUMN totalObtained DECIMAL(10,2)",
+      "ALTER TABLE overall_results ADD COLUMN totalMax DECIMAL(10,2)",
+      "ALTER TABLE overall_results ADD COLUMN gpa DECIMAL(3,2)",
+      "ALTER TABLE overall_results ADD COLUMN `rank` VARCHAR(50)",
+      "ALTER TABLE overall_results ADD COLUMN subjectsCount INT",
+      "ALTER TABLE overall_results ADD COLUMN passStatus VARCHAR(50)",
+      "ALTER TABLE exams ADD COLUMN description TEXT",
+      "ALTER TABLE exams ADD COLUMN totalMarks INT",
+      "ALTER TABLE exams ADD COLUMN gradeSections JSON",
+      "ALTER TABLE exams ADD COLUMN subjectIncluded JSON",
+      "ALTER TABLE exams ADD COLUMN subjectMarks JSON",
+      "ALTER TABLE exams ADD COLUMN createdAt VARCHAR(100)",
+      "ALTER TABLE exams ADD COLUMN timetablePublished TINYINT(1) DEFAULT 0",
+      "ALTER TABLE results ADD COLUMN status VARCHAR(50) DEFAULT 'Draft'",
+      "ALTER TABLE fee_structures ADD COLUMN studentClass VARCHAR(100)",
+      "ALTER TABLE fee_structures ADD COLUMN admissionFee DECIMAL(10,2) DEFAULT 0.00",
+      "ALTER TABLE fee_structures ADD COLUMN tuitionFee DECIMAL(10,2) DEFAULT 0.00",
+      "ALTER TABLE fee_structures ADD COLUMN examFee DECIMAL(10,2) DEFAULT 0.00",
+      "ALTER TABLE fee_structures ADD COLUMN transportFee DECIMAL(10,2) DEFAULT 0.00",
+      "ALTER TABLE fee_structures ADD COLUMN hostelFee DECIMAL(10,2) DEFAULT 0.00",
+      "ALTER TABLE fee_structures ADD COLUMN libraryFee DECIMAL(10,2) DEFAULT 0.00",
+      "ALTER TABLE fee_structures ADD COLUMN otherCharges DECIMAL(10,2) DEFAULT 0.00",
+      "ALTER TABLE fee_structures ADD COLUMN totalFee DECIMAL(10,2) DEFAULT 0.00",
+      "ALTER TABLE fee_structures ADD COLUMN monthRange VARCHAR(100) DEFAULT NULL"
+    ];
+    for (const sql of schoolAlters) {
+      try {
+        await pool.query(sql);
+      } catch (err) {}
+    }
+  }
+};
+
+// Migrate single tenant rows from shared master tables to dedicated school database tables
+export const migrateTenantDataToDedicatedDb = async (subdomain) => {
+  const dbName = `school_${slugify(subdomain)}`;
+  console.log(`[SQL Migration] Verifying and migrating database: ${dbName}...`);
+  
+  try {
+    // Create database if not exists
+    await sqlDb.query(`CREATE DATABASE IF NOT EXISTS \`${dbName}\``, [], 'platform');
+    
+    // Get dedicated pool
+    const pool = sqlDb.getPoolForTenant(subdomain);
+    
+    // Initialize schema and apply structural updates
+    await executeSchemaOnPool(pool);
+    await applySchemaUpdates(pool, false);
+
+    // Drop duplicate master tables from school database to ensure isolation and cleanliness
+    // Prior to dropping, recover data to the master database to prevent data loss
+    const duplicateMasterTables = ['roles', 'user_access', 'student_accounts', 'parent_accounts'];
+    for (const tbl of duplicateMasterTables) {
+      try {
+        const [tableExists] = await pool.query(`SHOW TABLES LIKE '${tbl}'`);
+        if (tableExists.length > 0) {
+          const [rows] = await pool.query(`SELECT * FROM \`${tbl}\``);
+          if (rows.length > 0) {
+            console.log(`[SQL Migration] Recovering ${rows.length} rows from duplicate master table ${tbl} in ${dbName} back to master...`);
+            const columns = Object.keys(rows[0]);
+            const placeholders = rows.map(() => `(${columns.map(() => '?').join(', ')})`).join(', ');
+            
+            const masterPool = sqlDb.getPoolForTenant(null);
+            const updateClause = columns.map(c => `\`${c}\` = VALUES(\`${c}\`)`).join(', ');
+            const insertSql = `INSERT INTO \`${tbl}\` (${columns.map(c => `\`${c}\``).join(', ')}) VALUES ${placeholders} ON DUPLICATE KEY UPDATE ${updateClause}`;
+            
+            const params = rows.flatMap(row => columns.map(c => {
+              const val = row[c];
+              if (val !== null && typeof val === 'object') {
+                return JSON.stringify(val);
+              }
+              return val;
+            }));
+            
+            await masterPool.query(insertSql, params);
+          }
+          
+          await pool.query(`DROP TABLE \`${tbl}\``);
+          console.log(`[SQL Clean] Dropped duplicate master table ${tbl} from school database ${dbName}`);
+        }
+      } catch (err) {
+        console.error(`[SQL Migration Error] Failed to recover/drop master table ${tbl} from ${dbName}:`, err.message);
+      }
+    }
+
+    const pureMasterTables = ['schools', 'subscription_plans'];
+    for (const tbl of pureMasterTables) {
+      try {
+        const [tableExists] = await pool.query(`SHOW TABLES LIKE '${tbl}'`);
+        if (tableExists.length > 0) {
+          await pool.query(`DROP TABLE \`${tbl}\``);
+          console.log(`[SQL Clean] Dropped duplicate master table ${tbl} from school database ${dbName}`);
+        }
+      } catch (err) {
+        console.warn(`[SQL Clean] Failed to drop duplicate master table ${tbl} from ${dbName}:`, err.message);
+      }
+    }
+    
+    // Safety recovery checks on tenant database
+    try {
+      const [dbGrades] = await pool.query('SELECT * FROM grades');
+      for (const g of dbGrades) {
+        const correctId = `grade-${subdomain}-${slugify(convertToRoman(g.name))}`;
+        if (g.id !== correctId) {
+          await pool.query('SET FOREIGN_KEY_CHECKS = 0');
+          const exists = dbGrades.some(x => x.id === correctId);
+          if (exists) {
+            // merge mappings to correct grade
+            const [mappingsToUpdate] = await pool.query('SELECT * FROM grade_departments WHERE gradeId = ?', [g.id]);
+            for (const m of mappingsToUpdate) {
+              const correctMapId = `map-${correctId}-${m.departmentId}`;
+              const [mapExists] = await pool.query('SELECT * FROM grade_departments WHERE id = ?', [correctMapId]);
+              if (mapExists.length > 0) {
+                await pool.query('DELETE FROM grade_departments WHERE id = ?', [m.id]);
+              } else {
+                await pool.query('UPDATE grade_departments SET gradeId = ?, id = ? WHERE id = ?', [correctId, correctMapId, m.id]);
+              }
+            }
+            await pool.query('DELETE FROM grades WHERE id = ?', [g.id]);
+          } else {
+            await pool.query('UPDATE grades SET id = ? WHERE id = ?', [correctId, g.id]);
+            await pool.query('UPDATE grade_departments SET gradeId = ?, id = CONCAT("map-", ?, "-", departmentId) WHERE gradeId = ?', [correctId, correctId, g.id]);
+          }
+          await pool.query('SET FOREIGN_KEY_CHECKS = 1');
+        }
+      }
+    } catch (e) {}
+
+    // Copy rows from master database tables to school-specific database tables if empty
+    const tables = [
+      'sections', 'published_timetables', 'staff', 'employees', 'invoices', 'fees',
+      'expenses', 'payroll', 'staff_payments', 'income', 'activities', 'exams',
+      'exam_timetables', 'notices', 'holidays', 'events', 'academic_calendar_events',
+      'academic_calendar_imports', 'published_calendar_events', 'results', 'subjects',
+      'attendance', 'overall_results', 'timeslots', 'salary_structures',
+      'staff_salary_structures', 'fee_structures', 'timetables', 'students',
+      'student_enrollments', 'parents', 'addresses', 'medical_records', 'documents',
+      'fee_assignments', 'audit_logs', 'employee_qr_codes', 'attendance_records', 'attendance_logs',
+      'attendance_reports', 'grades', 'departments', 'grade_departments', 'fee_periods', 'auxiliary_income_categories', 'auxiliary_income'
+    ];
+
+    for (const table of tables) {
+      try {
+        const [rows] = await pool.query(`SELECT COUNT(*) as cnt FROM \`${table}\``);
+        if (rows[0] && rows[0].cnt > 0) {
+          continue; // Already migrated/has data
+        }
+
+        // Fetch from master database (using explicit null tenantId to query master pool)
+        const rowsToMigrate = await sqlDb.query(`SELECT * FROM \`${table}\` WHERE tenantId = ?`, [subdomain], 'platform');
+        if (rowsToMigrate && rowsToMigrate.length > 0) {
+          console.log(`[SQL Migration] Copying ${rowsToMigrate.length} rows for table ${table} into ${dbName}...`);
+          const columns = Object.keys(rowsToMigrate[0]);
+          const placeholders = rowsToMigrate.map(() => `(${columns.map(() => '?').join(', ')})`).join(', ');
+          const insertSql = `INSERT INTO \`${table}\` (${columns.map(c => `\`${c}\``).join(', ')}) VALUES ${placeholders}`;
+          const params = rowsToMigrate.flatMap(row => columns.map(c => {
+            const val = row[c];
+            if (val !== null && typeof val === 'object') {
+              return JSON.stringify(val);
+            }
+            return val;
+          }));
+          await pool.query(insertSql, params);
+        }
+      } catch (err) {
+        console.error(`[SQL Migration Error] Table ${table} migration failed:`, err.message);
+      }
+    }
+  } catch (err) {
+    console.error(`[SQL Migration Error] Database verification/migration failed for ${dbName}:`, err.message);
+  }
+};
+
+// Automatic scheduled backup system
+export const backupAllDatabases = async () => {
+  try {
+    const backupDir = path.join(__dirname, '..', 'backups');
+    if (!fs.existsSync(backupDir)) {
+      fs.mkdirSync(backupDir, { recursive: true });
+    }
+
+    console.log(`[Backup Service] Starting backup process...`);
+    const schools = await sqlDb.query('SELECT subdomain FROM schools', [], 'platform');
+    const databases = [process.env.DB_NAME || 'school_management'];
+    
+    (schools || []).forEach(s => {
+      databases.push(`school_${slugify(s.subdomain)}`);
+    });
+
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+
+    for (const dbName of databases) {
+      try {
+        console.log(`[Backup Service] Backing up database: ${dbName}...`);
+        
+        // Get pool for target database
+        const pool = dbName === (process.env.DB_NAME || 'school_management') 
+          ? sqlDb.getPoolForTenant(null) 
+          : sqlDb.getPoolForTenant(dbName.replace('school_', ''));
+
+        const tenantId = dbName === (process.env.DB_NAME || 'school_management') ? null : dbName.replace('school_', '');
+
+        // Fetch all tables
+        const tablesRows = await sqlDb.query('SHOW TABLES', [], tenantId);
+        if (!tablesRows || tablesRows.length === 0) continue;
+        const key = Object.keys(tablesRows[0])[0];
+        const tables = tablesRows.map(r => r[key]);
+
+        let dumpSql = `-- MySQL Backup for Database: ${dbName}\n`;
+        dumpSql += `-- Timestamp: ${new Date().toISOString()}\n\n`;
+        dumpSql += `SET FOREIGN_KEY_CHECKS = 0;\n\n`;
+
+        for (const table of tables) {
+          // Get DDL
+          const schemaRows = await sqlDb.query(`SHOW CREATE TABLE \`${table}\``, [], tenantId);
+          const schemaRow = schemaRows[0];
+          dumpSql += `DROP TABLE IF EXISTS \`${table}\`;\n`;
+          dumpSql += `${schemaRow['Create Table']};\n\n`;
+
+          // Get insert statements
+          const rows = await sqlDb.query(`SELECT * FROM \`${table}\``, [], tenantId);
+          if (rows && rows.length > 0) {
+            const columns = Object.keys(rows[0]).map(c => `\`${c}\``).join(', ');
+            dumpSql += `INSERT INTO \`${table}\` (${columns}) VALUES\n`;
+            
+            const valueLines = rows.map(row => {
+              const vals = Object.values(row).map(val => {
+                if (val === null || val === undefined) return 'NULL';
+                if (typeof val === 'object') return pool.escape(JSON.stringify(val));
+                return pool.escape(val);
+              });
+              return `(${vals.join(', ')})`;
+            });
+            
+            dumpSql += valueLines.join(',\n') + ';\n\n';
+          }
+        }
+
+        dumpSql += `SET FOREIGN_KEY_CHECKS = 1;\n`;
+        
+        const backupFile = path.join(backupDir, `backup_${dbName}_${timestamp}.sql`);
+        fs.writeFileSync(backupFile, dumpSql, 'utf8');
+        console.log(`[Backup Service] Backup written successfully to: ${backupFile}`);
+      } catch (err) {
+        console.error(`[Backup Service ERROR] Failed backup for ${dbName}:`, err.message);
+      }
+    }
+    
+    // Keep last 7 days of backups
+    const files = fs.readdirSync(backupDir);
+    const now = Date.now();
+    const maxAge = 7 * 24 * 60 * 60 * 1000;
+    for (const file of files) {
+      try {
+        const filePath = path.join(backupDir, file);
+        const stats = fs.statSync(filePath);
+        if (now - stats.mtimeMs > maxAge) {
+          fs.unlinkSync(filePath);
+          console.log(`[Backup Service] Deleted old backup file: ${file}`);
+        }
+      } catch (e) {}
+    }
+  } catch (err) {
+    console.error(`[Backup Service ERROR] Backup process failed:`, err.message);
+  }
+};
+
+// Run backup once every 24 hours
+export const startBackupInterval = () => {
+  setInterval(backupAllDatabases, 24 * 60 * 60 * 1000);
+};
+
+// Onboarding initializer helper for new school DBs
+export const initializeOnboardedSchoolDatabase = async (subdomain) => {
+  const dbName = `school_${slugify(subdomain)}`;
+  console.log(`[SQL Init] Onboarding new school database: ${dbName}...`);
+  try {
+    // 1. Create database
+    await sqlDb.query(`CREATE DATABASE IF NOT EXISTS \`${dbName}\``, [], 'platform');
+    
+    // 2. Register mapping in master database and in the mapping cache
+    const masterPool = sqlDb.getPoolForTenant(null);
+    await masterPool.query('UPDATE schools SET dbName = ? WHERE subdomain = ?', [dbName, subdomain]);
+    sqlDb.registerDbMapping(subdomain, dbName);
+
+    // 3. Get dedicated pool
+    const pool = sqlDb.getPoolForTenant(subdomain);
+    
+    // 4. Initialize schema and updates (non-master tables)
+    await executeSchemaOnPool(pool, false);
+    await applySchemaUpdates(pool, false);
+
+    // 5. Seed default roles in master database
+    const defaultRoles = getDefaultRoles();
+    const roleColumns = ['id', 'name', 'description', 'active', 'isSystem', 'permissions', 'tenantId'];
+    const roleRows = defaultRoles.map(r => [
+      r.id, r.name, r.description, r.active ? 1 : 0, r.isSystem ? 1 : 0, JSON.stringify(r.permissions), subdomain
+    ]);
+    
+    const valuePlaceholders = roleRows.map(() => `(?, ?, ?, ?, ?, ?, ?)`).join(', ');
+    const sql = `INSERT INTO \`roles\` (${roleColumns.map(col => `\`${col}\``).join(', ')}) VALUES ${valuePlaceholders} ON DUPLICATE KEY UPDATE \`permissions\`=VALUES(\`permissions\`)`;
+    await masterPool.query(sql, roleRows.flat());
+
+    console.log(`[SQL Init] Successfully onboarded and seeded school database: ${dbName}`);
+  } catch (err) {
+    console.error(`[SQL Init ERROR] Failed to initialize database for new school:`, err.message);
+    throw err;
+  }
+};
+
 // Initial database check called on server boot
 export const initSqlDb = async () => {
   const isConnected = await sqlDb.testConnection();
   if (isConnected) {
-    // 1. Create tables
-    await createTablesFromSchema();
-    // Dynamic database indexing
-    await addTenantIndexes();
-    // 2. JSON migration disabled — all data is now managed directly in MySQL
-    // await migrateJsonToSql();
+    const masterPool = sqlDb.getPoolForTenant(null);
+
+    // 1. Initialize master database schema & updates
+    await executeSchemaOnPool(masterPool, true);
+    await applySchemaUpdates(masterPool, true);
+
+    // Load subdomain-to-dbName mappings
+    await sqlDb.loadDbMappings();
+
+    // 2. Fetch all registered schools
+    const schools = await sqlDb.query("SELECT id, subdomain, dbName FROM schools", [], 'platform');
     
-    // 3. Ensure live database admin username matches local seed/fallback settings
-    try {
-      const res = await sqlDb.query("UPDATE schools SET adminUsername = 'school_admin' WHERE subdomain = 'greenvalley' AND adminUsername = 'greenvalley_admin'");
-      if (res && res.affectedRows > 0) {
-        console.log('[SQL Init] Ensured greenvalley adminUsername is updated to school_admin.');
+    // 3. Setup database-per-school, register/fill mappings, and run migrations
+    for (const school of (schools || [])) {
+      const dbName = school.dbName || `school_${slugify(school.subdomain)}`;
+      if (!school.dbName) {
+        await masterPool.query('UPDATE schools SET dbName = ? WHERE id = ?', [dbName, school.id]);
       }
-    } catch (err) {
-      console.warn('[SQL Init WARNING] Failed to run school_admin username update query:', err.message);
+      sqlDb.registerDbMapping(school.subdomain, dbName);
+      await migrateTenantDataToDedicatedDb(school.subdomain);
     }
 
-    // Recovery migration: restore adminUsername to 'school_admin' for any schools with blank/null usernames
+    // 4. Run recovery migrations on master database
     try {
-      const res = await sqlDb.query("UPDATE schools SET adminUsername = 'school_admin' WHERE adminUsername IS NULL OR adminUsername = ''");
-      if (res && res.affectedRows > 0) {
-        console.log(`[SQL Init] Restored adminUsername to 'school_admin' for ${res.affectedRows} school(s) with blank usernames.`);
-      }
-    } catch (err) {
-      console.warn('[SQL Init WARNING] Failed to run adminUsername recovery query:', err.message);
-    }
-    // 4. Ensure subjects' classId (grade) are normalized to Roman numerals
-    try {
-      const subjectsRows = await sqlDb.query("SELECT id, classId FROM subjects");
+      await sqlDb.query("UPDATE schools SET adminUsername = 'school_admin' WHERE adminUsername IS NULL OR adminUsername = ''", [], 'platform');
+    } catch (err) {}
 
-      if (subjectsRows && subjectsRows.length > 0) {
-        for (const sub of subjectsRows) {
-          if (sub.classId) {
-            const formatted = convertToRoman(sub.classId);
-            if (formatted !== sub.classId) {
-              await sqlDb.query("UPDATE subjects SET classId = ? WHERE id = ?", [formatted, sub.id]);
-              console.log(`[SQL Init] Normalized MySQL subject ID ${sub.id} grade from '${sub.classId}' to '${formatted}'`);
-            }
-          }
-        }
-      }
-    } catch (err) {
-      console.warn('[SQL Init WARNING] Failed to normalize subjects table:', err.message);
-    }
+    // 5. Trigger first database backup on boot
+    setTimeout(backupAllDatabases, 5000); // 5 seconds after startup
+    startBackupInterval();
 
     isSqlInitialized = true;
-    console.log('[SQL Init] MySQL Caching Adapter is active and running.');
+    console.log('[SQL Init] MySQL Database-Per-School Multi-Tenant Adapter is active and running.');
   } else {
     console.warn('[SQL Init WARNING] MySQL Connection unavailable. Falling back to local JSON files.');
     isSqlInitialized = false;
@@ -1979,19 +2428,20 @@ export const saveMemoryDbToSql = async (tenantId, db, changedKeys, newUpdatedAt)
           const columns = [
             'id', 'name', 'code', 'subdomain', 'logo', 'principalName', 'email', 'phone', 'address', 'city', 'state', 'country', 
             'academicSession', 'subscriptionPlan', 'url', 'status', 'adminName', 'adminEmail', 'adminUsername', 'adminPassword', 
-            'createdAt', 'updatedAt'
+            'createdAt', 'updatedAt', 'dbName'
           ];
           const updateColumns = [
             'name', 'logo', 'principalName', 'email', 'phone', 'address', 'city', 'state',
             'academicSession', 'subscriptionPlan', 'status', 'adminName', 'adminEmail',
-            'adminUsername', 'adminPassword', 'updatedAt'
+            'adminUsername', 'adminPassword', 'updatedAt', 'dbName'
           ];
           const valueRows = db.schools.map(s => [
             s.id, s.name, s.code, s.subdomain, s.logo, s.principalName || s.principal || '', s.email, 
             s.phone, s.address, s.city, s.state, s.country || 'India', s.academicSession || '2026-2027', 
             s.subscriptionPlan || 'Starter', s.url, s.status || 'Active', s.adminName || '', s.adminEmail || '', 
             s.adminUsername || '', s.adminPassword || '', 
-            s.createdAt, s.updatedAt || s.createdAt || new Date().toISOString()
+            s.createdAt, s.updatedAt || s.createdAt || new Date().toISOString(),
+            s.dbName || `school_${slugify(s.subdomain)}`
           ]);
           await bulkInsertOrUpdate('schools', columns, valueRows, updateColumns);
         })());
