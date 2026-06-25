@@ -219,14 +219,27 @@ router.get('/users', (req, res) => {
     teachers.forEach(t => {
       const access = userAccessList.find(ua => ua.userId === t.id && ua.userType === 'Staff');
       const assignedRole = access ? rolesList.find(r => r.id === access.roleId) : null;
+      
+      let matchedDefaultRoleId = null;
+      let matchedDefaultRoleName = t.role || 'Staff';
+      if (!access) {
+        const found = rolesList.find(r => r.name.toLowerCase() === matchedDefaultRoleName.toLowerCase());
+        if (found) {
+          matchedDefaultRoleId = found.id;
+          matchedDefaultRoleName = found.name;
+        } else {
+          matchedDefaultRoleId = 'role-teacher';
+        }
+      }
+
       responseUsers.push({
         id: t.id,
         name: t.fullName || t.name,
         email: t.email || '',
         phone: t.phone || '',
         userType: 'Staff',
-        roleId: access ? access.roleId : 'role-teacher', // default
-        roleName: assignedRole ? assignedRole.name : 'Staff',
+        roleId: access ? access.roleId : matchedDefaultRoleId,
+        roleName: assignedRole ? assignedRole.name : matchedDefaultRoleName,
         status: access ? access.status : (t.status || 'Active'),
         overrides: access ? access.overrides : {}
       });

@@ -258,8 +258,19 @@ export default function App() {
         setUserProfile(data);
         sessionStorage.setItem('name', data.name);
         sessionStorage.setItem('role', data.role);
+        sessionStorage.setItem('portal_role', data.role);
         if (data.photo) {
           sessionStorage.setItem('photo', data.photo);
+        }
+        if (data.permissions) {
+          sessionStorage.setItem('permissions', JSON.stringify(data.permissions));
+        } else {
+          sessionStorage.removeItem('permissions');
+        }
+        if (data.overrides) {
+          sessionStorage.setItem('overrides', JSON.stringify(data.overrides));
+        } else {
+          sessionStorage.removeItem('overrides');
         }
       } else if (res.status === 401) {
         handleLogout();
@@ -777,7 +788,7 @@ export default function App() {
     }
 
     if (isAdmin) {
-      return <AdminPanel setActiveView={setActiveView} onLogout={handleLogout} adminView={adminView} setAdminView={setAdminView} onBackToMain={handleBackToMain} userProfile={userProfile} setUserProfile={setUserProfile} />;
+      return <AdminPanel setActiveView={setActiveView} onLogout={handleLogout} adminView={adminView} setAdminView={setAdminView} onBackToMain={handleBackToMain} userProfile={userProfile} setUserProfile={setUserProfile} fetchUserProfile={fetchUserProfile} />;
     }
 
     return (

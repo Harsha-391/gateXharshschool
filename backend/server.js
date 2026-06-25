@@ -180,10 +180,13 @@ app.post('/api/auth/login', (req, res) => {
       if (teacher) {
         const access = (db.userAccess || []).find(ua => ua.userId === teacher.id && (ua.userType === 'Staff' || ua.userType === 'Teacher'));
         let roleRecord = access ? (db.roles || []).find(r => r.id === access.roleId) : null;
+        if (!roleRecord && teacher.role) {
+          roleRecord = (db.roles || []).find(r => r.name.toLowerCase() === teacher.role.toLowerCase());
+        }
         if (!roleRecord) {
           roleRecord = (db.roles || []).find(r => r.id === 'role-teacher' || r.name === 'Staff' || r.name === 'Teacher');
         }
-        const roleName = roleRecord ? roleRecord.name : 'Staff';
+        const roleName = roleRecord ? roleRecord.name : (teacher.role || 'Staff');
         const permissions = roleRecord ? roleRecord.permissions : {};
         const overrides = access ? access.overrides : {};
         const token = generateToken({
@@ -826,6 +829,9 @@ app.get('/api/auth/profile', auth, restoreTenantContext, (req, res) => {
     let permissions = {};
     const access = (db.userAccess || []).find(ua => ua.userId === teacher.id && (ua.userType === 'Staff' || ua.userType === 'Teacher'));
     let roleRecord = access ? (db.roles || []).find(r => r.id === access.roleId) : null;
+    if (!roleRecord && teacher.role) {
+      roleRecord = (db.roles || []).find(r => r.name.toLowerCase() === teacher.role.toLowerCase());
+    }
     if (!roleRecord) {
       roleRecord = (db.roles || []).find(r => r.id === 'role-teacher' || r.name === 'Staff' || r.name === 'Teacher');
     }
@@ -835,7 +841,7 @@ app.get('/api/auth/profile', auth, restoreTenantContext, (req, res) => {
 
     return res.json({
       id: teacher.id,
-      role: user.role,
+      role: roleRecord ? roleRecord.name : user.role,
       userType: 'Staff',
       name: teacher.fullName || teacher.name,
       username: teacher.username || teacher.email,
@@ -856,6 +862,9 @@ app.get('/api/auth/profile', auth, restoreTenantContext, (req, res) => {
     let permissions = {};
     const access = (db.userAccess || []).find(ua => ua.userId === staff.id && (ua.userType === 'Employee' || ua.userType === 'Staff'));
     let roleRecord = access ? (db.roles || []).find(r => r.id === access.roleId) : null;
+    if (!roleRecord && staff.role) {
+      roleRecord = (db.roles || []).find(r => r.name.toLowerCase() === staff.role.toLowerCase());
+    }
     if (!roleRecord) {
       roleRecord = (db.roles || []).find(r => r.name.toLowerCase() === staff.role.toLowerCase() || r.name.toLowerCase() === 'staff');
     }
@@ -865,7 +874,7 @@ app.get('/api/auth/profile', auth, restoreTenantContext, (req, res) => {
 
     return res.json({
       id: staff.id,
-      role: user.role,
+      role: roleRecord ? roleRecord.name : user.role,
       userType: 'Employee',
       name: staff.fullName || staff.name,
       username: staff.username || staff.email,

@@ -17,11 +17,13 @@ import {
   UserPlus,
   Venus,
   Mars,
-  RefreshCw
+  RefreshCw,
+  Lock
 } from 'lucide-react';
 import SkeletonLoader from '../components/SkeletonLoader';
 import KeepAlive from '../components/KeepAlive';
 import { fetchActiveGrades, fetchActiveSections } from '../utils/grades';
+import { hasPermission } from '../utils/permissions';
 
 // Lazy load sub-components (Default Exports)
 const StudentDirectory = lazy(() => import('./StudentDirectory'));
@@ -190,7 +192,90 @@ function StatOverviewCard({ icon, accentColor, title, subtitle, total, maleCount
   );
 }
 
-export default function AdminPanel({ setActiveView, onLogout, adminView, setAdminView, onBackToMain, userProfile, setUserProfile }) {
+const getViewPermissionModuleAndAction = (view) => {
+  if (!view || view === 'overview') return { module: 'overview', action: 'view' };
+  
+  if (['grade-list', 'add-grade', 'grade-departments', 'grade-dept-mapping', 'grade-academic-settings', 'academic-grade-subjects'].includes(view)) {
+    return { module: 'grade-management', action: 'view' };
+  }
+  if (view === 'student-manager') return { module: 'student-manager', action: 'view' };
+  if (view === 'designation-manage') return { module: 'designation-manager', action: 'view' };
+  if (view === 'students') return { module: 'student-directory', action: 'view' };
+  if (view === 'staff') return { module: 'staff-directory', action: 'view' };
+  if (view === 'employees') return { module: 'employee-directory', action: 'view' };
+  
+  if (view === 'register-student') return { module: 'register-student', action: 'view' };
+  if (view === 'add-staff') return { module: 'add-staff', action: 'view' };
+  if (view === 'add-employee') return { module: 'add-employee', action: 'view' };
+  
+  if (view === 'employee-attendance') return { module: 'employee-attendance', action: 'view' };
+  if (view === 'attendance') return { module: 'attendance', action: 'view' };
+  if (view === 'attendance-history') return { module: 'attendance-history', action: 'view' };
+  
+  if (['class-timetable', 'teacher-timetable', 'exam-timetable'].includes(view)) {
+    return { module: 'academic-manager', action: 'view' };
+  }
+  if (view === 'published-timetable') return { module: 'published-timetable', action: 'view' };
+  if (view === 'published-exam') return { module: 'published-exam', action: 'view' };
+  
+  if (['events', 'notices', 'holidays'].includes(view)) {
+    return { module: 'academic-activities', action: 'view' };
+  }
+  if (view === 'academic-calendar') return { module: 'academic-calendar', action: 'view' };
+  
+  if (view === 'results') return { module: 'results-manager', action: 'view' };
+  if (view === 'results-history') return { module: 'results-history', action: 'view' };
+  
+  if (view === 'finance') return { module: 'finance', action: 'view' };
+  
+  if (view === 'expense-dashboard') return { module: 'expense-dashboard', action: 'view' };
+  if (view === 'expense-all-expenses') return { module: 'expense-all-expenses', action: 'view' };
+  if (view === 'expense-tracker') return { module: 'expense-tracker', action: 'view' };
+  if (view === 'expense-history') return { module: 'expense-history', action: 'view' };
+  
+  if (view === 'auxiliary-income') return { module: 'auxiliary-income', action: 'view' };
+  if (view === 'income') return { module: 'income', action: 'view' };
+  if (view === 'financial-reports') return { module: 'financial-reports', action: 'view' };
+  
+  if (view === 'roles-permissions' || view === 'security-audit') {
+    return { module: 'roles-permissions', action: 'view' };
+  }
+  
+  return null;
+};
+
+const AccessDeniedView = () => (
+  <div style={{ 
+    display: 'flex', 
+    flexDirection: 'column', 
+    alignItems: 'center', 
+    justifyContent: 'center', 
+    height: '60vh', 
+    gap: '16px',
+    textAlign: 'center',
+    padding: '24px'
+  }}>
+    <div style={{
+      width: '80px',
+      height: '80px',
+      borderRadius: '50%',
+      background: 'rgba(239, 68, 68, 0.1)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      color: '#ef4444',
+      marginBottom: '8px'
+    }}>
+      <Lock size={40} />
+    </div>
+    <h2 style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--text-main)', margin: 0 }}>Access Denied</h2>
+    <p style={{ color: 'var(--text-muted)', fontSize: '0.95rem', maxWidth: '400px', margin: 0 }}>
+      You do not have the required permissions to view this module. Please contact your system administrator.
+    </p>
+  </div>
+);
+
+export default function AdminPanel({ setActiveView, onLogout, adminView, setAdminView, onBackToMain, userProfile, setUserProfile, fetchUserProfile }) {
   const [editingStudentForRegister, setEditingStudentForRegister] = useState(null);
   const [editingStaffForRegister, setEditingStaffForRegister] = useState(null);
   const [editingEmployeeForRegister, setEditingEmployeeForRegister] = useState(null);
@@ -308,6 +393,12 @@ export default function AdminPanel({ setActiveView, onLogout, adminView, setAdmi
   };
 
   const renderAdminContent = () => {
+    const viewPerm = getViewPermissionModuleAndAction(adminView);
+    const isAllowed = !viewPerm || hasPermission(viewPerm.module, viewPerm.action);
+    if (!isAllowed) {
+      return <AccessDeniedView />;
+    }
+
     const isAcademicView = [
       'academic-manager', 'academic-class-timetable', 'academic-teacher-timetable',
       'academic-exams', 'academic-exams-history',
@@ -812,11 +903,11 @@ export default function AdminPanel({ setActiveView, onLogout, adminView, setAdmi
         </KeepAlive>
 
         <KeepAlive active={adminView === 'roles-permissions'}>
-          <RolesPermissions />
+          <RolesPermissions onPermissionsSave={fetchUserProfile} />
         </KeepAlive>
 
         <KeepAlive active={adminView === 'security-audit'}>
-          <RolesPermissions key="security-audit-ledger" initialTab="audit" hideTabs={true} />
+          <RolesPermissions key="security-audit-ledger" initialTab="audit" hideTabs={true} onPermissionsSave={fetchUserProfile} />
         </KeepAlive>
 
         <KeepAlive active={adminView === 'profile'}>

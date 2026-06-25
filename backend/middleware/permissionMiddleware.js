@@ -41,16 +41,6 @@ export const checkPermission = (module, action) => {
     }
 
     const role = user.role;
-    // Super Admins retain absolute access
-    if (
-      role === 'Developer Admin' || 
-      role === 'Main Admin' || 
-      role === 'Admin Dashboard' ||
-      role === 'Principal'
-    ) {
-      return next();
-    }
-
     const db = readDb();
     
     // Find the user's role and permission configuration in the database
@@ -58,12 +48,44 @@ export const checkPermission = (module, action) => {
     let roleRecord = access ? (db.roles || []).find(r => r.id === access.roleId) : null;
     
     if (!roleRecord) {
+      // Find role from teacher or staff record directly
+      let userRoleName = '';
+      if (user.userType === 'Staff') {
+        const teacher = (db.teachers || []).find(t => t.id === user.id);
+        if (teacher) userRoleName = teacher.role;
+      } else {
+        const staff = (db.staff || []).find(s => s.id === user.id);
+        if (staff) userRoleName = staff.role;
+      }
+
+      if (userRoleName) {
+        roleRecord = (db.roles || []).find(r => r.name.toLowerCase() === userRoleName.toLowerCase());
+      }
+    }
+
+    if (!roleRecord) {
       const defaultRoleName = user.userType === 'Staff' ? 'Staff' : 'Employee';
       roleRecord = (db.roles || []).find(r => 
         r.id === `role-${defaultRoleName.toLowerCase()}` || 
         r.name.toLowerCase() === defaultRoleName.toLowerCase() ||
         (defaultRoleName === 'Staff' && r.id === 'role-teacher')
       );
+    }
+
+    const roleName = roleRecord ? roleRecord.name : role;
+
+    // Super Admins retain absolute access
+    if (
+      roleName === 'Developer Admin' || 
+      roleName === 'Main Admin' || 
+      roleName === 'Admin Dashboard' ||
+      roleName === 'Principal' ||
+      role === 'Developer Admin' || 
+      role === 'Main Admin' || 
+      role === 'Admin Dashboard' ||
+      role === 'Principal'
+    ) {
+      return next();
     }
 
     const permissions = roleRecord ? (typeof roleRecord.permissions === 'string' ? JSON.parse(roleRecord.permissions) : roleRecord.permissions) : {};

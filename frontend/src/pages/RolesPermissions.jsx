@@ -56,9 +56,10 @@ const COMPATIBILITY_MAP = {
   'add-employee': 'add-staff'
 };
 
-export default function RolesPermissions({ initialTab = 'dashboard', hideTabs = false }) {
+export default function RolesPermissions({ initialTab = 'dashboard', hideTabs = false, onPermissionsSave }) {
   const [activeTab, setActiveTab] = useState(initialTab);
   const [roles, setRoles] = useState([]);
+  const [originalRoles, setOriginalRoles] = useState([]);
   const [users, setUsers] = useState([]);
   const [auditLogs, setAuditLogs] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -145,7 +146,8 @@ export default function RolesPermissions({ initialTab = 'dashboard', hideTabs = 
 
   const showToast = (message, type = 'success') => {
     if (type === 'success') {
-      return;
+      setSuccess(message);
+      setTimeout(() => setSuccess(''), 5000);
     } else {
       setError(message);
       setTimeout(() => setError(''), 5000);
@@ -170,6 +172,7 @@ export default function RolesPermissions({ initialTab = 'dashboard', hideTabs = 
       const auditData = await auditRes.json();
 
       setRoles(rolesData);
+      setOriginalRoles(JSON.parse(JSON.stringify(rolesData)));
       setUsers(usersData);
       setAuditLogs(auditData);
 
@@ -267,7 +270,31 @@ export default function RolesPermissions({ initialTab = 'dashboard', hideTabs = 
     }
   };
 
-  const handleToggleMatrixCheckbox = async (moduleId, actionId) => {
+  const hasUnsavedChanges = () => {
+    if (roles.length !== originalRoles.length) return false;
+    for (const role of roles) {
+      const origRole = originalRoles.find(r => r.id === role.id);
+      if (!origRole) return true;
+      
+      const p1 = role.permissions || {};
+      const p2 = origRole.permissions || {};
+      
+      const modulesSet = new Set([...Object.keys(p1), ...Object.keys(p2)]);
+      for (const mod of modulesSet) {
+        const m1 = p1[mod] || {};
+        const m2 = p2[mod] || {};
+        const actionsSet = new Set([...Object.keys(m1), ...Object.keys(m2)]);
+        for (const act of actionsSet) {
+          if (!!m1[act] !== !!m2[act]) {
+            return true;
+          }
+        }
+      }
+    }
+    return false;
+  };
+
+  const handleToggleMatrixCheckbox = (moduleId, actionId) => {
     const selectedRole = roles.find(r => r.id === matrixRoleId);
     if (!selectedRole) return;
 
@@ -293,27 +320,10 @@ export default function RolesPermissions({ initialTab = 'dashboard', hideTabs = 
     
     updatedPermissions[moduleId][actionId] = !updatedPermissions[moduleId][actionId];
 
-    // Optimistic UI updates
     setRoles(roles.map(r => r.id === matrixRoleId ? { ...r, permissions: updatedPermissions } : r));
-
-    try {
-      const res = await fetch(`/api/rbac/roles/${matrixRoleId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ permissions: updatedPermissions })
-      });
-      if (!res.ok) {
-        const data = await res.json();
-        showToast(data.error || 'Failed to save matrix update.', 'error');
-        fetchAllData(); // rollback
-      }
-    } catch (err) {
-      showToast('Network error during sync.', 'error');
-      fetchAllData(); // rollback
-    }
   };
 
-  const handleBulkMatrixToggle = async (mode) => {
+  const handleBulkMatrixToggle = (mode) => {
     const selectedRole = roles.find(r => r.id === matrixRoleId);
     if (!selectedRole) return;
 
@@ -325,23 +335,65 @@ export default function RolesPermissions({ initialTab = 'dashboard', hideTabs = 
       });
     });
 
+    setRoles(roles.map(r => r.id === matrixRoleId ? { ...r, permissions: updatedPermissions } : r));
+  };
+
+  const handleSavePermissions = async () => {
+    setSubmitting(true);
     try {
-      const res = await fetch(`/api/rbac/roles/${matrixRoleId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ permissions: updatedPermissions })
+      const changedRoles = roles.filter(role => {
+        const origRole = originalRoles.find(r => r.id === role.id);
+        if (!origRole) return false;
+        
+        const p1 = role.permissions || {};
+        const p2 = origRole.permissions || {};
+        
+        const modulesSet = new Set([...Object.keys(p1), ...Object.keys(p2)]);
+        for (const mod of modulesSet) {
+          const m1 = p1[mod] || {};
+          const m2 = p2[mod] || {};
+          const actionsSet = new Set([...Object.keys(m1), ...Object.keys(m2)]);
+          for (const act of actionsSet) {
+            if (!!m1[act] !== !!m2[act]) {
+              return true;
+            }
+          }
+        }
+        return false;
       });
-      if (res.ok) {
-        setRoles(roles.map(r => r.id === matrixRoleId ? { ...r, permissions: updatedPermissions } : r));
-        showToast(mode === 'grant-all' ? 'All access grants verified!' : 'Cleared all access parameters.', 'success');
-      } else {
-        const data = await res.json();
-        showToast(data.error || 'Failed to update role permissions.', 'error');
-        fetchAllData();
+
+      if (changedRoles.length === 0) {
+        showToast('No permission changes to save.', 'success');
+        return;
+      }
+
+      const promises = changedRoles.map(role => 
+        fetch(`/api/rbac/roles/${role.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ permissions: role.permissions })
+        }).then(async res => {
+          if (!res.ok) {
+            const data = await res.json();
+            throw new Error(data.error || `Failed to save role "${role.name}"`);
+          }
+          return res.json();
+        })
+      );
+
+      await Promise.all(promises);
+
+      showToast('Permissions saved successfully!', 'success');
+      setOriginalRoles(JSON.parse(JSON.stringify(roles)));
+      
+      if (onPermissionsSave) {
+        await onPermissionsSave();
       }
     } catch (err) {
-      showToast('Network error.', 'error');
-      fetchAllData();
+      console.error(err);
+      showToast(err.message || 'Failed to save permissions changes.', 'error');
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -697,10 +749,34 @@ export default function RolesPermissions({ initialTab = 'dashboard', hideTabs = 
                     Permissions Grid for: <span style={{ color: 'hsl(var(--color-primary))' }}>{selectedMatrixRole?.name}</span>
                   </h3>
                   <p style={{ margin: '4px 0 0 0', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-                    Select or clear checkpoints to allocate functional modules access permissions. Changes save instantly.
+                    Select or clear checkpoints to allocate functional modules access permissions. Changes must be saved using the Save button to take effect.
                   </p>
                 </div>
-                <div style={{ display: 'flex', gap: '10px' }}>
+                <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                  {hasUnsavedChanges() && (
+                    <button 
+                      onClick={handleSavePermissions}
+                      className="btn-primary"
+                      style={{ 
+                        padding: '8px 16px', 
+                        fontSize: '0.82rem', 
+                        background: 'hsl(var(--color-primary))',
+                        color: '#fff',
+                        fontWeight: '700',
+                        boxShadow: '0 0 12px rgba(99, 102, 241, 0.4)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        border: 'none',
+                        cursor: 'pointer',
+                        borderRadius: '8px'
+                      }}
+                      disabled={submitting}
+                    >
+                      {submitting ? <Loader2 size={14} className="spinner" /> : <CheckCircle size={14} />}
+                      Save Permissions
+                    </button>
+                  )}
                   <button 
                     onClick={() => handleBulkMatrixToggle('grant-all')}
                     className="btn-secondary"
