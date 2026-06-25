@@ -1496,7 +1496,7 @@ export function StudentReportsView({ showToast }) {
 
   const matchedGrade = activeGrades.find(g => g.name === studentClass);
   const sections = studentClass === 'All'
-    ? [...new Set(activeGrades.flatMap(g => g.sections || []))].sort()
+    ? []
     : (matchedGrade ? (matchedGrade.sections || []) : []);
 
   const fetchReports = async () => {
@@ -2161,6 +2161,19 @@ export function ClassTimetableView({ showToast }) {
     fetchTimetableData();
   }, []);
 
+  // Sync timetable list search section filter with search grade
+  useEffect(() => {
+    if (searchGrade !== 'All') {
+      const matchedG = activeGrades.find(g => g.name === searchGrade);
+      const allowedSecs = matchedG ? (matchedG.sections || []) : [];
+      if (searchSection !== 'All' && !allowedSecs.includes(searchSection)) {
+        setSearchSection('All');
+      }
+    } else {
+      setSearchSection('All');
+    }
+  }, [searchGrade, activeGrades, searchSection]);
+
   const cohortsWithTimetables = [...new Set(timetables.map(t => t.cohort))].sort();
   
   const filteredCohorts = cohortsWithTimetables.filter(cohort => {
@@ -2209,9 +2222,15 @@ export function ClassTimetableView({ showToast }) {
             style={{ padding: '6px 12px', borderRadius: '8px', fontSize: '0.82rem', background: 'var(--bg-glass-active)', border: '1px solid var(--border-glass)', color: 'var(--text-main)' }}
           >
             <option value="All">All Sections</option>
-            {activeSections.map(s => (
-              <option key={s.id || s.name} value={s.name}>Section {s.name}</option>
-            ))}
+            {(() => {
+              const matchedG = activeGrades.find(g => g.name === searchGrade);
+              const allowedSecs = searchGrade !== 'All'
+                ? (matchedG ? (matchedG.sections || []) : [])
+                : [];
+              return allowedSecs.map(secName => (
+                <option key={secName} value={secName}>Section {secName}</option>
+              ));
+            })()}
           </select>
 
           {(searchQuery || searchGrade !== 'All' || searchSection !== 'All') && (

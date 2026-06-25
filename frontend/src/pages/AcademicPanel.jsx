@@ -543,6 +543,8 @@ export default function AcademicPanel({ subView, setAdminView }) {
       if (searchSection !== 'All' && !allowedSecs.includes(searchSection)) {
         setSearchSection('All');
       }
+    } else {
+      setSearchSection('All');
     }
   }, [searchGrade, activeGrades, searchSection]);
 
@@ -2258,12 +2260,9 @@ export default function AcademicPanel({ subView, setAdminView }) {
             >
               <option value="All">All Sections</option>
               {(() => {
-                let allowedSecs = searchGrade !== 'All'
+                const allowedSecs = searchGrade !== 'All'
                   ? (activeGrades.find(g => g.name === searchGrade)?.sections || [])
                   : [];
-                if (allowedSecs.length === 0) {
-                  allowedSecs = activeSections.map(s => s.name);
-                }
                 return [...new Set(allowedSecs)].map(secName => (
                   <option key={secName} value={secName}>Section {secName}</option>
                 ));

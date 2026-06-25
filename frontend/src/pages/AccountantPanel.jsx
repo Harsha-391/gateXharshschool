@@ -4505,6 +4505,19 @@ export function FeesHistoryView({ showToast }) {
     loadGradesAndSections();
   }, []);
 
+  // Sync selected section when class selection shifts
+  useEffect(() => {
+    if (filterClass !== 'All') {
+      const matchedGrades = activeGrades.filter(g => parseGradeName(g.name).baseGrade === filterClass);
+      const allowedSecs = [...new Set(matchedGrades.flatMap(g => g.sections || []))].sort();
+      if (filterSection !== 'All' && !allowedSecs.includes(filterSection)) {
+        setFilterSection('All');
+      }
+    } else {
+      setFilterSection('All');
+    }
+  }, [filterClass, activeGrades, filterSection]);
+
   const uniqueBaseGrades = [...new Set(activeGrades.map(g => parseGradeName(g.name).baseGrade))];
 
   const fetchData = async () => {
@@ -4813,9 +4826,15 @@ export function FeesHistoryView({ showToast }) {
           style={{ ...inputStyle, width: '120px', cursor: 'pointer' }}
         >
           <option value="All" style={optionStyle}>All Sections</option>
-          {activeSections.map(s => (
-            <option key={s.id} value={s.name} style={optionStyle}>Section {s.name}</option>
-          ))}
+          {(() => {
+            const matchedGrades = activeGrades.filter(g => parseGradeName(g.name).baseGrade === filterClass);
+            const allowedSections = filterClass !== 'All'
+              ? [...new Set(matchedGrades.flatMap(g => g.sections || []))].sort()
+              : [];
+            return allowedSections.map(secName => (
+              <option key={secName} value={secName} style={optionStyle}>Section {secName}</option>
+            ));
+          })()}
         </select>
 
         <button 

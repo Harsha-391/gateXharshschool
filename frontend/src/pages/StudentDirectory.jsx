@@ -394,6 +394,8 @@ export default function StudentDirectory({ readOnly = true, onAddClick, onEditCl
       if (sectionFilter !== 'All' && !allowedSections.includes(sectionFilter)) {
         setSectionFilter('All');
       }
+    } else {
+      setSectionFilter('All');
     }
   }, [classFilter, activeGrades, sectionFilter]);
 
@@ -474,7 +476,7 @@ export default function StudentDirectory({ readOnly = true, onAddClick, onEditCl
               {(() => {
                 const allowedSections = classFilter !== 'All'
                   ? (activeGrades.find(g => g.name === classFilter)?.sections || [])
-                  : sections.map(s => s.name);
+                  : [];
                 return [...new Set(allowedSections)].map(secName => (
                   <option key={secName} value={secName}>Section {secName}</option>
                 ));
