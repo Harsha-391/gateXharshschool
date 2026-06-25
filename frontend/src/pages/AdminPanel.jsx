@@ -301,8 +301,8 @@ export default function AdminPanel({ setActiveView, onLogout, adminView, setAdmi
     try {
       // Fetch teachers (staff/faculty)
       const [teachersRes, staffRes] = await Promise.all([
-        fetch('/api/staff?limit=9999&status=All'),
-        fetch('/api/employees')
+        fetch('/api/staff?limit=9999&status=All&purpose=overview'),
+        fetch('/api/employees?purpose=overview')
       ]);
 
       let students = { total: 0, male: 0, female: 0 };
@@ -330,7 +330,7 @@ export default function AdminPanel({ setActiveView, onLogout, adminView, setAdmi
 
       // Students: fetch with status=All to get total count
       try {
-        const stuRes = await fetch('/api/students?limit=9999&status=All&class=All');
+        const stuRes = await fetch('/api/students?limit=9999&status=All&class=All&purpose=overview');
         if (stuRes.ok) {
           const data = await stuRes.json();
           const list = data.students || [];

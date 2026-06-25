@@ -45,6 +45,13 @@ export const checkPermission = (module, action) => {
       return next();
     }
 
+    // Allow reading directory list counts for overview dashboard if authenticated
+    if (action === 'view' && (module === 'student-directory' || module === 'staff-directory' || module === 'employee-directory')) {
+      if (req.query.purpose === 'overview') {
+        return next();
+      }
+    }
+
     const role = user.role;
     const db = readDb();
     
