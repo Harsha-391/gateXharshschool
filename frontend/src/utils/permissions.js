@@ -80,6 +80,11 @@ export function hasPermission(module, action) {
     return true;
   }
 
+  // Always permit overview/panel view
+  if (module === 'overview' && action === 'view') {
+    return true;
+  }
+
   // Parse permissions from session storage
   let permissions = {};
   let overrides = {};

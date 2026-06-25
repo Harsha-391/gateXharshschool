@@ -83,6 +83,11 @@ router.use(auth);
 // Apply grade-management permission check dynamically based on request method
 import { checkPermission } from '../middleware/permissionMiddleware.js';
 router.use((req, res, next) => {
+  // Bypass permission check for utility lookups (active-options, sections)
+  if (req.path === '/active-options' || req.path === '/sections') {
+    return next();
+  }
+
   const methodActionMap = {
     'GET': 'view',
     'POST': 'create',

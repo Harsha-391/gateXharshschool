@@ -40,6 +40,11 @@ export const checkPermission = (module, action) => {
       return res.status(401).json({ error: 'Access denied. User not authenticated.' });
     }
 
+    // Always permit overview/panel view
+    if (module === 'overview' && action === 'view') {
+      return next();
+    }
+
     const role = user.role;
     const db = readDb();
     
