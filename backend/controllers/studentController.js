@@ -241,16 +241,23 @@ export const getStudents = async (req, res) => {
       result = result.filter(s => s.status === statusFilter);
     }
 
-    // 1. Search Query (always searches by name startsWith OR id/admissionNumber includes)
+    // 1. Search Query (always searches by name startsWith OR id/admissionNumber includes, avoiding prefix collision)
     const search = req.query.search || '';
     if (search.trim() !== '') {
       const q = search.toLowerCase();
-      result = result.filter(s => 
-        (s.name && s.name.toLowerCase().startsWith(q)) || 
-        (s.fullName && s.fullName.toLowerCase().startsWith(q)) ||
-        (s.id && s.id.toLowerCase().includes(q)) || 
-        (s.admissionNumber && s.admissionNumber.toLowerCase().includes(q))
-      );
+      const cleanQ = q.replace(/^(stu-?|adm-?)/i, '');
+      result = result.filter(s => {
+        const nameMatch = (s.name && s.name.toLowerCase().startsWith(q)) || 
+                          (s.fullName && s.fullName.toLowerCase().startsWith(q));
+        
+        const cleanId = (s.id || '').replace(/^stu-?/i, '').toLowerCase();
+        const cleanAdm = (s.admissionNumber || '').replace(/^adm-?/i, '').toLowerCase();
+        const idMatch = (cleanQ !== '' && (cleanId.includes(cleanQ) || cleanAdm.includes(cleanQ))) ||
+                        (s.id && s.id.toLowerCase().startsWith(q)) ||
+                        (s.admissionNumber && s.admissionNumber.toLowerCase().startsWith(q));
+                        
+        return nameMatch || idMatch;
+      });
     }
 
     // 2. Class Filter

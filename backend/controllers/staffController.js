@@ -288,16 +288,23 @@ export const getTeachers = async (req, res) => {
     const db = readDb();
     let result = [...(db.teachers || [])];
 
-    // 1. Search Query (always searches by name startsWith OR employeeId/id includes)
+    // 1. Search Query (always searches by name startsWith OR employeeId/id includes, avoiding prefix collision)
     const search = req.query.search || '';
     if (search.trim() !== '') {
       const q = search.toLowerCase();
-      result = result.filter(t => 
-        (t.fullName && t.fullName.toLowerCase().startsWith(q)) || 
-        (t.name && t.name.toLowerCase().startsWith(q)) ||
-        (t.employeeId && t.employeeId.toLowerCase().includes(q)) ||
-        (t.id && t.id.toLowerCase().includes(q))
-      );
+      const cleanQ = q.replace(/^(emp-?|tch-?|staff-?)/i, '');
+      result = result.filter(t => {
+        const nameMatch = (t.fullName && t.fullName.toLowerCase().startsWith(q)) || 
+                          (t.name && t.name.toLowerCase().startsWith(q));
+        
+        const cleanEmpId = (t.employeeId || '').replace(/^emp-?/i, '').toLowerCase();
+        const cleanId = (t.id || '').replace(/^(emp-?|tch-?|staff-?)/i, '').toLowerCase();
+        const idMatch = (cleanQ !== '' && (cleanEmpId.includes(cleanQ) || cleanId.includes(cleanQ))) ||
+                        (t.employeeId && t.employeeId.toLowerCase().startsWith(q)) ||
+                        (t.id && t.id.toLowerCase().startsWith(q));
+                        
+        return nameMatch || idMatch;
+      });
     }
 
     // 2. Department Filter
