@@ -1548,14 +1548,19 @@ export default function AddStaff({ setActiveView, editData }) {
             </h3>
 
             <div className="form-group" style={{ maxWidth: '300px' }}>
-              <label>Total Teaching Experience (e.g. 5 Years)</label>
+              <label>Total Teaching Experience (in Years)</label>
               <input 
                 type="text"
                 name="experience"
                 value={formData.experience}
-                onChange={handleTextChange}
+                onChange={(e) => {
+                  const v = e.target.value.replace(/[^0-9]/g, '').slice(0, 4);
+                  setFormData(prev => ({ ...prev, experience: v }));
+                }}
                 className="form-control"
-                placeholder="Total years / months"
+                placeholder="e.g. 5"
+                maxLength={4}
+                inputMode="numeric"
               />
             </div>
 
