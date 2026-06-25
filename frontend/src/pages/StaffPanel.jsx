@@ -914,7 +914,6 @@ export function AttendanceHistoryView({ date, showToast }) {
   const [roster, setRoster] = useState([]);
   const [loading, setLoading] = useState(false);
   const [activeGrades, setActiveGrades] = useState([]);
-  const [activeSections, setActiveSections] = useState([]);
 
   const { baseGrade: baseClass, department: selectedDept } = parseGradeName(studentClass);
   const isHighGrade = isGrade11or12(baseClass);
@@ -978,21 +977,14 @@ export function AttendanceHistoryView({ date, showToast }) {
   };
 
   useEffect(() => {
-    const loadGradesAndSections = async () => {
-      const [grades, secs] = await Promise.all([
-        fetchActiveGrades(),
-        fetchActiveSections()
-      ]);
+    const loadGrades = async () => {
+      const grades = await fetchActiveGrades();
       setActiveGrades(grades);
       if (grades.length > 0) {
         setClass(grades[0].name);
       }
-      setActiveSections(secs);
-      if (secs.length > 0) {
-        setSection(secs[0].name);
-      }
     };
-    loadGradesAndSections();
+    loadGrades();
   }, []);
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState('all'); // 'all' or 'submitted'
@@ -1022,8 +1014,7 @@ export function AttendanceHistoryView({ date, showToast }) {
       const queryParams = new URLSearchParams({
         date: historyDate,
         studentClass,
-        section,
-        search
+        section
       });
       if (submittedOnly) queryParams.set('submitted', 'true');
       const res = await fetch(`/api/attendance?${queryParams.toString()}`);
@@ -1050,7 +1041,14 @@ export function AttendanceHistoryView({ date, showToast }) {
     } else {
       loadSubmittedView();
     }
-  }, [historyDate, studentClass, section, search, activeTab]);
+  }, [historyDate, studentClass, section, activeTab]);
+
+  const filteredRoster = roster.filter(stu => {
+    if (!search.trim()) return true;
+    const name = (stu.fullName || stu.name || '').toLowerCase();
+    const q = search.toLowerCase();
+    return name.startsWith(q);
+  });
 
   const handleStatusToggle = (stuId, status) => {
     setRoster(prev => prev.map(s => {
@@ -1274,7 +1272,7 @@ export function AttendanceHistoryView({ date, showToast }) {
               placeholder="Search roll, name..."
               className="search-bar-input"
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => setSearch(e.target.value.replace(/[^A-Za-z\s]/g, '').slice(0, 50))}
               style={{ paddingLeft: '34px', fontSize: '0.85rem' }}
             />
           </div>
@@ -1316,8 +1314,15 @@ export function AttendanceHistoryView({ date, showToast }) {
                 </tr>
               </thead>
               <tbody>
-                {roster.map((stu) => (
-                  <tr key={stu.id} style={{ borderBottom: '1px solid var(--border-glass)' }} className="table-row-hover">
+                {filteredRoster.length === 0 ? (
+                  <tr>
+                    <td colSpan={isHighGrade ? 7 : 6} style={{ padding: '24px', color: 'var(--text-muted)', textAlign: 'center' }}>
+                      No students found matching your search.
+                    </td>
+                  </tr>
+                ) : (
+                  filteredRoster.map((stu) => (
+                    <tr key={stu.id} style={{ borderBottom: '1px solid var(--border-glass)' }} className="table-row-hover">
                     <td style={{ padding: '14px 20px', fontSize: '0.85rem', fontWeight: 700 }}>{stu.rollNumber}</td>
                     <td style={{ padding: '14px 20px', fontSize: '0.85rem', fontWeight: 700 }}>{stu.fullName}</td>
 
@@ -1412,7 +1417,7 @@ export function AttendanceHistoryView({ date, showToast }) {
                       />
                     </td>
                   </tr>
-                ))}
+                )))}
               </tbody>
             </table>
           </div>
@@ -1460,20 +1465,26 @@ export function StudentReportsView({ showToast }) {
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(false);
   const [activeGrades, setActiveGrades] = useState([]);
-  const [activeSections, setActiveSections] = useState([]);
   const [selectedStudentId, setSelectedStudentId] = useState('All');
 
   useEffect(() => {
     const loadGradesAndSections = async () => {
-      const [grades, secs] = await Promise.all([
-        fetchActiveGrades(),
-        fetchActiveSections()
-      ]);
+      const grades = await fetchActiveGrades();
       setActiveGrades(grades);
-      setActiveSections(secs);
     };
     loadGradesAndSections();
   }, []);
+
+  // Sync selected section when class selection shifts
+  useEffect(() => {
+    if (studentClass !== 'All' && activeGrades.length > 0) {
+      const matchedGrade = activeGrades.find(g => g.name === studentClass);
+      const allowedSections = matchedGrade ? (matchedGrade.sections || []) : [];
+      if (section !== 'All' && !allowedSections.includes(section)) {
+        setSection('All');
+      }
+    }
+  }, [studentClass, activeGrades, section]);
 
   useEffect(() => {
     setSelectedStudentId('All');
@@ -1482,6 +1493,11 @@ export function StudentReportsView({ showToast }) {
   const displayedReports = selectedStudentId === 'All'
     ? reports
     : reports.filter(r => r.id === selectedStudentId);
+
+  const matchedGrade = activeGrades.find(g => g.name === studentClass);
+  const sections = studentClass === 'All'
+    ? [...new Set(activeGrades.flatMap(g => g.sections || []))].sort()
+    : (matchedGrade ? (matchedGrade.sections || []) : []);
 
   const fetchReports = async () => {
     try {
@@ -1560,8 +1576,8 @@ export function StudentReportsView({ showToast }) {
               <label style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)' }}>Section</label>
               <select className="select-custom" value={section} onChange={(e) => setSection(e.target.value)} style={{ height: '38px', borderRadius: '8px' }}>
                 <option value="All">All Sections</option>
-                {activeSections.map(s => (
-                  <option key={s.id || s.name} value={s.name}>Section {s.name}</option>
+                {sections.map(s => (
+                  <option key={s} value={s}>Section {s}</option>
                 ))}
               </select>
             </div>
@@ -1783,28 +1799,36 @@ export function MonthlyCalendarView({ showToast }) {
   const [loading, setLoading] = useState(false);
   const [activeTooltip, setActiveTooltip] = useState(null);
   const [activeGrades, setActiveGrades] = useState([]);
-  const [activeSections, setActiveSections] = useState([]);
 
   useEffect(() => {
     const loadGradesAndSections = async () => {
-      const [grades, secs] = await Promise.all([
-        fetchActiveGrades(),
-        fetchActiveSections()
-      ]);
+      const grades = await fetchActiveGrades();
       setActiveGrades(grades);
       if (grades.length > 0) {
         setSelectedGrade(grades[0].name);
-      }
-      setActiveSections(secs);
-      if (secs.length > 0) {
-        setSelectedSection(secs[0].name);
       }
     };
     loadGradesAndSections();
   }, []);
 
+  // Sync selected section when class selection shifts
+  useEffect(() => {
+    if (selectedGrade && activeGrades.length > 0) {
+      const matchedGrade = activeGrades.find(g => g.name === selectedGrade);
+      const allowedSections = matchedGrade ? (matchedGrade.sections || []) : [];
+      if (allowedSections.length > 0) {
+        if (!allowedSections.includes(selectedSection)) {
+          setSelectedSection(allowedSections[0]);
+        }
+      } else {
+        setSelectedSection('');
+      }
+    }
+  }, [selectedGrade, activeGrades, selectedSection]);
+
   const grades = activeGrades.map(g => g.name);
-  const sections = activeSections.map(s => s.name);
+  const matchedGrade = activeGrades.find(g => g.name === selectedGrade);
+  const sections = matchedGrade ? (matchedGrade.sections || []) : [];
 
   // Load filtered students
   const loadFilteredStudents = async () => {
@@ -2298,30 +2322,38 @@ export function YearlyAttendanceView({ showToast }) {
   const [yearlyStats, setYearlyStats] = useState(null);
   const [loading, setLoading] = useState(false);
   const [activeGrades, setActiveGrades] = useState([]);
-  const [activeSections, setActiveSections] = useState([]);
 
   useEffect(() => {
     const loadGradesAndSections = async () => {
-      const [grades, secs] = await Promise.all([
-        fetchActiveGrades(),
-        fetchActiveSections()
-      ]);
+      const grades = await fetchActiveGrades();
       setActiveGrades(grades);
       if (grades.length > 0) {
         setSelectedGrade(grades[0].name);
       } else {
         setSelectedGrade('');
       }
-      setActiveSections(secs);
-      if (secs.length > 0) {
-        setSelectedSection(secs[0].name);
-      }
     };
     loadGradesAndSections();
   }, []);
 
+  // Sync selected section when class selection shifts
+  useEffect(() => {
+    if (selectedGrade && activeGrades.length > 0) {
+      const matchedGrade = activeGrades.find(g => g.name === selectedGrade);
+      const allowedSections = matchedGrade ? (matchedGrade.sections || []) : [];
+      if (allowedSections.length > 0) {
+        if (!allowedSections.includes(selectedSection)) {
+          setSelectedSection(allowedSections[0]);
+        }
+      } else {
+        setSelectedSection('');
+      }
+    }
+  }, [selectedGrade, activeGrades, selectedSection]);
+
   const grades = activeGrades.map(g => g.name);
-  const sections = activeSections.map(s => s.name);
+  const matchedGrade = activeGrades.find(g => g.name === selectedGrade);
+  const sections = matchedGrade ? (matchedGrade.sections || []) : [];
 
   // Load filtered students list (identical to MonthlyCalendarView)
   const loadFilteredStudents = async () => {

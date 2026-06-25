@@ -591,7 +591,31 @@ export default function AddStaff({ setActiveView, editData }) {
   // Qualifications table handler
   const handleQualChange = (index, field, value) => {
     const updatedQuals = [...formData.qualifications];
-    updatedQuals[index][field] = value;
+    let val = value;
+    
+    if (field === 'percentage') {
+      val = val.replace(/[^0-9.%]/g, '');
+      if (val.includes('.')) {
+        const parts = val.split('.');
+        const before = parts[0].replace(/[^0-9]/g, '').slice(0, 20);
+        let after = parts.slice(1).join('').replace(/[^0-9%]/g, '');
+        const hasPercent = after.includes('%');
+        after = after.replace(/%/g, '').slice(0, 20);
+        if (hasPercent) {
+          after += '%';
+        }
+        val = before + '.' + after;
+      } else {
+        const hasPercent = val.includes('%');
+        let digits = val.replace(/%/g, '').replace(/[^0-9]/g, '').slice(0, 20);
+        if (hasPercent) {
+          digits += '%';
+        }
+        val = digits;
+      }
+    }
+    
+    updatedQuals[index][field] = val;
     setFormData(prev => ({ ...prev, qualifications: updatedQuals }));
   };
 

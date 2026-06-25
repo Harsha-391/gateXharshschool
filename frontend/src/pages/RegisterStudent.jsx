@@ -551,6 +551,10 @@ export default function RegisterStudent({ setActiveView, editData }) {
     
     if (name === 'firstName' || name === 'middleName' || name === 'lastName') {
       val = val.replace(/[^A-Za-z\s]/g, '').slice(0, 50);
+    } else if (name === 'previousClassStudied') {
+      val = val.replace(/[^A-Za-z0-9\s-]/g, '').slice(0, 50);
+    } else if (name === 'transferCertificateNumber') {
+      val = val.replace(/[^0-9]/g, '').slice(0, 10);
     }
     
     setFormData(prev => {

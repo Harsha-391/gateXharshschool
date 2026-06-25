@@ -764,9 +764,9 @@ export function AttendanceHistoryView({ date, showToast }) {
   const [section, setSection] = useState('A');
 
   const [roster, setRoster] = useState([]);
+  const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(false);
   const [activeGrades, setActiveGrades] = useState([]);
-  const [activeSections, setActiveSections] = useState([]);
 
   const { baseGrade: baseClass, department: selectedDept } = parseGradeName(studentClass);
   const isHighGrade = isGrade11or12(baseClass);
@@ -861,23 +861,16 @@ export function AttendanceHistoryView({ date, showToast }) {
   };
 
   useEffect(() => {
-    const loadGradesAndSections = async () => {
-      const [grades, secs] = await Promise.all([
-        fetchActiveGrades(),
-        fetchActiveSections()
-      ]);
+    const loadGrades = async () => {
+      const grades = await fetchActiveGrades();
       setActiveGrades(grades);
       if (grades.length > 0) {
         setClass(grades[0].name);
       } else {
         setClass('');
       }
-      setActiveSections(secs);
-      if (secs.length > 0) {
-        setSection(secs[0].name);
-      }
     };
-    loadGradesAndSections();
+    loadGrades();
   }, []);
 
   useEffect(() => {
@@ -890,6 +883,13 @@ export function AttendanceHistoryView({ date, showToast }) {
   const absentCount = roster.filter(s => s.attendanceStatus === 'Absent').length;
   const leaveCount = roster.filter(s => s.attendanceStatus === 'Leave').length;
   const lateCount = roster.filter(s => s.attendanceStatus === 'Late').length;
+
+  const filteredRoster = roster.filter(stu => {
+    if (!searchQuery.trim()) return true;
+    const name = (stu.fullName || stu.name || '').toLowerCase();
+    const q = searchQuery.toLowerCase();
+    return name.startsWith(q);
+  });
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
@@ -983,6 +983,31 @@ export function AttendanceHistoryView({ date, showToast }) {
             </select>
           </div>
 
+          {/* Search by Name */}
+          <div className="form-group" style={{ margin: 0, minWidth: '220px', flex: 1 }}>
+            <label style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)' }}>Search Student</label>
+            <div style={{ position: 'relative' }}>
+              <Search size={16} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }} />
+              <input
+                type="text"
+                placeholder="Search name starts with..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value.replace(/[^A-Za-z\s]/g, '').slice(0, 50))}
+                className="form-control"
+                style={{ 
+                  height: '38px', 
+                  borderRadius: '8px', 
+                  paddingLeft: '34px',
+                  fontSize: '0.85rem',
+                  color: 'var(--text-main)',
+                  background: 'var(--bg-glass)',
+                  border: '1px solid var(--border-glass)',
+                  width: '100%'
+                }}
+              />
+            </div>
+          </div>
+
         </div>
       </div>
 
@@ -1042,8 +1067,15 @@ export function AttendanceHistoryView({ date, showToast }) {
                 </tr>
               </thead>
               <tbody>
-                {roster.map((stu) => (
-                  <tr key={stu.id} style={{ borderBottom: '1px solid var(--border-glass)', transition: 'background 0.2s ease' }} className="table-row-hover">
+                {filteredRoster.length === 0 ? (
+                  <tr>
+                    <td colSpan={isHighGrade ? 7 : 6} style={{ padding: '24px', color: 'var(--text-muted)', textAlign: 'center' }}>
+                      No students found matching your search.
+                    </td>
+                  </tr>
+                ) : (
+                  filteredRoster.map((stu) => (
+                    <tr key={stu.id} style={{ borderBottom: '1px solid var(--border-glass)', transition: 'background 0.2s ease' }} className="table-row-hover">
                     
                     {/* Roll No */}
                     <td style={{ padding: '14px 20px', fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-main)' }}>{stu.rollNumber}</td>
@@ -1114,7 +1146,7 @@ export function AttendanceHistoryView({ date, showToast }) {
                     </td>
 
                   </tr>
-                ))}
+                )))}
               </tbody>
             </table>
           </div>
