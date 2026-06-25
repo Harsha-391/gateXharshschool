@@ -156,7 +156,7 @@ export default function AcademicPanel({ subView, setAdminView }) {
   const [examWizardStep, setExamWizardStep] = useState(1);
   const [wizardForm, setWizardForm] = useState({
     examName: '',
-    examType: EXAM_TYPES[0],
+    examType: '',
     customExamName: '',
     academicSession: '2026-2027',
     description: '',
@@ -172,7 +172,7 @@ export default function AcademicPanel({ subView, setAdminView }) {
   const resetWizardForm = () => {
     setWizardForm({
       examName: '',
-      examType: EXAM_TYPES[0],
+      examType: '',
       customExamName: '',
       academicSession: '2026-2027',
       description: '',
@@ -7067,6 +7067,7 @@ export default function AcademicPanel({ subView, setAdminView }) {
                 <div className="form-group">
                   <label>Exam Type *</label>
                   <select className="form-control" value={wizardForm.examType} onChange={e => setWizardForm({ ...wizardForm, examType: e.target.value })} style={{ marginTop: '4px' }}>
+                    <option value="">Select Exam Type</option>
                     {examTypes.map(t => <option key={t} value={t}>{t}</option>)}
                   </select>
                 </div>
@@ -7336,7 +7337,7 @@ export default function AcademicPanel({ subView, setAdminView }) {
                 </button>
                 {examWizardStep < 4 ? (
                   <button className="btn-primary" onClick={() => {
-                    if (examWizardStep === 1 && !wizardForm.examType.trim()) { showToast('Please select an exam type.', 'error'); return; }
+                    if (examWizardStep === 1 && !wizardForm.examType) { showToast('Please select exam type.', 'error'); return; }
                     if (examWizardStep === 1 && wizardForm.examType === 'Custom Exam' && !(wizardForm.customExamName || '').trim()) { showToast('Please enter the custom exam name.', 'error'); return; }
                     if (examWizardStep === 2 && wizardForm.selectedGrades.length === 0) { showToast('Please select at least one grade-section.', 'error'); return; }
                     setExamWizardStep(examWizardStep + 1);
