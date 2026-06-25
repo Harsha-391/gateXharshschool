@@ -502,17 +502,8 @@ export default function GradeManagement({ currentSubView, setAdminView, showToas
 
 
   // Filters and sorting computations
-  const romanMap = { 'I': 1, 'II': 2, 'III': 3, 'IV': 4, 'V': 5, 'VI': 6, 'VII': 7, 'VIII': 8, 'IX': 9, 'X': 10, 'XI': 11, 'XII': 12, 'LKG': -2, 'UKG': -1, 'NURSERY': -3 };
   const sortGradesHelper = (a, b) => {
-    const aVal = a.name.toUpperCase();
-    const bVal = b.name.toUpperCase();
-    const aRoman = romanMap[aVal];
-    const bRoman = romanMap[bVal];
-    if (aRoman !== undefined && bRoman !== undefined) return aRoman - bRoman;
-    const aNum = parseInt(aVal.replace('GRADE', '').trim());
-    const bNum = parseInt(bVal.replace('GRADE', '').trim());
-    if (!isNaN(aNum) && !isNaN(bNum)) return aNum - bNum;
-    return aVal.localeCompare(bVal);
+    return new Date(a.createdAt || 0) - new Date(b.createdAt || 0);
   };
 
   const convertToRoman = (str) => {
@@ -573,7 +564,8 @@ export default function GradeManagement({ currentSubView, setAdminView, showToas
               displayName: `${g.name} (${d.name})`,
               deptName: d.name,
               deptId: d.id,
-              sections: m.sections || []
+              sections: m.sections || [],
+              createdAt: m.createdAt || g.createdAt
             });
           }
         });
@@ -584,7 +576,8 @@ export default function GradeManagement({ currentSubView, setAdminView, showToas
           displayName: g.name,
           deptName: 'None',
           deptId: null,
-          sections: []
+          sections: [],
+          createdAt: g.createdAt
         });
       }
     } else {
@@ -593,10 +586,14 @@ export default function GradeManagement({ currentSubView, setAdminView, showToas
         displayId: g.id,
         displayName: g.name,
         deptName: 'None',
-        deptId: null
+        deptId: null,
+        createdAt: g.createdAt
       });
     }
   });
+
+  // Sort displayGrades sequentially (oldest created showing first)
+  displayGrades.sort((a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0));
 
   const paginatedGrades = displayGrades.slice(
     (gradePage - 1) * gradeLimit,
@@ -857,7 +854,7 @@ export default function GradeManagement({ currentSubView, setAdminView, showToas
                               </div>
                               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
                                 {gradeSubjectsList.length > 0 ? (
-                                  gradeSubjectsList.slice(0, 4).map((sub, idx) => (
+                                  gradeSubjectsList.map((sub, idx) => (
                                     <span 
                                       key={idx} 
                                       style={{ 
@@ -903,11 +900,6 @@ export default function GradeManagement({ currentSubView, setAdminView, showToas
                                   ))
                                 ) : (
                                   <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem', fontStyle: 'italic' }}>No subjects registered</span>
-                                )}
-                                {gradeSubjectsList.length > 4 && (
-                                  <span style={{ background: 'var(--bg-form)', border: '1px solid var(--border-glass)', padding: '4px 10px', borderRadius: '8px', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)' }}>
-                                    +{gradeSubjectsList.length - 4} more
-                                  </span>
                                 )}
                               </div>
                             </div>

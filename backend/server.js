@@ -6,7 +6,7 @@ import path from 'path';
 import { execSync } from 'child_process';
 import { fileURLToPath } from 'url';
 import studentRoutes from './routes/studentRoutes.js';
-import teacherRoutes from './routes/teacherRoutes.js';
+import staffRoutes from './routes/staffRoutes.js';
 import attendanceRoutes from './routes/attendanceRoutes.js';
 import employeeAttendanceRoutes from './routes/employeeAttendanceRoutes.js';
 import accountManagementRoutes from './routes/accountManagementRoutes.js';
@@ -141,7 +141,7 @@ app.post('/api/auth/login', (req, res) => {
   }
 
   // Authenticate by role (auto-detect when role is 'Auto')
-  const tryRoles = role === 'Auto' ? ['Main Admin', 'Admin Dashboard', 'Teacher', 'Staff', 'Student', 'Parent'] : [role];
+  const tryRoles = role === 'Auto' ? ['Main Admin', 'Admin Dashboard', 'Staff', 'Employee', 'Student', 'Parent', 'Teacher'] : [role];
   
   for (const currentRole of tryRoles) {
     if (currentRole === 'Main Admin') {
@@ -171,24 +171,24 @@ app.post('/api/auth/login', (req, res) => {
         return res.json({ token, role: 'Main Admin', name: schoolRecord.principalName || schoolRecord.principal || schoolRecord.adminName, school: schoolRecord, permissions });
       }
 
-    } else if (currentRole === 'Teacher') {
+    } else if (currentRole === 'Teacher' || currentRole === 'Staff') {
       const teacher = (db.teachers || []).find(t =>
         (t.status === 'Active' || !t.status) &&
         (t.username === username || t.email === username) &&
         t.password === password
       );
       if (teacher) {
-        const access = (db.userAccess || []).find(ua => ua.userId === teacher.id && ua.userType === 'Teacher');
+        const access = (db.userAccess || []).find(ua => ua.userId === teacher.id && (ua.userType === 'Staff' || ua.userType === 'Teacher'));
         let roleRecord = access ? (db.roles || []).find(r => r.id === access.roleId) : null;
         if (!roleRecord) {
-          roleRecord = (db.roles || []).find(r => r.id === 'role-teacher' || r.name === 'Teacher');
+          roleRecord = (db.roles || []).find(r => r.id === 'role-teacher' || r.name === 'Staff' || r.name === 'Teacher');
         }
-        const roleName = roleRecord ? roleRecord.name : 'Teacher';
+        const roleName = roleRecord ? roleRecord.name : 'Staff';
         const permissions = roleRecord ? roleRecord.permissions : {};
         const overrides = access ? access.overrides : {};
         const token = generateToken({
           role: roleName,
-          userType: 'Teacher',
+          userType: 'Staff',
           tenantId,
           username,
           id: teacher.id,
@@ -199,32 +199,71 @@ app.post('/api/auth/login', (req, res) => {
         return res.json({
           token,
           role: roleName,
-          userType: 'Teacher',
+          userType: 'Staff',
           name: teacher.fullName || teacher.name,
           school: schoolRecord,
           permissions,
           overrides
         });
       }
-    } else if (currentRole === 'Staff') {
+      
+      if (currentRole === 'Staff') {
+        const staffMember = (db.staff || []).find(s =>
+          (s.status === 'Active' || !s.status) &&
+          (s.email === username || s.phone === username) &&
+          s.password === password
+        );
+        if (staffMember) {
+          const access = (db.userAccess || []).find(ua => ua.userId === staffMember.id && (ua.userType === 'Employee' || ua.userType === 'Staff'));
+          let roleRecord = access ? (db.roles || []).find(r => r.id === access.roleId) : null;
+          if (!roleRecord) {
+            const possibleRoleName = staffMember.role || 'Employee';
+            roleRecord = (db.roles || []).find(r => r.name.toLowerCase() === possibleRoleName.toLowerCase() || r.name.toLowerCase() === 'staff');
+          }
+          const roleName = roleRecord ? roleRecord.name : (staffMember.role || 'Employee');
+          const permissions = roleRecord ? roleRecord.permissions : {};
+          const overrides = access ? access.overrides : {};
+          const token = generateToken({
+            role: roleName,
+            userType: 'Employee',
+            tenantId,
+            username,
+            id: staffMember.id,
+            name: staffMember.fullName || staffMember.name,
+            permissions,
+            overrides
+          });
+          return res.json({
+            token,
+            role: roleName,
+            userType: 'Employee',
+            name: staffMember.fullName || staffMember.name,
+            school: schoolRecord,
+            permissions,
+            overrides
+          });
+        }
+      }
+
+    } else if (currentRole === 'Employee') {
       const staffMember = (db.staff || []).find(s =>
         (s.status === 'Active' || !s.status) &&
         (s.email === username || s.phone === username) &&
         s.password === password
       );
       if (staffMember) {
-        const access = (db.userAccess || []).find(ua => ua.userId === staffMember.id && ua.userType === 'Staff');
+        const access = (db.userAccess || []).find(ua => ua.userId === staffMember.id && (ua.userType === 'Employee' || ua.userType === 'Staff'));
         let roleRecord = access ? (db.roles || []).find(r => r.id === access.roleId) : null;
         if (!roleRecord) {
-          const possibleRoleName = staffMember.role || 'Staff';
-          roleRecord = (db.roles || []).find(r => r.name.toLowerCase() === possibleRoleName.toLowerCase());
+          const possibleRoleName = staffMember.role || 'Employee';
+          roleRecord = (db.roles || []).find(r => r.name.toLowerCase() === possibleRoleName.toLowerCase() || r.name.toLowerCase() === 'staff');
         }
-        const roleName = roleRecord ? roleRecord.name : (staffMember.role || 'Staff');
+        const roleName = roleRecord ? roleRecord.name : (staffMember.role || 'Employee');
         const permissions = roleRecord ? roleRecord.permissions : {};
         const overrides = access ? access.overrides : {};
         const token = generateToken({
           role: roleName,
-          userType: 'Staff',
+          userType: 'Employee',
           tenantId,
           username,
           id: staffMember.id,
@@ -235,7 +274,7 @@ app.post('/api/auth/login', (req, res) => {
         return res.json({
           token,
           role: roleName,
-          userType: 'Staff',
+          userType: 'Employee',
           name: staffMember.fullName || staffMember.name,
           school: schoolRecord,
           permissions,
@@ -777,18 +816,18 @@ app.get('/api/auth/profile', auth, restoreTenantContext, (req, res) => {
 
   // Staff / Teacher
   const db = readDb();
-  if (user.userType === 'Teacher') {
+  if (user.userType === 'Staff') {
     const teacher = (db.teachers || []).find(t => t.id === user.id);
     if (!teacher) {
-      return res.status(404).json({ error: 'Teacher profile not found.' });
+      return res.status(404).json({ error: 'Staff profile not found.' });
     }
     
     // Look up permissions matrix
     let permissions = {};
-    const access = (db.userAccess || []).find(ua => ua.userId === teacher.id && ua.userType === 'Teacher');
+    const access = (db.userAccess || []).find(ua => ua.userId === teacher.id && (ua.userType === 'Staff' || ua.userType === 'Teacher'));
     let roleRecord = access ? (db.roles || []).find(r => r.id === access.roleId) : null;
     if (!roleRecord) {
-      roleRecord = (db.roles || []).find(r => r.id === 'role-teacher' || r.name === 'Teacher');
+      roleRecord = (db.roles || []).find(r => r.id === 'role-teacher' || r.name === 'Staff' || r.name === 'Teacher');
     }
     if (roleRecord) {
       permissions = roleRecord.permissions;
@@ -797,7 +836,7 @@ app.get('/api/auth/profile', auth, restoreTenantContext, (req, res) => {
     return res.json({
       id: teacher.id,
       role: user.role,
-      userType: 'Teacher',
+      userType: 'Staff',
       name: teacher.fullName || teacher.name,
       username: teacher.username || teacher.email,
       email: teacher.email,
@@ -807,18 +846,18 @@ app.get('/api/auth/profile', auth, restoreTenantContext, (req, res) => {
       permissions: permissions
     });
   } else {
-    // Staff
+    // Staff -> Employee
     const staff = (db.staff || []).find(s => s.id === user.id);
     if (!staff) {
-      return res.status(404).json({ error: 'Staff profile not found.' });
+      return res.status(404).json({ error: 'Employee profile not found.' });
     }
 
     // Look up permissions matrix
     let permissions = {};
-    const access = (db.userAccess || []).find(ua => ua.userId === staff.id && ua.userType === 'Staff');
+    const access = (db.userAccess || []).find(ua => ua.userId === staff.id && (ua.userType === 'Employee' || ua.userType === 'Staff'));
     let roleRecord = access ? (db.roles || []).find(r => r.id === access.roleId) : null;
     if (!roleRecord) {
-      roleRecord = (db.roles || []).find(r => r.name.toLowerCase() === staff.role.toLowerCase());
+      roleRecord = (db.roles || []).find(r => r.name.toLowerCase() === staff.role.toLowerCase() || r.name.toLowerCase() === 'staff');
     }
     if (roleRecord) {
       permissions = roleRecord.permissions;
@@ -827,7 +866,7 @@ app.get('/api/auth/profile', auth, restoreTenantContext, (req, res) => {
     return res.json({
       id: staff.id,
       role: user.role,
-      userType: 'Staff',
+      userType: 'Employee',
       name: staff.fullName || staff.name,
       username: staff.username || staff.email,
       email: staff.email,
@@ -981,10 +1020,10 @@ app.put('/api/auth/profile', auth, upload.single('photo'), restoreTenantContext,
 
   // Staff / Teacher
   const db = readDb();
-  if (user.userType === 'Teacher') {
+  if (user.userType === 'Staff') {
     const teacherIndex = (db.teachers || []).findIndex(t => t.id === user.id);
     if (teacherIndex === -1) {
-      return res.status(404).json({ error: 'Teacher profile not found.' });
+      return res.status(404).json({ error: 'Staff profile not found.' });
     }
     const currentTeacher = db.teachers[teacherIndex];
     db.teachers[teacherIndex] = {
@@ -1001,11 +1040,11 @@ app.put('/api/auth/profile', auth, upload.single('photo'), restoreTenantContext,
     writeDb(db);
     return res.json({
       success: true,
-      message: 'Teacher profile updated successfully.',
+      message: 'Staff profile updated successfully.',
       profile: {
         id: db.teachers[teacherIndex].id,
         role: user.role,
-        userType: 'Teacher',
+        userType: 'Staff',
         name: db.teachers[teacherIndex].fullName,
         username: db.teachers[teacherIndex].username || db.teachers[teacherIndex].email,
         email: db.teachers[teacherIndex].email,
@@ -1014,10 +1053,10 @@ app.put('/api/auth/profile', auth, upload.single('photo'), restoreTenantContext,
       }
     });
   } else {
-    // Staff
+    // Staff -> Employee
     const staffIndex = (db.staff || []).findIndex(s => s.id === user.id);
     if (staffIndex === -1) {
-      return res.status(404).json({ error: 'Staff profile not found.' });
+      return res.status(404).json({ error: 'Employee profile not found.' });
     }
     const currentStaff = db.staff[staffIndex];
     db.staff[staffIndex] = {
@@ -1034,11 +1073,11 @@ app.put('/api/auth/profile', auth, upload.single('photo'), restoreTenantContext,
     writeDb(db);
     return res.json({
       success: true,
-      message: 'Staff profile updated successfully.',
+      message: 'Employee profile updated successfully.',
       profile: {
         id: db.staff[staffIndex].id,
         role: user.role,
-        userType: 'Staff',
+        userType: 'Employee',
         name: db.staff[staffIndex].fullName,
         username: db.staff[staffIndex].username || db.staff[staffIndex].email,
         email: db.staff[staffIndex].email,
@@ -1058,7 +1097,7 @@ app.use('/api/students', studentRoutes);
 // ==========================================
 // 2. TEACHERS ROUTER
 // ==========================================
-app.use('/api/teachers', teacherRoutes);
+app.use('/api/staff', staffRoutes);
 
 // ==========================================
 // 2A. ATTENDANCE ROUTER
@@ -1090,15 +1129,15 @@ app.use('/api/grades', gradeRoutes);
 app.use('/api/designations', designationRoutes);
 
 // ==========================================
-// 2B. STAFF ENDPOINTS (Complete Module)
+// 2B. EMPLOYEES ENDPOINTS (Complete Module)
 // ==========================================
-app.get('/api/staff', auth, restoreTenantContext, checkPermission('staff-directory', 'view'), (req, res) => {
+app.get('/api/employees', auth, restoreTenantContext, checkPermission('employee-directory', 'view'), (req, res) => {
   const db = readDb();
   res.json(db.staff || []);
 });
 
-// Get single staff by ID
-app.get('/api/staff/:id', auth, restoreTenantContext, checkPermission('staff-directory', 'view'), (req, res) => {
+// Get single employee by ID
+app.get('/api/employees/:id', auth, restoreTenantContext, checkPermission('employee-directory', 'view'), (req, res) => {
   const db = readDb();
   if (!db.staff) db.staff = [];
   const staff = db.staff.find(s => s.id === req.params.id);
@@ -1118,7 +1157,7 @@ const staffUploadFields = upload.fields([
   { name: 'otherFile', maxCount: 1 }
 ]);
 
-app.post('/api/staff', auth, staffUploadFields, restoreTenantContext, checkPermission('add-employee', 'create'), async (req, res) => {
+app.post('/api/employees', auth, staffUploadFields, restoreTenantContext, checkPermission('add-employee', 'create'), async (req, res) => {
   try {
     const body = req.body;
 
@@ -1281,8 +1320,8 @@ app.post('/api/staff', auth, staffUploadFields, restoreTenantContext, checkPermi
   }
 });
 
-// UPDATE STAFF
-app.put('/api/staff/:id', auth, staffUploadFields, restoreTenantContext, checkPermission('staff-directory', 'edit'), (req, res) => {
+// UPDATE EMPLOYEE
+app.put('/api/employees/:id', auth, staffUploadFields, restoreTenantContext, checkPermission('employee-directory', 'edit'), (req, res) => {
   try {
     const db = readDb();
     if (!db.staff) db.staff = [];
@@ -1350,7 +1389,7 @@ app.put('/api/staff/:id', auth, staffUploadFields, restoreTenantContext, checkPe
   }
 });
 
-app.delete('/api/staff/:id', auth, restoreTenantContext, checkPermission('staff-directory', 'delete'), (req, res) => {
+app.delete('/api/employees/:id', auth, restoreTenantContext, checkPermission('employee-directory', 'delete'), (req, res) => {
   const db = readDb();
   if (!db.staff) db.staff = [];
   const staffIndex = db.staff.findIndex(s => s.id === req.params.id);

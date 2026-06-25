@@ -79,7 +79,7 @@ export const registerStudent = async (req, res) => {
       admissionNumber = `ADM-${Date.now().toString().slice(-6)}`;
     }
     if (!rollNumber) {
-      rollNumber = `${Math.floor(10 + Math.random() * 90)}`;
+      rollNumber = '';
     }
     if (!studentClass) {
       studentClass = 'I';
@@ -245,11 +245,20 @@ export const getStudents = async (req, res) => {
     const search = req.query.search || '';
     if (search.trim() !== '') {
       const q = search.toLowerCase();
-      result = result.filter(s => 
-        s.name.toLowerCase().includes(q) || 
-        s.id.toLowerCase().includes(q) || 
-        (s.admissionNumber && s.admissionNumber.toLowerCase().includes(q))
-      );
+      const sortBy = req.query.sortBy || 'name';
+      if (sortBy === 'id') {
+        result = result.filter(s => s.id && s.id.toLowerCase().includes(q));
+      } else if (sortBy === 'admissionNumber') {
+        result = result.filter(s => s.admissionNumber && s.admissionNumber.toLowerCase().includes(q));
+      } else if (sortBy === 'name') {
+        result = result.filter(s => s.name && s.name.toLowerCase().startsWith(q));
+      } else {
+        result = result.filter(s => 
+          (s.name && s.name.toLowerCase().startsWith(q)) || 
+          (s.id && s.id.toLowerCase().includes(q)) || 
+          (s.admissionNumber && s.admissionNumber.toLowerCase().includes(q))
+        );
+      }
     }
 
     // 2. Class Filter

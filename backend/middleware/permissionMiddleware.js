@@ -4,6 +4,7 @@ const LEGACY_MODULE_MAP = {
   'student-directory': 'core-registers',
   'teacher-directory': 'core-registers',
   'staff-directory': 'core-registers',
+  'employee-directory': 'core-registers',
   'grade-settings': 'grade-management',
   'grade-subjects': 'grade-management',
   'grade-management': 'grade-settings',
@@ -57,8 +58,12 @@ export const checkPermission = (module, action) => {
     let roleRecord = access ? (db.roles || []).find(r => r.id === access.roleId) : null;
     
     if (!roleRecord) {
-      const defaultRoleName = user.userType === 'Teacher' ? 'Teacher' : 'Staff';
-      roleRecord = (db.roles || []).find(r => r.id === `role-${defaultRoleName.toLowerCase()}` || r.name.toLowerCase() === defaultRoleName.toLowerCase());
+      const defaultRoleName = user.userType === 'Staff' ? 'Staff' : 'Employee';
+      roleRecord = (db.roles || []).find(r => 
+        r.id === `role-${defaultRoleName.toLowerCase()}` || 
+        r.name.toLowerCase() === defaultRoleName.toLowerCase() ||
+        (defaultRoleName === 'Staff' && r.id === 'role-teacher')
+      );
     }
 
     const permissions = roleRecord ? (typeof roleRecord.permissions === 'string' ? JSON.parse(roleRecord.permissions) : roleRecord.permissions) : {};
@@ -67,6 +72,29 @@ export const checkPermission = (module, action) => {
       if (permissions[mod] && permissions[mod][action] !== undefined) {
         return !!permissions[mod][action];
       }
+
+      // Backward compatibility mappings
+      if (mod === 'staff-directory') {
+        if (permissions['teacher-directory'] && permissions['teacher-directory'][action] !== undefined) {
+          return !!permissions['teacher-directory'][action];
+        }
+      }
+      if (mod === 'employee-directory') {
+        if (permissions['staff-directory'] && permissions['staff-directory'][action] !== undefined) {
+          return !!permissions['staff-directory'][action];
+        }
+      }
+      if (mod === 'add-staff') {
+        if (permissions['add-teacher'] && permissions['add-teacher'][action] !== undefined) {
+          return !!permissions['add-teacher'][action];
+        }
+      }
+      if (mod === 'add-employee') {
+        if (permissions['add-staff'] && permissions['add-staff'][action] !== undefined) {
+          return !!permissions['add-staff'][action];
+        }
+      }
+
       const legacyModule = LEGACY_MODULE_MAP[mod];
       if (legacyModule && permissions[legacyModule] && permissions[legacyModule][action] !== undefined) {
         return !!permissions[legacyModule][action];

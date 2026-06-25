@@ -242,7 +242,7 @@ export default function RegisterStudent({ setActiveView, editData }) {
     studentClass: '',
     section: '',
     rollNumber: '',
-    autoRollNumber: true,
+    autoRollNumber: false,
     previousSchoolName: '',
     previousSchoolAddress: '',
     previousClassStudied: '',
@@ -532,16 +532,7 @@ export default function RegisterStudent({ setActiveView, editData }) {
     }
   }, [formData.manualAdmissionNumber, editData]);
 
-  // Generate Unique Roll Number
-  useEffect(() => {
-    if (editData) return;
-    if (formData.autoRollNumber && !formData.rollNumber) {
-      setFormData(prev => ({
-        ...prev,
-        rollNumber: `${Math.floor(10 + Math.random() * 90)}`
-      }));
-    }
-  }, [formData.autoRollNumber, editData]);
+
 
   // Handle address copying
   useEffect(() => {
@@ -667,7 +658,7 @@ export default function RegisterStudent({ setActiveView, editData }) {
       studentClass: '',
       section: '',
       rollNumber: '',
-      autoRollNumber: true,
+      autoRollNumber: false,
       previousSchoolName: '',
       previousSchoolAddress: '',
       previousClassStudied: '',

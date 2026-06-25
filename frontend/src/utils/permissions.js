@@ -10,6 +10,7 @@ const LEGACY_MODULE_MAP = {
   'student-directory': 'core-registers',
   'teacher-directory': 'core-registers',
   'staff-directory': 'core-registers',
+  'employee-directory': 'core-registers',
   
   // Grade Management
   'grade-settings': 'grade-management',
@@ -50,6 +51,13 @@ const LEGACY_MODULE_MAP = {
   'expense-all-expenses': 'expenses',
   'expense-tracker': 'expenses',
   'expense-history': 'expenses'
+};
+
+const COMPATIBILITY_MAP = {
+  'staff-directory': 'teacher-directory',
+  'employee-directory': 'staff-directory',
+  'add-staff': 'add-teacher',
+  'add-employee': 'add-staff'
 };
 
 /**
@@ -102,6 +110,17 @@ export function hasPermission(module, action) {
   // 2. Check specific granular module permission
   if (permissions && permissions[module] && permissions[module][action] !== undefined) {
     return !!permissions[module][action];
+  }
+
+  // Compatibility fallback for renamed modules (e.g. staff-directory -> teacher-directory)
+  const compatModule = COMPATIBILITY_MAP[module];
+  if (compatModule) {
+    if (overrides && overrides[compatModule] && overrides[compatModule][action] !== undefined) {
+      return !!overrides[compatModule][action];
+    }
+    if (permissions && permissions[compatModule] && permissions[compatModule][action] !== undefined) {
+      return !!permissions[compatModule][action];
+    }
   }
 
   // 3. Fallback to legacy/unified module override or permission

@@ -217,12 +217,12 @@ export default function Sidebar({
               </button>
             )}
 
-            {(hasPermission('student-directory', 'view') || hasPermission('teacher-directory', 'view') || hasPermission('staff-directory', 'view')) && (
+            {(hasPermission('student-directory', 'view') || hasPermission('staff-directory', 'view') || hasPermission('employee-directory', 'view')) && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
                 <button
                   type="button"
                   onClick={() => setAdminCoreOpen(!adminCoreOpen)}
-                  className={`nav-item ${['students', 'teachers', 'staff'].includes(adminView) ? 'parent-active' : ''}`}
+                  className={`nav-item ${['students', 'staff', 'employees'].includes(adminView) ? 'parent-active' : ''}`}
                   style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', cursor: 'pointer' }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
@@ -248,28 +248,28 @@ export default function Sidebar({
                         <span className="nav-label">Student Directory</span>
                       </button>
                     )}
-                    {hasPermission('teacher-directory', 'view') && (
+                    {hasPermission('staff-directory', 'view') && (
                       <button
-                        onClick={() => { setAdminView('teachers'); setMobileOpen(false); }}
+                        onClick={() => { setAdminView('staff'); setMobileOpen(false); }}
                         onMouseEnter={() => {
-                          prefetchApi('/api/teachers?limit=8&page=1&status=All');
+                          prefetchApi('/api/staff?limit=8&page=1&status=All');
                           prefetchApi('/api/rbac/roles');
                           prefetchApi('/api/grades/departments');
                         }}
-                        className={`nav-item ${adminView === 'teachers' ? 'active' : ''}`}
+                        className={`nav-item ${adminView === 'staff' ? 'active' : ''}`}
                         style={{ padding: '10px 12px', fontSize: '0.88rem', position: 'relative' }}
                       >
                         <UserCheck size={18} className="flex-shrink-0" />
                         <span className="nav-label">Staff Directory</span>
                       </button>
                     )}
-                    {hasPermission('staff-directory', 'view') && (
+                    {hasPermission('employee-directory', 'view') && (
                       <button
-                        onClick={() => { setAdminView('staff'); setMobileOpen(false); }}
+                        onClick={() => { setAdminView('employees'); setMobileOpen(false); }}
                         onMouseEnter={() => {
-                          prefetchApi('/api/staff');
+                          prefetchApi('/api/employees');
                         }}
-                        className={`nav-item ${adminView === 'staff' ? 'active' : ''}`}
+                        className={`nav-item ${adminView === 'employees' ? 'active' : ''}`}
                         style={{ padding: '10px 12px', fontSize: '0.88rem', position: 'relative' }}
                       >
                         <UserCog size={18} className="flex-shrink-0" />
@@ -313,8 +313,8 @@ export default function Sidebar({
                     )}
                     {(hasPermission('add-staff', 'create') || hasPermission('add-staff', 'view')) && (
                       <button
-                        onClick={() => { setAdminView('add-teacher'); setMobileOpen(false); }}
-                        className={`nav-item ${adminView === 'add-teacher' ? 'active' : ''}`}
+                        onClick={() => { setAdminView('add-staff'); setMobileOpen(false); }}
+                        className={`nav-item ${adminView === 'add-staff' ? 'active' : ''}`}
                         style={{ padding: '10px 12px', fontSize: '0.88rem', position: 'relative' }}
                       >
                         <UserPlus size={18} className="flex-shrink-0" />
@@ -323,8 +323,8 @@ export default function Sidebar({
                     )}
                     {(hasPermission('add-employee', 'create') || hasPermission('add-employee', 'view')) && (
                       <button
-                        onClick={() => { setAdminView('add-staff'); setMobileOpen(false); }}
-                        className={`nav-item ${adminView === 'add-staff' ? 'active' : ''}`}
+                        onClick={() => { setAdminView('add-employee'); setMobileOpen(false); }}
+                        className={`nav-item ${adminView === 'add-employee' ? 'active' : ''}`}
                         style={{ padding: '10px 12px', fontSize: '0.88rem', position: 'relative' }}
                       >
                         <UserCog size={18} className="flex-shrink-0" />

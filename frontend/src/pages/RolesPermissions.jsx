@@ -24,12 +24,13 @@ import {
 } from 'lucide-react';
 import { hasPermission, isSuperAdmin } from '../utils/permissions';
 
-const TEACHER_ROLES = ['Principal', 'Vice Principal', 'Academic Coordinator', 'Teacher', 'Receptionist', 'Accountant', 'Expense Manager'];
+const TEACHER_ROLES = ['Principal', 'Vice Principal', 'Academic Coordinator', 'Staff', 'Receptionist', 'Accountant', 'Expense Manager'];
 
 const LEGACY_MODULE_MAP = {
   'student-directory': 'core-registers',
   'teacher-directory': 'core-registers',
   'staff-directory': 'core-registers',
+  'employee-directory': 'core-registers',
   'grade-settings': 'grade-management',
   'grade-subjects': 'grade-management',
   'grade-management': 'grade-settings',
@@ -46,6 +47,13 @@ const LEGACY_MODULE_MAP = {
   'expense-all-expenses': 'expenses',
   'expense-tracker': 'expenses',
   'expense-history': 'expenses'
+};
+
+const COMPATIBILITY_MAP = {
+  'staff-directory': 'teacher-directory',
+  'employee-directory': 'staff-directory',
+  'add-staff': 'add-teacher',
+  'add-employee': 'add-staff'
 };
 
 export default function RolesPermissions({ initialTab = 'dashboard', hideTabs = false }) {
@@ -97,8 +105,8 @@ export default function RolesPermissions({ initialTab = 'dashboard', hideTabs = 
   const modules = [
     { id: 'overview', label: 'Panel' },
     { id: 'student-directory', label: 'Student Directory' },
-    { id: 'teacher-directory', label: 'Staff Directory' },
-    { id: 'staff-directory', label: 'Employee Directory' },
+    { id: 'staff-directory', label: 'Staff Directory' },
+    { id: 'employee-directory', label: 'Employee Directory' },
     { id: 'grade-management', label: 'Grade Management' },
     { id: 'register-student', label: 'Register Student' },
     { id: 'add-staff', label: 'Add Staff' },
@@ -272,8 +280,11 @@ export default function RolesPermissions({ initialTab = 'dashboard', hideTabs = 
       updatedPermissions[moduleId] = {};
       actions.forEach(act => {
         let val = false;
+        const compatModule = COMPATIBILITY_MAP[moduleId];
         const legacyModule = LEGACY_MODULE_MAP[moduleId];
-        if (legacyModule && updatedPermissions[legacyModule]?.[act.id] !== undefined) {
+        if (compatModule && updatedPermissions[compatModule]?.[act.id] !== undefined) {
+          val = !!updatedPermissions[compatModule][act.id];
+        } else if (legacyModule && updatedPermissions[legacyModule]?.[act.id] !== undefined) {
           val = !!updatedPermissions[legacyModule][act.id];
         }
         updatedPermissions[moduleId][act.id] = val;
@@ -752,9 +763,14 @@ export default function RolesPermissions({ initialTab = 'dashboard', hideTabs = 
                             if (rolePermissions[mod.id]?.[act.id] !== undefined) {
                               checked = !!rolePermissions[mod.id][act.id];
                             } else {
-                              const legacyModule = LEGACY_MODULE_MAP[mod.id];
-                              if (legacyModule && rolePermissions[legacyModule]?.[act.id] !== undefined) {
-                                checked = !!rolePermissions[legacyModule][act.id];
+                              const compatModule = COMPATIBILITY_MAP[mod.id];
+                              if (compatModule && rolePermissions[compatModule]?.[act.id] !== undefined) {
+                                checked = !!rolePermissions[compatModule][act.id];
+                              } else {
+                                const legacyModule = LEGACY_MODULE_MAP[mod.id];
+                                if (legacyModule && rolePermissions[legacyModule]?.[act.id] !== undefined) {
+                                  checked = !!rolePermissions[legacyModule][act.id];
+                                }
                               }
                             }
                           }

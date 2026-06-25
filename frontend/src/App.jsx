@@ -9,10 +9,10 @@ import './App.css';
 
 // Lazy load page components
 const StudentDirectory = lazy(() => import('./pages/StudentDirectory'));
-const AddTeacher = lazy(() => import('./pages/AddTeacher'));
-const TeacherList = lazy(() => import('./pages/TeacherList'));
 const AddStaff = lazy(() => import('./pages/AddStaff'));
 const StaffDirectory = lazy(() => import('./pages/StaffDirectory'));
+const AddEmployee = lazy(() => import('./pages/AddEmployee'));
+const EmployeeDirectory = lazy(() => import('./pages/EmployeeDirectory'));
 const AccountManagementPortal = lazy(() => import('./pages/AccountManagementPortal'));
 const SchoolProfile = lazy(() => import('./pages/SchoolProfile'));
 const AttendanceManager = lazy(() => import('./pages/AttendanceManager'));
@@ -794,20 +794,20 @@ export default function App() {
           <RegisterStudent setActiveView={setActiveView} />
         )}
 
-        {activeView === 'add-teacher' && (
-          <AddTeacher setActiveView={setActiveView} />
-        )}
-
-        <KeepAlive active={activeView === 'teachers' || activeView === 'teacher-list'}>
-          <TeacherList setActiveView={setActiveView} readOnly={true} onAddClick={() => setActiveView('add-teacher')} />
-        </KeepAlive>
-
         {activeView === 'add-staff' && (
           <AddStaff setActiveView={setActiveView} />
         )}
 
-        <KeepAlive active={activeView === 'staff'}>
-          <StaffDirectory readOnly={true} onAddClick={() => setActiveView('add-staff')} />
+        <KeepAlive active={activeView === 'staff' || activeView === 'staff-directory'}>
+          <StaffDirectory setActiveView={setActiveView} readOnly={true} onAddClick={() => setActiveView('add-staff')} />
+        </KeepAlive>
+
+        {activeView === 'add-employee' && (
+          <AddEmployee setActiveView={setActiveView} />
+        )}
+
+        <KeepAlive active={activeView === 'employees'}>
+          <EmployeeDirectory readOnly={true} onAddClick={() => setActiveView('add-employee')} />
         </KeepAlive>
 
         <KeepAlive active={activeView === 'finance'}>

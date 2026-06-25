@@ -5,7 +5,7 @@ import {
   getTeacherById,
   updateTeacher, 
   deleteTeacher 
-} from '../controllers/teacherController.js';
+} from '../controllers/staffController.js';
 import upload from '../middleware/upload.js';
 import { auth } from '../middleware/auth.js';
 import { checkPermission } from '../middleware/permissionMiddleware.js';
@@ -29,18 +29,18 @@ const uploadFields = upload.fields([
 router.use(auth);
 
 // 1. GET ALL TEACHERS (Supports search query, sorting, filtering, and pagination)
-router.get('/', restoreTenantContext, checkPermission('teacher-directory', 'view'), getTeachers);
+router.get('/', restoreTenantContext, checkPermission('staff-directory', 'view'), getTeachers);
 
 // 2. GET SINGLE TEACHER PROFILE BY EMPLOYEE ID
-router.get('/:id', restoreTenantContext, checkPermission('teacher-directory', 'view'), getTeacherById);
+router.get('/:id', restoreTenantContext, checkPermission('staff-directory', 'view'), getTeacherById);
 
 // 3. REGISTER NEW TEACHER (Multer fields + optional security auth headers)
-router.post('/', uploadFields, restoreTenantContext, checkPermission('add-teacher', 'create'), registerTeacher);
+router.post('/', uploadFields, restoreTenantContext, checkPermission('add-staff', 'create'), registerTeacher);
 
 // 4. UPDATE TEACHER PROFILE
-router.put('/:id', uploadFields, restoreTenantContext, checkPermission('teacher-directory', 'edit'), updateTeacher);
+router.put('/:id', uploadFields, restoreTenantContext, checkPermission('staff-directory', 'edit'), updateTeacher);
 
 // 5. DISMISS/REMOVE TEACHER
-router.delete('/:id', restoreTenantContext, checkPermission('teacher-directory', 'delete'), deleteTeacher);
+router.delete('/:id', restoreTenantContext, checkPermission('staff-directory', 'delete'), deleteTeacher);
 
 export default router;

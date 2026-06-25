@@ -370,7 +370,7 @@ export default function AcademicPanel({ subView, setAdminView }) {
         { url: '/api/academics/timeslots', setter: setTimeslots },
         { url: '/api/academics/subjects', setter: setSubjects },
         { url: '/api/students?limit=10000', setter: (data) => setStudents(data.students || []) },
-        { url: '/api/teachers?limit=10000', setter: (data) => setTeachers(data.teachers || []) },
+        { url: '/api/staff?limit=10000', setter: (data) => setTeachers(data.teachers || []) },
         { url: '/api/academics/grades-sections', setter: (data) => setAvailableGradeSections(data.gradeSectionPairs || []) },
         { url: '/api/academics/calendar-events', setter: setCalendarEvents },
         { url: '/api/academics/calendar-imports', setter: setCalendarImports },

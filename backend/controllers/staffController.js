@@ -288,17 +288,31 @@ export const getTeachers = async (req, res) => {
     const db = readDb();
     let result = [...(db.teachers || [])];
 
-    // 1. Search Query (matches Employee ID, Name, Department)
+    // 1. Search Query (matches Employee ID or Name depending on sortBy selection)
     const search = req.query.search || '';
     if (search.trim() !== '') {
       const q = search.toLowerCase();
-      result = result.filter(t => 
-        (t.fullName && t.fullName.toLowerCase().includes(q)) || 
-        (t.name && t.name.toLowerCase().includes(q)) ||
-        (t.employeeId && t.employeeId.toLowerCase().includes(q)) || 
-        (t.department && t.department.toLowerCase().includes(q)) ||
-        (t.subjectSpecialization && t.subjectSpecialization.toLowerCase().includes(q))
-      );
+      const sortBy = req.query.sortBy || 'name';
+      if (sortBy === 'name') {
+        result = result.filter(t => 
+          (t.fullName && t.fullName.toLowerCase().startsWith(q)) || 
+          (t.name && t.name.toLowerCase().startsWith(q))
+        );
+      } else if (sortBy === 'employeeId') {
+        result = result.filter(t => 
+          (t.employeeId && t.employeeId.toLowerCase().includes(q)) ||
+          (t.id && t.id.toLowerCase().includes(q))
+        );
+      } else if (sortBy === 'department') {
+        result = result.filter(t => t.department && t.department.toLowerCase().includes(q));
+      } else {
+        result = result.filter(t => 
+          (t.fullName && t.fullName.toLowerCase().startsWith(q)) || 
+          (t.name && t.name.toLowerCase().startsWith(q)) ||
+          (t.employeeId && t.employeeId.toLowerCase().includes(q)) || 
+          (t.id && t.id.toLowerCase().includes(q))
+        );
+      }
     }
 
     // 2. Department Filter
@@ -338,6 +352,27 @@ export const getTeachers = async (req, res) => {
         ...t,
         roleName: role ? role.name : (t.designation || 'Teacher')
       };
+    });
+
+    // 5. Sorting
+    const sortBy = req.query.sortBy || 'name';
+    const sortOrder = req.query.sortOrder || 'asc';
+    mapped.sort((a, b) => {
+      let valA = '';
+      let valB = '';
+      if (sortBy === 'name') {
+        valA = (a.fullName || a.name || '').toString().toLowerCase();
+        valB = (b.fullName || b.name || '').toString().toLowerCase();
+      } else {
+        valA = a[sortBy] ? a[sortBy].toString().toLowerCase() : '';
+        valB = b[sortBy] ? b[sortBy].toString().toLowerCase() : '';
+      }
+      
+      if (sortOrder === 'asc') {
+        return valA.localeCompare(valB, undefined, { numeric: true });
+      } else {
+        return valB.localeCompare(valA, undefined, { numeric: true });
+      }
     });
 
     // 6. Pagination

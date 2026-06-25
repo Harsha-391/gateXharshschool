@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import './TeacherManagement.css';
+import './StaffManagement.css';
 import { createPortal } from 'react-dom';
 import { 
   Search, 
@@ -15,7 +15,7 @@ import {
   Trash2
 } from 'lucide-react';
 
-export default function TeacherManagement() {
+export default function StaffManagement() {
   const [teachers, setTeachers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -41,7 +41,7 @@ export default function TeacherManagement() {
 
   const fetchTeachers = async () => {
     try {
-      const res = await fetch('/api/teachers');
+      const res = await fetch('/api/staff');
       if (res.ok) {
         const data = await res.json();
         setTeachers(data);
@@ -84,7 +84,7 @@ export default function TeacherManagement() {
     }
 
     try {
-      const res = await fetch('/api/teachers', {
+      const res = await fetch('/api/staff', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData)
@@ -115,7 +115,7 @@ export default function TeacherManagement() {
   const handleDeleteTeacher = async (teacherId) => {
     if (window.confirm('Are you sure you want to dismiss this faculty member from the roster?')) {
       try {
-        const res = await fetch(`/api/teachers/${teacherId}`, { method: 'DELETE' });
+        const res = await fetch(`/api/staff/${teacherId}`, { method: 'DELETE' });
         if (res.ok) {
           setTeachers(teachers.filter(t => t.id !== teacherId));
         }

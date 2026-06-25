@@ -25,13 +25,13 @@ import { fetchActiveGrades, fetchActiveSections } from '../utils/grades';
 
 // Lazy load sub-components (Default Exports)
 const StudentDirectory = lazy(() => import('./StudentDirectory'));
-const TeacherList = lazy(() => import('./TeacherList'));
 const StaffDirectory = lazy(() => import('./StaffDirectory'));
+const EmployeeDirectory = lazy(() => import('./EmployeeDirectory'));
 const AcademicPanel = lazy(() => import('./AcademicPanel'));
 const RegisterStudent = lazy(() => import('./RegisterStudent'));
 const StudentManager = lazy(() => import('./StudentManager'));
-const AddTeacher = lazy(() => import('./AddTeacher'));
 const AddStaff = lazy(() => import('./AddStaff'));
+const AddEmployee = lazy(() => import('./AddEmployee'));
 const DesignationManager = lazy(() => import('./DesignationManager'));
 import ExpensePanel from './ExpensePanel';
 const AttendanceManager = lazy(() => import('./AttendanceManager'));
@@ -41,9 +41,9 @@ const UserProfile = lazy(() => import('./UserProfile'));
 const AuxiliaryIncome = lazy(() => import('./AuxiliaryIncome'));
 
 // Lazy load sub-components (Named Exports)
-const StudentReportsView = lazy(() => import('./TeacherPanel').then(m => ({ default: m.StudentReportsView })));
-const ClassReportsView = lazy(() => import('./TeacherPanel').then(m => ({ default: m.ClassReportsView })));
-const MonthlyCalendarView = lazy(() => import('./TeacherPanel').then(m => ({ default: m.MonthlyCalendarView })));
+const StudentReportsView = lazy(() => import('./StaffPanel').then(m => ({ default: m.StudentReportsView })));
+const ClassReportsView = lazy(() => import('./StaffPanel').then(m => ({ default: m.ClassReportsView })));
+const MonthlyCalendarView = lazy(() => import('./StaffPanel').then(m => ({ default: m.MonthlyCalendarView })));
 
 const MarkAttendanceView = lazy(() => import('./AdminAttendanceViews').then(m => ({ default: m.MarkAttendanceView })));
 const AttendanceHistoryView = lazy(() => import('./AdminAttendanceViews').then(m => ({ default: m.AttendanceHistoryView })));
@@ -192,6 +192,8 @@ function StatOverviewCard({ icon, accentColor, title, subtitle, total, maleCount
 
 export default function AdminPanel({ setActiveView, onLogout, adminView, setAdminView, onBackToMain, userProfile, setUserProfile }) {
   const [editingStudentForRegister, setEditingStudentForRegister] = useState(null);
+  const [editingStaffForRegister, setEditingStaffForRegister] = useState(null);
+  const [editingEmployeeForRegister, setEditingEmployeeForRegister] = useState(null);
   const [directoryKey, setDirectoryKey] = useState(0);
   // Roster/Filter States for Admin Attendance Panel
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
@@ -214,8 +216,8 @@ export default function AdminPanel({ setActiveView, onLogout, adminView, setAdmi
     try {
       // Fetch teachers (staff/faculty)
       const [teachersRes, staffRes] = await Promise.all([
-        fetch('/api/teachers?limit=9999&status=All'),
-        fetch('/api/staff')
+        fetch('/api/staff?limit=9999&status=All'),
+        fetch('/api/employees')
       ]);
 
       let students = { total: 0, male: 0, female: 0 };
@@ -554,12 +556,33 @@ export default function AdminPanel({ setActiveView, onLogout, adminView, setAdmi
           />
         </KeepAlive>
 
-        <KeepAlive active={adminView === 'teachers'} key={`teachers-${directoryKey}`}>
-          <TeacherList setActiveView={setActiveView} readOnly={false} onAddClick={() => setAdminView('add-teacher')} />
+        <KeepAlive active={adminView === 'staff'} key={`teachers-${directoryKey}`}>
+          <StaffDirectory 
+            setActiveView={setActiveView} 
+            readOnly={false} 
+            onAddClick={() => {
+              setEditingStaffForRegister(null);
+              setAdminView('add-staff');
+            }} 
+            onEditClick={(staff) => {
+              setEditingStaffForRegister(staff);
+              setAdminView('add-staff');
+            }}
+          />
         </KeepAlive>
 
-        <KeepAlive active={adminView === 'staff'} key={directoryKey}>
-          <StaffDirectory readOnly={false} onAddClick={() => setAdminView('add-staff')} />
+        <KeepAlive active={adminView === 'employees'} key={directoryKey}>
+          <EmployeeDirectory 
+            readOnly={false} 
+            onAddClick={() => {
+              setEditingEmployeeForRegister(null);
+              setAdminView('add-employee');
+            }} 
+            onEditClick={(employee) => {
+              setEditingEmployeeForRegister(employee);
+              setAdminView('add-employee');
+            }}
+          />
         </KeepAlive>
 
         <KeepAlive active={adminView === 'employee-attendance'}>
@@ -628,12 +651,32 @@ export default function AdminPanel({ setActiveView, onLogout, adminView, setAdmi
           <DesignationManager showToast={showToast} />
         </KeepAlive>
 
-        {adminView === 'add-teacher' && (
-          <AddTeacher setActiveView={(view) => { if (view === 'teachers' || view === 'teacher-list') { setDirectoryKey(k => k + 1); setAdminView('teachers'); } else setActiveView(view); }} />
+        {adminView === 'add-staff' && (
+          <AddStaff 
+            editData={editingStaffForRegister} 
+            setActiveView={(view) => { 
+              if (view === 'staff' || view === 'staff-directory') { 
+                setDirectoryKey(k => k + 1); 
+                setAdminView('staff'); 
+              } else {
+                setActiveView(view); 
+              }
+            }} 
+          />
         )}
 
-        {adminView === 'add-staff' && (
-          <AddStaff setActiveView={(view) => { if (view === 'staff') { setDirectoryKey(k => k + 1); setAdminView('staff'); } else setActiveView(view); }} />
+        {adminView === 'add-employee' && (
+          <AddEmployee 
+            editData={editingEmployeeForRegister} 
+            setActiveView={(view) => { 
+              if (view === 'employees') { 
+                setDirectoryKey(k => k + 1); 
+                setAdminView('employees'); 
+              } else {
+                setActiveView(view); 
+              }
+            }} 
+          />
         )}
 
         <KeepAlive active={adminView === 'attendance-history'}>

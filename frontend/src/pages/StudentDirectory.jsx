@@ -259,6 +259,12 @@ export default function StudentDirectory({ readOnly = true, onAddClick, onEditCl
                   <span class="detail-label">Reg ID / Adm No</span>
                   <span class="detail-value">${student.id} / ${student.admissionNumber || 'N/A'}</span>
                 </div>
+                ${(student.rollNumber || student.roll) ? `
+                <div class="detail-row">
+                  <span class="detail-label">Roll Number</span>
+                  <span class="detail-value">${student.rollNumber || student.roll}</span>
+                </div>
+                ` : ''}
                 <div class="detail-row">
                   <span class="detail-label">Father's Name</span>
                   <span class="detail-value">${student.fatherName || 'N/A'}</span>
@@ -445,7 +451,15 @@ export default function StudentDirectory({ readOnly = true, onAddClick, onEditCl
             <Search size={18} className="search-bar-icon" />
             <input 
               type="text" 
-              placeholder="Search student, Registration ID, admission no..." 
+              placeholder={
+                sortBy === 'name' 
+                  ? "Search by student name..." 
+                  : sortBy === 'id' 
+                  ? "Search by Registration ID..." 
+                  : sortBy === 'admissionNumber' 
+                  ? "Search by Admission Number..." 
+                  : "Search student..."
+              }
               className="search-bar-input"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -585,7 +599,7 @@ export default function StudentDirectory({ readOnly = true, onAddClick, onEditCl
                     <th>Class</th>
                     <th>Section</th>
                     <th>Parent Contact</th>
-                    <th>Admission Number</th>
+                    <th>Roll No</th>
                     <th>Academic Year</th>
                     <th style={{ textAlign: 'right' }}>Actions</th>
                   </tr>
@@ -625,7 +639,7 @@ export default function StudentDirectory({ readOnly = true, onAddClick, onEditCl
                         <td style={{ fontWeight: 500 }}>{stu.studentClass || (stu.grade && stu.grade.split('-')[0]) || 'Nursery'}</td>
                         <td style={{ fontWeight: 500 }}>{stu.section || '-'}</td>
                         <td style={{ fontWeight: 500 }}>{stu.phone || stu.guardianContact || 'N/A'}</td>
-                        <td style={{ fontWeight: 600, color: 'var(--text-muted)' }}>{stu.admissionNumber || stu.id}</td>
+                        <td style={{ fontWeight: 600, color: 'var(--text-muted)' }}>{stu.rollNumber || stu.roll || '-'}</td>
                         <td style={{ fontWeight: 500 }}>{stu.academicYear || '2026-2027'}</td>
                         <td>
                           <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
@@ -845,6 +859,8 @@ export default function StudentDirectory({ readOnly = true, onAddClick, onEditCl
 
               {/* Section 2: Academic Details */}
               {(hasValue(selectedStudent.admissionNumber) || 
+                hasValue(selectedStudent.rollNumber) || 
+                hasValue(selectedStudent.roll) || 
                 hasValue(selectedStudent.admissionDate) || 
                 hasValue(selectedStudent.admissionType) || 
                 hasValue(selectedStudent.academicYear) || 
@@ -860,6 +876,12 @@ export default function StudentDirectory({ readOnly = true, onAddClick, onEditCl
                       <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.02)', paddingBottom: '6px' }}>
                         <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Admission Number</span>
                         <strong style={{ fontSize: '0.85rem' }}>{selectedStudent.admissionNumber}</strong>
+                      </div>
+                    )}
+                    {hasValue(selectedStudent.rollNumber || selectedStudent.roll) && (
+                      <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.02)', paddingBottom: '6px' }}>
+                        <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Roll Number</span>
+                        <strong style={{ fontSize: '0.85rem' }}>{selectedStudent.rollNumber || selectedStudent.roll}</strong>
                       </div>
                     )}
                     {(hasValue(selectedStudent.admissionDate) || hasValue(selectedStudent.admissionType)) && (

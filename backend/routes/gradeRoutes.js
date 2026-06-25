@@ -881,7 +881,12 @@ router.delete('/mappings/:id', (req, res) => {
     db.gradeDepartments = db.gradeDepartments.filter(gd => gd.id !== id);
     logAudit(db, req, 'Delete Mapping', `Removed mapping between "${grade?.name || map.gradeId}" and "${dept?.name || map.departmentId}"`);
 
-
+    // Check if there are other mappings left for this grade. If none, clean up the master grade as well.
+    const remainingMappings = db.gradeDepartments.filter(gd => gd.gradeId === map.gradeId);
+    if (remainingMappings.length === 0) {
+      db.grades = (db.grades || []).filter(g => g.id !== map.gradeId);
+      logAudit(db, req, 'Delete Grade', `Deleted grade "${grade?.name || map.gradeId}" because it has no remaining mappings.`);
+    }
 
     writeDb(db);
 

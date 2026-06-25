@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import './TeacherPanel.css';
+import './StaffPanel.css';
 import { 
   Users, 
   LogOut, 
@@ -26,7 +26,7 @@ import {
   Clock
 } from 'lucide-react';
 import StudentDirectory from './StudentDirectory';
-import TeacherList from './TeacherList';
+import StaffDirectory from './StaffDirectory';
 import { fetchActiveGrades, fetchActiveSections } from '../utils/grades';
 
 const parseGradeName = (fullName) => {
@@ -45,7 +45,7 @@ const isGrade11or12 = (name) => {
   return tokens.some(t => ['11', '12', 'XI', 'XII'].includes(t));
 };
 
-export default function TeacherPanel({ setActiveView, onLogout, teacherView, setTeacherView, onBackToMain }) {
+export default function StaffPanel({ setActiveView, onLogout, teacherView, setTeacherView, onBackToMain }) {
   // Global filter states
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [selectedClass, setSelectedClass] = useState('');
@@ -199,8 +199,8 @@ export default function TeacherPanel({ setActiveView, onLogout, teacherView, set
         );
       case 'students':
         return <StudentDirectory readOnly={true} />;
-      case 'teacher-list':
-        return <TeacherList setActiveView={setActiveView} readOnly={true} />;
+      case 'staff-directory':
+        return <StaffDirectory setActiveView={setActiveView} readOnly={true} />;
       default:
         return (
           <MarkAttendanceView 

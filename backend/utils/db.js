@@ -1200,6 +1200,34 @@ export const migrateTenantDataToDedicatedDb = async (subdomain) => {
         console.error(`[SQL Migration Error] Table ${table} migration failed:`, err.message);
       }
     }
+
+    // Clean up default seeded designations if they exist
+    try {
+      const defaultDesigIds = [
+        'desig-admin-officer', 'desig-office-asst', 'desig-data-entry', 'desig-it-admin',
+        'desig-comp-op', 'desig-transport-coord', 'desig-driver', 'desig-hostel-warden',
+        'desig-sec-supervisor', 'desig-sec-guard', 'desig-maint-staff', 'desig-electrician',
+        'desig-plumber', 'desig-house-supervisor', 'desig-house-staff', 'desig-cleaner',
+        'desig-nurse', 'desig-store-keeper', 'desig-peon', 'desig-attendant',
+        'desig-office-boy', 'desig-gardener'
+      ];
+      await pool.query(`DELETE FROM designations WHERE id IN (${defaultDesigIds.map(() => '?').join(',')})`, defaultDesigIds);
+    } catch (err) {
+      console.warn(`[SQL Clean WARNING] Failed to clean default designations for ${subdomain}:`, err.message);
+    }
+
+    // Update employeeType in tenant tables (first Staff -> Employee, then Teacher -> Staff)
+    try {
+      await pool.query("UPDATE employee_qr_codes SET employeeType = 'Employee' WHERE employeeType = 'Staff'");
+      await pool.query("UPDATE employee_qr_codes SET employeeType = 'Staff' WHERE employeeType = 'Teacher'");
+      await pool.query("UPDATE attendance_records SET employeeType = 'Employee' WHERE employeeType = 'Staff'");
+      await pool.query("UPDATE attendance_records SET employeeType = 'Staff' WHERE employeeType = 'Teacher'");
+      await pool.query("UPDATE attendance_logs SET employeeType = 'Employee' WHERE employeeType = 'Staff'");
+      await pool.query("UPDATE attendance_logs SET employeeType = 'Staff' WHERE employeeType = 'Teacher'");
+    } catch (err) {
+      console.warn(`[SQL Migration WARNING] Tenant DB employeeType updates warning for ${subdomain}:`, err.message);
+    }
+
   } catch (err) {
     console.error(`[SQL Migration Error] Database verification/migration failed for ${dbName}:`, err.message);
   }
@@ -1355,6 +1383,20 @@ export const initSqlDb = async () => {
     // Load subdomain-to-dbName mappings
     await sqlDb.loadDbMappings();
 
+    // 1A. Perform startup migrations on master database pool
+    try {
+      console.log('[SQL Migration] Performing startup role and user type updates in master DB...');
+      // Rename Teacher role to Staff
+      await masterPool.query("UPDATE roles SET name = 'Staff', description = 'Staff. Records attendance, enters marks, manages academic activities, and views student profiles.' WHERE id = 'role-teacher'");
+      // Delete Principal and Vice Principal roles from roles table
+      await masterPool.query("DELETE FROM roles WHERE id IN ('role-principal', 'role-vice-principal')");
+      // Update user types in user_access table (first Staff -> Employee, then Teacher -> Staff)
+      await masterPool.query("UPDATE user_access SET userType = 'Employee' WHERE userType = 'Staff'");
+      await masterPool.query("UPDATE user_access SET userType = 'Staff' WHERE userType = 'Teacher'");
+    } catch (err) {
+      console.warn('[SQL Migration WARNING] Master DB roles/user_access migration warning:', err.message);
+    }
+
     // 2. Fetch all registered schools
     const schools = await sqlDb.query("SELECT id, subdomain, dbName FROM schools", [], 'platform');
     
@@ -1397,8 +1439,8 @@ export const getDefaultRoles = () => {
   const modules = [
     'overview',
     'student-directory',
-    'teacher-directory',
     'staff-directory',
+    'employee-directory',
     'grade-management',
     'register-student',
     'add-staff',
@@ -1441,22 +1483,6 @@ export const getDefaultRoles = () => {
   return [
     // ===== STAFF ROLES =====
     {
-      id: 'role-principal',
-      name: 'Principal',
-      description: 'School principal with full administrative access to all modules and system settings.',
-      active: true,
-      isSystem: true,
-      permissions: createEmptyMatrix()
-    },
-    {
-      id: 'role-vice-principal',
-      name: 'Vice Principal',
-      description: 'Vice principal with broad access to academics, staff, and student management.',
-      active: true,
-      isSystem: true,
-      permissions: createEmptyMatrix()
-    },
-    {
       id: 'role-academic-coordinator',
       name: 'Academic Coordinator',
       description: 'Coordinates academic programs, timetables, exam schedules, and curriculum planning.',
@@ -1466,8 +1492,8 @@ export const getDefaultRoles = () => {
     },
     {
       id: 'role-teacher',
-      name: 'Teacher',
-      description: 'Teacher. Records attendance, enters marks, manages academic activities, and views student profiles.',
+      name: 'Staff',
+      description: 'Staff. Records attendance, enters marks, manages academic activities, and views student profiles.',
       active: true,
       isSystem: true,
       permissions: createEmptyMatrix()

@@ -336,7 +336,14 @@ export default function StudentManager({ showToast }) {
                           </div>
                         )}
                         <div>
-                          <div style={{ fontWeight: 600, fontSize: '0.88rem' }}>{student.name}</div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <span style={{ fontWeight: 600, fontSize: '0.88rem' }}>{student.name}</span>
+                            {(student.rollNumber || student.roll) && (
+                              <span style={{ fontSize: '0.72rem', background: 'rgba(99, 102, 241, 0.1)', color: 'rgb(99, 102, 241)', padding: '1px 6px', borderRadius: '4px', fontWeight: 600 }}>
+                                Roll: {student.rollNumber || student.roll}
+                              </span>
+                            )}
+                          </div>
                           <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'capitalize' }}>{student.gender || 'Not specified'}</div>
                         </div>
                       </div>
@@ -372,7 +379,7 @@ export default function StudentManager({ showToast }) {
                         type="text"
                         name="rollNumber"
                         className="form-control"
-                        placeholder="Roll No"
+                        placeholder="-"
                         value={allocation.rollNumber || ''}
                         onChange={(e) => {
                           const val = e.target.value.replace(/[^0-9]/g, '').slice(0, 5);

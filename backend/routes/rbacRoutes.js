@@ -30,15 +30,14 @@ const logAudit = (db, req, action, details) => {
   db.auditLogs = [log, ...db.auditLogs].slice(0, 500);
 };
 
-// Apply auth and checkSuperAdmin to all RBAC endpoints
+// Apply auth to all RBAC endpoints
 router.use(auth);
-router.use(checkSuperAdmin);
 
 // ==========================================
-// ROLES CRUD ENDPOINTS
+// READ-ONLY ENDPOINTS (accessible to all authenticated users)
 // ==========================================
 
-// 1. Get all roles
+// 1. Get all roles (needed for dropdowns in StaffDirectory, AddStaff, etc.)
 router.get('/roles', (req, res) => {
   try {
     const db = readDb();
@@ -56,6 +55,13 @@ router.get('/roles', (req, res) => {
     res.status(500).json({ error: 'Failed to fetch roles: ' + error.message });
   }
 });
+
+// Apply checkSuperAdmin to all remaining RBAC endpoints (create, update, delete)
+router.use(checkSuperAdmin);
+
+// ==========================================
+// ROLES CRUD ENDPOINTS (admin-only)
+// ==========================================
 
 // 2. Create new role
 router.post('/roles', (req, res) => {
@@ -198,7 +204,7 @@ router.delete('/roles/:id', (req, res) => {
 // USER ACCESS MANAGEMENT ENDPOINTS
 // ==========================================
 
-// 5. Get all users (Teachers & Staff) with their access details
+// 5. Get all users (Staff & Employees) with their access details
 router.get('/users', (req, res) => {
   try {
     const db = readDb();
@@ -209,31 +215,31 @@ router.get('/users', (req, res) => {
 
     const responseUsers = [];
 
-    // Map Teachers
+    // Map Teachers (now Staff)
     teachers.forEach(t => {
-      const access = userAccessList.find(ua => ua.userId === t.id && ua.userType === 'Teacher');
+      const access = userAccessList.find(ua => ua.userId === t.id && ua.userType === 'Staff');
       const assignedRole = access ? rolesList.find(r => r.id === access.roleId) : null;
       responseUsers.push({
         id: t.id,
         name: t.fullName || t.name,
         email: t.email || '',
         phone: t.phone || '',
-        userType: 'Teacher',
+        userType: 'Staff',
         roleId: access ? access.roleId : 'role-teacher', // default
-        roleName: assignedRole ? assignedRole.name : 'Teacher',
+        roleName: assignedRole ? assignedRole.name : 'Staff',
         status: access ? access.status : (t.status || 'Active'),
         overrides: access ? access.overrides : {}
       });
     });
 
-    // Map Staff
+    // Map Staff (now Employee)
     staff.forEach(s => {
-      const access = userAccessList.find(ua => ua.userId === s.id && ua.userType === 'Staff');
+      const access = userAccessList.find(ua => ua.userId === s.id && ua.userType === 'Employee');
       const assignedRole = access ? rolesList.find(r => r.id === access.roleId) : null;
       
       // Attempt to match default role name if not customized
       let matchedDefaultRoleId = null;
-      let matchedDefaultRoleName = s.role || 'Staff';
+      let matchedDefaultRoleName = s.role || 'Employee';
       if (!access) {
         const found = rolesList.find(r => r.name.toLowerCase() === matchedDefaultRoleName.toLowerCase());
         if (found) {
@@ -247,7 +253,7 @@ router.get('/users', (req, res) => {
         name: s.fullName || s.name,
         email: s.email || '',
         phone: s.phone || '',
-        userType: 'Staff',
+        userType: 'Employee',
         roleId: access ? access.roleId : matchedDefaultRoleId,
         roleName: assignedRole ? assignedRole.name : matchedDefaultRoleName,
         status: access ? access.status : (s.status || 'Active'),
@@ -268,7 +274,7 @@ router.put('/users/:id', (req, res) => {
     const { roleId, status, overrides, userType, userName } = req.body;
 
     if (!userType) {
-      return res.status(400).json({ error: 'User type (Teacher or Staff) is required.' });
+      return res.status(400).json({ error: 'User type (Staff or Employee) is required.' });
     }
 
     const db = readDb();
@@ -303,10 +309,10 @@ router.put('/users/:id', (req, res) => {
 
     // Update teacher/staff table status to align
     if (status) {
-      if (userType === 'Teacher') {
+      if (userType === 'Staff') {
         const teacher = db.teachers.find(t => t.id === id);
         if (teacher) teacher.status = status;
-      } else if (userType === 'Staff') {
+      } else if (userType === 'Employee') {
         const s = db.staff.find(sm => sm.id === id);
         if (s) s.status = status;
       }

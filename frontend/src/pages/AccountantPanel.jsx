@@ -42,11 +42,11 @@ function ConfirmDialog({ show, message, onConfirm, onCancel }) {
     </div>
   );
 }
-import TeacherList from './TeacherList';
 import StaffDirectory from './StaffDirectory';
+import EmployeeDirectory from './EmployeeDirectory';
 import RegisterStudent from './RegisterStudent';
-import AddTeacher from './AddTeacher';
 import AddStaff from './AddStaff';
+import AddEmployee from './AddEmployee';
 
 export default function AccountantPanel({ setActiveView, onLogout, accountantView, setAccountantView, onBackToMain }) {
   const [notification, setNotification] = useState(null);
@@ -70,14 +70,14 @@ export default function AccountantPanel({ setActiveView, onLogout, accountantVie
       case 'staff-pay': return <StaffPaymentsView showToast={showToast} />;
       case 'staff-pay-structure': return <StaffPaymentStructureView showToast={showToast} />;
       case 'students': return <StudentDirectory />;
-      case 'teacher-list': return <TeacherList setActiveView={setActiveView} readOnly={true} />;
-      case 'staff': return <StaffDirectory readOnly={true} />;
+      case 'staff-directory': return <StaffDirectory setActiveView={setActiveView} readOnly={true} />;
+      case 'employees': return <EmployeeDirectory readOnly={true} />;
       case 'register-student':
         return <RegisterStudent setActiveView={(view) => { if (view === 'students') setAccountantView('students'); else setActiveView(view); }} />;
-      case 'add-teacher':
-        return <AddTeacher setActiveView={(view) => { if (view === 'teachers' || view === 'teacher-list') setAccountantView('teacher-list'); else setActiveView(view); }} />;
       case 'add-staff':
-        return <AddStaff setActiveView={(view) => { if (view === 'staff') setAccountantView('staff'); else setActiveView(view); }} />;
+        return <AddStaff setActiveView={(view) => { if (view === 'staff' || view === 'staff-directory') setAccountantView('staff-directory'); else setActiveView(view); }} />;
+      case 'add-employee':
+        return <AddEmployee setActiveView={(view) => { if (view === 'employees') setAccountantView('employees'); else setActiveView(view); }} />;
       default: return <DashboardView setAccountantView={setAccountantView} />;
     }
   };
@@ -1853,7 +1853,7 @@ export function StaffPaymentStructureView({ showToast }) {
   };
 
   const fetchDesignationOptions = () => {
-    fetch('/api/staff')
+    fetch('/api/employees')
       .then(r => r.json())
       .then(staff => {
         const staffRoles = (staff || []).map(s => s.role).filter(Boolean);
@@ -2126,7 +2126,7 @@ export function StaffPaymentsView({ showToast }) {
   };
 
   const fetchStaff = () => {
-    fetch('/api/staff')
+    fetch('/api/employees')
       .then(r => r.json())
       .then(d => setStaff(d))
       .catch(() => {});
@@ -2518,7 +2518,7 @@ export function PayrollView({ showToast }) {
   };
 
   const fetchTeachers = () => {
-    fetch('/api/teachers?limit=1000')
+    fetch('/api/staff?limit=1000')
       .then(r => r.json())
       .then(d => setTeachers(d.teachers || []))
       .catch(() => {});
