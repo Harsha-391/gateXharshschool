@@ -252,9 +252,7 @@ export const getStudents = async (req, res) => {
         
         const cleanId = (s.id || '').replace(/^stu-?/i, '').toLowerCase();
         const cleanAdm = (s.admissionNumber || '').replace(/^adm-?/i, '').toLowerCase();
-        const idMatch = (cleanQ !== '' && (cleanId.includes(cleanQ) || cleanAdm.includes(cleanQ))) ||
-                        (s.id && s.id.toLowerCase().startsWith(q)) ||
-                        (s.admissionNumber && s.admissionNumber.toLowerCase().startsWith(q));
+        const idMatch = cleanQ !== '' && (cleanId.includes(cleanQ) || cleanAdm.includes(cleanQ));
                         
         return nameMatch || idMatch;
       });

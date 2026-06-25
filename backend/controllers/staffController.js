@@ -299,9 +299,7 @@ export const getTeachers = async (req, res) => {
         
         const cleanEmpId = (t.employeeId || '').replace(/^emp-?/i, '').toLowerCase();
         const cleanId = (t.id || '').replace(/^(emp-?|tch-?|staff-?)/i, '').toLowerCase();
-        const idMatch = (cleanQ !== '' && (cleanEmpId.includes(cleanQ) || cleanId.includes(cleanQ))) ||
-                        (t.employeeId && t.employeeId.toLowerCase().startsWith(q)) ||
-                        (t.id && t.id.toLowerCase().startsWith(q));
+        const idMatch = cleanQ !== '' && (cleanEmpId.includes(cleanQ) || cleanId.includes(cleanQ));
                         
         return nameMatch || idMatch;
       });

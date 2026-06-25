@@ -328,7 +328,7 @@ export default function EmployeeDirectory({ readOnly = true, onAddClick, onEditC
     if (q.trim() !== '') {
       const cleanQ = q.replace(/^(emp-?|staff-?)/i, '');
       const cleanId = id.replace(/^(emp-?|staff-?)/i, '');
-      const idMatch = (cleanQ !== '' && cleanId.includes(cleanQ)) || id.startsWith(q);
+      const idMatch = cleanQ !== '' && cleanId.includes(cleanQ);
       matchesSearch = name.startsWith(q) || idMatch;
     }
     const matchesDesignation = designationFilter === 'All' || (s.designation || '') === designationFilter;
