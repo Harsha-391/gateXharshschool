@@ -95,7 +95,7 @@ export const registerStudent = async (req, res) => {
     const calculatedFirstName = firstName || calculatedFullName.split(' ')[0] || '';
     const calculatedLastName = lastName || calculatedFullName.split(' ').slice(1).join(' ') || '';
 
-    if (!calculatedFullName || !admissionNumber || !rollNumber || !studentClass || !adminEmailCheck(req.body)) {
+    if (!calculatedFullName || !admissionNumber || !studentClass || !adminEmailCheck(req.body)) {
       return res.status(400).json({ error: 'Missing required student details.' });
     }
 
