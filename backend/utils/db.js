@@ -969,6 +969,7 @@ const applySchemaUpdates = async (pool, isMaster = false, tenantId = null) => {
     }
   } else {
     const schoolAlters = [
+      "ALTER TABLE grades ADD COLUMN sections JSON NULL",
       "ALTER TABLE grade_departments MODIFY COLUMN id VARCHAR(100)",
       "ALTER TABLE published_timetables MODIFY COLUMN id VARCHAR(255)",
       "ALTER TABLE students ADD COLUMN transportRequired VARCHAR(50) DEFAULT 'No'",

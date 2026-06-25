@@ -741,7 +741,8 @@ CREATE TABLE IF NOT EXISTS grades (
   status VARCHAR(50) DEFAULT 'Active',
   createdAt VARCHAR(100),
   updatedAt VARCHAR(100),
-  tenantId VARCHAR(100)
+  tenantId VARCHAR(100),
+  sections JSON NULL
 );
 
 -- 44. Departments Table
