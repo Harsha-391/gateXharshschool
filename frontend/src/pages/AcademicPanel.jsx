@@ -6644,19 +6644,6 @@ export default function AcademicPanel({ subView, setAdminView }) {
                   </select>
                 </div>
                 <div className="form-group">
-                  <label>Staff Assignment</label>
-                  <select 
-                    className="form-control" 
-                    value={timetableForm.teacher} 
-                    onChange={(e) => setTimetableForm({ ...timetableForm, teacher: e.target.value })}
-                  >
-                    <option value="">Select Staff</option>
-                    {Array.isArray(teachers) && teachers.map((t, idx) => (
-                      <option key={idx} value={t.name}>{t.name}</option>
-                    ))}
-                  </select>
-                </div>
-                <div className="form-group">
                   <label>Room Allocation</label>
                   <input 
                     type="text" 
@@ -7611,8 +7598,6 @@ export default function AcademicPanel({ subView, setAdminView }) {
                   <option value="Regular">Regular Period</option>
                   <option value="Lunch Break">Lunch Break</option>
                   <option value="Short Break">Short Break</option>
-                  <option value="Recess">Recess</option>
-                  <option value="Assembly">Assembly</option>
                 </select>
               </div>
 
@@ -7830,26 +7815,6 @@ export default function AcademicPanel({ subView, setAdminView }) {
                                   <option value="">Select Subject</option>
                                   {gradeSubjects.map(s => <option key={s.id} value={s.subjectName}>{s.subjectName}</option>)}
                                 </select>
-                                <select 
-                                  value={cell.teacher}
-                                  onChange={(e) => handleBulkCellChange(day, slot, 'teacher', e.target.value)}
-                                  style={{ 
-                                    width: '100%', 
-                                    padding: '6px 18px 6px 8px', 
-                                    borderRadius: '6px', 
-                                    border: '1px solid var(--border-glass)', 
-                                    fontSize: '0.75rem', 
-                                    fontWeight: 600,
-                                    textOverflow: 'ellipsis',
-                                    whiteSpace: 'nowrap',
-                                    overflow: 'hidden'
-                                  }}
-                                >
-                                  <option value="">Select Staff</option>
-                                  {Array.isArray(teachers) && teachers.map((t, idx) => (
-                                    <option key={idx} value={t.name}>{t.name}</option>
-                                  ))}
-                                </select>
                               </div>
                             </td>
                           );
@@ -7950,20 +7915,14 @@ export default function AcademicPanel({ subView, setAdminView }) {
                         {timeslots.map(slot => {
                           const key = `${day}_${slot}`;
                           const cell = teacherBulkGrid[key] || { cohort: '', subject: '' };
-                          const grades = activeGrades.map(g => g.name);
-                          const sections = activeSections.map(s => s.name);
                           const allCohortsSet = new Set();
-                          grades.forEach(g => {
-                            sections.forEach(sec => {
-                              allCohortsSet.add(`${g}-${sec}`);
-                            });
+                          activeGrades.forEach(g => {
+                            if (g.sections && g.sections.length > 0) {
+                              g.sections.forEach(sec => {
+                                allCohortsSet.add(`${g.name}-${sec}`);
+                              });
+                            }
                           });
-                          if (Array.isArray(students)) {
-                            students.forEach(s => {
-                              const c = s.grade || `${s.studentClass || 'I'}-${s.section || 'A'}`;
-                              if (c) allCohortsSet.add(c);
-                            });
-                          }
                           const allCohorts = [...allCohortsSet];
 
                           // Ensure current cell's cohort is always included
