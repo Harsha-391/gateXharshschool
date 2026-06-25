@@ -959,6 +959,7 @@ const applySchemaUpdates = async (pool, isMaster = false, tenantId = null) => {
       "ALTER TABLE schools ADD COLUMN ratePerStudent VARCHAR(50) DEFAULT '250.00'",
       "ALTER TABLE schools ADD COLUMN updatedAt VARCHAR(100)",
       "ALTER TABLE schools ADD COLUMN dbName VARCHAR(255)",
+      "ALTER TABLE schools ADD COLUMN examTypes TEXT NULL",
       "ALTER TABLE student_accounts DROP FOREIGN KEY student_accounts_ibfk_1",
       "ALTER TABLE parent_accounts DROP FOREIGN KEY parent_accounts_ibfk_1"
     ];
@@ -1818,7 +1819,8 @@ export const loadTenantSqlIntoMemory = async (tenantId) => {
           adminEmail: matchedSchool.adminEmail || '',
           adminUsername: matchedSchool.adminUsername || '',
           adminPassword: matchedSchool.adminPassword || '',
-          principal: matchedSchool.principalName || ''
+          principal: matchedSchool.principalName || '',
+          examTypes: matchedSchool.examTypes ? JSON.parse(matchedSchool.examTypes) : []
         };
       }
     }
@@ -2284,11 +2286,15 @@ export const ensureTenantSqlLoaded = async (req, res, next) => {
   let tenantId = req.headers['x-tenant-id'] || req.query.tenantId;
   if (!tenantId && req.headers.host) {
     const host = req.headers.host.split(':')[0]; // Remove port
-    const parts = host.split('.');
-    if (parts.length > 2 || (parts.length === 2 && parts[1] === 'localhost')) {
-      tenantId = parts[0];
-    } else if (parts.length === 1 && !['localhost', 'platform', 'www', 'admin'].includes(parts[0].toLowerCase())) {
-      tenantId = parts[0];
+    // Skip tenant parsing for IP addresses (e.g. 127.0.0.1, 192.168.x.x)
+    const isIp = /^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$/.test(host);
+    if (!isIp) {
+      const parts = host.split('.');
+      if (parts.length > 2 || (parts.length === 2 && parts[1] === 'localhost')) {
+        tenantId = parts[0];
+      } else if (parts.length === 1 && !['localhost', 'platform', 'www', 'admin'].includes(parts[0].toLowerCase())) {
+        tenantId = parts[0];
+      }
     }
   }
 
@@ -2493,11 +2499,12 @@ export const saveMemoryDbToSql = async (tenantId, db, changedKeys, newUpdatedAt)
         tasks.push(sqlDb.query(
           `UPDATE schools SET 
             name = ?, address = ?, city = ?, state = ?, phone = ?, email = ?, 
-            principalName = ?, adminName = ?, adminEmail = ?, adminUsername = ?, adminPassword = ?, ratePerStudent = ?, updatedAt = ?
+            principalName = ?, adminName = ?, adminEmail = ?, adminUsername = ?, adminPassword = ?, ratePerStudent = ?, examTypes = ?, updatedAt = ?
            WHERE subdomain = ?`,
           [
             sch.name, sch.address, sch.city, sch.state, sch.phone, sch.email, 
             sch.principal, sch.adminName, sch.adminEmail, sch.adminUsername || '', sch.adminPassword, sch.ratePerStudent || '250.00',
+            sch.examTypes ? JSON.stringify(sch.examTypes) : null,
             sch.updatedAt || new Date().toISOString(), tId
           ]
         ));

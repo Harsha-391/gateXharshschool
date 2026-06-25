@@ -59,7 +59,9 @@ import {
   unpublishEvent,
   submitCohortResults,
   getPublishedTimetables,
-  publishTimetable
+  publishTimetable,
+  getExamTypes,
+  updateExamTypes
 } from '../controllers/academicController.js';
 
 
@@ -93,6 +95,8 @@ router.put('/exams/:id', updateExam);
 router.delete('/exams/:id', deleteExam);
 router.post('/exams/generate-schedule', generateExamSchedule);
 router.put('/exams/:id/publish', publishExam);
+router.get('/exam-types', getExamTypes);
+router.put('/exam-types', updateExamTypes);
 
 // Grades & Sections
 router.get('/grades-sections', getGradesSections);

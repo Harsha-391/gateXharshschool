@@ -73,7 +73,6 @@ export default function Header({
     'academic-class-timetable': { title: 'Class Timetables', desc: 'Create and schedule weekly classes.' },
     'academic-teacher-timetable': { title: 'Staff Timetables', desc: 'View and assign faculty teaching hours.' },
     'academic-exams': { title: 'Exam Management', desc: 'Set up assessments, grading criteria, and exam types.' },
-    'academic-exam-timetable': { title: 'Exam Timetable', desc: 'Plan dates and scheduling for mid-terms and finals.' },
     'academic-exams-history': { title: 'Exam History', desc: 'Review past semesters assessments and logs.' },
     'academic-published-timetable': { title: 'Published Timetables', desc: 'View published class and teacher weekly schedules.' },
     'academic-published-exam': { title: 'Published Exams', desc: 'View active exam schedules.' },

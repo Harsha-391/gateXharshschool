@@ -1,26 +1,26 @@
 import React, { useState, useEffect, useRef } from 'react';
 import './AcademicPanel.css';
 import { createPortal } from 'react-dom';
-import { 
-  Clock, 
-  BookOpen, 
-  Award, 
-  Calendar, 
-  Bell, 
-  Plus, 
+import {
+  Clock,
+  BookOpen,
+  Award,
+  Calendar,
+  Bell,
+  Plus,
   Check,
-  Trash2, 
-  Printer, 
-  Search, 
-  Filter, 
-  AlertCircle, 
-  CheckCircle, 
-  Users, 
-  UserCheck, 
-  Loader2, 
-  ChevronRight, 
-  TrendingUp, 
-  Activity, 
+  Trash2,
+  Printer,
+  Search,
+  Filter,
+  AlertCircle,
+  CheckCircle,
+  Users,
+  UserCheck,
+  Loader2,
+  ChevronRight,
+  TrendingUp,
+  Activity,
   ArrowLeft,
   ChevronLeft,
   Settings,
@@ -56,20 +56,20 @@ const isTeacherProfile = (t) => {
   if (!t) return false;
   const role = (t.roleName || '').toLowerCase().trim();
   const designation = (t.designation || '').toLowerCase().trim();
-  
+
   if (role.includes('teacher') || designation.includes('teacher')) {
     return true;
   }
-  
+
   const nonTeacherRoles = ['principal', 'accountant', 'receptionist', 'expense manager', 'academic coordinator'];
   if (role && !nonTeacherRoles.includes(role)) {
     return true;
   }
-  
+
   if (!role && !designation) {
     return true;
   }
-  
+
   return false;
 };
 
@@ -91,6 +91,8 @@ export default function AcademicPanel({ subView, setAdminView }) {
   const [teachers, setTeachers] = useState([]);
   const [subjects, setSubjects] = useState([]);
   const [showSubjectsModal, setShowSubjectsModal] = useState(false);
+  const [examTypes, setExamTypes] = useState(EXAM_TYPES);
+  const [showManageExamTypesModal, setShowManageExamTypesModal] = useState(false);
   const [newSubjectGrade, setNewSubjectGrade] = useState('I');
   const [newSubjectName, setNewSubjectName] = useState('');
   const [newSubjectsList, setNewSubjectsList] = useState(Array(10).fill(''));
@@ -104,7 +106,7 @@ export default function AcademicPanel({ subView, setAdminView }) {
   const [teacherBulkSearchQuery, setTeacherBulkSearchQuery] = useState('');
   const [teacherBulkGradeSearch, setTeacherBulkGradeSearch] = useState('All');
   const [teacherSearchQuery, setTeacherSearchQuery] = useState('');
-  
+
   const [loading, setLoading] = useState(true);
   const [notification, setNotification] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -134,7 +136,7 @@ export default function AcademicPanel({ subView, setAdminView }) {
     };
     loadGradesAndSections();
   }, []);
-  
+
   // Modal toggles
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingId, setEditingId] = useState(null);
@@ -216,7 +218,7 @@ export default function AcademicPanel({ subView, setAdminView }) {
   const [holidayForm, setHolidayForm] = useState({
     name: '', type: 'Public', startDate: '', endDate: '', description: ''
   });
-  
+
   // Results Entry state: maps studentId -> obtainedMarks
   const [resultsEntry, setResultsEntry] = useState({});
 
@@ -241,24 +243,24 @@ export default function AcademicPanel({ subView, setAdminView }) {
   const [publishedEventIds, setPublishedEventIds] = useState([]);
   const [modalType, setModalType] = useState('');
   const [calendarEventForm, setCalendarEventForm] = useState({
-    title: '', 
-    eventType: 'Holiday', 
-    eventDate: '', 
-    startTime: '', 
-    endTime: '', 
-    description: '', 
-    applicableClasses: 'All', 
+    title: '',
+    eventType: 'Holiday',
+    eventDate: '',
+    startTime: '',
+    endTime: '',
+    description: '',
+    applicableClasses: 'All',
     session: '2026-27',
-    color: '#6366f1', 
-    audience: 'All', 
-    recurring: 'None', 
-    reminders: [], 
-    attachments: '', 
+    color: '#6366f1',
+    audience: 'All',
+    recurring: 'None',
+    reminders: [],
+    attachments: '',
     notifications: []
   });
   const [weekAnchor, setWeekAnchor] = useState(new Date());
   const calendarEventTypes = [
-    'Holiday', 'Examination', 'School Event', 'Admission Activity', 
+    'Holiday', 'Examination', 'School Event', 'Admission Activity',
     'Fee Deadline', 'Parent-Staff Meeting', 'Custom Event', 'Other Important School Event'
   ];
 
@@ -270,7 +272,7 @@ export default function AcademicPanel({ subView, setAdminView }) {
 
   // Helper arrays for lookups
   const daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-  
+
   const [timeslots, setTimeslots] = useState([
     '09:00 AM - 10:00 AM',
     '10:00 AM - 11:00 AM',
@@ -374,7 +376,8 @@ export default function AcademicPanel({ subView, setAdminView }) {
         { url: '/api/academics/grades-sections', setter: (data) => setAvailableGradeSections(data.gradeSectionPairs || []) },
         { url: '/api/academics/calendar-events', setter: setCalendarEvents },
         { url: '/api/academics/calendar-imports', setter: setCalendarImports },
-        { url: '/api/academics/calendar/published', setter: setPublishedEventIds }
+        { url: '/api/academics/calendar/published', setter: setPublishedEventIds },
+        { url: '/api/academics/exam-types', setter: setExamTypes }
       ];
 
       await Promise.all(
@@ -450,7 +453,7 @@ export default function AcademicPanel({ subView, setAdminView }) {
 
   const handleDeleteAllGradeSubjects = async (grade) => {
     if (!confirm(`Are you sure you want to delete all subjects for Grade ${grade}?`)) return;
-    
+
     const gradeSubjects = subjects.filter(s => s.grade === grade);
     if (gradeSubjects.length === 0) return;
 
@@ -653,10 +656,10 @@ export default function AcademicPanel({ subView, setAdminView }) {
     const currentGrid = {};
     daysOfWeek.forEach(day => {
       timeslots.forEach(slot => {
-        const match = teacherTimetables.find(t => 
-          t.teacher && 
-          t.teacher.toLowerCase() === tName.toLowerCase() && 
-          t.day === day && 
+        const match = teacherTimetables.find(t =>
+          t.teacher &&
+          t.teacher.toLowerCase() === tName.toLowerCase() &&
+          t.day === day &&
           t.time === slot
         );
         currentGrid[`${day}_${slot}`] = {
@@ -814,7 +817,7 @@ export default function AcademicPanel({ subView, setAdminView }) {
   // =============================================
   // POST & DELETE API HANDLERS
   // =============================================
-  
+
   // 1. Timetable Slot
   const handleTimetableSubmit = async (e) => {
     e.preventDefault();
@@ -856,12 +859,12 @@ export default function AcademicPanel({ subView, setAdminView }) {
     if (!pub) return false;
     const current = timetables.filter(t => t.cohort === cohort);
     if (current.length !== pub.slots.length) return false;
-    return current.every(c => 
-      pub.slots.some(p => 
-        c.day === p.day && 
-        c.time === p.time && 
-        c.subject === p.subject && 
-        c.teacher === p.teacher && 
+    return current.every(c =>
+      pub.slots.some(p =>
+        c.day === p.day &&
+        c.time === p.time &&
+        c.subject === p.subject &&
+        c.teacher === p.teacher &&
         c.room === p.room
       )
     );
@@ -873,11 +876,11 @@ export default function AcademicPanel({ subView, setAdminView }) {
     if (!pub) return false;
     const current = teacherTimetables.filter(t => t.teacher && t.teacher.toLowerCase() === tName.toLowerCase());
     if (current.length !== pub.slots.length) return false;
-    return current.every(c => 
-      pub.slots.some(p => 
-        c.cohort === p.cohort && 
-        c.day === p.day && 
-        c.time === p.time && 
+    return current.every(c =>
+      pub.slots.some(p =>
+        c.cohort === p.cohort &&
+        c.day === p.day &&
+        c.time === p.time &&
         c.subject === p.subject
       )
     );
@@ -950,7 +953,7 @@ export default function AcademicPanel({ subView, setAdminView }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(examForm)
       });
-      
+
       const text = await res.text();
       let data = {};
       try {
@@ -1237,19 +1240,17 @@ export default function AcademicPanel({ subView, setAdminView }) {
       showToast('No timetable data to export.', 'error');
       return;
     }
-    
+
     if (format === 'csv') {
-      const headers = ['Subject', 'Exam Date', 'Start Time', 'End Time', 'Duration', 'Room', 'Invigilator'];
+      const headers = ['Subject', 'Exam Date', 'Start Time', 'End Time', 'Duration'];
       const rows = cohortSchedules.map(s => [
         s.subject || '',
         s.examDate || '',
         s.startTime || '',
         s.endTime || '',
-        s.duration || '',
-        s.roomAllocation || s.room || '',
-        s.invigilator || ''
+        s.duration || ''
       ]);
-      
+
       const csvContent = [headers.join(','), ...rows.map(e => e.map(val => `"${val.replace(/"/g, '""')}"`).join(','))].join('\n');
       const blob = new Blob(["\ufeff" + csvContent], { type: 'text/csv;charset=utf-8;' });
       const url = URL.createObjectURL(blob);
@@ -1262,15 +1263,13 @@ export default function AcademicPanel({ subView, setAdminView }) {
       URL.revokeObjectURL(url);
       showToast('Timetable exported as CSV.', 'success');
     } else if (format === 'excel') {
-      const headers = ['Subject', 'Exam Date', 'Start Time', 'End Time', 'Duration', 'Room', 'Invigilator'];
+      const headers = ['Subject', 'Exam Date', 'Start Time', 'End Time', 'Duration'];
       const rows = cohortSchedules.map(s => [
         s.subject || '',
         s.examDate || '',
         s.startTime || '',
         s.endTime || '',
-        s.duration || '',
-        s.roomAllocation || s.room || '',
-        s.invigilator || ''
+        s.duration || ''
       ]);
       const tsvContent = [headers.join('\t'), ...rows.map(e => e.map(val => val.replace(/\t/g, ' ')).join('\t'))].join('\n');
       const blob = new Blob(["\ufeff" + tsvContent], { type: 'application/vnd.ms-excel;charset=utf-8;' });
@@ -1546,7 +1545,7 @@ export default function AcademicPanel({ subView, setAdminView }) {
     if (!window.confirm(`Are you sure you want to delete the exam timetable for ${cohort}? This action cannot be undone.`)) {
       return;
     }
-    
+
     try {
       const res = await fetch(`/api/academics/exam-timetables/exam/${examId}/cohort/${cohort}`, {
         method: 'DELETE'
@@ -1598,10 +1597,10 @@ export default function AcademicPanel({ subView, setAdminView }) {
       const mm = String(current.getMonth() + 1).padStart(2, '0');
       const dd = String(current.getDate()).padStart(2, '0');
       const dateStr = `${yyyy}-${mm}-${dd}`;
-      
+
       const isSunday = dayOfWeek === 0;
       const isHoliday = holidays.some(h => dateStr >= h.startDate && dateStr <= h.endDate);
-      
+
       if (!isSunday && !isHoliday) {
         dates.push(dateStr);
       }
@@ -1614,7 +1613,7 @@ export default function AcademicPanel({ subView, setAdminView }) {
     const targetGrade = gradeVal;
     const targetSection = sectionVal;
     const targetExamId = examIdVal;
-    
+
     const targetExamObj = exams.find(e => e.id === targetExamId);
     const targetGradeSections = targetExamObj ? (targetExamObj.gradeSections || []) : [];
     const gsObj = targetGradeSections.find(gs => gs.grade === targetGrade && gs.section === targetSection);
@@ -1630,7 +1629,7 @@ export default function AcademicPanel({ subView, setAdminView }) {
       return;
     }
     const startStr = gsObj ? gsObj.startDate : new Date().toISOString().split('T')[0];
-    
+
     const examSchedules = examTimetables.filter(s => s.examId === targetExamId);
     const existingCohortSlots = examSchedules.filter(s => s.cohort === `${targetGrade}-${targetSection}`);
     let initialSlots = [];
@@ -1655,7 +1654,7 @@ export default function AcademicPanel({ subView, setAdminView }) {
         endTime: '12:00 PM'
       }));
     }
-    
+
     if (targetExamId) {
       setActiveExam(targetExamId);
     }
@@ -1672,10 +1671,10 @@ export default function AcademicPanel({ subView, setAdminView }) {
     let hrs = parseInt(match[1]);
     const mins = parseInt(match[2]);
     const ampm = match[3].toLowerCase();
-    
+
     if (ampm === 'pm' && hrs < 12) hrs += 12;
     if (ampm === 'am' && hrs === 12) hrs = 0;
-    
+
     return `${String(hrs).padStart(2, '0')}:${String(mins).padStart(2, '0')}`;
   };
 
@@ -1701,7 +1700,7 @@ export default function AcademicPanel({ subView, setAdminView }) {
     const gsObj = examGradeSections.find(gs => gs.grade === manualGrade && gs.section === manualSection);
     const startStr = gsObj ? gsObj.startDate : new Date().toISOString().split('T')[0];
     const dates = getConsecutiveExamDates(startStr, updatedSlots.length);
-    
+
     const reSequencedSlots = updatedSlots.map((slot, idx) => ({
       ...slot,
       examDate: dates[idx] || slot.examDate
@@ -1740,7 +1739,7 @@ export default function AcademicPanel({ subView, setAdminView }) {
       const filteredSectionsForGrade = allExamGradeSections.filter(gs => gs.grade === manualGrade).map(gs => gs.section);
 
       const sectionsToSave = filteredSectionsForGrade.length > 0 ? filteredSectionsForGrade : [manualSection || 'A'];
-      const promises = sectionsToSave.map(sec => 
+      const promises = sectionsToSave.map(sec =>
         fetch('/api/academics/exam-timetables/bulk', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -1909,13 +1908,13 @@ export default function AcademicPanel({ subView, setAdminView }) {
   // =============================================
   const renderGradeSubjects = () => {
     const gradesList = activeGrades.map(g => g.name);
-    
+
     // Find grades that have subjects configured
     const activeGradesWithSubjects = gradesList.filter(g => subjects.some(s => s.grade === g));
 
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
-        
+
         {/* Main Configuration Card (Original dropdown panel restored) */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', width: '100%', height: 'fit-content' }}>
           <div className="glass-panel" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '20px', height: 'fit-content' }}>
@@ -1928,13 +1927,13 @@ export default function AcademicPanel({ subView, setAdminView }) {
                 <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: 0 }}>Configure subjects per grade.</p>
               </div>
             </div>
-            
+
             <div style={{ display: 'flex', gap: '16px', alignItems: 'flex-end', flexWrap: 'wrap', width: '100%' }}>
               <div className="form-group" style={{ margin: 0, flex: 1, minWidth: '200px' }}>
                 <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Grade Level</label>
-                <select 
-                  className="select-custom" 
-                  value={newSubjectGrade} 
+                <select
+                  className="select-custom"
+                  value={newSubjectGrade}
                   onChange={(e) => setNewSubjectGrade(e.target.value)}
                   style={{ width: '100%', marginTop: '4px', background: 'var(--bg-glass-active)', border: '1px solid var(--border-glass)' }}
                 >
@@ -1943,8 +1942,8 @@ export default function AcademicPanel({ subView, setAdminView }) {
                   ))}
                 </select>
               </div>
-              <button 
-                className="btn-secondary" 
+              <button
+                className="btn-secondary"
                 onClick={() => {
                   const gradeSubjects = subjects.filter(s => s.grade === newSubjectGrade);
                   setEditingSubjects(gradeSubjects);
@@ -1954,7 +1953,7 @@ export default function AcademicPanel({ subView, setAdminView }) {
                   });
                   setNewSubjectsList(prefilled);
                   setShowSubjectsModal(true);
-                }} 
+                }}
                 style={{ borderRadius: '8px', padding: '10px 24px', justifyContent: 'center', height: '38px', minWidth: '160px' }}
               >
                 Manage Subjects
@@ -1969,7 +1968,7 @@ export default function AcademicPanel({ subView, setAdminView }) {
             <h4 style={{ fontSize: '0.95rem', fontWeight: 800, color: 'var(--text-main)', margin: 0 }}>
               Configured Grade Subjects
             </h4>
-            
+
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '20px' }}>
               {activeGradesWithSubjects.map((g, idx) => {
                 const gradeSubjects = subjects.filter(s => s.grade === g);
@@ -1988,13 +1987,13 @@ export default function AcademicPanel({ subView, setAdminView }) {
                 const borderGrad = gradients[idx % gradients.length];
 
                 return (
-                  <div 
-                    key={g} 
-                    className="glass-panel animate-scale-up" 
-                    style={{ 
-                      padding: '20px', 
-                      display: 'flex', 
-                      flexDirection: 'column', 
+                  <div
+                    key={g}
+                    className="glass-panel animate-scale-up"
+                    style={{
+                      padding: '20px',
+                      display: 'flex',
+                      flexDirection: 'column',
                       gap: '16px',
                       position: 'relative',
                       overflow: 'hidden',
@@ -2011,29 +2010,29 @@ export default function AcademicPanel({ subView, setAdminView }) {
                       <h4 style={{ fontSize: '1rem', fontWeight: 800, margin: 0, color: 'var(--text-main)' }}>
                         Grade {g}
                       </h4>
-                      <span style={{ 
-                        fontSize: '0.75rem', 
-                        fontWeight: 700, 
-                        padding: '2px 8px', 
-                        borderRadius: '12px', 
-                        background: 'rgba(99, 102, 241, 0.08)', 
-                        color: 'hsl(var(--color-primary))' 
+                      <span style={{
+                        fontSize: '0.75rem',
+                        fontWeight: 700,
+                        padding: '2px 8px',
+                        borderRadius: '12px',
+                        background: 'rgba(99, 102, 241, 0.08)',
+                        color: 'hsl(var(--color-primary))'
                       }}>
                         {gradeSubjects.length} {gradeSubjects.length === 1 ? 'Subject' : 'Subjects'}
                       </span>
                     </div>
                     {/* Configured subjects list - rendered one below another without scroll */}
-                    <div style={{ 
-                      display: 'flex', 
-                      flexDirection: 'column', 
+                    <div style={{
+                      display: 'flex',
+                      flexDirection: 'column',
                       gap: '8px'
                     }}>
                       {gradeSubjects.map((sub) => (
-                        <div 
-                          key={sub.id} 
-                          style={{ 
-                            fontSize: '0.85rem', 
-                            fontWeight: 600, 
+                        <div
+                          key={sub.id}
+                          style={{
+                            fontSize: '0.85rem',
+                            fontWeight: 600,
                             color: 'var(--text-main)',
                             padding: '6px 0',
                             borderBottom: '1px solid var(--border-glass)',
@@ -2042,11 +2041,11 @@ export default function AcademicPanel({ subView, setAdminView }) {
                             gap: '10px'
                           }}
                         >
-                          <span style={{ 
-                            width: '6px', 
-                            height: '6px', 
-                            borderRadius: '50%', 
-                            background: borderGrad 
+                          <span style={{
+                            width: '6px',
+                            height: '6px',
+                            borderRadius: '50%',
+                            background: borderGrad
                           }} />
                           {sub.subjectName}
                         </div>
@@ -2054,15 +2053,15 @@ export default function AcademicPanel({ subView, setAdminView }) {
                     </div>
 
                     {/* Actions Row */}
-                    <div style={{ 
-                      display: 'grid', 
-                      gridTemplateColumns: '1fr 1fr', 
-                      gap: '10px', 
-                      borderTop: '1px solid var(--border-glass)', 
+                    <div style={{
+                      display: 'grid',
+                      gridTemplateColumns: '1fr 1fr',
+                      gap: '10px',
+                      borderTop: '1px solid var(--border-glass)',
                       paddingTop: '12px',
                       marginTop: 'auto'
                     }}>
-                      <button 
+                      <button
                         onClick={() => {
                           const gradeSubjects = subjects.filter(s => s.grade === g);
                           setNewSubjectGrade(g);
@@ -2075,9 +2074,9 @@ export default function AcademicPanel({ subView, setAdminView }) {
                           setShowSubjectsModal(true);
                         }}
                         className="btn-secondary"
-                        style={{ 
-                          padding: '6px 12px', 
-                          fontSize: '0.75rem', 
+                        style={{
+                          padding: '6px 12px',
+                          fontSize: '0.75rem',
                           borderRadius: '8px',
                           display: 'flex',
                           alignItems: 'center',
@@ -2088,12 +2087,12 @@ export default function AcademicPanel({ subView, setAdminView }) {
                       >
                         <Edit3 size={12} /> Edit
                       </button>
-                      <button 
+                      <button
                         onClick={() => handleDeleteAllGradeSubjects(g)}
                         className="btn-secondary"
-                        style={{ 
-                          padding: '6px 12px', 
-                          fontSize: '0.75rem', 
+                        style={{
+                          padding: '6px 12px',
+                          fontSize: '0.75rem',
                           borderRadius: '8px',
                           display: 'flex',
                           alignItems: 'center',
@@ -2122,10 +2121,10 @@ export default function AcademicPanel({ subView, setAdminView }) {
     const classSlots = timetables.filter(t => t.cohort === activeClass);
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-        
+
         {/* Operations Grid */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px' }}>
-          
+
           {/* Card 1: Time Slots Management */}
           <div className="glass-panel" style={{ padding: '20px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '16px' }}>
             <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
@@ -2141,9 +2140,9 @@ export default function AcademicPanel({ subView, setAdminView }) {
               <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: '0 0 10px 0' }}>
                 Active slots configured: <strong>{timeslots.length} slots</strong>
               </p>
-              <button 
-                className="btn-secondary" 
-                onClick={() => setShowTimeslotsModal(true)} 
+              <button
+                className="btn-secondary"
+                onClick={() => setShowTimeslotsModal(true)}
                 style={{ width: '100%', borderRadius: '8px', padding: '10px', justifyContent: 'center' }}
               >
                 Manage Slots
@@ -2166,9 +2165,9 @@ export default function AcademicPanel({ subView, setAdminView }) {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                 <div className="form-group" style={{ margin: 0 }}>
                   <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Grade</label>
-                  <select 
-                    className="select-custom" 
-                    value={activeClass.split('-')[0] || 'I'} 
+                  <select
+                    className="select-custom"
+                    value={activeClass.split('-')[0] || 'I'}
                     onChange={(e) => {
                       const currentSection = activeClass.split('-')[1] || 'A';
                       setActiveClass(`${e.target.value}-${currentSection}`);
@@ -2182,9 +2181,9 @@ export default function AcademicPanel({ subView, setAdminView }) {
                 </div>
                 <div className="form-group" style={{ margin: 0 }}>
                   <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Section</label>
-                  <select 
-                    className="select-custom" 
-                    value={activeClass.split('-')[1] || 'A'} 
+                  <select
+                    className="select-custom"
+                    value={activeClass.split('-')[1] || 'A'}
                     onChange={(e) => {
                       const currentGrade = activeClass.split('-')[0] || 'I';
                       setActiveClass(`${currentGrade}-${e.target.value}`);
@@ -2205,14 +2204,14 @@ export default function AcademicPanel({ subView, setAdminView }) {
                   </select>
                 </div>
               </div>
-              <button 
-                className="btn-primary" 
-                onClick={handleOpenBulkModal} 
-                style={{ 
-                  width: '100%', 
-                  background: 'linear-gradient(135deg, hsl(var(--color-primary)) 0%, #4f46e5 100%)', 
-                  borderRadius: '8px', 
-                  padding: '10px', 
+              <button
+                className="btn-primary"
+                onClick={handleOpenBulkModal}
+                style={{
+                  width: '100%',
+                  background: 'linear-gradient(135deg, hsl(var(--color-primary)) 0%, #4f46e5 100%)',
+                  borderRadius: '8px',
+                  padding: '10px',
                   justifyContent: 'center',
                   fontWeight: 700
                 }}
@@ -2231,17 +2230,17 @@ export default function AcademicPanel({ subView, setAdminView }) {
             <h4 style={{ fontSize: '0.9rem', fontWeight: 800, margin: 0, color: 'var(--text-main)' }}>Search & Filter Timetables</h4>
           </div>
           <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
-            <input 
-              type="text" 
-              className="form-control" 
-              placeholder="Search cohort (e.g. IX-A)..." 
+            <input
+              type="text"
+              className="form-control"
+              placeholder="Search cohort (e.g. IX-A)..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               style={{ width: '220px', padding: '6px 12px', borderRadius: '8px', fontSize: '0.82rem', background: 'var(--bg-glass-active)', border: '1px solid var(--border-glass)', color: 'var(--text-main)' }}
             />
-            
-            <select 
-              className="select-custom" 
+
+            <select
+              className="select-custom"
               value={searchGrade}
               onChange={(e) => setSearchGrade(e.target.value)}
               style={{ padding: '6px 12px', borderRadius: '8px', fontSize: '0.82rem', background: 'var(--bg-glass-active)', border: '1px solid var(--border-glass)', color: 'var(--text-main)' }}
@@ -2252,8 +2251,8 @@ export default function AcademicPanel({ subView, setAdminView }) {
               ))}
             </select>
 
-            <select 
-              className="select-custom" 
+            <select
+              className="select-custom"
               value={searchSection}
               onChange={(e) => setSearchSection(e.target.value)}
               style={{ padding: '6px 12px', borderRadius: '8px', fontSize: '0.82rem', background: 'var(--bg-glass-active)', border: '1px solid var(--border-glass)', color: 'var(--text-main)' }}
@@ -2270,7 +2269,7 @@ export default function AcademicPanel({ subView, setAdminView }) {
             </select>
 
             {(searchQuery || searchGrade !== 'All' || searchSection !== 'All') && (
-              <button 
+              <button
                 onClick={() => {
                   setSearchQuery('');
                   setSearchGrade('All');
@@ -2313,18 +2312,18 @@ export default function AcademicPanel({ subView, setAdminView }) {
                       </div>
                       <div style={{ display: 'flex', gap: '8px' }}>
                         {isClassTimetablePublished(cohort) ? (
-                          <button 
-                            className="btn-secondary" 
+                          <button
+                            className="btn-secondary"
                             disabled
-                            style={{ 
-                              padding: '6px 12px', 
-                              fontSize: '0.8rem', 
-                              borderRadius: '8px', 
-                              display: 'flex', 
-                              alignItems: 'center', 
-                              gap: '6px', 
-                              border: '1px solid #10b981', 
-                              color: '#10b981', 
+                            style={{
+                              padding: '6px 12px',
+                              fontSize: '0.8rem',
+                              borderRadius: '8px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '6px',
+                              border: '1px solid #10b981',
+                              color: '#10b981',
                               background: 'rgba(16, 185, 129, 0.05)',
                               cursor: 'not-allowed'
                             }}
@@ -2332,18 +2331,18 @@ export default function AcademicPanel({ subView, setAdminView }) {
                             <Check size={13} /> Published
                           </button>
                         ) : (
-                          <button 
-                            className="btn-primary" 
+                          <button
+                            className="btn-primary"
                             onClick={() => handlePublishTimetable('class', cohort)}
-                            style={{ 
-                              padding: '6px 12px', 
-                              fontSize: '0.8rem', 
-                              borderRadius: '8px', 
-                              display: 'flex', 
-                              alignItems: 'center', 
-                              gap: '6px', 
-                              background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', 
-                              border: 'none', 
+                            style={{
+                              padding: '6px 12px',
+                              fontSize: '0.8rem',
+                              borderRadius: '8px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '6px',
+                              background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                              border: 'none',
                               color: '#ffffff',
                               fontWeight: '600'
                             }}
@@ -2351,15 +2350,15 @@ export default function AcademicPanel({ subView, setAdminView }) {
                             <Send size={13} /> Publish
                           </button>
                         )}
-                        <button 
-                          className="btn-secondary" 
+                        <button
+                          className="btn-secondary"
                           onClick={() => handleOpenBulkModalForCohort(cohort)}
                           style={{ padding: '6px 12px', fontSize: '0.8rem', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '6px', border: '1px solid var(--border-glass)' }}
                         >
                           <Settings size={13} /> Edit Timetable
                         </button>
-                        <button 
-                          className="btn-secondary" 
+                        <button
+                          className="btn-secondary"
                           onClick={() => handleDeleteWholeTimetable(cohort)}
                           style={{ padding: '6px 12px', fontSize: '0.8rem', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '6px', border: '1px solid rgb(var(--color-danger-rgb))', color: 'rgb(var(--color-danger-rgb))' }}
                         >
@@ -2385,13 +2384,13 @@ export default function AcademicPanel({ subView, setAdminView }) {
                             return (
                               <tr key={slot} style={{ background: 'rgba(245, 158, 11, 0.02)' }}>
                                 <td style={{ fontWeight: 700, color: 'hsl(var(--color-primary))', fontSize: '0.8rem', padding: '12px' }}>{slot}</td>
-                                <td colSpan={6} style={{ 
-                                  textAlign: 'center', 
-                                  verticalAlign: 'middle', 
-                                  padding: '12px', 
-                                  fontWeight: 800, 
-                                  color: '#d97706', 
-                                  letterSpacing: '3px', 
+                                <td colSpan={6} style={{
+                                  textAlign: 'center',
+                                  verticalAlign: 'middle',
+                                  padding: '12px',
+                                  fontWeight: 800,
+                                  color: '#d97706',
+                                  letterSpacing: '3px',
                                   fontSize: '0.85rem',
                                   textTransform: 'uppercase',
                                   background: 'rgba(245, 158, 11, 0.04)',
@@ -2469,7 +2468,7 @@ export default function AcademicPanel({ subView, setAdminView }) {
 
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-        
+
         {/* Operations Grid */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px' }}>
           {/* Card: Configure Teacher Timetable */}
@@ -2486,18 +2485,18 @@ export default function AcademicPanel({ subView, setAdminView }) {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               <div className="form-group" style={{ margin: 0 }}>
                 <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Search/Filter Teacher</label>
-                <input 
-                  type="text" 
-                  className="form-control" 
-                  placeholder="Type to filter teachers..." 
+                <input
+                  type="text"
+                  className="form-control"
+                  placeholder="Type to filter teachers..."
                   value={teacherDropdownSearch}
                   onChange={(e) => setTeacherDropdownSearch(e.target.value)}
                   style={{ width: '100%', padding: '6px 12px', borderRadius: '8px', fontSize: '0.82rem', background: 'var(--bg-glass-active)', border: '1px solid var(--border-glass)', color: 'var(--text-main)', marginTop: '4px', marginBottom: '8px' }}
                 />
                 <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Select Teacher</label>
-                <select 
-                  className="select-custom" 
-                  value={activeTeacher} 
+                <select
+                  className="select-custom"
+                  value={activeTeacher}
                   onChange={(e) => setActiveTeacher(e.target.value)}
                   style={{ width: '100%', marginTop: '4px', background: 'var(--bg-glass-active)', border: '1px solid var(--border-glass)' }}
                 >
@@ -2511,14 +2510,14 @@ export default function AcademicPanel({ subView, setAdminView }) {
                   })}
                 </select>
               </div>
-              <button 
-                className="btn-primary" 
-                onClick={handleOpenTeacherBulkModal} 
-                style={{ 
-                  width: '100%', 
-                  background: 'linear-gradient(135deg, hsl(var(--color-primary)) 0%, #4f46e5 100%)', 
-                  borderRadius: '8px', 
-                  padding: '10px', 
+              <button
+                className="btn-primary"
+                onClick={handleOpenTeacherBulkModal}
+                style={{
+                  width: '100%',
+                  background: 'linear-gradient(135deg, hsl(var(--color-primary)) 0%, #4f46e5 100%)',
+                  borderRadius: '8px',
+                  padding: '10px',
                   justifyContent: 'center',
                   fontWeight: 700
                 }}
@@ -2533,19 +2532,19 @@ export default function AcademicPanel({ subView, setAdminView }) {
         <div className="glass-panel" style={{ padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <Search size={18} style={{ color: 'var(--text-muted)' }} />
-               <h4 style={{ fontSize: '0.9rem', fontWeight: 800, margin: 0, color: 'var(--text-main)' }}>Search Teacher Timetables</h4>
+            <h4 style={{ fontSize: '0.9rem', fontWeight: 800, margin: 0, color: 'var(--text-main)' }}>Search Teacher Timetables</h4>
           </div>
           <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
-            <input 
-              type="text" 
-              className="form-control" 
-              placeholder="Search teacher by name..." 
+            <input
+              type="text"
+              className="form-control"
+              placeholder="Search teacher by name..."
               value={teacherSearchQuery}
               onChange={(e) => setTeacherSearchQuery(e.target.value)}
               style={{ width: '250px', padding: '6px 12px', borderRadius: '8px', fontSize: '0.82rem', background: 'var(--bg-glass-active)', border: '1px solid var(--border-glass)', color: 'var(--text-main)' }}
             />
             {teacherSearchQuery && (
-              <button 
+              <button
                 onClick={() => setTeacherSearchQuery('')}
                 className="btn-secondary"
                 style={{ padding: '6px 12px', fontSize: '0.8rem', borderRadius: '8px', border: '1px solid #ef4444', color: '#ef4444' }}
@@ -2560,14 +2559,14 @@ export default function AcademicPanel({ subView, setAdminView }) {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
           {(() => {
             const teachersWithTimetables = [...new Set(teacherTimetables.filter(t => t.teacher && t.teacher.trim() !== '').map(t => t.teacher))].sort();
-            const filteredTeachers = teachersWithTimetables.filter(tName => 
+            const filteredTeachers = teachersWithTimetables.filter(tName =>
               teacherSearchQuery.trim() === '' || tName.toLowerCase().includes(teacherSearchQuery.toLowerCase())
             );
 
             return filteredTeachers.length > 0 ? (
               filteredTeachers.map(tName => {
                 const teacherSlots = teacherTimetables.filter(t => t.teacher && t.teacher.toLowerCase() === tName.toLowerCase());
-                
+
                 // Get teacher details for department/specialization
                 const teacherObj = Array.isArray(teachers) ? teachers.find(t => t.name.toLowerCase() === tName.toLowerCase()) : null;
                 const subjects = teacherObj ? getTeacherSubjects(teacherObj) : '';
@@ -2586,18 +2585,18 @@ export default function AcademicPanel({ subView, setAdminView }) {
                       </div>
                       <div style={{ display: 'flex', gap: '8px' }}>
                         {isTeacherTimetablePublished(tName) ? (
-                          <button 
-                            className="btn-secondary" 
+                          <button
+                            className="btn-secondary"
                             disabled
-                            style={{ 
-                              padding: '6px 12px', 
-                              fontSize: '0.8rem', 
-                              borderRadius: '8px', 
-                              display: 'flex', 
-                              alignItems: 'center', 
-                              gap: '6px', 
-                              border: '1px solid #10b981', 
-                              color: '#10b981', 
+                            style={{
+                              padding: '6px 12px',
+                              fontSize: '0.8rem',
+                              borderRadius: '8px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '6px',
+                              border: '1px solid #10b981',
+                              color: '#10b981',
                               background: 'rgba(16, 185, 129, 0.05)',
                               cursor: 'not-allowed'
                             }}
@@ -2605,18 +2604,18 @@ export default function AcademicPanel({ subView, setAdminView }) {
                             <Check size={13} /> Published
                           </button>
                         ) : (
-                          <button 
-                            className="btn-primary" 
+                          <button
+                            className="btn-primary"
                             onClick={() => handlePublishTimetable('teacher', tName)}
-                            style={{ 
-                              padding: '6px 12px', 
-                              fontSize: '0.8rem', 
-                              borderRadius: '8px', 
-                              display: 'flex', 
-                              alignItems: 'center', 
-                              gap: '6px', 
-                              background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', 
-                              border: 'none', 
+                            style={{
+                              padding: '6px 12px',
+                              fontSize: '0.8rem',
+                              borderRadius: '8px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '6px',
+                              background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                              border: 'none',
                               color: '#ffffff',
                               fontWeight: '600'
                             }}
@@ -2624,8 +2623,8 @@ export default function AcademicPanel({ subView, setAdminView }) {
                             <Send size={13} /> Publish
                           </button>
                         )}
-                        <button 
-                          className="btn-secondary" 
+                        <button
+                          className="btn-secondary"
                           onClick={() => {
                             setActiveTeacher(tName);
                             handleOpenTeacherBulkModalForName(tName);
@@ -2634,8 +2633,8 @@ export default function AcademicPanel({ subView, setAdminView }) {
                         >
                           <Settings size={13} /> Edit Timetable
                         </button>
-                        <button 
-                          className="btn-secondary" 
+                        <button
+                          className="btn-secondary"
                           onClick={() => handleDeleteWholeTeacherTimetable(tName)}
                           style={{ padding: '6px 12px', fontSize: '0.8rem', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '6px', border: '1px solid rgb(var(--color-danger-rgb))', color: 'rgb(var(--color-danger-rgb))' }}
                         >
@@ -2652,63 +2651,63 @@ export default function AcademicPanel({ subView, setAdminView }) {
                         </tr>
                       </thead>
                       <tbody>{timeslots.map(slot => {
-                          const breakMatch = slot.match(/\[(.*?)\]/);
-                          const breakType = breakMatch ? breakMatch[1] : null;
-                          const isBreak = !!breakType;
+                        const breakMatch = slot.match(/\[(.*?)\]/);
+                        const breakType = breakMatch ? breakMatch[1] : null;
+                        const isBreak = !!breakType;
 
-                          if (isBreak) {
-                            return (
-                              <tr key={slot} style={{ background: 'rgba(245, 158, 11, 0.02)' }}>
-                                <td style={{ fontWeight: 700, color: 'hsl(var(--color-info))', fontSize: '0.8rem', padding: '12px' }}>{slot}</td>
-                                <td colSpan={6} style={{ 
-                                  textAlign: 'center', 
-                                  verticalAlign: 'middle', 
-                                  padding: '12px', 
-                                  fontWeight: 800, 
-                                  color: '#d97706', 
-                                  letterSpacing: '3px', 
-                                  fontSize: '0.85rem',
-                                  textTransform: 'uppercase',
-                                  background: 'rgba(245, 158, 11, 0.04)',
-                                  borderLeft: '1px solid var(--border-glass)',
-                                  borderRadius: '8px'
-                                }}>
-                                  {breakType === 'Lunch Break' ? '🍱 ' : breakType === 'Short Break' ? '☕ ' : breakType === 'Recess' ? '🏃 ' : breakType === 'Assembly' ? '📢 ' : '⚡ '}{breakType}
-                                </td>
-                              </tr>
-                            );
-                          }
-
+                        if (isBreak) {
                           return (
-                            <tr key={slot}>
-                              <td style={{ fontWeight: 700, color: 'hsl(var(--color-info))', fontSize: '0.8rem' }}>{slot}</td>
-                              {daysOfWeek.map(day => {
-                                const matched = teacherSlots.find(t => t.day === day && t.time === slot);
-                                return (
-                                  <td key={day} style={{ padding: '8px' }}>
-                                    {matched ? (
-                                      <div style={{
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        textAlign: 'center',
-                                        gap: '4px',
-                                        width: '100%'
-                                      }}>
-                                        <Users size={12} style={{ color: 'hsl(var(--color-info))' }} />
-                                        <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-main)' }}>Grade {matched.cohort}</span>
-                                      </div>
-                                    ) : (
-                                      <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', fontStyle: 'italic', padding: '12px', textAlign: 'center' }}>
-                                        Free Study
-                                      </div>
-                                    )}
-                                  </td>
-                                );
-                              })}
+                            <tr key={slot} style={{ background: 'rgba(245, 158, 11, 0.02)' }}>
+                              <td style={{ fontWeight: 700, color: 'hsl(var(--color-info))', fontSize: '0.8rem', padding: '12px' }}>{slot}</td>
+                              <td colSpan={6} style={{
+                                textAlign: 'center',
+                                verticalAlign: 'middle',
+                                padding: '12px',
+                                fontWeight: 800,
+                                color: '#d97706',
+                                letterSpacing: '3px',
+                                fontSize: '0.85rem',
+                                textTransform: 'uppercase',
+                                background: 'rgba(245, 158, 11, 0.04)',
+                                borderLeft: '1px solid var(--border-glass)',
+                                borderRadius: '8px'
+                              }}>
+                                {breakType === 'Lunch Break' ? '🍱 ' : breakType === 'Short Break' ? '☕ ' : breakType === 'Recess' ? '🏃 ' : breakType === 'Assembly' ? '📢 ' : '⚡ '}{breakType}
+                              </td>
                             </tr>
                           );
-                        })}
+                        }
+
+                        return (
+                          <tr key={slot}>
+                            <td style={{ fontWeight: 700, color: 'hsl(var(--color-info))', fontSize: '0.8rem' }}>{slot}</td>
+                            {daysOfWeek.map(day => {
+                              const matched = teacherSlots.find(t => t.day === day && t.time === slot);
+                              return (
+                                <td key={day} style={{ padding: '8px' }}>
+                                  {matched ? (
+                                    <div style={{
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'center',
+                                      textAlign: 'center',
+                                      gap: '4px',
+                                      width: '100%'
+                                    }}>
+                                      <Users size={12} style={{ color: 'hsl(var(--color-info))' }} />
+                                      <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-main)' }}>Grade {matched.cohort}</span>
+                                    </div>
+                                  ) : (
+                                    <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', fontStyle: 'italic', padding: '12px', textAlign: 'center' }}>
+                                      Free Study
+                                    </div>
+                                  )}
+                                </td>
+                              );
+                            })}
+                          </tr>
+                        );
+                      })}
                       </tbody>
                     </table>
                   </div>
@@ -2782,12 +2781,17 @@ export default function AcademicPanel({ subView, setAdminView }) {
             <h3 style={{ fontSize: '1.1rem', fontWeight: 700 }}>Exam Management</h3>
             <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Create and manage exams with auto schedule generation.</p>
           </div>
-          <button className="btn-primary" onClick={() => {
-            resetWizardForm();
-            setShowExamWizard(true);
-          }}>
-            <Plus size={16} /> Create New Exam
-          </button>
+          <div style={{ display: 'flex', gap: '10px' }}>
+            <button className="btn-secondary" onClick={() => setShowManageExamTypesModal(true)}>
+              <Settings size={16} /> Manage Exam Types
+            </button>
+            <button className="btn-primary" onClick={() => {
+              resetWizardForm();
+              setShowExamWizard(true);
+            }}>
+              <Plus size={16} /> Create New Exam
+            </button>
+          </div>
         </div>
 
         {/* Search & Filter */}
@@ -2804,7 +2808,7 @@ export default function AcademicPanel({ subView, setAdminView }) {
             </select>
             <select className="select-custom" value={examTypeFilter} onChange={e => { setExamTypeFilter(e.target.value); setSelectedCustomExamFilter('All'); }} style={{ padding: '6px 12px', borderRadius: '8px', fontSize: '0.82rem', background: 'var(--bg-glass-active)', border: '1px solid var(--border-glass)' }}>
               <option value="All">All Types</option>
-              {EXAM_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+              {examTypes.map(t => <option key={t} value={t}>{t}</option>)}
             </select>
             {examTypeFilter === 'Custom Exam' && (
               <select className="select-custom animate-slide-down" value={selectedCustomExamFilter} onChange={e => setSelectedCustomExamFilter(e.target.value)} style={{ padding: '6px 12px', borderRadius: '8px', fontSize: '0.82rem', background: 'var(--bg-glass-active)', border: '1px solid var(--border-glass)' }}>
@@ -2831,7 +2835,7 @@ export default function AcademicPanel({ subView, setAdminView }) {
             }).map(({ ex, gs }) => {
               const earliestStart = gs ? gs.startDate : '';
               const endDate = gs ? gs.endDate : ex.endDate;
-              
+
               // Compute subjects specifically for this grade
               const gradeSubs = gs ? subjects.filter(sub => sub.grade === gs.grade).map(sub => sub.subjectName) : [];
               const uniqueGradeSubs = [...new Set(gradeSubs)];
@@ -2859,15 +2863,15 @@ export default function AcademicPanel({ subView, setAdminView }) {
 
 
               return (
-                <div 
+                <div
                   key={`${ex.id}-${gs ? `${gs.grade}-${gs.section || ''}` : 'none'}`}
-                  className="glass-panel" 
-                  style={{ 
-                    padding: '0', 
-                    borderRadius: '16px', 
-                    overflow: 'hidden', 
-                    display: 'flex', 
-                    flexDirection: 'column', 
+                  className="glass-panel"
+                  style={{
+                    padding: '0',
+                    borderRadius: '16px',
+                    overflow: 'hidden',
+                    display: 'flex',
+                    flexDirection: 'column',
                     transition: 'transform 0.2s, box-shadow 0.2s'
                   }}
                 >
@@ -3017,6 +3021,17 @@ export default function AcademicPanel({ subView, setAdminView }) {
                                   >
                                     <Download size={11} /> Export CSV
                                   </button>
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleExportTimetable(`${gs.grade}-${gs.section}`, 'pdf', cohortSchedules, ex.examName);
+                                    }}
+                                    className="btn-secondary"
+                                    style={{ padding: '4px 8px', fontSize: '0.7rem', display: 'flex', alignItems: 'center', gap: '3px', border: '1px solid var(--border-glass)' }}
+                                  >
+                                    <Download size={11} /> Export PDF
+                                  </button>
                                   <div style={{ marginLeft: 'auto' }}>
                                     {ex.timetablePublished ? (
                                       <span style={{ fontSize: '0.7rem', fontWeight: 700, color: '#10b981', display: 'flex', alignItems: 'center', gap: '3px', background: 'rgba(16,185,129,0.08)', padding: '4px 8px', borderRadius: '6px', border: '1px solid rgba(16,185,129,0.15)' }}>
@@ -3082,18 +3097,18 @@ export default function AcademicPanel({ subView, setAdminView }) {
                       </span>
                     )}
                     {ex.status !== 'Published' && ex.status !== 'Completed' && (
-                      <button 
-                        onClick={(e) => { e.stopPropagation(); handlePublishExam(ex.id); }} 
-                        className="btn-primary" 
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handlePublishExam(ex.id); }}
+                        className="btn-primary"
                         style={{ padding: '6px 10px', fontSize: '0.72rem', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '4px', background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', border: 'none', color: '#fff' }}
                       >
                         <Send size={13} /> Publish
                       </button>
                     )}
                     {ex.status !== 'Completed' && (
-                      <button 
-                        onClick={async (e) => { 
-                          e.stopPropagation(); 
+                      <button
+                        onClick={async (e) => {
+                          e.stopPropagation();
                           if (confirm('Are you sure you want to mark this exam as completed? It will be moved to Exam History.')) {
                             try {
                               const res = await fetch(`/api/academics/exams/${ex.id}`, {
@@ -3112,28 +3127,28 @@ export default function AcademicPanel({ subView, setAdminView }) {
                               showToast('Network error.', 'error');
                             }
                           }
-                        }} 
-                        className="btn-primary" 
+                        }}
+                        className="btn-primary"
                         style={{ padding: '6px 10px', fontSize: '0.72rem', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '4px', background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', border: 'none', color: '#fff' }}
                       >
                         <CheckCircle size={13} /> Mark Completed
                       </button>
                     )}
-                    <button 
-                      onClick={(e) => { e.stopPropagation(); handleEditExam(ex); }} 
-                      className="btn-secondary" 
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleEditExam(ex); }}
+                      className="btn-secondary"
                       style={{ padding: '6px 10px', fontSize: '0.72rem', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '4px', border: '1px solid rgba(99,102,241,0.3)', color: 'hsl(var(--color-primary))' }}
                     >
                       <Edit3 size={13} /> Edit
                     </button>
-                    <button 
-                      onClick={async (e) => { 
-                        e.stopPropagation(); 
+                    <button
+                      onClick={async (e) => {
+                        e.stopPropagation();
                         if (window.confirm('Are you sure you want to delete this exam configuration? This will permanently delete the exam, all its timetable schedules, and all related results.')) {
                           await deleteExamConfig(ex.id);
                         }
-                      }} 
-                      className="btn-secondary" 
+                      }}
+                      className="btn-secondary"
                       style={{ padding: '6px 10px', fontSize: '0.72rem', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '4px', border: '1px solid rgba(239,68,68,0.3)', color: '#ef4444' }}
                     >
                       <Trash2 size={13} /> Delete
@@ -3223,10 +3238,10 @@ export default function AcademicPanel({ subView, setAdminView }) {
         const mm = String(current.getMonth() + 1).padStart(2, '0');
         const dd = String(current.getDate()).padStart(2, '0');
         const dateStr = `${yyyy}-${mm}-${dd}`;
-        
+
         const isSunday = dayOfWeek === 0;
         const isHoliday = holidays.some(h => dateStr >= h.startDate && dateStr <= h.endDate);
-        
+
         if (!isSunday && !isHoliday) {
           dates.push(dateStr);
         }
@@ -3239,7 +3254,7 @@ export default function AcademicPanel({ subView, setAdminView }) {
       const targetGrade = gradeVal;
       const targetSection = sectionVal;
       const targetExamId = examIdVal;
-      
+
       const targetExamObj = exams.find(e => e.id === targetExamId);
       const targetGradeSections = targetExamObj ? (targetExamObj.gradeSections || []) : [];
       const gsObj = targetGradeSections.find(gs => gs.grade === targetGrade && gs.section === targetSection);
@@ -3249,7 +3264,7 @@ export default function AcademicPanel({ subView, setAdminView }) {
         return;
       }
       const startStr = gsObj ? gsObj.startDate : new Date().toISOString().split('T')[0];
-      
+
       const examSchedules = examTimetables.filter(s => s.examId === targetExamId);
       const existingCohortSlots = examSchedules.filter(s => s.cohort === `${targetGrade}-${targetSection}`);
       let initialSlots = [];
@@ -3269,7 +3284,7 @@ export default function AcademicPanel({ subView, setAdminView }) {
           endTime: '12:00 PM'
         }));
       }
-      
+
       if (targetExamId) {
         setActiveExam(targetExamId);
       }
@@ -3299,7 +3314,7 @@ export default function AcademicPanel({ subView, setAdminView }) {
       const gsObj = examGradeSections.find(gs => gs.grade === manualGrade && gs.section === manualSection);
       const startStr = gsObj ? gsObj.startDate : new Date().toISOString().split('T')[0];
       const dates = getConsecutiveExamDates(startStr, updatedSlots.length);
-      
+
       const reSequencedSlots = updatedSlots.map((slot, idx) => ({
         ...slot,
         examDate: dates[idx] || slot.examDate
@@ -3338,10 +3353,10 @@ export default function AcademicPanel({ subView, setAdminView }) {
       let hrs = parseInt(match[1]);
       const mins = parseInt(match[2]);
       const ampm = match[3].toLowerCase();
-      
+
       if (ampm === 'pm' && hrs < 12) hrs += 12;
       if (ampm === 'am' && hrs === 12) hrs = 0;
-      
+
       return `${String(hrs).padStart(2, '0')}:${String(mins).padStart(2, '0')}`;
     };
 
@@ -3360,7 +3375,7 @@ export default function AcademicPanel({ subView, setAdminView }) {
     const handleSaveCustomTimetable = async () => {
       try {
         const sectionsToSave = filteredSectionsForGrade.length > 0 ? filteredSectionsForGrade : [manualSection || 'A'];
-        const promises = sectionsToSave.map(sec => 
+        const promises = sectionsToSave.map(sec =>
           fetch('/api/academics/exam-timetables/bulk', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -3526,15 +3541,15 @@ export default function AcademicPanel({ subView, setAdminView }) {
             <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Configure and view exam schedules manually.</p>
           </div>
           <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
-            <select 
-              className="select-custom" 
-              value={timetableSession} 
-              onChange={(e) => { 
-                setTimetableSession(e.target.value); 
-                setActiveExam(''); 
-                setManualGrade(''); 
-                setManualSection(''); 
-              }} 
+            <select
+              className="select-custom"
+              value={timetableSession}
+              onChange={(e) => {
+                setTimetableSession(e.target.value);
+                setActiveExam('');
+                setManualGrade('');
+                setManualSection('');
+              }}
               style={{ padding: '6px 12px', borderRadius: '8px', fontSize: '0.82rem' }}
             >
               <option value="All">All Sessions</option>
@@ -3542,17 +3557,17 @@ export default function AcademicPanel({ subView, setAdminView }) {
                 <option key={s} value={s}>{s}</option>
               ))}
             </select>
-            <select 
-              className="select-custom" 
-              value={activeExam} 
-              onChange={(e) => { 
+            <select
+              className="select-custom"
+              value={activeExam}
+              onChange={(e) => {
                 const selectedVal = e.target.value;
                 // Find the first non-completed exam with this name
                 const firstExam = exams.find(ex => ex.examName === selectedVal && ex.status !== 'Completed');
-                setActiveExam(firstExam ? firstExam.id : selectedVal); 
-                setManualGrade(''); 
-                setManualSection(''); 
-              }} 
+                setActiveExam(firstExam ? firstExam.id : selectedVal);
+                setManualGrade('');
+                setManualSection('');
+              }}
               style={{ padding: '6px 12px', borderRadius: '8px', fontSize: '0.82rem' }}
             >
               <option value="">All Exams</option>
@@ -3576,19 +3591,19 @@ export default function AcademicPanel({ subView, setAdminView }) {
 
             {activeExam && (
               <>
-                <select 
-                  className="select-custom" 
-                  value={manualGrade} 
-                  onChange={(e) => { 
+                <select
+                  className="select-custom"
+                  value={manualGrade}
+                  onChange={(e) => {
                     const gradeVal = e.target.value;
-                    setManualGrade(gradeVal); 
+                    setManualGrade(gradeVal);
                     if (gradeVal) {
                       const sections = allExamGradeSections.filter(gs => gs.grade === gradeVal).map(gs => gs.section);
                       setManualSection(sections[0] !== undefined ? sections[0] : 'A');
                     } else {
                       setManualSection('');
                     }
-                  }} 
+                  }}
                   style={{ padding: '6px 12px', borderRadius: '8px', fontSize: '0.82rem' }}
                 >
                   <option value="">Select Grade</option>
@@ -3596,14 +3611,14 @@ export default function AcademicPanel({ subView, setAdminView }) {
                     <option key={g} value={g}>Grade {g}</option>
                   ))}
                 </select>
-                <button 
-                  className="btn-primary" 
-                  disabled={!manualGrade} 
+                <button
+                  className="btn-primary"
+                  disabled={!manualGrade}
                   onClick={() => {
                     const matchingExam = matchingExams.find(e => (e.gradeSections || []).some(gs => gs.grade === manualGrade));
                     const examId = matchingExam?.id || activeExam;
                     handleOpenManualScheduler(manualGrade, manualSection, examId);
-                  }} 
+                  }}
                   style={{ padding: '6px 12px', fontSize: '0.8rem', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '6px', background: 'linear-gradient(135deg, hsl(var(--color-primary)) 0%, #4f46e5 100%)' }}
                 >
                   <Plus size={14} /> Create Timetable
@@ -3651,25 +3666,25 @@ export default function AcademicPanel({ subView, setAdminView }) {
                       </div>
                       <h2 style={{ fontSize: '1.25rem', fontWeight: 800, margin: 0, color: 'var(--text-main)' }}>{ex.examName}</h2>
                     </div>
-                    
+
                     <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }} className="no-print">
-                      <button 
-                        className="btn-secondary" 
-                        onClick={() => handleOpenManualScheduler(grade, section, ex.id)} 
+                      <button
+                        className="btn-secondary"
+                        onClick={() => handleOpenManualScheduler(grade, section, ex.id)}
                         style={{ padding: '6px 12px', fontSize: '0.75rem', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '4px', border: '1px solid var(--border-glass)' }}
                       >
                         <Edit3 size={13} /> Edit
                       </button>
-                      <button 
-                        className="btn-secondary" 
-                        onClick={() => handleDeleteCohortTimetable(ex.id, cohort)} 
+                      <button
+                        className="btn-secondary"
+                        onClick={() => handleDeleteCohortTimetable(ex.id, cohort)}
                         style={{ padding: '6px 12px', fontSize: '0.75rem', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '4px', border: '1px solid var(--border-glass)', borderColor: 'rgb(var(--color-danger-rgb))', color: 'rgb(var(--color-danger-rgb))' }}
                       >
                         <Trash2 size={13} /> Delete
                       </button>
-                      <button 
-                        className="btn-secondary" 
-                        onClick={() => handleExportTimetable(cohort, 'pdf', examSchedules, ex.examName)} 
+                      <button
+                        className="btn-secondary"
+                        onClick={() => handleExportTimetable(cohort, 'pdf', examSchedules, ex.examName)}
                         style={{ padding: '6px 12px', fontSize: '0.75rem', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '4px', border: '1px solid var(--border-glass)' }}
                       >
                         <Download size={13} /> Export PDF
@@ -3810,7 +3825,7 @@ export default function AcademicPanel({ subView, setAdminView }) {
             <input type="text" className="form-control" placeholder="Search exam name..." value={examSearch} onChange={e => setExamSearch(e.target.value)} style={{ width: '200px', padding: '6px 12px', borderRadius: '8px', fontSize: '0.82rem', background: 'var(--bg-glass-active)', border: '1px solid var(--border-glass)', color: 'var(--text-main)' }} />
             <select className="select-custom" value={examTypeFilter} onChange={e => { setExamTypeFilter(e.target.value); setSelectedCustomExamFilter('All'); }} style={{ padding: '6px 12px', borderRadius: '8px', fontSize: '0.82rem', background: 'var(--bg-glass-active)', border: '1px solid var(--border-glass)' }}>
               <option value="All">All Types</option>
-              {EXAM_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+              {examTypes.map(t => <option key={t} value={t}>{t}</option>)}
             </select>
             {examTypeFilter === 'Custom Exam' && (
               <select className="select-custom animate-slide-down" value={selectedCustomExamFilter} onChange={e => setSelectedCustomExamFilter(e.target.value)} style={{ padding: '6px 12px', borderRadius: '8px', fontSize: '0.82rem', background: 'var(--bg-glass-active)', border: '1px solid var(--border-glass)' }}>
@@ -3851,15 +3866,15 @@ export default function AcademicPanel({ subView, setAdminView }) {
               const sc = statusColors[ex.status] || statusColors.Draft;
 
               return (
-                <div 
+                <div
                   key={`${ex.id}-${gs ? `${gs.grade}-${gs.section || ''}` : 'none'}`}
-                  className="glass-panel" 
-                  style={{ 
-                    padding: '0', 
-                    borderRadius: '16px', 
-                    overflow: 'hidden', 
-                    display: 'flex', 
-                    flexDirection: 'column', 
+                  className="glass-panel"
+                  style={{
+                    padding: '0',
+                    borderRadius: '16px',
+                    overflow: 'hidden',
+                    display: 'flex',
+                    flexDirection: 'column',
                     transition: 'transform 0.2s, box-shadow 0.2s'
                   }}
                 >
@@ -3925,17 +3940,17 @@ export default function AcademicPanel({ subView, setAdminView }) {
                   {/* Card Actions */}
                   <div style={{ padding: '12px 20px', borderTop: '1px solid var(--border-glass)', display: 'flex', gap: '8px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
                     {examTimetables.some(et => et.examId === ex.id) && (
-                      <button 
-                        onClick={(e) => { e.stopPropagation(); handleViewSchedule(ex.id); }} 
-                        className="btn-secondary" 
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleViewSchedule(ex.id); }}
+                        className="btn-secondary"
                         style={{ padding: '6px 10px', fontSize: '0.72rem', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '4px', border: '1px solid var(--border-glass)' }}
                       >
                         <Eye size={13} /> View Timetable
                       </button>
                     )}
-                    <button 
-                      onClick={(e) => { e.stopPropagation(); handleDelete(ex.id); }} 
-                      className="btn-secondary" 
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleDelete(ex.id); }}
+                      className="btn-secondary"
                       style={{ padding: '6px 10px', fontSize: '0.72rem', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '4px', border: '1px solid rgba(239,68,68,0.3)', color: '#ef4444' }}
                     >
                       <Trash2 size={13} /> Delete
@@ -4005,14 +4020,14 @@ export default function AcademicPanel({ subView, setAdminView }) {
               const sc = statusColors.Published;
 
               return (
-                <div 
+                <div
                   key={`${ex.id}-${gs ? `${gs.grade}-${gs.section || ''}` : 'none'}`}
-                  className="glass-panel" 
-                  style={{ 
-                    padding: '0', 
-                    borderRadius: '16px', 
-                    overflow: 'hidden', 
-                    display: 'flex', 
+                  className="glass-panel"
+                  style={{
+                    padding: '0',
+                    borderRadius: '16px',
+                    overflow: 'hidden',
+                    display: 'flex',
                     flexDirection: 'column'
                   }}
                 >
@@ -4145,28 +4160,7 @@ export default function AcademicPanel({ subView, setAdminView }) {
                       </div>
                     )}
                   </div>
-                  {/* Card Actions */}
-                  <div style={{ padding: '12px 20px', borderTop: '1px solid var(--border-glass)', background: 'rgba(255, 255, 255, 0.01)', display: 'flex', justifyContent: 'flex-end', gap: '8px' }} className="no-print">
-                    <button 
-                      onClick={(e) => { e.stopPropagation(); handleEditExam(ex); }} 
-                      className="btn-secondary" 
-                      style={{ padding: '6px 10px', fontSize: '0.72rem', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '4px', border: '1px solid rgba(99,102,241,0.3)', color: 'hsl(var(--color-primary))' }}
-                    >
-                      <Edit3 size={13} /> Edit
-                    </button>
-                    <button 
-                      onClick={async (e) => { 
-                        e.stopPropagation(); 
-                        if (window.confirm('Are you sure you want to delete this exam configuration? This will permanently delete the exam, all its timetable schedules, and all related results.')) {
-                          await deleteExamConfig(ex.id);
-                        }
-                      }} 
-                      className="btn-secondary" 
-                      style={{ padding: '6px 10px', fontSize: '0.72rem', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '4px', border: '1px solid rgba(239,68,68,0.3)', color: '#ef4444' }}
-                    >
-                      <Trash2 size={13} /> Delete
-                    </button>
-                  </div>
+
                 </div>
               );
             })}
@@ -4202,7 +4196,7 @@ export default function AcademicPanel({ subView, setAdminView }) {
 
         {/* Tabs Row */}
         <div className="glass-panel" style={{ padding: '8px', display: 'flex', gap: '8px', overflowX: 'auto', borderRadius: '12px' }}>
-          <button 
+          <button
             onClick={() => setPublishedSubTab('class')}
             className={`tab-btn-custom ${publishedSubTab === 'class' ? 'active' : ''}`}
             style={{
@@ -4214,7 +4208,7 @@ export default function AcademicPanel({ subView, setAdminView }) {
           >
             <Clock size={16} /> Published Class Timetable
           </button>
-          <button 
+          <button
             onClick={() => setPublishedSubTab('teacher')}
             className={`tab-btn-custom ${publishedSubTab === 'teacher' ? 'active' : ''}`}
             style={{
@@ -4262,13 +4256,13 @@ export default function AcademicPanel({ subView, setAdminView }) {
                           return (
                             <tr key={slot} style={{ background: 'rgba(245, 158, 11, 0.02)' }}>
                               <td style={{ fontWeight: 700, color: 'hsl(var(--color-primary))', fontSize: '0.8rem', padding: '12px' }}>{slot}</td>
-                              <td colSpan={6} style={{ 
-                                textAlign: 'center', 
-                                verticalAlign: 'middle', 
-                                padding: '12px', 
-                                fontWeight: 800, 
-                                color: '#d97706', 
-                                letterSpacing: '3px', 
+                              <td colSpan={6} style={{
+                                textAlign: 'center',
+                                verticalAlign: 'middle',
+                                padding: '12px',
+                                fontWeight: 800,
+                                color: '#d97706',
+                                letterSpacing: '3px',
                                 fontSize: '0.85rem',
                                 textTransform: 'uppercase',
                                 background: 'rgba(245, 158, 11, 0.04)',
@@ -4359,13 +4353,13 @@ export default function AcademicPanel({ subView, setAdminView }) {
                           return (
                             <tr key={slot} style={{ background: 'rgba(245, 158, 11, 0.02)' }}>
                               <td style={{ fontWeight: 700, color: 'hsl(var(--color-info))', fontSize: '0.8rem', padding: '12px' }}>{slot}</td>
-                              <td colSpan={6} style={{ 
-                                textAlign: 'center', 
-                                verticalAlign: 'middle', 
-                                padding: '12px', 
-                                fontWeight: 800, 
-                                color: '#d97706', 
-                                letterSpacing: '3px', 
+                              <td colSpan={6} style={{
+                                textAlign: 'center',
+                                verticalAlign: 'middle',
+                                padding: '12px',
+                                fontWeight: 800,
+                                color: '#d97706',
+                                letterSpacing: '3px',
                                 fontSize: '0.85rem',
                                 textTransform: 'uppercase',
                                 background: 'rgba(245, 158, 11, 0.04)',
@@ -4487,19 +4481,19 @@ export default function AcademicPanel({ subView, setAdminView }) {
                   <span>📍 Venue: {evt.venue}</span>
                   <span>👥 Target: {evt.participants}</span>
                 </div>
-                <div style={{ 
-                  display: 'flex', 
-                  justifyContent: 'flex-end', 
-                  gap: '8px', 
-                  borderTop: '1px solid var(--border-glass)', 
-                  paddingTop: '10px', 
-                  marginTop: '4px', 
-                  alignItems: 'center' 
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'flex-end',
+                  gap: '8px',
+                  borderTop: '1px solid var(--border-glass)',
+                  paddingTop: '10px',
+                  marginTop: '4px',
+                  alignItems: 'center'
                 }}>
                   <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}>
                     <Download size={12} /> Export:
                   </span>
-                  <select 
+                  <select
                     onChange={(e) => {
                       if (e.target.value) {
                         handleExportEvent(evt, e.target.value);
@@ -4507,14 +4501,14 @@ export default function AcademicPanel({ subView, setAdminView }) {
                       }
                     }}
                     className="select-custom"
-                    style={{ 
-                      padding: '2px 8px', 
-                      fontSize: '0.75rem', 
-                      borderRadius: '6px', 
-                      height: '28px', 
-                      background: 'var(--bg-glass-active)', 
-                      border: '1px solid var(--border-glass)', 
-                      color: 'var(--text-main)', 
+                    style={{
+                      padding: '2px 8px',
+                      fontSize: '0.75rem',
+                      borderRadius: '6px',
+                      height: '28px',
+                      background: 'var(--bg-glass-active)',
+                      border: '1px solid var(--border-glass)',
+                      color: 'var(--text-main)',
                       cursor: 'pointer',
                       width: 'auto'
                     }}
@@ -4600,7 +4594,7 @@ export default function AcademicPanel({ subView, setAdminView }) {
                       <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}>
                         <Download size={12} /> Export:
                       </span>
-                      <select 
+                      <select
                         onChange={(e) => {
                           if (e.target.value) {
                             handleExportNotice(nt, e.target.value);
@@ -4608,14 +4602,14 @@ export default function AcademicPanel({ subView, setAdminView }) {
                           }
                         }}
                         className="select-custom"
-                        style={{ 
-                          padding: '2px 8px', 
-                          fontSize: '0.75rem', 
-                          borderRadius: '6px', 
-                          height: '28px', 
-                          background: 'var(--bg-glass-active)', 
-                          border: '1px solid var(--border-glass)', 
-                          color: 'var(--text-main)', 
+                        style={{
+                          padding: '2px 8px',
+                          fontSize: '0.75rem',
+                          borderRadius: '6px',
+                          height: '28px',
+                          background: 'var(--bg-glass-active)',
+                          border: '1px solid var(--border-glass)',
+                          color: 'var(--text-main)',
                           cursor: 'pointer',
                           width: 'auto'
                         }}
@@ -4695,19 +4689,19 @@ export default function AcademicPanel({ subView, setAdminView }) {
                   <span>📅 Start Date: <strong>{new Date(h.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</strong></span>
                   <span>📅 End Date: <strong>{new Date(h.endDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</strong></span>
                 </div>
-                <div style={{ 
-                  display: 'flex', 
-                  justifyContent: 'flex-end', 
-                  gap: '8px', 
-                  borderTop: '1px solid var(--border-glass)', 
-                  paddingTop: '10px', 
-                  marginTop: '4px', 
-                  alignItems: 'center' 
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'flex-end',
+                  gap: '8px',
+                  borderTop: '1px solid var(--border-glass)',
+                  paddingTop: '10px',
+                  marginTop: '4px',
+                  alignItems: 'center'
                 }}>
                   <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}>
                     <Download size={12} /> Export:
                   </span>
-                  <select 
+                  <select
                     onChange={(e) => {
                       if (e.target.value) {
                         handleExportHoliday(h, e.target.value);
@@ -4715,14 +4709,14 @@ export default function AcademicPanel({ subView, setAdminView }) {
                       }
                     }}
                     className="select-custom"
-                    style={{ 
-                      padding: '2px 8px', 
-                      fontSize: '0.75rem', 
-                      borderRadius: '6px', 
-                      height: '28px', 
-                      background: 'var(--bg-glass-active)', 
-                      border: '1px solid var(--border-glass)', 
-                      color: 'var(--text-main)', 
+                    style={{
+                      padding: '2px 8px',
+                      fontSize: '0.75rem',
+                      borderRadius: '6px',
+                      height: '28px',
+                      background: 'var(--bg-glass-active)',
+                      border: '1px solid var(--border-glass)',
+                      color: 'var(--text-main)',
                       cursor: 'pointer',
                       width: 'auto'
                     }}
@@ -4776,7 +4770,7 @@ export default function AcademicPanel({ subView, setAdminView }) {
         const name = (ex.examName || '').toLowerCase();
         const type = (ex.examType || '').toLowerCase();
         return name.includes('half') || name.includes('final') || name.includes('mid') ||
-               type.includes('half') || type.includes('final') || type.includes('mid');
+          type.includes('half') || type.includes('final') || type.includes('mid');
       })
       .map(ex => {
         const startDates = (ex.gradeSections || []).map(gs => gs.startDate).filter(Boolean);
@@ -4886,19 +4880,19 @@ export default function AcademicPanel({ subView, setAdminView }) {
         setShowCalendarEventModal(false);
         setEditingCalendarEventId(null);
         setCalendarEventForm({
-          title: '', 
-          eventType: 'Holiday', 
-          eventDate: '', 
-          startTime: '', 
-          endTime: '', 
-          description: '', 
-          applicableClasses: 'All', 
+          title: '',
+          eventType: 'Holiday',
+          eventDate: '',
+          startTime: '',
+          endTime: '',
+          description: '',
+          applicableClasses: 'All',
           session: '2026-27',
-          color: '#6366f1', 
-          audience: 'All', 
-          recurring: 'None', 
-          reminders: [], 
-          attachments: '', 
+          color: '#6366f1',
+          audience: 'All',
+          recurring: 'None',
+          reminders: [],
+          attachments: '',
           notifications: []
         });
         fetchAllData();
@@ -5143,7 +5137,7 @@ export default function AcademicPanel({ subView, setAdminView }) {
 
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-        
+
 
 
         {/* Master Control Header */}
@@ -5153,33 +5147,33 @@ export default function AcademicPanel({ subView, setAdminView }) {
               <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-main)', margin: 0 }}>Academic Calendar Management</h3>
               <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', margin: '4px 0 0 0' }}>Plan, validate, import, and coordinate all events and milestones across academic sessions.</p>
             </div>
-            
+
             {/* Display-only consolidated calendar panel (Holidays, Events, and Exams are managed in their respective pages) */}
           </div>
 
           <div style={{ borderTop: '1px solid var(--border-glass)', paddingTop: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
             {/* View Switching Tab Filters */}
             <div style={{ display: 'flex', background: 'var(--bg-glass-active)', border: '1px solid var(--border-glass)', borderRadius: '8px', padding: '3px' }}>
-              <button 
-                onClick={() => setCalendarViewMode('month')} 
+              <button
+                onClick={() => setCalendarViewMode('month')}
                 style={{ padding: '6px 14px', fontSize: '0.85rem', fontWeight: 700, borderRadius: '6px', border: 'none', background: calendarViewMode === 'month' ? 'hsl(var(--color-primary))' : 'transparent', color: calendarViewMode === 'month' ? '#fff' : 'var(--text-muted)', cursor: 'pointer', transition: 'all 0.2s ease' }}
               >
                 Month View
               </button>
-              <button 
-                onClick={() => setCalendarViewMode('week')} 
+              <button
+                onClick={() => setCalendarViewMode('week')}
                 style={{ padding: '6px 14px', fontSize: '0.85rem', fontWeight: 700, borderRadius: '6px', border: 'none', background: calendarViewMode === 'week' ? 'hsl(var(--color-primary))' : 'transparent', color: calendarViewMode === 'week' ? '#fff' : 'var(--text-muted)', cursor: 'pointer', transition: 'all 0.2s ease' }}
               >
                 Week View
               </button>
-              <button 
-                onClick={() => setCalendarViewMode('list')} 
+              <button
+                onClick={() => setCalendarViewMode('list')}
                 style={{ padding: '6px 14px', fontSize: '0.85rem', fontWeight: 700, borderRadius: '6px', border: 'none', background: calendarViewMode === 'list' ? 'hsl(var(--color-primary))' : 'transparent', color: calendarViewMode === 'list' ? '#fff' : 'var(--text-muted)', cursor: 'pointer', transition: 'all 0.2s ease' }}
               >
                 List View
               </button>
-              <button 
-                onClick={() => setCalendarViewMode('agenda')} 
+              <button
+                onClick={() => setCalendarViewMode('agenda')}
                 style={{ padding: '6px 14px', fontSize: '0.85rem', fontWeight: 700, borderRadius: '6px', border: 'none', background: calendarViewMode === 'agenda' ? 'hsl(var(--color-primary))' : 'transparent', color: calendarViewMode === 'agenda' ? '#fff' : 'var(--text-muted)', cursor: 'pointer', transition: 'all 0.2s ease' }}
               >
                 Agenda View
@@ -5221,7 +5215,7 @@ export default function AcademicPanel({ subView, setAdminView }) {
 
         {/* Viewport Render Block */}
         <div id="printable-calendar-view" className="glass-panel" style={{ padding: '24px' }}>
-          
+
           {/* Calendar Title (Only printed or visible at top of sheet) */}
           <div style={{ display: 'none' }} className="print-header">
             <h2 style={{ fontSize: '1.5rem', fontWeight: 800, textAlign: 'center', margin: '0 0 10px 0' }}>Academic Master Calendar</h2>
@@ -5232,7 +5226,7 @@ export default function AcademicPanel({ subView, setAdminView }) {
 
           {calendarViewMode === 'month' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              
+
               {/* Monthly Nav Toolbar */}
               <div className="no-print" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                 <div style={{ display: 'flex', gap: '8px' }}>
@@ -5253,13 +5247,13 @@ export default function AcademicPanel({ subView, setAdminView }) {
                     }
                   }} style={{ padding: '6px 12px', borderRadius: '8px' }}>Next →</button>
                 </div>
-                
+
                 <h4 style={{ fontSize: '1.15rem', fontWeight: 800, margin: 0, color: 'var(--text-main)' }}>
                   {monthsList[activeMonth]} {calendarYear}
                 </h4>
 
                 <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                  <select 
+                  <select
                     onChange={(e) => {
                       if (e.target.value) {
                         handleExportCalendar(e.target.value);
@@ -5267,12 +5261,12 @@ export default function AcademicPanel({ subView, setAdminView }) {
                       }
                     }}
                     className="btn-secondary"
-                    style={{ 
-                      height: '36px', 
-                      padding: '0 12px', 
-                      borderRadius: '8px', 
-                      background: 'var(--bg-card)', 
-                      color: 'var(--text-main)', 
+                    style={{
+                      height: '36px',
+                      padding: '0 12px',
+                      borderRadius: '8px',
+                      background: 'var(--bg-card)',
+                      color: 'var(--text-main)',
                       border: '1px solid var(--border-glass)',
                       cursor: 'pointer',
                       fontSize: '0.82rem',
@@ -5324,24 +5318,24 @@ export default function AcademicPanel({ subView, setAdminView }) {
                       position: 'relative'
                     }}>
                       <span style={{ fontSize: '0.85rem', fontWeight: 800, color: isToday ? 'hsl(var(--color-primary))' : 'var(--text-main)' }}>{cell.day}</span>
-                      
+
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', overflowY: 'auto', maxHeight: '70px', paddingRight: '2px' }}>
                         {cell.events.map(e => {
                           const style = getEventColorStyle(e.eventType);
                           return (
-                            <span 
-                              key={e.id} 
+                            <span
+                              key={e.id}
                               onClick={() => {
                                 if (e.isEditable) {
                                   setEditingCalendarEventId(e.id);
                                   setCalendarEventForm({
-                                    title: e.title, 
-                                    eventType: e.eventType, 
-                                    eventDate: e.eventDate, 
-                                    startTime: e.startTime || '', 
-                                    endTime: e.endTime || '', 
-                                    description: e.description || '', 
-                                    applicableClasses: e.applicableClasses || 'All', 
+                                    title: e.title,
+                                    eventType: e.eventType,
+                                    eventDate: e.eventDate,
+                                    startTime: e.startTime || '',
+                                    endTime: e.endTime || '',
+                                    description: e.description || '',
+                                    applicableClasses: e.applicableClasses || 'All',
                                     session: e.session || '2026-27',
                                     color: e.color || '#6366f1',
                                     audience: e.audience || 'All',
@@ -5356,19 +5350,19 @@ export default function AcademicPanel({ subView, setAdminView }) {
                                 }
                               }}
                               style={{
-                                fontSize: '0.62rem', 
-                                fontWeight: 700, 
-                                padding: '2px 6px', 
+                                fontSize: '0.62rem',
+                                fontWeight: 700,
+                                padding: '2px 6px',
                                 borderRadius: '4px',
-                                background: style.bg, 
-                                color: style.text, 
+                                background: style.bg,
+                                color: style.text,
                                 border: `1px solid ${style.border}`,
-                                overflow: 'hidden', 
-                                textOverflow: 'ellipsis', 
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
                                 whiteSpace: 'nowrap',
                                 cursor: 'pointer',
                                 transition: 'all 0.15s ease'
-                              }} 
+                              }}
                               title={e.title}
                               onMouseEnter={el => el.target.style.opacity = '0.8'}
                               onMouseLeave={el => el.target.style.opacity = '1'}
@@ -5387,7 +5381,7 @@ export default function AcademicPanel({ subView, setAdminView }) {
 
           {calendarViewMode === 'week' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              
+
               {/* Weekly Navigation */}
               <div className="no-print" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                 <div style={{ display: 'flex', gap: '8px' }}>
@@ -5408,7 +5402,7 @@ export default function AcademicPanel({ subView, setAdminView }) {
                 </h4>
 
                 <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                  <select 
+                  <select
                     onChange={(e) => {
                       if (e.target.value) {
                         handleExportCalendar(e.target.value);
@@ -5416,12 +5410,12 @@ export default function AcademicPanel({ subView, setAdminView }) {
                       }
                     }}
                     className="btn-secondary"
-                    style={{ 
-                      height: '36px', 
-                      padding: '0 12px', 
-                      borderRadius: '8px', 
-                      background: 'var(--bg-card)', 
-                      color: 'var(--text-main)', 
+                    style={{
+                      height: '36px',
+                      padding: '0 12px',
+                      borderRadius: '8px',
+                      background: 'var(--bg-card)',
+                      color: 'var(--text-main)',
                       border: '1px solid var(--border-glass)',
                       cursor: 'pointer',
                       fontSize: '0.82rem',
@@ -5472,19 +5466,19 @@ export default function AcademicPanel({ subView, setAdminView }) {
                           dayEvents.map(e => {
                             const colors = getEventColorStyle(e.eventType);
                             return (
-                              <div 
+                              <div
                                 key={e.id}
                                 onClick={() => {
                                   if (e.isEditable) {
                                     setEditingCalendarEventId(e.id);
                                     setCalendarEventForm({
-                                      title: e.title, 
-                                      eventType: e.eventType, 
-                                      eventDate: e.eventDate, 
-                                      startTime: e.startTime || '', 
-                                      endTime: e.endTime || '', 
-                                      description: e.description || '', 
-                                      applicableClasses: e.applicableClasses || 'All', 
+                                      title: e.title,
+                                      eventType: e.eventType,
+                                      eventDate: e.eventDate,
+                                      startTime: e.startTime || '',
+                                      endTime: e.endTime || '',
+                                      description: e.description || '',
+                                      applicableClasses: e.applicableClasses || 'All',
                                       session: e.session || '2026-27',
                                       color: e.color || '#6366f1',
                                       audience: e.audience || 'All',
@@ -5534,15 +5528,15 @@ export default function AcademicPanel({ subView, setAdminView }) {
 
           {calendarViewMode === 'list' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              
+
               {/* List View Header Controls */}
               <div className="no-print" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                 <h4 style={{ fontSize: '1.05rem', fontWeight: 800, margin: 0, color: 'var(--text-main)' }}>
                   Chronological Events List ({filteredEvents.length} items found)
                 </h4>
-                
+
                 <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                  <select 
+                  <select
                     onChange={(e) => {
                       if (e.target.value) {
                         handleExportCalendar(e.target.value);
@@ -5550,12 +5544,12 @@ export default function AcademicPanel({ subView, setAdminView }) {
                       }
                     }}
                     className="btn-secondary"
-                    style={{ 
-                      height: '36px', 
-                      padding: '0 12px', 
-                      borderRadius: '8px', 
-                      background: 'var(--bg-card)', 
-                      color: 'var(--text-main)', 
+                    style={{
+                      height: '36px',
+                      padding: '0 12px',
+                      borderRadius: '8px',
+                      background: 'var(--bg-card)',
+                      color: 'var(--text-main)',
                       border: '1px solid var(--border-glass)',
                       cursor: 'pointer',
                       fontSize: '0.82rem',
@@ -5618,17 +5612,17 @@ export default function AcademicPanel({ subView, setAdminView }) {
                               <div style={{ display: 'flex', gap: '6px', justifyContent: 'center', alignItems: 'center', flexWrap: 'wrap' }}>
                                 {/* Edit Button */}
                                 {e.isEditable && (
-                                  <button 
+                                  <button
                                     onClick={() => {
                                       setEditingCalendarEventId(e.id);
                                       setCalendarEventForm({
-                                        title: e.title, 
-                                        eventType: e.eventType, 
-                                        eventDate: e.eventDate, 
-                                        startTime: e.startTime || '', 
-                                        endTime: e.endTime || '', 
-                                        description: e.description || '', 
-                                        applicableClasses: e.applicableClasses || 'All', 
+                                        title: e.title,
+                                        eventType: e.eventType,
+                                        eventDate: e.eventDate,
+                                        startTime: e.startTime || '',
+                                        endTime: e.endTime || '',
+                                        description: e.description || '',
+                                        applicableClasses: e.applicableClasses || 'All',
                                         session: e.session || '2026-27',
                                         color: e.color || '#6366f1',
                                         audience: e.audience || 'All',
@@ -5648,7 +5642,7 @@ export default function AcademicPanel({ subView, setAdminView }) {
                                 )}
                                 {/* Delete Button */}
                                 {e.isEditable && (
-                                  <button 
+                                  <button
                                     onClick={() => handleDeleteCalendarEvent(e.id)}
                                     style={{ padding: '5px 10px', borderRadius: '6px', border: '1px solid rgba(239,68,68,0.15)', background: 'rgba(239,68,68,0.06)', cursor: 'pointer', color: '#ef4444', fontSize: '0.72rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px', transition: 'all 0.2s ease' }}
                                     onMouseEnter={el => el.currentTarget.style.background = 'rgba(239,68,68,0.15)'}
@@ -5659,7 +5653,7 @@ export default function AcademicPanel({ subView, setAdminView }) {
                                 )}
                                 {/* Publish / Published Badge */}
                                 {isPublished ? (
-                                  <span style={{ 
+                                  <span style={{
                                     padding: '5px 10px', borderRadius: '6px', fontSize: '0.72rem', fontWeight: 700,
                                     background: 'rgba(16,185,129,0.1)', color: '#10b981', border: '1px solid rgba(16,185,129,0.2)',
                                     display: 'flex', alignItems: 'center', gap: '4px'
@@ -5667,7 +5661,7 @@ export default function AcademicPanel({ subView, setAdminView }) {
                                     <CheckCircle size={12} /> Published
                                   </span>
                                 ) : (
-                                  <button 
+                                  <button
                                     onClick={() => handlePublishEvent(e.id)}
                                     style={{ padding: '5px 10px', borderRadius: '6px', border: '1px solid rgba(16,185,129,0.2)', background: 'rgba(16,185,129,0.06)', cursor: 'pointer', color: '#10b981', fontSize: '0.72rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px', transition: 'all 0.2s ease' }}
                                     onMouseEnter={el => el.currentTarget.style.background = 'rgba(16,185,129,0.15)'}
@@ -5701,7 +5695,7 @@ export default function AcademicPanel({ subView, setAdminView }) {
                   Chronological Agenda View ({filteredEvents.length} items found)
                 </h4>
                 <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                  <select 
+                  <select
                     onChange={(e) => {
                       if (e.target.value) {
                         handleExportCalendar(e.target.value);
@@ -5709,12 +5703,12 @@ export default function AcademicPanel({ subView, setAdminView }) {
                       }
                     }}
                     className="btn-secondary"
-                    style={{ 
-                      height: '36px', 
-                      padding: '0 12px', 
-                      borderRadius: '8px', 
-                      background: 'var(--bg-card)', 
-                      color: 'var(--text-main)', 
+                    style={{
+                      height: '36px',
+                      padding: '0 12px',
+                      borderRadius: '8px',
+                      background: 'var(--bg-card)',
+                      color: 'var(--text-main)',
                       border: '1px solid var(--border-glass)',
                       cursor: 'pointer',
                       fontSize: '0.82rem',
@@ -5795,20 +5789,20 @@ export default function AcademicPanel({ subView, setAdminView }) {
                                     )}
                                   </div>
                                 </div>
-                                
+
                                 {e.isEditable && isCalendarAdmin && (
                                   <div className="no-print" style={{ display: 'flex', gap: '6px' }}>
-                                    <button 
+                                    <button
                                       onClick={() => {
                                         setEditingCalendarEventId(e.id);
                                         setCalendarEventForm({
-                                          title: e.title, 
-                                          eventType: e.eventType, 
-                                          eventDate: e.eventDate, 
-                                          startTime: e.startTime || '', 
-                                          endTime: e.endTime || '', 
-                                          description: e.description || '', 
-                                          applicableClasses: e.applicableClasses || 'All', 
+                                          title: e.title,
+                                          eventType: e.eventType,
+                                          eventDate: e.eventDate,
+                                          startTime: e.startTime || '',
+                                          endTime: e.endTime || '',
+                                          description: e.description || '',
+                                          applicableClasses: e.applicableClasses || 'All',
                                           session: e.session || '2026-27',
                                           color: e.color || '#6366f1',
                                           audience: e.audience || 'All',
@@ -5823,7 +5817,7 @@ export default function AcademicPanel({ subView, setAdminView }) {
                                     >
                                       Edit
                                     </button>
-                                    <button 
+                                    <button
                                       onClick={() => handleDeleteCalendarEvent(e.id)}
                                       style={{ padding: '4px 8px', borderRadius: '6px', border: '1px solid rgba(239,68,68,0.15)', background: 'transparent', cursor: 'pointer', color: '#ef4444', fontSize: '0.7rem' }}
                                     >
@@ -5924,9 +5918,9 @@ export default function AcademicPanel({ subView, setAdminView }) {
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                     <div className="form-group">
                       <label style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-muted)' }}>Target Audience *</label>
-                      <select 
-                        className="form-control" 
-                        value={calendarEventForm.audience} 
+                      <select
+                        className="form-control"
+                        value={calendarEventForm.audience}
                         onChange={e => setCalendarEventForm({ ...calendarEventForm, audience: e.target.value })}
                         required
                         style={{ background: 'var(--bg-form)', color: 'var(--text-main)' }}
@@ -5939,9 +5933,9 @@ export default function AcademicPanel({ subView, setAdminView }) {
                     </div>
                     <div className="form-group">
                       <label style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-muted)' }}>Recurring Interval</label>
-                      <select 
-                        className="form-control" 
-                        value={calendarEventForm.recurring} 
+                      <select
+                        className="form-control"
+                        value={calendarEventForm.recurring}
                         onChange={e => setCalendarEventForm({ ...calendarEventForm, recurring: e.target.value })}
                         style={{ background: 'var(--bg-form)', color: 'var(--text-main)' }}
                       >
@@ -5967,8 +5961,8 @@ export default function AcademicPanel({ subView, setAdminView }) {
                                 checked={isChecked}
                                 onChange={e => {
                                   const list = calendarEventForm.reminders || [];
-                                  const newList = e.target.checked 
-                                    ? [...list, time] 
+                                  const newList = e.target.checked
+                                    ? [...list, time]
                                     : list.filter(item => item !== time);
                                   setCalendarEventForm({ ...calendarEventForm, reminders: newList });
                                 }}
@@ -5991,8 +5985,8 @@ export default function AcademicPanel({ subView, setAdminView }) {
                                 checked={isChecked}
                                 onChange={e => {
                                   const list = calendarEventForm.notifications || [];
-                                  const newList = e.target.checked 
-                                    ? [...list, notif] 
+                                  const newList = e.target.checked
+                                    ? [...list, notif]
                                     : list.filter(item => item !== notif);
                                   setCalendarEventForm({ ...calendarEventForm, notifications: newList });
                                 }}
@@ -6007,12 +6001,12 @@ export default function AcademicPanel({ subView, setAdminView }) {
 
                   <div className="form-group">
                     <label style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-muted)' }}>Attachment Link / Reference</label>
-                    <input 
-                      type="text" 
-                      className="form-control" 
-                      placeholder="e.g. /uploads/syllabus.pdf" 
-                      value={calendarEventForm.attachments || ''} 
-                      onChange={e => setCalendarEventForm({ ...calendarEventForm, attachments: e.target.value })} 
+                    <input
+                      type="text"
+                      className="form-control"
+                      placeholder="e.g. /uploads/syllabus.pdf"
+                      value={calendarEventForm.attachments || ''}
+                      onChange={e => setCalendarEventForm({ ...calendarEventForm, attachments: e.target.value })}
                     />
                   </div>
 
@@ -6056,7 +6050,7 @@ export default function AcademicPanel({ subView, setAdminView }) {
                     <p style={{ fontWeight: 700, fontSize: '0.95rem', margin: 0 }}>Drag and drop your template file here</p>
                     <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '4px' }}>Accepts PDF, Excel, CSV, and ICS/iCal formats</p>
                   </div>
-                  
+
                   <label className="btn-primary" style={{ padding: '10px 24px', borderRadius: '8px', cursor: 'pointer', fontWeight: 700 }}>
                     Choose Local File
                     <input type="file" accept=".csv, .ics, .pdf, .xlsx, .xls, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel, text/calendar, application/pdf" onChange={handleCalendarFileUpload} style={{ display: 'none' }} />
@@ -6091,10 +6085,10 @@ export default function AcademicPanel({ subView, setAdminView }) {
                         </select>
                       </div>
                       <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.82rem', color: 'var(--text-main)', cursor: 'pointer', margin: 0 }}>
-                        <input 
-                          type="checkbox" 
-                          checked={replaceExistingOnImport} 
-                          onChange={e => setReplaceExistingOnImport(e.target.checked)} 
+                        <input
+                          type="checkbox"
+                          checked={replaceExistingOnImport}
+                          onChange={e => setReplaceExistingOnImport(e.target.checked)}
                         />
                         Replace existing events for this session
                       </label>
@@ -6123,8 +6117,8 @@ export default function AcademicPanel({ subView, setAdminView }) {
                       </thead>
                       <tbody>
                         {uploadPreviewRows.map((row, idx) => (
-                          <tr key={idx} style={{ 
-                            borderBottom: '1px solid var(--border-glass)', 
+                          <tr key={idx} style={{
+                            borderBottom: '1px solid var(--border-glass)',
                             background: row.isValid ? 'transparent' : 'rgba(239, 68, 68, 0.04)',
                             opacity: row.isValid ? 1 : 0.95
                           }}>
@@ -6157,10 +6151,10 @@ export default function AcademicPanel({ subView, setAdminView }) {
                       <button className="btn-secondary" style={{ padding: '10px 20px', borderRadius: '8px' }} onClick={() => { setShowUploadModal(false); setUploadPreviewRows([]); setUploadFileName(''); }}>
                         Cancel
                       </button>
-                      <button 
-                        className="btn-primary" 
-                        disabled={uploadPreviewRows.some(r => !r.isValid)} 
-                        onClick={handleConfirmCalendarImport} 
+                      <button
+                        className="btn-primary"
+                        disabled={uploadPreviewRows.some(r => !r.isValid)}
+                        onClick={handleConfirmCalendarImport}
                         style={{ padding: '10px 24px', borderRadius: '8px', fontWeight: 700, opacity: uploadPreviewRows.some(r => !r.isValid) ? 0.5 : 1, cursor: uploadPreviewRows.some(r => !r.isValid) ? 'not-allowed' : 'pointer' }}
                       >
                         Confirm Import ({uploadPreviewRows.filter(r => r.isValid).length} Events)
@@ -6238,7 +6232,7 @@ export default function AcademicPanel({ subView, setAdminView }) {
 
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-        
+
         {/* Header */}
         <div className="glass-panel" style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
@@ -6251,7 +6245,7 @@ export default function AcademicPanel({ subView, setAdminView }) {
               </p>
             </div>
             <div style={{ display: 'flex', gap: '8px' }}>
-              <select 
+              <select
                 onChange={(e) => {
                   if (e.target.value) {
                     handleExportCalendar(e.target.value);
@@ -6259,12 +6253,12 @@ export default function AcademicPanel({ subView, setAdminView }) {
                   }
                 }}
                 className="btn-secondary"
-                style={{ 
-                  height: '36px', 
-                  padding: '0 12px', 
-                  borderRadius: '8px', 
-                  background: 'var(--bg-card)', 
-                  color: 'var(--text-main)', 
+                style={{
+                  height: '36px',
+                  padding: '0 12px',
+                  borderRadius: '8px',
+                  background: 'var(--bg-card)',
+                  color: 'var(--text-main)',
                   border: '1px solid var(--border-glass)',
                   cursor: 'pointer',
                   fontSize: '0.82rem',
@@ -6343,7 +6337,7 @@ export default function AcademicPanel({ subView, setAdminView }) {
                         <td style={{ padding: '14px 16px', color: 'var(--text-muted)', fontSize: '0.8rem' }}>{e.description || '-'}</td>
                         <td style={{ padding: '14px 16px', color: 'var(--text-main)', fontWeight: 600, fontSize: '0.8rem' }}>{e.applicableClasses || 'All'}</td>
                         <td className="no-print" style={{ padding: '10px 16px', textAlign: 'center' }}>
-                          <button 
+                          <button
                             onClick={() => handleUnpublishEvent(e.id)}
                             style={{ padding: '5px 10px', borderRadius: '6px', border: '1px solid rgba(239,68,68,0.15)', background: 'rgba(239,68,68,0.06)', cursor: 'pointer', color: '#ef4444', fontSize: '0.72rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px', transition: 'all 0.2s ease', margin: '0 auto' }}
                             onMouseEnter={el => el.currentTarget.style.background = 'rgba(239,68,68,0.15)'}
@@ -6359,7 +6353,7 @@ export default function AcademicPanel({ subView, setAdminView }) {
               </table>
             </div>
           ) : (
-            <div style={{ 
+            <div style={{
               padding: '60px 40px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px'
             }}>
               <div style={{ width: '64px', height: '64px', borderRadius: '50%', background: 'rgba(107,114,128,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -6371,8 +6365,8 @@ export default function AcademicPanel({ subView, setAdminView }) {
                   Go to the Academic Calendar section, switch to List View, and click the <strong>Publish</strong> button on events you want to make official.
                 </p>
               </div>
-              <button 
-                className="btn-primary" 
+              <button
+                className="btn-primary"
                 onClick={() => setAdminView('academic-calendar')}
                 style={{ padding: '10px 24px', borderRadius: '8px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px', marginTop: '8px' }}
               >
@@ -6398,7 +6392,7 @@ export default function AcademicPanel({ subView, setAdminView }) {
             <select className="select-custom" value={activeClass} onChange={(e) => { setActiveClass(e.target.value); setResultsEntry({}); }}>
               {classesList.map((cls, idx) => <option key={idx} value={cls}>Class {cls}</option>)}
             </select>
-             <select className="select-custom" value={activeSubject} onChange={(e) => { setActiveSubject(e.target.value); setResultsEntry({}); }}>
+            <select className="select-custom" value={activeSubject} onChange={(e) => { setActiveSubject(e.target.value); setResultsEntry({}); }}>
               <option value="">Select Subject</option>
               {subjects.filter(s => s.grade === activeClass.split('-')[0]).map(sub => (
                 <option key={sub.id} value={sub.subjectName}>{sub.subjectName}</option>
@@ -6435,7 +6429,7 @@ export default function AcademicPanel({ subView, setAdminView }) {
                 <tbody>
                   {filteredStudents.map(student => {
                     const studentResult = results.find(r => r.studentId === student.id && r.examId === activeExam && r.subject && activeSubject && r.subject.toLowerCase() === activeSubject.toLowerCase());
-                    
+
                     return (
                       <tr key={student.id}>
                         <td style={{ fontWeight: 700 }}>{student.rollNumber || student.roll}</td>
@@ -6633,9 +6627,9 @@ export default function AcademicPanel({ subView, setAdminView }) {
                 </div>
                 <div className="form-group">
                   <label>Subject</label>
-                  <select 
-                    className="form-control" 
-                    value={timetableForm.subject} 
+                  <select
+                    className="form-control"
+                    value={timetableForm.subject}
                     onChange={(e) => setTimetableForm({ ...timetableForm, subject: e.target.value })}
                     required
                   >
@@ -6645,12 +6639,12 @@ export default function AcademicPanel({ subView, setAdminView }) {
                 </div>
                 <div className="form-group">
                   <label>Room Allocation</label>
-                  <input 
-                    type="text" 
-                    className="form-control" 
-                    placeholder="e.g. Room 101" 
-                    value={timetableForm.room} 
-                    onChange={(e) => setTimetableForm({ ...timetableForm, room: e.target.value })} 
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="e.g. Room 101"
+                    value={timetableForm.room}
+                    onChange={(e) => setTimetableForm({ ...timetableForm, room: e.target.value })}
                   />
                 </div>
               </div>
@@ -6869,7 +6863,7 @@ export default function AcademicPanel({ subView, setAdminView }) {
 
   return (
     <div className="animate-slide-up" style={{ display: 'flex', flexDirection: 'column', gap: '24px', paddingBottom: '40px' }}>
-      
+
       {/* Toast notifications */}
       {notification && (
         <div style={{
@@ -6895,9 +6889,9 @@ export default function AcademicPanel({ subView, setAdminView }) {
 
 
       {/* Sub-navigation Menu Header for Academic Manager */}
-      {['academic-manager', 'academic-class-timetable', 'academic-teacher-timetable', 'academic-exams', 'academic-exams-history', 'academic-exam-timetable'].includes(subView) && (
+      {['academic-manager', 'academic-class-timetable', 'academic-teacher-timetable', 'academic-exams', 'academic-exams-history'].includes(subView) && (
         <div className="glass-panel" style={{ padding: '8px', display: 'flex', gap: '8px', overflowX: 'auto', borderRadius: '12px' }}>
-          <button 
+          <button
             onClick={() => {
               setAdminView('academic-class-timetable');
             }}
@@ -6911,7 +6905,7 @@ export default function AcademicPanel({ subView, setAdminView }) {
           >
             <Clock size={16} /> Class Timetable
           </button>
-          <button 
+          <button
             onClick={() => {
               setAdminView('academic-teacher-timetable');
             }}
@@ -6925,21 +6919,7 @@ export default function AcademicPanel({ subView, setAdminView }) {
           >
             <UserCheck size={16} /> Teacher Timetable
           </button>
-          <button 
-            onClick={() => {
-              setAdminView('academic-exam-timetable');
-            }}
-            className={`tab-btn-custom ${subView === 'academic-exam-timetable' ? 'active' : ''}`}
-            style={{
-              display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px', borderRadius: '8px', fontSize: '0.85rem', fontWeight: 600, border: 'none', cursor: 'pointer',
-              background: subView === 'academic-exam-timetable' ? 'rgba(99,102,241,0.1)' : 'transparent',
-              color: subView === 'academic-exam-timetable' ? 'rgb(99,102,241)' : 'var(--text-muted)',
-              transition: 'all 0.2s ease'
-            }}
-          >
-            <Calendar size={16} /> Exam Timetable
-          </button>
-          <button 
+          <button
             onClick={() => {
               setAdminView('academic-exams');
             }}
@@ -6953,7 +6933,7 @@ export default function AcademicPanel({ subView, setAdminView }) {
           >
             <ClipboardList size={16} /> Exam Management
           </button>
-          <button 
+          <button
             onClick={() => {
               setAdminView('academic-exams-history');
             }}
@@ -6973,7 +6953,7 @@ export default function AcademicPanel({ subView, setAdminView }) {
       {/* Sub-navigation Menu Header for Academic Activities */}
       {['academic-activities', 'academic-events', 'academic-notices', 'academic-holidays'].includes(subView) && (
         <div className="glass-panel" style={{ padding: '8px', display: 'flex', gap: '8px', overflowX: 'auto', borderRadius: '12px' }}>
-          <button 
+          <button
             onClick={() => {
               setAdminView('academic-events');
             }}
@@ -6987,7 +6967,7 @@ export default function AcademicPanel({ subView, setAdminView }) {
           >
             <School size={16} /> Events Management
           </button>
-          <button 
+          <button
             onClick={() => {
               setAdminView('academic-notices');
             }}
@@ -7001,7 +6981,7 @@ export default function AcademicPanel({ subView, setAdminView }) {
           >
             <Bell size={16} /> Notices & Boards
           </button>
-          <button 
+          <button
             onClick={() => {
               setAdminView('academic-holidays');
             }}
@@ -7079,27 +7059,27 @@ export default function AcademicPanel({ subView, setAdminView }) {
                   <label>Academic Session *</label>
                   <select className="form-control" value={wizardForm.academicSession} onChange={e => setWizardForm({ ...wizardForm, academicSession: e.target.value })} style={{ marginTop: '4px' }}>
                     {Array.from({ length: 2030 - 2026 + 1 }, (_, i) => {
-  const s = 2026 + i;
-  return `${s}-${s + 1}`;
-}).map(sy => <option key={sy} value={sy}>{sy}</option>)}
+                      const s = 2026 + i;
+                      return `${s}-${s + 1}`;
+                    }).map(sy => <option key={sy} value={sy}>{sy}</option>)}
                   </select>
                 </div>
                 <div className="form-group">
                   <label>Exam Type *</label>
                   <select className="form-control" value={wizardForm.examType} onChange={e => setWizardForm({ ...wizardForm, examType: e.target.value })} style={{ marginTop: '4px' }}>
-                    {EXAM_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                    {examTypes.map(t => <option key={t} value={t}>{t}</option>)}
                   </select>
                 </div>
                 {wizardForm.examType === 'Custom Exam' && (
                   <div className="form-group animate-slide-down">
                     <label>Name of Custom Exam *</label>
-                    <input 
-                      type="text" 
-                      className="form-control" 
-                      placeholder="e.g. Monthly Test October" 
-                      value={wizardForm.customExamName || ''} 
-                      onChange={e => setWizardForm({ ...wizardForm, customExamName: e.target.value })} 
-                      style={{ marginTop: '4px' }} 
+                    <input
+                      type="text"
+                      className="form-control"
+                      placeholder="e.g. Monthly Test October"
+                      value={wizardForm.customExamName || ''}
+                      onChange={e => setWizardForm({ ...wizardForm, customExamName: e.target.value })}
+                      style={{ marginTop: '4px' }}
                       required
                     />
                   </div>
@@ -7123,7 +7103,7 @@ export default function AcademicPanel({ subView, setAdminView }) {
                 <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: 0 }}>Select one or more grades.</p>
                 {(() => {
                   const currentExamName = wizardForm.examType === 'Custom Exam' ? wizardForm.customExamName : wizardForm.examType;
-                  
+
                   const normalizeSession = (session) => {
                     if (!session) return '';
                     const clean = session.replace(/\s+/g, '');
@@ -7137,13 +7117,13 @@ export default function AcademicPanel({ subView, setAdminView }) {
 
                   const targetSessionNorm = normalizeSession(wizardForm.academicSession);
                   const alreadyUsedGrades = new Set();
-                  
+
                   exams.forEach(ex => {
                     if (wizardForm.id && ex.id === wizardForm.id) return;
-                    
+
                     const exNameMatch = (ex.examName || '').trim().toLowerCase() === (currentExamName || '').trim().toLowerCase();
                     const exSessionNorm = normalizeSession(ex.academicSession);
-                    
+
                     if (exNameMatch && (!exSessionNorm || exSessionNorm === targetSessionNorm)) {
                       (ex.gradeSections || []).forEach(gs => {
                         alreadyUsedGrades.add(gs.grade);
@@ -7381,64 +7361,64 @@ export default function AcademicPanel({ subView, setAdminView }) {
                         return;
                       }
 
-                    // Check: end date must not be earlier than start date
-                    const invalidDates = wizardForm.selectedGrades.filter(gs => {
-                      const key = `${gs.grade}-${gs.section}`;
-                      return new Date(wizardForm.startDates[key]) > new Date(wizardForm.endDates[key]);
-                    });
-                    if (invalidDates.length > 0) {
-                      showToast('End date cannot be earlier than start date.', 'error');
-                      return;
-                    }
-
-                    const gradeSections = wizardForm.selectedGrades.map(gs => ({
-                      grade: gs.grade,
-                      section: gs.section,
-                      startDate: wizardForm.startDates[`${gs.grade}-${gs.section}`],
-                      endDate: wizardForm.endDates[`${gs.grade}-${gs.section}`]
-                    }));
-
-                    try {
-                      const url = wizardForm.id ? `/api/academics/exams/${wizardForm.id}` : '/api/academics/exams';
-                      const method = wizardForm.id ? 'PUT' : 'POST';
-                      
-                      const existingExam = wizardForm.id ? exams.find(e => e.id === wizardForm.id) : null;
-                      const hasSchedules = wizardForm.id ? examTimetables.some(et => et.examId === wizardForm.id) : false;
-                      const statusVal = existingExam ? (hasSchedules ? 'Scheduled' : 'Draft') : 'Draft';
-
-                      const res = await fetch(url, {
-                        method: method,
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                          examName: examName,
-                          examType: wizardForm.examType,
-                          academicSession: wizardForm.academicSession,
-                          description: wizardForm.description,
-                          totalMarks: wizardForm.totalMarks,
-                          subjectMarks: wizardForm.subjectMarks,
-                          subjectIncluded: wizardForm.subjectIncluded,
-                          gradeSections,
-                          status: statusVal,
-                          timetablePublished: false
-                        })
+                      // Check: end date must not be earlier than start date
+                      const invalidDates = wizardForm.selectedGrades.filter(gs => {
+                        const key = `${gs.grade}-${gs.section}`;
+                        return new Date(wizardForm.startDates[key]) > new Date(wizardForm.endDates[key]);
                       });
-                      if (res.ok) {
-                        showToast(wizardForm.id ? 'Exam updated successfully!' : 'Exam created successfully!', 'success');
-                        resetWizardForm();
-                        setShowExamWizard(false);
-                        fetchAllData();
-                      } else {
-                        const data = await res.json();
-                        showToast(data.error || 'Failed to save exam.', 'error');
+                      if (invalidDates.length > 0) {
+                        showToast('End date cannot be earlier than start date.', 'error');
+                        return;
                       }
-                    } catch (e) {
-                      showToast('Network error.', 'error');
-                    }
-                  }} style={{ padding: '10px 24px', borderRadius: '8px', fontWeight: 700, background: 'linear-gradient(135deg, hsl(var(--color-primary)) 0%, #4f46e5 100%)', border: 'none', color: '#fff', cursor: 'pointer' }}>
-                    {wizardForm.id ? 'Save Exam' : 'Create Exam'}
-                  </button>
-                </div>
-              )}
+
+                      const gradeSections = wizardForm.selectedGrades.map(gs => ({
+                        grade: gs.grade,
+                        section: gs.section,
+                        startDate: wizardForm.startDates[`${gs.grade}-${gs.section}`],
+                        endDate: wizardForm.endDates[`${gs.grade}-${gs.section}`]
+                      }));
+
+                      try {
+                        const url = wizardForm.id ? `/api/academics/exams/${wizardForm.id}` : '/api/academics/exams';
+                        const method = wizardForm.id ? 'PUT' : 'POST';
+
+                        const existingExam = wizardForm.id ? exams.find(e => e.id === wizardForm.id) : null;
+                        const hasSchedules = wizardForm.id ? examTimetables.some(et => et.examId === wizardForm.id) : false;
+                        const statusVal = existingExam ? (hasSchedules ? 'Scheduled' : 'Draft') : 'Draft';
+
+                        const res = await fetch(url, {
+                          method: method,
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({
+                            examName: examName,
+                            examType: wizardForm.examType,
+                            academicSession: wizardForm.academicSession,
+                            description: wizardForm.description,
+                            totalMarks: wizardForm.totalMarks,
+                            subjectMarks: wizardForm.subjectMarks,
+                            subjectIncluded: wizardForm.subjectIncluded,
+                            gradeSections,
+                            status: statusVal,
+                            timetablePublished: false
+                          })
+                        });
+                        if (res.ok) {
+                          showToast(wizardForm.id ? 'Exam updated successfully!' : 'Exam created successfully!', 'success');
+                          resetWizardForm();
+                          setShowExamWizard(false);
+                          fetchAllData();
+                        } else {
+                          const data = await res.json();
+                          showToast(data.error || 'Failed to save exam.', 'error');
+                        }
+                      } catch (e) {
+                        showToast('Network error.', 'error');
+                      }
+                    }} style={{ padding: '10px 24px', borderRadius: '8px', fontWeight: 700, background: 'linear-gradient(135deg, hsl(var(--color-primary)) 0%, #4f46e5 100%)', border: 'none', color: '#fff', cursor: 'pointer' }}>
+                      {wizardForm.id ? 'Save Exam' : 'Create Exam'}
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -7535,8 +7515,8 @@ export default function AcademicPanel({ subView, setAdminView }) {
               <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-main)', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <Clock size={18} /> Manage Time Slots
               </h3>
-              <button 
-                type="button" 
+              <button
+                type="button"
                 onClick={() => setShowTimeslotsModal(false)}
                 style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '1.5rem', lineHeight: 1 }}
               >
@@ -7550,7 +7530,7 @@ export default function AcademicPanel({ subView, setAdminView }) {
                 timeslots.map((slot, idx) => (
                   <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', background: 'var(--bg-glass-active)', border: '1px solid var(--border-glass)', borderRadius: '8px' }}>
                     <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-main)' }}>{slot}</span>
-                    <button 
+                    <button
                       onClick={() => handleDeleteTimeslot(slot)}
                       style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: '4px' }}
                     >
@@ -7568,30 +7548,30 @@ export default function AcademicPanel({ subView, setAdminView }) {
               <span style={{ fontSize: '0.75rem', fontWeight: 800, color: 'hsl(var(--color-primary))', textTransform: 'uppercase' }}>Add New Period Slot</span>              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                 <div className="form-group">
                   <label style={{ fontSize: '0.75rem' }}>Start Time *</label>
-                  <input 
-                    type="time" 
-                    className="form-control" 
-                    value={startTimeInput} 
-                    onChange={e => setStartTimeInput(e.target.value)} 
-                    required 
+                  <input
+                    type="time"
+                    className="form-control"
+                    value={startTimeInput}
+                    onChange={e => setStartTimeInput(e.target.value)}
+                    required
                   />
                 </div>
                 <div className="form-group">
                   <label style={{ fontSize: '0.75rem' }}>End Time *</label>
-                  <input 
-                    type="time" 
-                    className="form-control" 
-                    value={endTimeInput} 
-                    onChange={e => setEndTimeInput(e.target.value)} 
-                    required 
+                  <input
+                    type="time"
+                    className="form-control"
+                    value={endTimeInput}
+                    onChange={e => setEndTimeInput(e.target.value)}
+                    required
                   />
                 </div>
               </div>
               <div className="form-group" style={{ margin: 0 }}>
                 <label style={{ fontSize: '0.75rem' }}>Slot Type</label>
-                <select 
-                  className="form-control" 
-                  value={timeslotType} 
+                <select
+                  className="form-control"
+                  value={timeslotType}
                   onChange={e => setTimeslotType(e.target.value)}
                   style={{ marginTop: '4px' }}
                 >
@@ -7621,8 +7601,8 @@ export default function AcademicPanel({ subView, setAdminView }) {
               <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-main)', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <BookOpen size={18} /> Manage Grade Subjects
               </h3>
-              <button 
-                type="button" 
+              <button
+                type="button"
                 onClick={() => setShowSubjectsModal(false)}
                 style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '1.5rem', lineHeight: 1 }}
               >
@@ -7633,9 +7613,9 @@ export default function AcademicPanel({ subView, setAdminView }) {
             {/* Filter by Grade */}
             <div className="form-group" style={{ margin: 0 }}>
               <label style={{ fontSize: '0.75rem', fontWeight: 700 }}>Select Grade Level</label>
-              <select 
-                className="form-control" 
-                value={newSubjectGrade} 
+              <select
+                className="form-control"
+                value={newSubjectGrade}
                 onChange={(e) => {
                   const newGrade = e.target.value;
                   setNewSubjectGrade(newGrade);
@@ -7662,7 +7642,7 @@ export default function AcademicPanel({ subView, setAdminView }) {
                 subjects.filter(s => s.grade === newSubjectGrade).map((sub, idx) => (
                   <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', background: 'var(--bg-glass-active)', border: '1px solid var(--border-glass)', borderRadius: '8px' }}>
                     <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-main)' }}>{sub.subjectName}</span>
-                    <button 
+                    <button
                       onClick={async () => {
                         await handleDeleteSubject(sub.id);
                         // Also clear this subject from the form list so it reflects the deletion
@@ -7686,7 +7666,7 @@ export default function AcademicPanel({ subView, setAdminView }) {
             {/* Add New Subjects form in Bulk */}
             <form onSubmit={handleBulkSubjectsSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '14px', borderTop: '1px solid var(--border-glass)', paddingTop: '16px' }}>
               <span style={{ fontSize: '0.75rem', fontWeight: 800, color: 'hsl(var(--color-primary))', textTransform: 'uppercase' }}>Edit / Add Subjects (Up to 10)</span>
-              
+
               <div style={{
                 display: 'grid',
                 gridTemplateColumns: '1fr 1fr',
@@ -7698,16 +7678,16 @@ export default function AcademicPanel({ subView, setAdminView }) {
                 {newSubjectsList.map((val, idx) => (
                   <div key={idx} className="form-group" style={{ margin: 0 }}>
                     <label style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Subject {idx + 1}</label>
-                    <input 
-                      type="text" 
-                      className="form-control" 
+                    <input
+                      type="text"
+                      className="form-control"
                       placeholder={`e.g. Subject ${idx + 1}`}
-                      value={val} 
+                      value={val}
                       onChange={e => {
                         const updated = [...newSubjectsList];
                         updated[idx] = e.target.value;
                         setNewSubjectsList(updated);
-                      }} 
+                      }}
                       style={{ marginTop: '2px', padding: '6px 10px', fontSize: '0.8rem' }}
                     />
                   </div>
@@ -7740,8 +7720,8 @@ export default function AcademicPanel({ subView, setAdminView }) {
                   Configure the entire weekly schedule for Class <strong style={{ color: 'hsl(var(--color-primary))' }}>{activeClass}</strong> at once.
                 </p>
               </div>
-              <button 
-                type="button" 
+              <button
+                type="button"
                 onClick={() => setShowBulkModal(false)}
                 style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '2rem', lineHeight: 1, padding: '4px' }}
               >
@@ -7779,9 +7759,9 @@ export default function AcademicPanel({ subView, setAdminView }) {
 
                           if (isBreak) {
                             return (
-                              <td key={slot} style={{ 
-                                padding: '12px', 
-                                verticalAlign: 'middle', 
+                              <td key={slot} style={{
+                                padding: '12px',
+                                verticalAlign: 'middle',
                                 borderLeft: '1px solid var(--border-glass)',
                                 background: 'rgba(245, 158, 11, 0.03)',
                                 textAlign: 'center',
@@ -7797,15 +7777,15 @@ export default function AcademicPanel({ subView, setAdminView }) {
                           return (
                             <td key={slot} style={{ padding: '12px', verticalAlign: 'top', borderLeft: '1px solid var(--border-glass)' }}>
                               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                <select 
+                                <select
                                   value={cell.subject}
                                   onChange={(e) => handleBulkCellChange(day, slot, 'subject', e.target.value)}
-                                  style={{ 
-                                    width: '100%', 
-                                    padding: '6px 18px 6px 8px', 
-                                    borderRadius: '6px', 
-                                    border: '1px solid var(--border-glass)', 
-                                    fontSize: '0.75rem', 
+                                  style={{
+                                    width: '100%',
+                                    padding: '6px 18px 6px 8px',
+                                    borderRadius: '6px',
+                                    border: '1px solid var(--border-glass)',
+                                    fontSize: '0.75rem',
                                     fontWeight: 600,
                                     textOverflow: 'ellipsis',
                                     whiteSpace: 'nowrap',
@@ -7826,25 +7806,25 @@ export default function AcademicPanel({ subView, setAdminView }) {
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '10px' }}>
-                <button 
-                  type="button" 
+                <button
+                  type="button"
                   onClick={handleClearBulkGrid}
-                  className="btn-secondary" 
+                  className="btn-secondary"
                   style={{ borderColor: '#ef4444', color: '#ef4444', borderRadius: '8px', padding: '10px 18px', fontWeight: 600 }}
                 >
                   Clear All Slots
                 </button>
                 <div style={{ display: 'flex', gap: '12px' }}>
-                  <button 
-                    type="button" 
-                    onClick={() => setShowBulkModal(false)} 
+                  <button
+                    type="button"
+                    onClick={() => setShowBulkModal(false)}
                     className="btn-secondary"
                     style={{ borderRadius: '8px', padding: '10px 18px', fontWeight: 600 }}
                   >
                     Cancel
                   </button>
-                  <button 
-                    type="submit" 
+                  <button
+                    type="submit"
                     className="btn-primary"
                     style={{
                       background: 'linear-gradient(135deg, hsl(var(--color-primary)) 0%, #4f46e5 100%)',
@@ -7879,11 +7859,11 @@ export default function AcademicPanel({ subView, setAdminView }) {
                   <Calendar size={22} style={{ color: 'hsl(var(--color-primary))' }} /> Weekly Teacher Timetable Bulk Editor
                 </h3>
                 <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', margin: '4px 0 0 0' }}>
-                   Configure the entire weekly schedule workload for teacher <strong style={{ color: 'hsl(var(--color-primary))' }}>{activeTeacher}</strong> at once.
+                  Configure the entire weekly schedule workload for teacher <strong style={{ color: 'hsl(var(--color-primary))' }}>{activeTeacher}</strong> at once.
                 </p>
               </div>
-              <button 
-                type="button" 
+              <button
+                type="button"
                 onClick={() => setShowTeacherBulkModal(false)}
                 style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '2rem', lineHeight: 1, padding: '4px' }}
               >
@@ -7908,7 +7888,7 @@ export default function AcademicPanel({ subView, setAdminView }) {
                   </thead>
                   <tbody>
                     {daysOfWeek.map(day => (
-<tr key={day} style={{ borderBottom: '1px solid var(--border-glass)' }}>
+                      <tr key={day} style={{ borderBottom: '1px solid var(--border-glass)' }}>
                         <td style={{ padding: '16px', fontWeight: 800, color: 'hsl(var(--color-primary))', fontSize: '0.85rem', background: 'rgba(255,255,255,0.01)' }}>
                           {day}
                         </td>
@@ -7950,9 +7930,9 @@ export default function AcademicPanel({ subView, setAdminView }) {
 
                             if (isBreak) {
                               return (
-                                <td key={slot} style={{ 
-                                  padding: '12px', 
-                                  verticalAlign: 'middle', 
+                                <td key={slot} style={{
+                                  padding: '12px',
+                                  verticalAlign: 'middle',
                                   borderLeft: '1px solid var(--border-glass)',
                                   background: 'rgba(245, 158, 11, 0.03)',
                                   textAlign: 'center',
@@ -7968,7 +7948,7 @@ export default function AcademicPanel({ subView, setAdminView }) {
                             return (
                               <td key={slot} style={{ padding: '12px', verticalAlign: 'top', borderLeft: '1px solid var(--border-glass)' }}>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                  <select 
+                                  <select
                                     value={cell.cohort}
                                     onChange={(e) => handleTeacherBulkCellChange(day, slot, 'cohort', e.target.value)}
                                     style={{
@@ -8007,25 +7987,25 @@ export default function AcademicPanel({ subView, setAdminView }) {
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '10px' }}>
-                <button 
-                  type="button" 
+                <button
+                  type="button"
                   onClick={handleClearTeacherBulkGrid}
-                  className="btn-secondary" 
+                  className="btn-secondary"
                   style={{ borderColor: '#ef4444', color: '#ef4444', borderRadius: '8px', padding: '10px 18px', fontWeight: 600 }}
                 >
                   Clear All Slots
                 </button>
                 <div style={{ display: 'flex', gap: '12px' }}>
-                  <button 
-                    type="button" 
-                    onClick={() => setShowTeacherBulkModal(false)} 
+                  <button
+                    type="button"
+                    onClick={() => setShowTeacherBulkModal(false)}
                     className="btn-secondary"
                     style={{ borderRadius: '8px', padding: '10px 18px', fontWeight: 600 }}
                   >
                     Cancel
                   </button>
-                  <button 
-                    type="submit" 
+                  <button
+                    type="submit"
                     className="btn-primary"
                     style={{
                       background: 'linear-gradient(135deg, hsl(var(--color-primary)) 0%, #4f46e5 100%)',
@@ -8060,7 +8040,7 @@ export default function AcademicPanel({ subView, setAdminView }) {
             }}>
               <AlertCircle size={32} />
             </div>
-            
+
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               <h3 style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--text-main)', margin: 0 }}>
                 Are you sure to delete?
@@ -8071,16 +8051,16 @@ export default function AcademicPanel({ subView, setAdminView }) {
             </div>
 
             <div style={{ display: 'flex', gap: '12px', width: '100%', marginTop: '8px' }}>
-              <button 
-                type="button" 
-                onClick={cancelDeleteWholeTimetable} 
+              <button
+                type="button"
+                onClick={cancelDeleteWholeTimetable}
                 className="btn-secondary"
                 style={{ flex: 1, borderRadius: '8px', padding: '10px 18px', fontWeight: 600, justifyContent: 'center' }}
               >
                 Cancel
               </button>
-              <button 
-                type="button" 
+              <button
+                type="button"
                 onClick={confirmDeleteWholeTimetable}
                 className="btn-primary"
                 style={{
@@ -8096,6 +8076,145 @@ export default function AcademicPanel({ subView, setAdminView }) {
                 }}
               >
                 Delete
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {showManageExamTypesModal && createPortal(
+        <div className="modal-overlay" style={{ zIndex: 20000000 }}>
+          <div className="animate-scale-up" style={{
+            width: '100%', maxWidth: '500px', padding: '28px', borderRadius: '16px',
+            background: 'var(--bg-card)', border: '1px solid var(--border-glass)',
+            boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)', display: 'flex', flexDirection: 'column', gap: '20px'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-glass)', paddingBottom: '12px' }}>
+              <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-main)', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Settings size={18} /> Manage Exam Types
+              </h3>
+              <button
+                type="button"
+                onClick={() => {
+                  fetchAllData();
+                  setShowManageExamTypesModal(false);
+                }}
+                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '1.5rem', lineHeight: 1 }}
+              >
+                ×
+              </button>
+            </div>
+
+            {/* List of current exam types */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '250px', overflowY: 'auto', paddingRight: '4px' }}>
+              <span style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Current Exam Types</span>
+              {examTypes.length > 0 ? (
+                examTypes.map((type, idx) => (
+                  <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', background: 'var(--bg-glass-active)', border: '1px solid var(--border-glass)', borderRadius: '8px' }}>
+                    <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-main)' }}>{type}</span>
+                    <button
+                      onClick={() => {
+                        const updated = examTypes.filter((_, i) => i !== idx);
+                        setExamTypes(updated);
+                      }}
+                      style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: '4px' }}
+                      title="Delete Exam Type"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                ))
+              ) : (
+                <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontStyle: 'italic', textAlign: 'center', padding: '10px 0' }}>No exam types defined.</span>
+              )}
+            </div>
+
+            {/* Add New Exam Type Form */}
+            <div style={{ borderTop: '1px solid var(--border-glass)', paddingTop: '16px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <span style={{ fontSize: '0.75rem', fontWeight: 800, color: 'hsl(var(--color-primary))', textTransform: 'uppercase' }}>Add New Exam Type</span>
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <input
+                  type="text"
+                  id="new-exam-type-input"
+                  className="form-control"
+                  placeholder="e.g. Mid Term Exam"
+                  style={{ flex: 1, padding: '8px 12px', fontSize: '0.85rem' }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      const val = e.target.value.trim();
+                      if (!val) return;
+                      if (examTypes.includes(val)) {
+                        showToast('Exam type already exists.', 'error');
+                        return;
+                      }
+                      setExamTypes([...examTypes, val]);
+                      e.target.value = '';
+                    }
+                  }}
+                />
+                <button
+                  type="button"
+                  className="btn-primary"
+                  style={{ borderRadius: '8px', padding: '8px 16px', fontSize: '0.85rem', whiteSpace: 'nowrap' }}
+                  onClick={() => {
+                    const input = document.getElementById('new-exam-type-input');
+                    const val = input ? input.value.trim() : '';
+                    if (!val) {
+                      showToast('Please enter an exam type.', 'error');
+                      return;
+                    }
+                    if (examTypes.includes(val)) {
+                      showToast('Exam type already exists.', 'error');
+                      return;
+                    }
+                    setExamTypes([...examTypes, val]);
+                    if (input) input.value = '';
+                  }}
+                >
+                  Add
+                </button>
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div style={{ display: 'flex', gap: '12px', width: '100%', borderTop: '1px solid var(--border-glass)', paddingTop: '16px' }}>
+              <button
+                type="button"
+                onClick={() => {
+                  fetchAllData();
+                  setShowManageExamTypesModal(false);
+                }}
+                className="btn-secondary"
+                style={{ flex: 1, borderRadius: '8px', padding: '10px 18px', fontWeight: 600, justifyContent: 'center' }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    const res = await fetch('/api/academics/exam-types', {
+                      method: 'PUT',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ examTypes })
+                    });
+                    if (res.ok) {
+                      showToast('Exam types saved successfully.', 'success');
+                      setShowManageExamTypesModal(false);
+                      fetchAllData();
+                    } else {
+                      showToast('Failed to save exam types.', 'error');
+                    }
+                  } catch (e) {
+                    showToast('Failed to save exam types.', 'error');
+                  }
+                }}
+                className="btn-primary"
+                style={{ flex: 1, borderRadius: '8px', padding: '10px 18px', fontWeight: 700, justifyContent: 'center' }}
+              >
+                Save Changes
               </button>
             </div>
           </div>

@@ -14,11 +14,12 @@
       "id": "ACT-1782301800955",
       "type": "alert",
       "title": "New School Onboarded",
-      "desc": "School \"Gregory Macias\" registered on the platform.",
+      "description": "School \"Gregory Macias\" registered on the platform.",
       "time": "Just now",
       "timestamp": "2026-06-24T11:50:00.955Z",
       "color": "hsl(var(--color-primary))",
-      "bg": "rgba(hsl(var(--color-primary)), 0.1)"
+      "bg": "rgba(hsl(var(--color-primary)), 0.1)",
+      "tenantId": "platform"
     }
   ],
   "exams": [],
@@ -90,9 +91,11 @@
       "adminEmail": "kakuzovu@mailinator.com",
       "adminUsername": "uttam306115@gmail.com",
       "adminPassword": "uttam@2004",
-      "dbName": "school_quiexplicabo",
+      "ratePerStudent": "250.00",
       "createdAt": "2026-06-24T11:50:00.955Z",
-      "updatedAt": "2026-06-24T11:50:00.955Z"
+      "updatedAt": "2026-06-25T11:39:30.149Z",
+      "dbName": "school_quiexplicabo",
+      "examTypes": "[\"Unit Test-1\",\"Unit Test-2\",\"Unit Test-3\",\"Unit Test-4\",\"Half Yearly\",\"Final Exam\",\"Pre Board\"]"
     }
   ],
   "roles": [
@@ -345,17 +348,6 @@
           "publish": false,
           "manage-settings": false
         },
-        "teacher-directory": {
-          "edit": false,
-          "view": false,
-          "create": false,
-          "delete": false,
-          "export": false,
-          "import": false,
-          "approve": false,
-          "publish": false,
-          "manage-settings": false
-        },
         "attendance-history": {
           "edit": false,
           "view": false,
@@ -367,7 +359,29 @@
           "publish": false,
           "manage-settings": false
         },
+        "employee-directory": {
+          "edit": false,
+          "view": false,
+          "create": false,
+          "delete": false,
+          "export": false,
+          "import": false,
+          "approve": false,
+          "publish": false,
+          "manage-settings": false
+        },
         "academic-activities": {
+          "edit": false,
+          "view": false,
+          "create": false,
+          "delete": false,
+          "export": false,
+          "import": false,
+          "approve": false,
+          "publish": false,
+          "manage-settings": false
+        },
+        "designation-manager": {
           "edit": false,
           "view": false,
           "create": false,
@@ -664,17 +678,6 @@
           "publish": false,
           "manage-settings": false
         },
-        "teacher-directory": {
-          "edit": false,
-          "view": false,
-          "create": false,
-          "delete": false,
-          "export": false,
-          "import": false,
-          "approve": false,
-          "publish": false,
-          "manage-settings": false
-        },
         "attendance-history": {
           "edit": false,
           "view": false,
@@ -686,7 +689,29 @@
           "publish": false,
           "manage-settings": false
         },
+        "employee-directory": {
+          "edit": false,
+          "view": false,
+          "create": false,
+          "delete": false,
+          "export": false,
+          "import": false,
+          "approve": false,
+          "publish": false,
+          "manage-settings": false
+        },
         "academic-activities": {
+          "edit": false,
+          "view": false,
+          "create": false,
+          "delete": false,
+          "export": false,
+          "import": false,
+          "approve": false,
+          "publish": false,
+          "manage-settings": false
+        },
+        "designation-manager": {
           "edit": false,
           "view": false,
           "create": false,
@@ -983,7 +1008,7 @@
           "publish": false,
           "manage-settings": false
         },
-        "teacher-directory": {
+        "attendance-history": {
           "edit": false,
           "view": false,
           "create": false,
@@ -994,7 +1019,7 @@
           "publish": false,
           "manage-settings": false
         },
-        "attendance-history": {
+        "employee-directory": {
           "edit": false,
           "view": false,
           "create": false,
@@ -1016,315 +1041,7 @@
           "publish": false,
           "manage-settings": false
         },
-        "employee-attendance": {
-          "edit": false,
-          "view": false,
-          "create": false,
-          "delete": false,
-          "export": false,
-          "import": false,
-          "approve": false,
-          "publish": false,
-          "manage-settings": false
-        },
-        "published-timetable": {
-          "edit": false,
-          "view": false,
-          "create": false,
-          "delete": false,
-          "export": false,
-          "import": false,
-          "approve": false,
-          "publish": false,
-          "manage-settings": false
-        },
-        "expense-all-expenses": {
-          "edit": false,
-          "view": false,
-          "create": false,
-          "delete": false,
-          "export": false,
-          "import": false,
-          "approve": false,
-          "publish": false,
-          "manage-settings": false
-        }
-      },
-      "createdAt": "2026-06-24T11:10:55.721Z",
-      "tenantId": "platform"
-    },
-    {
-      "id": "role-principal",
-      "name": "Principal",
-      "description": "School principal with full administrative access to all modules and system settings.",
-      "active": true,
-      "isSystem": true,
-      "permissions": {
-        "income": {
-          "edit": false,
-          "view": false,
-          "create": false,
-          "delete": false,
-          "export": false,
-          "import": false,
-          "approve": false,
-          "publish": false,
-          "manage-settings": false
-        },
-        "finance": {
-          "edit": false,
-          "view": false,
-          "create": false,
-          "delete": false,
-          "export": false,
-          "import": false,
-          "approve": false,
-          "publish": false,
-          "manage-settings": false
-        },
-        "overview": {
-          "edit": false,
-          "view": false,
-          "create": false,
-          "delete": false,
-          "export": false,
-          "import": false,
-          "approve": false,
-          "publish": false,
-          "manage-settings": false
-        },
-        "add-staff": {
-          "edit": false,
-          "view": false,
-          "create": false,
-          "delete": false,
-          "export": false,
-          "import": false,
-          "approve": false,
-          "publish": false,
-          "manage-settings": false
-        },
-        "attendance": {
-          "edit": false,
-          "view": false,
-          "create": false,
-          "delete": false,
-          "export": false,
-          "import": false,
-          "approve": false,
-          "publish": false,
-          "manage-settings": false
-        },
-        "add-employee": {
-          "edit": false,
-          "view": false,
-          "create": false,
-          "delete": false,
-          "export": false,
-          "import": false,
-          "approve": false,
-          "publish": false,
-          "manage-settings": false
-        },
-        "published-exam": {
-          "edit": false,
-          "view": false,
-          "create": false,
-          "delete": false,
-          "export": false,
-          "import": false,
-          "approve": false,
-          "publish": false,
-          "manage-settings": false
-        },
-        "expense-history": {
-          "edit": false,
-          "view": false,
-          "create": false,
-          "delete": false,
-          "export": false,
-          "import": false,
-          "approve": false,
-          "publish": false,
-          "manage-settings": false
-        },
-        "expense-tracker": {
-          "edit": false,
-          "view": false,
-          "create": false,
-          "delete": false,
-          "export": false,
-          "import": false,
-          "approve": false,
-          "publish": false,
-          "manage-settings": false
-        },
-        "results-history": {
-          "edit": false,
-          "view": false,
-          "create": false,
-          "delete": false,
-          "export": false,
-          "import": false,
-          "approve": false,
-          "publish": false,
-          "manage-settings": false
-        },
-        "results-manager": {
-          "edit": false,
-          "view": false,
-          "create": false,
-          "delete": false,
-          "export": false,
-          "import": false,
-          "approve": false,
-          "publish": false,
-          "manage-settings": false
-        },
-        "staff-directory": {
-          "edit": false,
-          "view": false,
-          "create": false,
-          "delete": false,
-          "export": false,
-          "import": false,
-          "approve": false,
-          "publish": false,
-          "manage-settings": false
-        },
-        "student-manager": {
-          "edit": false,
-          "view": false,
-          "create": false,
-          "delete": false,
-          "export": false,
-          "import": false,
-          "approve": false,
-          "publish": false,
-          "manage-settings": false
-        },
-        "academic-manager": {
-          "edit": false,
-          "view": false,
-          "create": false,
-          "delete": false,
-          "export": false,
-          "import": false,
-          "approve": false,
-          "publish": false,
-          "manage-settings": false
-        },
-        "auxiliary-income": {
-          "edit": false,
-          "view": false,
-          "create": false,
-          "delete": false,
-          "export": false,
-          "import": false,
-          "approve": false,
-          "publish": false,
-          "manage-settings": false
-        },
-        "grade-management": {
-          "edit": false,
-          "view": false,
-          "create": false,
-          "delete": false,
-          "export": false,
-          "import": false,
-          "approve": false,
-          "publish": false,
-          "manage-settings": false
-        },
-        "register-student": {
-          "edit": false,
-          "view": false,
-          "create": false,
-          "delete": false,
-          "export": false,
-          "import": false,
-          "approve": false,
-          "publish": false,
-          "manage-settings": false
-        },
-        "academic-calendar": {
-          "edit": false,
-          "view": false,
-          "create": false,
-          "delete": false,
-          "export": false,
-          "import": false,
-          "approve": false,
-          "publish": false,
-          "manage-settings": false
-        },
-        "expense-dashboard": {
-          "edit": false,
-          "view": false,
-          "create": false,
-          "delete": false,
-          "export": false,
-          "import": false,
-          "approve": false,
-          "publish": false,
-          "manage-settings": false
-        },
-        "financial-reports": {
-          "edit": false,
-          "view": false,
-          "create": false,
-          "delete": false,
-          "export": false,
-          "import": false,
-          "approve": false,
-          "publish": false,
-          "manage-settings": false
-        },
-        "roles-permissions": {
-          "edit": false,
-          "view": false,
-          "create": false,
-          "delete": false,
-          "export": false,
-          "import": false,
-          "approve": false,
-          "publish": false,
-          "manage-settings": false
-        },
-        "student-directory": {
-          "edit": false,
-          "view": false,
-          "create": false,
-          "delete": false,
-          "export": false,
-          "import": false,
-          "approve": false,
-          "publish": false,
-          "manage-settings": false
-        },
-        "teacher-directory": {
-          "edit": false,
-          "view": false,
-          "create": false,
-          "delete": false,
-          "export": false,
-          "import": false,
-          "approve": false,
-          "publish": false,
-          "manage-settings": false
-        },
-        "attendance-history": {
-          "edit": false,
-          "view": false,
-          "create": false,
-          "delete": false,
-          "export": false,
-          "import": false,
-          "approve": false,
-          "publish": false,
-          "manage-settings": false
-        },
-        "academic-activities": {
+        "designation-manager": {
           "edit": false,
           "view": false,
           "create": false,
@@ -1621,17 +1338,6 @@
           "publish": false,
           "manage-settings": false
         },
-        "teacher-directory": {
-          "edit": false,
-          "view": false,
-          "create": false,
-          "delete": false,
-          "export": false,
-          "import": false,
-          "approve": false,
-          "publish": false,
-          "manage-settings": false
-        },
         "attendance-history": {
           "edit": false,
           "view": false,
@@ -1643,7 +1349,29 @@
           "publish": false,
           "manage-settings": false
         },
+        "employee-directory": {
+          "edit": false,
+          "view": false,
+          "create": false,
+          "delete": false,
+          "export": false,
+          "import": false,
+          "approve": false,
+          "publish": false,
+          "manage-settings": false
+        },
         "academic-activities": {
+          "edit": false,
+          "view": false,
+          "create": false,
+          "delete": false,
+          "export": false,
+          "import": false,
+          "approve": false,
+          "publish": false,
+          "manage-settings": false
+        },
+        "designation-manager": {
           "edit": false,
           "view": false,
           "create": false,
@@ -1693,8 +1421,8 @@
     },
     {
       "id": "role-teacher",
-      "name": "Teacher",
-      "description": "Teacher. Records attendance, enters marks, manages academic activities, and views student profiles.",
+      "name": "Staff",
+      "description": "Staff. Records attendance, enters marks, manages academic activities, and views student profiles.",
       "active": true,
       "isSystem": true,
       "permissions": {
@@ -1940,7 +1668,7 @@
           "publish": false,
           "manage-settings": false
         },
-        "teacher-directory": {
+        "attendance-history": {
           "edit": false,
           "view": false,
           "create": false,
@@ -1951,7 +1679,7 @@
           "publish": false,
           "manage-settings": false
         },
-        "attendance-history": {
+        "employee-directory": {
           "edit": false,
           "view": false,
           "create": false,
@@ -1973,315 +1701,7 @@
           "publish": false,
           "manage-settings": false
         },
-        "employee-attendance": {
-          "edit": false,
-          "view": false,
-          "create": false,
-          "delete": false,
-          "export": false,
-          "import": false,
-          "approve": false,
-          "publish": false,
-          "manage-settings": false
-        },
-        "published-timetable": {
-          "edit": false,
-          "view": false,
-          "create": false,
-          "delete": false,
-          "export": false,
-          "import": false,
-          "approve": false,
-          "publish": false,
-          "manage-settings": false
-        },
-        "expense-all-expenses": {
-          "edit": false,
-          "view": false,
-          "create": false,
-          "delete": false,
-          "export": false,
-          "import": false,
-          "approve": false,
-          "publish": false,
-          "manage-settings": false
-        }
-      },
-      "createdAt": "2026-06-24T11:10:55.721Z",
-      "tenantId": "platform"
-    },
-    {
-      "id": "role-vice-principal",
-      "name": "Vice Principal",
-      "description": "Vice principal with broad access to academics, staff, and student management.",
-      "active": true,
-      "isSystem": true,
-      "permissions": {
-        "income": {
-          "edit": false,
-          "view": false,
-          "create": false,
-          "delete": false,
-          "export": false,
-          "import": false,
-          "approve": false,
-          "publish": false,
-          "manage-settings": false
-        },
-        "finance": {
-          "edit": false,
-          "view": false,
-          "create": false,
-          "delete": false,
-          "export": false,
-          "import": false,
-          "approve": false,
-          "publish": false,
-          "manage-settings": false
-        },
-        "overview": {
-          "edit": false,
-          "view": false,
-          "create": false,
-          "delete": false,
-          "export": false,
-          "import": false,
-          "approve": false,
-          "publish": false,
-          "manage-settings": false
-        },
-        "add-staff": {
-          "edit": false,
-          "view": false,
-          "create": false,
-          "delete": false,
-          "export": false,
-          "import": false,
-          "approve": false,
-          "publish": false,
-          "manage-settings": false
-        },
-        "attendance": {
-          "edit": false,
-          "view": false,
-          "create": false,
-          "delete": false,
-          "export": false,
-          "import": false,
-          "approve": false,
-          "publish": false,
-          "manage-settings": false
-        },
-        "add-employee": {
-          "edit": false,
-          "view": false,
-          "create": false,
-          "delete": false,
-          "export": false,
-          "import": false,
-          "approve": false,
-          "publish": false,
-          "manage-settings": false
-        },
-        "published-exam": {
-          "edit": false,
-          "view": false,
-          "create": false,
-          "delete": false,
-          "export": false,
-          "import": false,
-          "approve": false,
-          "publish": false,
-          "manage-settings": false
-        },
-        "expense-history": {
-          "edit": false,
-          "view": false,
-          "create": false,
-          "delete": false,
-          "export": false,
-          "import": false,
-          "approve": false,
-          "publish": false,
-          "manage-settings": false
-        },
-        "expense-tracker": {
-          "edit": false,
-          "view": false,
-          "create": false,
-          "delete": false,
-          "export": false,
-          "import": false,
-          "approve": false,
-          "publish": false,
-          "manage-settings": false
-        },
-        "results-history": {
-          "edit": false,
-          "view": false,
-          "create": false,
-          "delete": false,
-          "export": false,
-          "import": false,
-          "approve": false,
-          "publish": false,
-          "manage-settings": false
-        },
-        "results-manager": {
-          "edit": false,
-          "view": false,
-          "create": false,
-          "delete": false,
-          "export": false,
-          "import": false,
-          "approve": false,
-          "publish": false,
-          "manage-settings": false
-        },
-        "staff-directory": {
-          "edit": false,
-          "view": false,
-          "create": false,
-          "delete": false,
-          "export": false,
-          "import": false,
-          "approve": false,
-          "publish": false,
-          "manage-settings": false
-        },
-        "student-manager": {
-          "edit": false,
-          "view": false,
-          "create": false,
-          "delete": false,
-          "export": false,
-          "import": false,
-          "approve": false,
-          "publish": false,
-          "manage-settings": false
-        },
-        "academic-manager": {
-          "edit": false,
-          "view": false,
-          "create": false,
-          "delete": false,
-          "export": false,
-          "import": false,
-          "approve": false,
-          "publish": false,
-          "manage-settings": false
-        },
-        "auxiliary-income": {
-          "edit": false,
-          "view": false,
-          "create": false,
-          "delete": false,
-          "export": false,
-          "import": false,
-          "approve": false,
-          "publish": false,
-          "manage-settings": false
-        },
-        "grade-management": {
-          "edit": false,
-          "view": false,
-          "create": false,
-          "delete": false,
-          "export": false,
-          "import": false,
-          "approve": false,
-          "publish": false,
-          "manage-settings": false
-        },
-        "register-student": {
-          "edit": false,
-          "view": false,
-          "create": false,
-          "delete": false,
-          "export": false,
-          "import": false,
-          "approve": false,
-          "publish": false,
-          "manage-settings": false
-        },
-        "academic-calendar": {
-          "edit": false,
-          "view": false,
-          "create": false,
-          "delete": false,
-          "export": false,
-          "import": false,
-          "approve": false,
-          "publish": false,
-          "manage-settings": false
-        },
-        "expense-dashboard": {
-          "edit": false,
-          "view": false,
-          "create": false,
-          "delete": false,
-          "export": false,
-          "import": false,
-          "approve": false,
-          "publish": false,
-          "manage-settings": false
-        },
-        "financial-reports": {
-          "edit": false,
-          "view": false,
-          "create": false,
-          "delete": false,
-          "export": false,
-          "import": false,
-          "approve": false,
-          "publish": false,
-          "manage-settings": false
-        },
-        "roles-permissions": {
-          "edit": false,
-          "view": false,
-          "create": false,
-          "delete": false,
-          "export": false,
-          "import": false,
-          "approve": false,
-          "publish": false,
-          "manage-settings": false
-        },
-        "student-directory": {
-          "edit": false,
-          "view": false,
-          "create": false,
-          "delete": false,
-          "export": false,
-          "import": false,
-          "approve": false,
-          "publish": false,
-          "manage-settings": false
-        },
-        "teacher-directory": {
-          "edit": false,
-          "view": false,
-          "create": false,
-          "delete": false,
-          "export": false,
-          "import": false,
-          "approve": false,
-          "publish": false,
-          "manage-settings": false
-        },
-        "attendance-history": {
-          "edit": false,
-          "view": false,
-          "create": false,
-          "delete": false,
-          "export": false,
-          "import": false,
-          "approve": false,
-          "publish": false,
-          "manage-settings": false
-        },
-        "academic-activities": {
+        "designation-manager": {
           "edit": false,
           "view": false,
           "create": false,
@@ -2335,6 +1755,7 @@
   "grades": [],
   "departments": [],
   "gradeDepartments": [],
+  "designations": [],
   "sections": [],
   "publishedClassTimetables": [],
   "publishedTeacherTimetables": [],
@@ -2354,5 +1775,5 @@
   "attendanceRecords": [],
   "attendanceLogs": [],
   "attendanceReports": [],
-  "_signature": ""
+  "_signature": "SCH-1782301800955-quiexplicabo-Active-Gregory Macias-SCH-989"
 }

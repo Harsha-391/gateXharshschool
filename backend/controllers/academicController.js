@@ -1,4 +1,4 @@
-import { readDb, writeDb, addActivity, convertToRoman } from '../utils/db.js';
+import { readDb, writeDb, addActivity, convertToRoman, tenantStorage, slugify } from '../utils/db.js';
 import * as XLSX from 'xlsx';
 import { PDFParse } from 'pdf-parse';
 
@@ -2224,6 +2224,42 @@ export const unpublishEvent = (req, res) => {
   db.publishedCalendarEvents = db.publishedCalendarEvents.filter(id => id !== eventId);
   writeDb(db);
   res.json({ message: 'Event unpublished successfully', publishedEvents: db.publishedCalendarEvents });
+};
+
+// Exam Types Controllers
+export const getExamTypes = (req, res) => {
+  const db = readDb();
+  if (!db.school) db.school = {};
+  const examTypes = db.school.examTypes || [];
+  res.json(examTypes);
+};
+
+export const updateExamTypes = (req, res) => {
+  const { examTypes } = req.body;
+  if (!Array.isArray(examTypes)) {
+    return res.status(400).json({ error: 'examTypes must be an array of strings.' });
+  }
+  const db = readDb();
+  if (!db.school) db.school = {};
+  
+  db.school.examTypes = examTypes;
+  writeDb(db);
+
+  // Sync to global platform list too
+  const tenantId = tenantStorage.getStore();
+  if (tenantId) {
+    const platformDb = tenantStorage.run(null, () => readDb());
+    const index = (platformDb.schools || []).findIndex(s => slugify(s.subdomain) === slugify(tenantId));
+    if (index !== -1) {
+      platformDb.schools[index] = {
+        ...platformDb.schools[index],
+        examTypes: JSON.stringify(examTypes) // Save serialized version for SQL update
+      };
+      tenantStorage.run(null, () => writeDb(platformDb));
+    }
+  }
+
+  res.json({ success: true, examTypes });
 };
 
 

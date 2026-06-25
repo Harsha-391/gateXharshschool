@@ -310,7 +310,7 @@ export default function AdminPanel({ setActiveView, onLogout, adminView, setAdmi
   const renderAdminContent = () => {
     const isAcademicView = [
       'academic-manager', 'academic-class-timetable', 'academic-teacher-timetable',
-      'academic-exams', 'academic-exams-history', 'academic-exam-timetable',
+      'academic-exams', 'academic-exams-history',
       'academic-published-timetable', 'academic-published-exam', 'academic-activities',
       'academic-events', 'academic-notices', 'academic-holidays', 'academic-calendar',
       'academic-results', 'academic-reports', 'academic-grade-subjects',
