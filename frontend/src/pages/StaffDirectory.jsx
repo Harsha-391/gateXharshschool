@@ -31,6 +31,14 @@ import {
 import { hasPermission } from '../utils/permissions';
 
 export default function StaffDirectory({ setActiveView, readOnly = true, onAddClick, onEditClick }) {
+  const getQrImageUrl = (qrCodePath, employeeId, employeeType) => {
+    if (qrCodePath && qrCodePath.startsWith('data:')) {
+      return qrCodePath;
+    }
+    const payload = JSON.stringify({ employeeId, employeeType });
+    return `https://api.qrserver.com/v1/create-qr-code/?size=300x300&color=1e1b4b&data=${encodeURIComponent(payload)}`;
+  };
+
   const renderQualificationText = (q) => {
     if (!q) return 'N/A';
     if (Array.isArray(q)) {
@@ -103,9 +111,7 @@ export default function StaffDirectory({ setActiveView, readOnly = true, onAddCl
 
   const handlePrintQR = (teacher) => {
     const printWindow = window.open('', '_blank', 'width=600,height=600');
-    const qrUrl = (teacher.qrCodePath && teacher.qrCodePath.startsWith('data:'))
-      ? teacher.qrCodePath
-      : (window.location.origin + (teacher.qrCodePath || ''));
+    const qrUrl = getQrImageUrl(teacher.qrCodePath, teacher.employeeId || teacher.id, 'Teacher');
     printWindow.document.write(`
       <html>
         <head>
@@ -783,11 +789,7 @@ export default function StaffDirectory({ setActiveView, readOnly = true, onAddCl
               <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase' }}>Employee QR Code</span>
               <div className="glass-panel" style={{ padding: '16px', borderRadius: '12px', background: 'rgba(255,255,255,0.02)', display: 'flex', alignItems: 'center', gap: '20px', flexWrap: 'wrap' }}>
                 <div style={{ background: '#ffffff', padding: '8px', borderRadius: '12px', display: 'flex', justifyContent: 'center', alignItems: 'center', border: '1px solid rgba(255,255,255,0.1)', width: '120px', height: '120px', flexShrink: 0 }}>
-                  {selectedTeacher.qrCodePath ? (
-                    <img src={selectedTeacher.qrCodePath} alt="QR Code" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
-                  ) : (
-                    <div style={{ fontSize: '0.75rem', color: '#64748b', textAlign: 'center', fontWeight: 600 }}>No QR Code Generated</div>
-                  )}
+                  <img src={getQrImageUrl(selectedTeacher.qrCodePath, selectedTeacher.employeeId || selectedTeacher.id, 'Teacher')} alt="QR Code" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', flex: 1, minWidth: '180px' }}>
                   <div style={{ fontSize: '0.82rem', fontWeight: 600 }}>ID Badge Access QR</div>
@@ -801,18 +803,14 @@ export default function StaffDirectory({ setActiveView, readOnly = true, onAddCl
                     </ul>
                   </div>
                   <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '4px' }}>
-                    {selectedTeacher.qrCodePath ? (
-                      <>
-                        <a href={selectedTeacher.qrCodePath} download={`QR_${selectedTeacher.employeeId || selectedTeacher.id}.${(selectedTeacher.qrCodePath && selectedTeacher.qrCodePath.startsWith('data:')) ? 'png' : (selectedTeacher.qrCodePath.split('.').pop() || 'png')}`} className="btn-secondary"
-                          style={{ padding: '6px 12px', fontSize: '0.75rem', borderRadius: '8px', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                          <Download size={12} /> Download
-                        </a>
-                        <button onClick={() => handlePrintQR(selectedTeacher)} className="btn-secondary"
-                          style={{ padding: '6px 12px', fontSize: '0.75rem', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                          Print Badge
-                        </button>
-                      </>
-                    ) : null}
+                    <a href={getQrImageUrl(selectedTeacher.qrCodePath, selectedTeacher.employeeId || selectedTeacher.id, 'Teacher')} download={`QR_${selectedTeacher.employeeId || selectedTeacher.id}.png`} className="btn-secondary"
+                      style={{ padding: '6px 12px', fontSize: '0.75rem', borderRadius: '8px', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                      <Download size={12} /> Download
+                    </a>
+                    <button onClick={() => handlePrintQR(selectedTeacher)} className="btn-secondary"
+                      style={{ padding: '6px 12px', fontSize: '0.75rem', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      Print Badge
+                    </button>
                     <button onClick={() => handleRegenerateQR(selectedTeacher.employeeId || selectedTeacher.id)} className="btn-secondary" disabled={qrLoading}
                       style={{ padding: '6px 12px', fontSize: '0.75rem', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '4px', borderColor: 'rgba(hsl(var(--color-primary)), 0.2)', color: 'hsl(var(--color-primary))' }}>
                       {qrLoading ? 'Generating...' : selectedTeacher.qrCodePath ? 'Regenerate' : 'Generate QR Code'}
