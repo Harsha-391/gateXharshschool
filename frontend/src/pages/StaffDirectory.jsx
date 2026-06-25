@@ -402,15 +402,7 @@ export default function StaffDirectory({ setActiveView, readOnly = true, onAddCl
             <Search size={18} className="search-bar-icon" />
             <input 
               type="text" 
-              placeholder={
-                sortBy === 'name' 
-                  ? "Search by staff name..." 
-                  : sortBy === 'employeeId' 
-                  ? "Search by Employee ID..." 
-                  : sortBy === 'department' 
-                  ? "Search by Department..." 
-                  : "Search staff..."
-              }
+              placeholder="Search by name or Employee ID..."
               className="search-bar-input"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}

@@ -321,18 +321,12 @@ export default function EmployeeDirectory({ readOnly = true, onAddClick, onEditC
 
   const filteredStaff = staffList.filter(s => {
     const name = (s.fullName || s.name || '').toLowerCase();
-    const id = (s.id || '').toLowerCase();
+    const id = (s.employeeId || s.id || '').toLowerCase();
     const q = searchQuery.toLowerCase();
     
     let matchesSearch = true;
     if (q.trim() !== '') {
-      if (sortBy === 'name') {
-        matchesSearch = name.startsWith(q);
-      } else if (sortBy === 'id') {
-        matchesSearch = id.includes(q);
-      } else {
-        matchesSearch = name.startsWith(q) || id.includes(q);
-      }
+      matchesSearch = name.startsWith(q) || id.includes(q);
     }
     const matchesDesignation = designationFilter === 'All' || (s.designation || '') === designationFilter;
     const matchesStatus = statusFilter === 'All' || s.status === statusFilter;
@@ -611,13 +605,7 @@ export default function EmployeeDirectory({ readOnly = true, onAddClick, onEditC
           <Search size={18} className="search-bar-icon" />
           <input 
             type="text" 
-            placeholder={
-              sortBy === 'name' 
-                ? "Search by employee name..." 
-                : sortBy === 'id' 
-                ? "Search by Employee ID..." 
-                : "Search staff..."
-            }
+            placeholder="Search by name or Employee ID..."
             className="search-bar-input"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}

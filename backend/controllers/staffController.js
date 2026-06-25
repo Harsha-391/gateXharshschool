@@ -288,31 +288,16 @@ export const getTeachers = async (req, res) => {
     const db = readDb();
     let result = [...(db.teachers || [])];
 
-    // 1. Search Query (matches Employee ID or Name depending on sortBy selection)
+    // 1. Search Query (always searches by name startsWith OR employeeId/id includes)
     const search = req.query.search || '';
     if (search.trim() !== '') {
       const q = search.toLowerCase();
-      const sortBy = req.query.sortBy || 'name';
-      if (sortBy === 'name') {
-        result = result.filter(t => 
-          (t.fullName && t.fullName.toLowerCase().startsWith(q)) || 
-          (t.name && t.name.toLowerCase().startsWith(q))
-        );
-      } else if (sortBy === 'employeeId') {
-        result = result.filter(t => 
-          (t.employeeId && t.employeeId.toLowerCase().includes(q)) ||
-          (t.id && t.id.toLowerCase().includes(q))
-        );
-      } else if (sortBy === 'department') {
-        result = result.filter(t => t.department && t.department.toLowerCase().includes(q));
-      } else {
-        result = result.filter(t => 
-          (t.fullName && t.fullName.toLowerCase().startsWith(q)) || 
-          (t.name && t.name.toLowerCase().startsWith(q)) ||
-          (t.employeeId && t.employeeId.toLowerCase().includes(q)) || 
-          (t.id && t.id.toLowerCase().includes(q))
-        );
-      }
+      result = result.filter(t => 
+        (t.fullName && t.fullName.toLowerCase().startsWith(q)) || 
+        (t.name && t.name.toLowerCase().startsWith(q)) ||
+        (t.employeeId && t.employeeId.toLowerCase().includes(q)) ||
+        (t.id && t.id.toLowerCase().includes(q))
+      );
     }
 
     // 2. Department Filter

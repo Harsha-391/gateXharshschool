@@ -451,15 +451,7 @@ export default function StudentDirectory({ readOnly = true, onAddClick, onEditCl
             <Search size={18} className="search-bar-icon" />
             <input 
               type="text" 
-              placeholder={
-                sortBy === 'name' 
-                  ? "Search by student name..." 
-                  : sortBy === 'id' 
-                  ? "Search by Registration ID..." 
-                  : sortBy === 'admissionNumber' 
-                  ? "Search by Admission Number..." 
-                  : "Search student..."
-              }
+              placeholder="Search by name, ID or Admission No..."
               className="search-bar-input"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}

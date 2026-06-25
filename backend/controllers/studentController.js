@@ -241,24 +241,16 @@ export const getStudents = async (req, res) => {
       result = result.filter(s => s.status === statusFilter);
     }
 
-    // 1. Search Query
+    // 1. Search Query (always searches by name startsWith OR id/admissionNumber includes)
     const search = req.query.search || '';
     if (search.trim() !== '') {
       const q = search.toLowerCase();
-      const sortBy = req.query.sortBy || 'name';
-      if (sortBy === 'id') {
-        result = result.filter(s => s.id && s.id.toLowerCase().includes(q));
-      } else if (sortBy === 'admissionNumber') {
-        result = result.filter(s => s.admissionNumber && s.admissionNumber.toLowerCase().includes(q));
-      } else if (sortBy === 'name') {
-        result = result.filter(s => s.name && s.name.toLowerCase().startsWith(q));
-      } else {
-        result = result.filter(s => 
-          (s.name && s.name.toLowerCase().startsWith(q)) || 
-          (s.id && s.id.toLowerCase().includes(q)) || 
-          (s.admissionNumber && s.admissionNumber.toLowerCase().includes(q))
-        );
-      }
+      result = result.filter(s => 
+        (s.name && s.name.toLowerCase().startsWith(q)) || 
+        (s.fullName && s.fullName.toLowerCase().startsWith(q)) ||
+        (s.id && s.id.toLowerCase().includes(q)) || 
+        (s.admissionNumber && s.admissionNumber.toLowerCase().includes(q))
+      );
     }
 
     // 2. Class Filter
