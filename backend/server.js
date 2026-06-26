@@ -221,7 +221,10 @@ app.post('/api/auth/login', (req, res) => {
           let roleRecord = access ? (db.roles || []).find(r => r.id === access.roleId) : null;
           if (!roleRecord) {
             const possibleRoleName = staffMember.role || 'Employee';
-            roleRecord = (db.roles || []).find(r => r.name.toLowerCase() === possibleRoleName.toLowerCase() || r.name.toLowerCase() === 'staff');
+            roleRecord = (db.roles || []).find(r => r.name.toLowerCase() === possibleRoleName.toLowerCase());
+            if (!roleRecord) {
+              roleRecord = (db.roles || []).find(r => r.name.toLowerCase() === 'staff');
+            }
           }
           const roleName = roleRecord ? roleRecord.name : (staffMember.role || 'Employee');
           const permissions = roleRecord ? roleRecord.permissions : {};
@@ -259,7 +262,10 @@ app.post('/api/auth/login', (req, res) => {
         let roleRecord = access ? (db.roles || []).find(r => r.id === access.roleId) : null;
         if (!roleRecord) {
           const possibleRoleName = staffMember.role || 'Employee';
-          roleRecord = (db.roles || []).find(r => r.name.toLowerCase() === possibleRoleName.toLowerCase() || r.name.toLowerCase() === 'staff');
+          roleRecord = (db.roles || []).find(r => r.name.toLowerCase() === possibleRoleName.toLowerCase());
+          if (!roleRecord) {
+            roleRecord = (db.roles || []).find(r => r.name.toLowerCase() === 'staff');
+          }
         }
         const roleName = roleRecord ? roleRecord.name : (staffMember.role || 'Employee');
         const permissions = roleRecord ? roleRecord.permissions : {};
@@ -866,7 +872,12 @@ app.get('/api/auth/profile', auth, restoreTenantContext, (req, res) => {
       roleRecord = (db.roles || []).find(r => r.name.toLowerCase() === staff.role.toLowerCase());
     }
     if (!roleRecord) {
-      roleRecord = (db.roles || []).find(r => r.name.toLowerCase() === staff.role.toLowerCase() || r.name.toLowerCase() === 'staff');
+      if (staff.role) {
+        roleRecord = (db.roles || []).find(r => r.name.toLowerCase() === staff.role.toLowerCase());
+      }
+      if (!roleRecord) {
+        roleRecord = (db.roles || []).find(r => r.name.toLowerCase() === 'staff');
+      }
     }
     if (roleRecord) {
       permissions = roleRecord.permissions;
