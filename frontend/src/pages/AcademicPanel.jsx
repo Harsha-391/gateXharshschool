@@ -4906,7 +4906,7 @@ export default function AcademicPanel({ subView, setAdminView }) {
                       background: 'rgba(99, 102, 241, 0.1)', color: 'hsl(var(--color-primary))',
                     }}>{nt.category}</span>
                     <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                      <span style={{ fontSize: '0.68rem', padding: '3px 8px', borderRadius: '10px', background: 'var(--bg-glass-active)', border: '1px solid var(--border-glass)', fontWeight: 600 }}>Audience: {nt.visibility}</span>
+                      <span style={{ fontSize: '0.68rem', padding: '3px 8px', borderRadius: '10px', background: 'var(--bg-glass-active)', border: '1px solid var(--border-glass)', fontWeight: 600 }}>Audience: {nt.visibility === 'Teachers' ? 'Staff' : nt.visibility}</span>
                       <span style={{
                         fontSize: '0.68rem', fontWeight: 600,
                         color: nt.status === 'Published' ? '#10b981' : 'var(--text-muted)',
@@ -5028,7 +5028,7 @@ export default function AcademicPanel({ subView, setAdminView }) {
                       background: 'rgba(99, 102, 241, 0.1)', color: 'hsl(var(--color-primary))',
                     }}>{nt.category}</span>
                     <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                      <span style={{ fontSize: '0.68rem', padding: '3px 8px', borderRadius: '10px', background: 'var(--bg-glass-active)', border: '1px solid var(--border-glass)', fontWeight: 600 }}>Audience: {nt.visibility}</span>
+                      <span style={{ fontSize: '0.68rem', padding: '3px 8px', borderRadius: '10px', background: 'var(--bg-glass-active)', border: '1px solid var(--border-glass)', fontWeight: 600 }}>Audience: {nt.visibility === 'Teachers' ? 'Staff' : nt.visibility}</span>
                       <span style={{
                         fontSize: '0.68rem', fontWeight: 600,
                         color: nt.status === 'Published' ? '#10b981' : 'var(--text-muted)',
@@ -6376,7 +6376,7 @@ export default function AcademicPanel({ subView, setAdminView }) {
                                     {e.startTime && (
                                       <span>🕒 {e.startTime} {e.endTime ? `to ${e.endTime}` : ''}</span>
                                     )}
-                                    <span>👤 Audience: <strong>{e.audience || 'All'}</strong></span>
+                                    <span>👤 Audience: <strong>{e.audience === 'Teachers' ? 'Staff' : (e.audience || 'All')}</strong></span>
                                     <span>📚 Classes: <strong>{e.applicableClasses || 'All'}</strong></span>
                                     {e.recurring && e.recurring !== 'None' && (
                                       <span>🔁 Recurrence: <strong>{e.recurring}</strong></span>

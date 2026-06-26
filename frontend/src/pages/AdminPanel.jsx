@@ -784,7 +784,7 @@ export default function AdminPanel({ setActiveView, onLogout, adminView, setAdmi
                         }}>
                           <span>📅 Published: <strong>{new Date(nt.publishDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</strong></span>
                           {nt.expiryDate && <span>⏳ Expires: <strong>{new Date(nt.expiryDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</strong></span>}
-                          <span>👥 Target: {nt.visibility}</span>
+                          <span>👥 Target: {nt.visibility === 'Teachers' ? 'Staff' : nt.visibility}</span>
                         </div>
                       </div>
                     );
