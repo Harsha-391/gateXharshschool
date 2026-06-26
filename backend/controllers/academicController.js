@@ -576,10 +576,12 @@ export const getEvents = (req, res) => {
 };
 
 export const createEvent = (req, res) => {
-  const { title, type, date, time, venue, description, organizer, participants, status } = req.body;
+  const { title, type, date, time, startTime, endTime, venue, description, organizer, participants, status } = req.body;
 
-  if (!title || !type || !date || !time || !venue) {
-    return res.status(400).json({ error: 'Title, Type, Date, Time, and Venue are required.' });
+  const actualStartTime = startTime || time;
+
+  if (!title || !type || !date || !actualStartTime || !venue) {
+    return res.status(400).json({ error: 'Title, Type, Date, Start Time, and Venue are required.' });
   }
 
   const db = readDb();
@@ -588,7 +590,9 @@ export const createEvent = (req, res) => {
     title,
     type,
     date,
-    time,
+    time: actualStartTime,
+    startTime: actualStartTime,
+    endTime: endTime || '',
     venue,
     description: description || '',
     organizer: organizer || 'School Admin',
@@ -605,7 +609,7 @@ export const createEvent = (req, res) => {
 
 export const updateEvent = (req, res) => {
   const { id } = req.params;
-  const { title, type, date, time, venue, description, organizer, participants, status } = req.body;
+  const { title, type, date, time, startTime, endTime, venue, description, organizer, participants, status } = req.body;
 
   const db = readDb();
   const eventIdx = db.events.findIndex(evt => evt.id === id);
@@ -614,17 +618,20 @@ export const updateEvent = (req, res) => {
     return res.status(404).json({ error: 'Event not found.' });
   }
 
+  const prevEvent = db.events[eventIdx];
   db.events[eventIdx] = {
-    ...db.events[eventIdx],
-    title: title || db.events[eventIdx].title,
-    type: type || db.events[eventIdx].type,
-    date: date || db.events[eventIdx].date,
-    time: time || db.events[eventIdx].time,
-    venue: venue || db.events[eventIdx].venue,
-    description: description || db.events[eventIdx].description,
-    organizer: organizer || db.events[eventIdx].organizer,
-    participants: participants || db.events[eventIdx].participants,
-    status: status || db.events[eventIdx].status
+    ...prevEvent,
+    title: title || prevEvent.title,
+    type: type || prevEvent.type,
+    date: date || prevEvent.date,
+    time: startTime || time || prevEvent.startTime || prevEvent.time || '',
+    startTime: startTime || prevEvent.startTime || '',
+    endTime: endTime !== undefined ? endTime : (prevEvent.endTime || ''),
+    venue: venue || prevEvent.venue,
+    description: description !== undefined ? description : prevEvent.description,
+    organizer: organizer || prevEvent.organizer,
+    participants: participants || prevEvent.participants,
+    status: status || prevEvent.status
   };
 
   if (db.publishedCalendarEvents) {
@@ -638,18 +645,19 @@ export const deleteEvent = (req, res) => {
   const { id } = req.params;
   const db = readDb();
 
-  const initialCount = db.events.length;
-  db.events = db.events.filter(evt => evt.id !== id);
-
-  if (db.events.length === initialCount) {
+  const event = db.events.find(evt => evt.id === id);
+  if (!event) {
     return res.status(404).json({ error: 'Event not found.' });
   }
+
+  event.isDeleted = true;
+  event.status = 'Draft';
 
   if (db.publishedCalendarEvents) {
     db.publishedCalendarEvents = db.publishedCalendarEvents.filter(eventId => eventId !== id);
   }
   writeDb(db);
-  res.json({ message: 'Event deleted successfully.' });
+  res.json({ message: 'Event deleted successfully.', event });
 };
 
 // =============================================
@@ -661,7 +669,7 @@ export const getNotices = (req, res) => {
 };
 
 export const createNotice = (req, res) => {
-  const { title, content, category, priority, publishDate, expiryDate, visibility } = req.body;
+  const { title, content, category, priority, publishDate, expiryDate, visibility, status } = req.body;
 
   if (!title || !content || !category || !publishDate) {
     return res.status(400).json({ error: 'Title, Content, Category, and Publish Date are required.' });
@@ -676,7 +684,9 @@ export const createNotice = (req, res) => {
     priority: priority || 'Medium',
     publishDate,
     expiryDate: expiryDate || '',
-    visibility: visibility || 'All'
+    visibility: visibility || 'All',
+    status: status || 'Published',
+    isDeleted: false
   };
 
   db.notices.push(newNotice);
@@ -688,7 +698,7 @@ export const createNotice = (req, res) => {
 
 export const updateNotice = (req, res) => {
   const { id } = req.params;
-  const { title, content, category, priority, publishDate, expiryDate, visibility } = req.body;
+  const { title, content, category, priority, publishDate, expiryDate, visibility, status, isDeleted } = req.body;
 
   const db = readDb();
   const index = db.notices.findIndex(n => n.id === id);
@@ -704,8 +714,10 @@ export const updateNotice = (req, res) => {
     category: category || db.notices[index].category,
     priority: priority || db.notices[index].priority,
     publishDate: publishDate || db.notices[index].publishDate,
-    expiryDate: expiryDate || db.notices[index].expiryDate,
-    visibility: visibility || db.notices[index].visibility
+    expiryDate: expiryDate !== undefined ? expiryDate : db.notices[index].expiryDate,
+    visibility: visibility || db.notices[index].visibility,
+    status: status || db.notices[index].status || 'Published',
+    isDeleted: isDeleted !== undefined ? isDeleted : (db.notices[index].isDeleted || false)
   };
 
   writeDb(db);
@@ -716,15 +728,16 @@ export const deleteNotice = (req, res) => {
   const { id } = req.params;
   const db = readDb();
 
-  const initialCount = db.notices.length;
-  db.notices = db.notices.filter(n => n.id !== id);
-
-  if (db.notices.length === initialCount) {
+  const notice = db.notices.find(n => n.id === id);
+  if (!notice) {
     return res.status(404).json({ error: 'Notice not found.' });
   }
 
+  notice.isDeleted = true;
+  notice.status = 'Draft';
+
   writeDb(db);
-  res.json({ message: 'Notice board entry deleted successfully.' });
+  res.json({ message: 'Notice deleted successfully.', notice });
 };
 
 // =============================================
@@ -736,7 +749,7 @@ export const getHolidays = (req, res) => {
 };
 
 export const createHoliday = (req, res) => {
-  const { name, type, startDate, endDate, description } = req.body;
+  const { name, type, startDate, endDate, description, status } = req.body;
 
   if (!name || !type || !startDate || !endDate) {
     return res.status(400).json({ error: 'Holiday Name, Type, Start Date, and End Date are required.' });
@@ -749,7 +762,9 @@ export const createHoliday = (req, res) => {
     type,
     startDate,
     endDate,
-    description: description || ''
+    description: description || '',
+    status: status || 'Published',
+    isDeleted: false
   };
 
   db.holidays.push(newHoliday);
@@ -762,23 +777,24 @@ export const deleteHoliday = (req, res) => {
   const { id } = req.params;
   const db = readDb();
 
-  const initialCount = db.holidays.length;
-  db.holidays = db.holidays.filter(h => h.id !== id);
-
-  if (db.holidays.length === initialCount) {
+  const holiday = db.holidays.find(h => h.id === id);
+  if (!holiday) {
     return res.status(404).json({ error: 'Holiday not found.' });
   }
+
+  holiday.isDeleted = true;
+  holiday.status = 'Draft';
 
   if (db.publishedCalendarEvents) {
     db.publishedCalendarEvents = db.publishedCalendarEvents.filter(eventId => eventId !== id);
   }
   writeDb(db);
-  res.json({ message: 'Holiday schedule removed successfully.' });
+  res.json({ message: 'Holiday deleted successfully.', holiday });
 };
 
 export const updateHoliday = (req, res) => {
   const { id } = req.params;
-  const { name, type, startDate, endDate, description } = req.body;
+  const { name, type, startDate, endDate, description, status, isDeleted } = req.body;
 
   const db = readDb();
   const index = db.holidays.findIndex(h => h.id === id);
@@ -793,7 +809,9 @@ export const updateHoliday = (req, res) => {
     type: type || db.holidays[index].type,
     startDate: startDate || db.holidays[index].startDate,
     endDate: endDate || db.holidays[index].endDate,
-    description: description !== undefined ? description : db.holidays[index].description
+    description: description !== undefined ? description : db.holidays[index].description,
+    status: status || db.holidays[index].status || 'Published',
+    isDeleted: isDeleted !== undefined ? isDeleted : (db.holidays[index].isDeleted || false)
   };
 
   if (db.publishedCalendarEvents) {
@@ -2261,6 +2279,131 @@ export const updateExamTypes = (req, res) => {
 
   res.json({ success: true, examTypes });
 };
+
+// Event Types Controllers
+export const getEventTypes = (req, res) => {
+  const db = readDb();
+  if (!db.school) db.school = {};
+  const eventTypes = db.school.eventTypes || [];
+  res.json(eventTypes);
+};
+
+export const updateEventTypes = (req, res) => {
+  const { eventTypes } = req.body;
+  if (!Array.isArray(eventTypes)) {
+    return res.status(400).json({ error: 'eventTypes must be an array of strings.' });
+  }
+  const db = readDb();
+  if (!db.school) db.school = {};
+  
+  db.school.eventTypes = eventTypes;
+  writeDb(db);
+
+  // Sync to global platform list too
+  const tenantId = tenantStorage.getStore();
+  if (tenantId) {
+    const platformDb = tenantStorage.run(null, () => readDb());
+    const index = (platformDb.schools || []).findIndex(s => slugify(s.subdomain) === slugify(tenantId));
+    if (index !== -1) {
+      platformDb.schools[index] = {
+        ...platformDb.schools[index],
+        eventTypes: JSON.stringify(eventTypes) // Save serialized version for SQL update
+      };
+      tenantStorage.run(null, () => writeDb(platformDb));
+    }
+  }
+
+  res.json({ success: true, eventTypes });
+};
+
+// Notice Categories Controllers
+export const getNoticeCategories = (req, res) => {
+  const db = readDb();
+  if (!db.school) db.school = {};
+  let noticeCategories = db.school.noticeCategories || [];
+  // Safety: handle corrupted double-stringified data
+  if (typeof noticeCategories === 'string') {
+    try { noticeCategories = JSON.parse(noticeCategories); } catch(e) { noticeCategories = []; }
+  }
+  if (typeof noticeCategories === 'string') {
+    try { noticeCategories = JSON.parse(noticeCategories); } catch(e) { noticeCategories = []; }
+  }
+  if (!Array.isArray(noticeCategories)) noticeCategories = [];
+  res.json(noticeCategories);
+};
+
+export const updateNoticeCategories = (req, res) => {
+  const { noticeCategories } = req.body;
+  if (!Array.isArray(noticeCategories)) {
+    return res.status(400).json({ error: 'noticeCategories must be an array of strings.' });
+  }
+  const db = readDb();
+  if (!db.school) db.school = {};
+  
+  db.school.noticeCategories = noticeCategories;
+  writeDb(db);
+
+  // Sync to global platform list too
+  const tenantId = tenantStorage.getStore();
+  if (tenantId) {
+    const platformDb = tenantStorage.run(null, () => readDb());
+    const index = (platformDb.schools || []).findIndex(s => slugify(s.subdomain) === slugify(tenantId));
+    if (index !== -1) {
+      platformDb.schools[index] = {
+        ...platformDb.schools[index],
+        noticeCategories: noticeCategories
+      };
+      tenantStorage.run(null, () => writeDb(platformDb));
+    }
+  }
+
+  res.json({ success: true, noticeCategories });
+};
+
+// Holiday Classifications Controllers
+export const getHolidayClassifications = (req, res) => {
+  const db = readDb();
+  if (!db.school) db.school = {};
+  let holidayClassifications = db.school.holidayClassifications || [];
+  // Safety: handle corrupted double-stringified data
+  if (typeof holidayClassifications === 'string') {
+    try { holidayClassifications = JSON.parse(holidayClassifications); } catch(e) { holidayClassifications = []; }
+  }
+  if (typeof holidayClassifications === 'string') {
+    try { holidayClassifications = JSON.parse(holidayClassifications); } catch(e) { holidayClassifications = []; }
+  }
+  if (!Array.isArray(holidayClassifications)) holidayClassifications = [];
+  res.json(holidayClassifications);
+};
+
+export const updateHolidayClassifications = (req, res) => {
+  const { holidayClassifications } = req.body;
+  if (!Array.isArray(holidayClassifications)) {
+    return res.status(400).json({ error: 'holidayClassifications must be an array of strings.' });
+  }
+  const db = readDb();
+  if (!db.school) db.school = {};
+  
+  db.school.holidayClassifications = holidayClassifications;
+  writeDb(db);
+
+  // Sync to global platform list too
+  const tenantId = tenantStorage.getStore();
+  if (tenantId) {
+    const platformDb = tenantStorage.run(null, () => readDb());
+    const index = (platformDb.schools || []).findIndex(s => slugify(s.subdomain) === slugify(tenantId));
+    if (index !== -1) {
+      platformDb.schools[index] = {
+        ...platformDb.schools[index],
+        holidayClassifications: holidayClassifications
+      };
+      tenantStorage.run(null, () => writeDb(platformDb));
+    }
+  }
+
+  res.json({ success: true, holidayClassifications });
+};
+
 
 
 

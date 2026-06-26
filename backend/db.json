@@ -93,9 +93,16 @@
       "adminPassword": "uttam@2004",
       "ratePerStudent": "250.00",
       "createdAt": "2026-06-24T11:50:00.955Z",
-      "updatedAt": "2026-06-25T11:39:30.149Z",
+      "updatedAt": "2026-06-26T06:11:43.350Z",
       "dbName": "school_quiexplicabo",
-      "examTypes": "[\"Unit Test-1\",\"Unit Test-2\",\"Unit Test-3\",\"Unit Test-4\",\"Half Yearly\",\"Final Exam\",\"Pre Board\"]"
+      "examTypes": "[\"Unit Test-1\",\"Unit Test-2\",\"Unit Test-3\",\"Unit Test-4\",\"Half Yearly\",\"Final Exam\",\"Pre Board\"]",
+      "eventTypes": "[\"dsfdg\",\"fg\"]",
+      "noticeCategories": [
+        "dsf"
+      ],
+      "holidayClassifications": [
+        "dsfg"
+      ]
     }
   ],
   "roles": [

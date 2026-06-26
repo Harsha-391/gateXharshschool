@@ -357,7 +357,26 @@ const createTablesFromSchema = async () => {
       "CREATE TABLE IF NOT EXISTS published_timetables (id VARCHAR(50) PRIMARY KEY, type VARCHAR(50) NOT NULL, identifier VARCHAR(100) NOT NULL, slots JSON NOT NULL, publishedAt VARCHAR(100) NOT NULL, tenantId VARCHAR(100) NOT NULL, UNIQUE KEY unique_pub_tt (type, identifier, tenantId))",
       "CREATE TABLE IF NOT EXISTS fee_periods (id VARCHAR(50) PRIMARY KEY, frequency VARCHAR(50) NOT NULL, name VARCHAR(100) NOT NULL, sortOrder INT DEFAULT 0, tenantId VARCHAR(100) NOT NULL, UNIQUE KEY unique_fp_freq_name (frequency, name, tenantId))",
       "CREATE TABLE IF NOT EXISTS auxiliary_income_categories (id VARCHAR(50) PRIMARY KEY, name VARCHAR(255) NOT NULL, description TEXT, tenantId VARCHAR(100) NOT NULL, createdAt VARCHAR(100) NOT NULL, updatedAt VARCHAR(100) NOT NULL, UNIQUE KEY unique_aux_cat_name (name, tenantId))",
-      "CREATE TABLE IF NOT EXISTS auxiliary_income (id VARCHAR(50) PRIMARY KEY, categoryId VARCHAR(50) NOT NULL, amount DECIMAL(10,2) NOT NULL, date VARCHAR(50) NOT NULL, receivedFrom VARCHAR(255), paymentMethod VARCHAR(100), referenceNumber VARCHAR(100), description TEXT, receiptNumber VARCHAR(100), tenantId VARCHAR(100) NOT NULL, createdAt VARCHAR(100) NOT NULL, updatedAt VARCHAR(100) NOT NULL, FOREIGN KEY (categoryId) REFERENCES auxiliary_income_categories(id) ON DELETE CASCADE)"
+      "CREATE TABLE IF NOT EXISTS auxiliary_income (id VARCHAR(50) PRIMARY KEY, categoryId VARCHAR(50) NOT NULL, amount DECIMAL(10,2) NOT NULL, date VARCHAR(50) NOT NULL, receivedFrom VARCHAR(255), paymentMethod VARCHAR(100), referenceNumber VARCHAR(100), description TEXT, receiptNumber VARCHAR(100), tenantId VARCHAR(100) NOT NULL, createdAt VARCHAR(100) NOT NULL, updatedAt VARCHAR(100) NOT NULL, FOREIGN KEY (categoryId) REFERENCES auxiliary_income_categories(id) ON DELETE CASCADE)",
+      "ALTER TABLE events ADD COLUMN status VARCHAR(50) DEFAULT 'Scheduled'",
+      "ALTER TABLE events ADD COLUMN type VARCHAR(100)",
+      "ALTER TABLE events ADD COLUMN organizer VARCHAR(100)",
+      "ALTER TABLE events ADD COLUMN participants VARCHAR(100)",
+      "ALTER TABLE events ADD COLUMN startTime VARCHAR(50)",
+      "ALTER TABLE events ADD COLUMN endTime VARCHAR(50)",
+      "ALTER TABLE events ADD COLUMN isDeleted TINYINT(1) DEFAULT 0",
+      "ALTER TABLE schools ADD COLUMN noticeCategories TEXT NULL",
+      "ALTER TABLE schools ADD COLUMN holidayClassifications TEXT NULL",
+      "ALTER TABLE notices ADD COLUMN category VARCHAR(100)",
+      "ALTER TABLE notices ADD COLUMN priority VARCHAR(50) DEFAULT 'Medium'",
+      "ALTER TABLE notices ADD COLUMN publishDate VARCHAR(50)",
+      "ALTER TABLE notices ADD COLUMN expiryDate VARCHAR(50)",
+      "ALTER TABLE notices ADD COLUMN visibility VARCHAR(100) DEFAULT 'All'",
+      "ALTER TABLE notices ADD COLUMN status VARCHAR(50) DEFAULT 'Published'",
+      "ALTER TABLE notices ADD COLUMN isDeleted TINYINT(1) DEFAULT 0",
+      "ALTER TABLE holidays ADD COLUMN status VARCHAR(50) DEFAULT 'Published'",
+      "ALTER TABLE holidays ADD COLUMN isDeleted TINYINT(1) DEFAULT 0",
+      "ALTER TABLE holidays ADD COLUMN name VARCHAR(255)"
     ];
 
     for (const sql of extraSchemaAlters) {
@@ -960,6 +979,9 @@ const applySchemaUpdates = async (pool, isMaster = false, tenantId = null) => {
       "ALTER TABLE schools ADD COLUMN updatedAt VARCHAR(100)",
       "ALTER TABLE schools ADD COLUMN dbName VARCHAR(255)",
       "ALTER TABLE schools ADD COLUMN examTypes TEXT NULL",
+      "ALTER TABLE schools ADD COLUMN eventTypes TEXT NULL",
+      "ALTER TABLE schools ADD COLUMN noticeCategories TEXT NULL",
+      "ALTER TABLE schools ADD COLUMN holidayClassifications TEXT NULL",
       "ALTER TABLE student_accounts DROP FOREIGN KEY student_accounts_ibfk_1",
       "ALTER TABLE parent_accounts DROP FOREIGN KEY parent_accounts_ibfk_1"
     ];
@@ -1055,7 +1077,24 @@ const applySchemaUpdates = async (pool, isMaster = false, tenantId = null) => {
       "ALTER TABLE fee_structures ADD COLUMN otherCharges DECIMAL(10,2) DEFAULT 0.00",
       "ALTER TABLE fee_structures ADD COLUMN totalFee DECIMAL(10,2) DEFAULT 0.00",
       "ALTER TABLE fee_structures ADD COLUMN monthRange VARCHAR(100) DEFAULT NULL",
-      "CREATE TABLE IF NOT EXISTS designations (id VARCHAR(50) PRIMARY KEY, name VARCHAR(100) NOT NULL, status VARCHAR(50) DEFAULT 'Active', createdAt VARCHAR(100), updatedAt VARCHAR(100), tenantId VARCHAR(100))"
+      "CREATE TABLE IF NOT EXISTS designations (id VARCHAR(50) PRIMARY KEY, name VARCHAR(100) NOT NULL, status VARCHAR(50) DEFAULT 'Active', createdAt VARCHAR(100), updatedAt VARCHAR(100), tenantId VARCHAR(100))",
+      "ALTER TABLE events ADD COLUMN status VARCHAR(50) DEFAULT 'Scheduled'",
+      "ALTER TABLE events ADD COLUMN type VARCHAR(100)",
+      "ALTER TABLE events ADD COLUMN organizer VARCHAR(100)",
+      "ALTER TABLE events ADD COLUMN participants VARCHAR(100)",
+      "ALTER TABLE events ADD COLUMN startTime VARCHAR(50)",
+      "ALTER TABLE events ADD COLUMN endTime VARCHAR(50)",
+      "ALTER TABLE events ADD COLUMN isDeleted TINYINT(1) DEFAULT 0",
+      "ALTER TABLE notices ADD COLUMN category VARCHAR(100)",
+      "ALTER TABLE notices ADD COLUMN priority VARCHAR(50) DEFAULT 'Medium'",
+      "ALTER TABLE notices ADD COLUMN publishDate VARCHAR(50)",
+      "ALTER TABLE notices ADD COLUMN expiryDate VARCHAR(50)",
+      "ALTER TABLE notices ADD COLUMN visibility VARCHAR(100) DEFAULT 'All'",
+      "ALTER TABLE notices ADD COLUMN status VARCHAR(50) DEFAULT 'Published'",
+      "ALTER TABLE notices ADD COLUMN isDeleted TINYINT(1) DEFAULT 0",
+      "ALTER TABLE holidays ADD COLUMN status VARCHAR(50) DEFAULT 'Published'",
+      "ALTER TABLE holidays ADD COLUMN isDeleted TINYINT(1) DEFAULT 0",
+      "ALTER TABLE holidays ADD COLUMN name VARCHAR(255)"
     ];
     for (const sql of schoolAlters) {
       try {
@@ -1782,7 +1821,35 @@ export const loadTenantSqlIntoMemory = async (tenantId) => {
     if (data.publishedClassTimetables === undefined) data.publishedClassTimetables = [];
     if (data.publishedTeacherTimetables === undefined) data.publishedTeacherTimetables = [];
 
-    data.schools = globalSchools;
+    data.schools = globalSchools.map(s => {
+      let parsedNoticeCategories = [];
+      let parsedHolidayClassifications = [];
+      try {
+        if (s.noticeCategories) {
+          parsedNoticeCategories = typeof s.noticeCategories === 'string' ? JSON.parse(s.noticeCategories) : s.noticeCategories;
+          if (typeof parsedNoticeCategories === 'string') {
+            parsedNoticeCategories = JSON.parse(parsedNoticeCategories);
+          }
+        }
+      } catch (e) {
+        console.error('Failed to parse noticeCategories for school', s.subdomain, e);
+      }
+      try {
+        if (s.holidayClassifications) {
+          parsedHolidayClassifications = typeof s.holidayClassifications === 'string' ? JSON.parse(s.holidayClassifications) : s.holidayClassifications;
+          if (typeof parsedHolidayClassifications === 'string') {
+            parsedHolidayClassifications = JSON.parse(parsedHolidayClassifications);
+          }
+        }
+      } catch (e) {
+        console.error('Failed to parse holidayClassifications for school', s.subdomain, e);
+      }
+      return {
+        ...s,
+        noticeCategories: Array.isArray(parsedNoticeCategories) ? parsedNoticeCategories : [],
+        holidayClassifications: Array.isArray(parsedHolidayClassifications) ? parsedHolidayClassifications : []
+      };
+    });
 
     // Load platformOwner from local db.json if exists
     try {
@@ -1804,7 +1871,7 @@ export const loadTenantSqlIntoMemory = async (tenantId) => {
     }));
 
     if (!isGlobal) {
-      const matchedSchool = globalSchools.find(s => slugify(s.subdomain) === slugify(tenantId));
+      const matchedSchool = data.schools.find(s => slugify(s.subdomain) === slugify(tenantId));
       if (matchedSchool) {
         data.school = {
           name: matchedSchool.name,
@@ -1820,7 +1887,10 @@ export const loadTenantSqlIntoMemory = async (tenantId) => {
           adminUsername: matchedSchool.adminUsername || '',
           adminPassword: matchedSchool.adminPassword || '',
           principal: matchedSchool.principalName || '',
-          examTypes: matchedSchool.examTypes ? JSON.parse(matchedSchool.examTypes) : []
+          examTypes: matchedSchool.examTypes ? (typeof matchedSchool.examTypes === 'string' ? JSON.parse(matchedSchool.examTypes) : matchedSchool.examTypes) : [],
+          eventTypes: matchedSchool.eventTypes ? (typeof matchedSchool.eventTypes === 'string' ? JSON.parse(matchedSchool.eventTypes) : matchedSchool.eventTypes) : [],
+          noticeCategories: matchedSchool.noticeCategories || [],
+          holidayClassifications: matchedSchool.holidayClassifications || []
         };
       }
     }
@@ -1934,8 +2004,20 @@ export const loadTenantSqlIntoMemory = async (tenantId) => {
       maxMarks: parseInt(et.maxMarks || 100)
     }));
 
-    data.notices = dbNotices;
-    data.holidays = dbHolidays;
+    data.notices = dbNotices.map(n => ({
+      ...n,
+      visibility: n.visibility || n.audience || 'All',
+      audience: n.audience || n.visibility || 'All',
+      publishDate: n.publishDate || n.date || '',
+      date: n.date || n.publishDate || '',
+      isDeleted: n.isDeleted === 1 || n.isDeleted === true
+    }));
+    data.holidays = dbHolidays.map(h => ({
+      ...h,
+      name: h.name || h.title || '',
+      title: h.title || h.name || '',
+      isDeleted: h.isDeleted === 1 || h.isDeleted === true
+    }));
     data.events = dbEvents;
     data.academicCalendarEvents = dbCalendarEvents;
     data.academicCalendarImports = dbCalendarImports;
@@ -2474,40 +2556,45 @@ export const saveMemoryDbToSql = async (tenantId, db, changedKeys, newUpdatedAt)
           const columns = [
             'id', 'name', 'code', 'subdomain', 'logo', 'principalName', 'email', 'phone', 'address', 'city', 'state', 'country', 
             'academicSession', 'subscriptionPlan', 'url', 'status', 'adminName', 'adminEmail', 'adminUsername', 'adminPassword', 
-            'createdAt', 'updatedAt', 'dbName'
+            'noticeCategories', 'holidayClassifications', 'createdAt', 'updatedAt', 'dbName'
           ];
           const updateColumns = [
             'name', 'logo', 'principalName', 'email', 'phone', 'address', 'city', 'state',
             'academicSession', 'subscriptionPlan', 'status', 'adminName', 'adminEmail',
-            'adminUsername', 'adminPassword', 'updatedAt', 'dbName'
+            'adminUsername', 'adminPassword', 'noticeCategories', 'holidayClassifications', 'updatedAt', 'dbName'
           ];
           const valueRows = db.schools.map(s => [
             s.id, s.name, s.code, s.subdomain, s.logo, s.principalName || s.principal || '', s.email, 
             s.phone, s.address, s.city, s.state, s.country || 'India', s.academicSession || '2026-2027', 
             s.subscriptionPlan || 'Starter', s.url, s.status || 'Active', s.adminName || '', s.adminEmail || '', 
             s.adminUsername || '', s.adminPassword || '', 
-            s.createdAt, s.updatedAt || s.createdAt || new Date().toISOString(),
-            s.dbName || `school_${slugify(s.subdomain)}`
-          ]);
-          await bulkInsertOrUpdate('schools', columns, valueRows, updateColumns);
-        })());
-      }
-
-      // 2. Sync school details
-      if (tId !== 'platform' && db.school && hasTableChanged('school')) {
-        const sch = db.school;
-        tasks.push(sqlDb.query(
-          `UPDATE schools SET 
-            name = ?, address = ?, city = ?, state = ?, phone = ?, email = ?, 
-            principalName = ?, adminName = ?, adminEmail = ?, adminUsername = ?, adminPassword = ?, ratePerStudent = ?, examTypes = ?, updatedAt = ?
-           WHERE subdomain = ?`,
-          [
-            sch.name, sch.address, sch.city, sch.state, sch.phone, sch.email, 
-            sch.principal, sch.adminName, sch.adminEmail, sch.adminUsername || '', sch.adminPassword, sch.ratePerStudent || '250.00',
-            sch.examTypes ? JSON.stringify(sch.examTypes) : null,
-            sch.updatedAt || new Date().toISOString(), tId
-          ]
-        ));
+             s.noticeCategories ? (typeof s.noticeCategories === 'string' ? s.noticeCategories : JSON.stringify(s.noticeCategories)) : null,
+             s.holidayClassifications ? (typeof s.holidayClassifications === 'string' ? s.holidayClassifications : JSON.stringify(s.holidayClassifications)) : null,
+             s.createdAt, s.updatedAt || s.createdAt || new Date().toISOString(),
+             s.dbName || `school_${slugify(s.subdomain)}`
+           ]);
+           await bulkInsertOrUpdate('schools', columns, valueRows, updateColumns);
+         })());
+       }
+ 
+       // 2. Sync school details
+       if (tId !== 'platform' && db.school && hasTableChanged('school')) {
+         const sch = db.school;
+         tasks.push(sqlDb.query(
+           `UPDATE schools SET 
+             name = ?, address = ?, city = ?, state = ?, phone = ?, email = ?, 
+             principalName = ?, adminName = ?, adminEmail = ?, adminUsername = ?, adminPassword = ?, ratePerStudent = ?, examTypes = ?, eventTypes = ?, noticeCategories = ?, holidayClassifications = ?, updatedAt = ?
+            WHERE subdomain = ?`,
+           [
+             sch.name, sch.address, sch.city, sch.state, sch.phone, sch.email, 
+             sch.principal, sch.adminName, sch.adminEmail, sch.adminUsername || '', sch.adminPassword, sch.ratePerStudent || '250.00',
+             sch.examTypes ? (typeof sch.examTypes === 'string' ? sch.examTypes : JSON.stringify(sch.examTypes)) : null,
+             sch.eventTypes ? (typeof sch.eventTypes === 'string' ? sch.eventTypes : JSON.stringify(sch.eventTypes)) : null,
+             sch.noticeCategories ? (typeof sch.noticeCategories === 'string' ? sch.noticeCategories : JSON.stringify(sch.noticeCategories)) : null,
+             sch.holidayClassifications ? (typeof sch.holidayClassifications === 'string' ? sch.holidayClassifications : JSON.stringify(sch.holidayClassifications)) : null,
+             sch.updatedAt || new Date().toISOString(), tId
+           ]
+         ));
       }
 
       // 3. Sync Teachers
@@ -3061,10 +3148,12 @@ export const saveMemoryDbToSql = async (tenantId, db, changedKeys, newUpdatedAt)
             await sqlDb.query('DELETE FROM notices WHERE tenantId = ?', [tId]);
           }
 
-          const columns = ['id', 'title', 'content', 'date', 'audience', 'createdBy', 'tenantId'];
-          const updateColumns = ['title', 'content', 'audience'];
+          const columns = ['id', 'title', 'content', 'date', 'audience', 'createdBy', 'category', 'priority', 'publishDate', 'expiryDate', 'visibility', 'status', 'isDeleted', 'tenantId'];
+          const updateColumns = ['title', 'content', 'date', 'audience', 'createdBy', 'category', 'priority', 'publishDate', 'expiryDate', 'visibility', 'status', 'isDeleted'];
           const valueRows = db.notices.filter(n => n.id).map(n => [
-            n.id, n.title || '', n.content || '', n.date || '', n.audience || 'All', n.createdBy || '', tId
+            n.id, n.title || '', n.content || '', n.publishDate || n.date || '', n.audience || n.visibility || 'All', n.createdBy || '',
+            n.category || 'General', n.priority || 'Medium', n.publishDate || '', n.expiryDate || '', n.visibility || 'All',
+            n.status || 'Published', n.isDeleted ? 1 : 0, tId
           ]);
           await bulkInsertOrUpdate('notices', columns, valueRows, updateColumns);
         })());
@@ -3080,10 +3169,11 @@ export const saveMemoryDbToSql = async (tenantId, db, changedKeys, newUpdatedAt)
             await sqlDb.query('DELETE FROM holidays WHERE tenantId = ?', [tId]);
           }
 
-          const columns = ['id', 'title', 'startDate', 'endDate', 'description', 'tenantId'];
-          const updateColumns = ['title', 'startDate', 'endDate', 'description'];
+          const columns = ['id', 'title', 'name', 'startDate', 'endDate', 'description', 'status', 'isDeleted', 'tenantId'];
+          const updateColumns = ['title', 'name', 'startDate', 'endDate', 'description', 'status', 'isDeleted'];
           const valueRows = db.holidays.filter(h => h.id).map(h => [
-            h.id, h.title || '', h.startDate || '', h.endDate || '', h.description || '', tId
+            h.id, h.title || h.name || '', h.name || h.title || '', h.startDate || '', h.endDate || '', h.description || '',
+            h.status || 'Published', h.isDeleted ? 1 : 0, tId
           ]);
           await bulkInsertOrUpdate('holidays', columns, valueRows, updateColumns);
         })());
@@ -3099,10 +3189,11 @@ export const saveMemoryDbToSql = async (tenantId, db, changedKeys, newUpdatedAt)
             await sqlDb.query('DELETE FROM events WHERE tenantId = ?', [tId]);
           }
 
-          const columns = ['id', 'title', 'description', 'date', 'time', 'venue', 'audience', 'tenantId'];
-          const updateColumns = ['title', 'description', 'date', 'time', 'venue', 'audience'];
+          const columns = ['id', 'title', 'description', 'date', 'time', 'startTime', 'endTime', 'venue', 'audience', 'status', 'type', 'organizer', 'participants', 'isDeleted', 'tenantId'];
+          const updateColumns = ['title', 'description', 'date', 'time', 'startTime', 'endTime', 'venue', 'audience', 'status', 'type', 'organizer', 'participants', 'isDeleted'];
           const valueRows = db.events.filter(ev => ev.id).map(ev => [
-            ev.id, ev.title || '', ev.description || '', ev.date || '', ev.time || '', ev.venue || '', ev.audience || 'All', tId
+            ev.id, ev.title || '', ev.description || '', ev.date || '', ev.time || '', ev.startTime || '', ev.endTime || '', ev.venue || '', ev.audience || 'All',
+            ev.status || 'Scheduled', ev.type || '', ev.organizer || '', ev.participants || '', ev.isDeleted ? 1 : 0, tId
           ]);
           await bulkInsertOrUpdate('events', columns, valueRows, updateColumns);
         })());

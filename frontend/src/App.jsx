@@ -432,6 +432,13 @@ export default function App() {
       const isPeriodName = name.includes('period') || id.includes('period') || placeholder.includes('period') || label.includes('period') || name.includes('range') || id.includes('range') || placeholder.includes('range') || label.includes('range');
 
       const isBypassedString = isEmail || isPassword || isUsername || isSubdomain || isUrl || isDocFile || isDate || isPeriodName;
+      const isAlphanumericField = name.includes('type') || id.includes('type') || placeholder.includes('type') || label.includes('type') || 
+                                  name.includes('title') || id.includes('title') || label.includes('title') || label.includes('headline') || 
+                                  name.includes('venue') || id.includes('venue') || label.includes('venue') || 
+                                  name.includes('time') || id.includes('time') || label.includes('time') || 
+                                  name.includes('custom') || id.includes('custom') || label.includes('custom') || 
+                                  name.includes('session') || id.includes('session') || label.includes('session') ||
+                                  target.getAttribute('data-type') === 'alphanumeric';
 
       // Check if it is a phone number, pin number, or PAN card field:
       const isPhone = !isBypassedString && (name.includes('phone') || name.includes('contact') || name.includes('mobile') || id.includes('phone') || id.includes('contact') || id.includes('mobile') || placeholder.includes('phone') || placeholder.includes('contact') || placeholder.includes('mobile'));
@@ -481,6 +488,10 @@ export default function App() {
           val = parts[0] + '.' + parts.slice(1).join('');
         }
         if (val.length > 25) val = val.substring(0, 25);
+      } else if (isAlphanumericField) {
+        // Enforce Alphanumeric format: allow letters, digits, spaces, hyphens, and colons
+        val = val.replace(/[^a-zA-Z0-9\s:-]/g, '');
+        if (val.length > 100) val = val.substring(0, 100);
       } else if (isBypassedString) {
         // Bypassed strings (email, password, etc.) - keep whatever characters, but limit standard input length to 100 (except passwords / URLs which can be 200)
         const maxLengthLimit = (isUrl || isPassword) ? 200 : 100;

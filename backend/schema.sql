@@ -26,6 +26,10 @@ CREATE TABLE IF NOT EXISTS schools (
   adminUsername VARCHAR(255),
   adminPassword VARCHAR(255),
   ratePerStudent VARCHAR(50) DEFAULT '250.00',
+  examTypes TEXT,
+  eventTypes TEXT,
+  noticeCategories TEXT,
+  holidayClassifications TEXT,
   createdAt VARCHAR(100)
 );
 
@@ -443,6 +447,13 @@ CREATE TABLE IF NOT EXISTS notices (
   date VARCHAR(50),
   audience VARCHAR(100) DEFAULT 'All',
   createdBy VARCHAR(255),
+  category VARCHAR(100),
+  priority VARCHAR(50) DEFAULT 'Medium',
+  publishDate VARCHAR(50),
+  expiryDate VARCHAR(50),
+  visibility VARCHAR(100) DEFAULT 'All',
+  status VARCHAR(50) DEFAULT 'Published',
+  isDeleted TINYINT(1) DEFAULT 0,
   tenantId VARCHAR(100)
 );
 
@@ -450,9 +461,12 @@ CREATE TABLE IF NOT EXISTS notices (
 CREATE TABLE IF NOT EXISTS holidays (
   id VARCHAR(50) PRIMARY KEY,
   title VARCHAR(255) NOT NULL,
+  name VARCHAR(255),
   startDate VARCHAR(50),
   endDate VARCHAR(50),
   description TEXT,
+  status VARCHAR(50) DEFAULT 'Published',
+  isDeleted TINYINT(1) DEFAULT 0,
   tenantId VARCHAR(100)
 );
 
@@ -463,8 +477,15 @@ CREATE TABLE IF NOT EXISTS events (
   description TEXT,
   date VARCHAR(50),
   time VARCHAR(50),
+  startTime VARCHAR(50),
+  endTime VARCHAR(50),
   venue VARCHAR(255),
   audience VARCHAR(100) DEFAULT 'All',
+  status VARCHAR(50) DEFAULT 'Scheduled',
+  type VARCHAR(100),
+  organizer VARCHAR(100),
+  participants VARCHAR(100),
+  isDeleted TINYINT(1) DEFAULT 0,
   tenantId VARCHAR(100)
 );
 

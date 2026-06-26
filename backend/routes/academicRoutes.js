@@ -61,7 +61,13 @@ import {
   getPublishedTimetables,
   publishTimetable,
   getExamTypes,
-  updateExamTypes
+  updateExamTypes,
+  getEventTypes,
+  updateEventTypes,
+  getNoticeCategories,
+  updateNoticeCategories,
+  getHolidayClassifications,
+  updateHolidayClassifications
 } from '../controllers/academicController.js';
 
 
@@ -114,6 +120,8 @@ router.get('/events', getEvents);
 router.post('/events', createEvent);
 router.put('/events/:id', updateEvent);
 router.delete('/events/:id', deleteEvent);
+router.get('/event-types', getEventTypes);
+router.put('/event-types', updateEventTypes);
 
 // Enhanced Academic Calendar Management System
 const upload = multer({ storage: multer.memoryStorage() });
@@ -138,12 +146,16 @@ router.get('/notices', getNotices);
 router.post('/notices', createNotice);
 router.put('/notices/:id', updateNotice);
 router.delete('/notices/:id', deleteNotice);
+router.get('/notice-categories', getNoticeCategories);
+router.put('/notice-categories', updateNoticeCategories);
 
 // Holidays
 router.get('/holidays', getHolidays);
 router.post('/holidays', createHoliday);
 router.put('/holidays/:id', updateHoliday);
 router.delete('/holidays/:id', deleteHoliday);
+router.get('/holiday-classifications', getHolidayClassifications);
+router.put('/holiday-classifications', updateHolidayClassifications);
 
 // Results
 router.get('/results', getResults);

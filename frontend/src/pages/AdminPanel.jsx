@@ -18,7 +18,9 @@ import {
   Venus,
   Mars,
   RefreshCw,
-  Lock
+  Lock,
+  Bell,
+  Sun
 } from 'lucide-react';
 import SkeletonLoader from '../components/SkeletonLoader';
 import KeepAlive from '../components/KeepAlive';
@@ -295,6 +297,9 @@ export default function AdminPanel({ setActiveView, onLogout, adminView, setAdmi
     employees: { total: 0, male: 0, female: 0 }
   });
   const [statsLoading, setStatsLoading] = useState(true);
+  const [events, setEvents] = useState([]);
+  const [notices, setNotices] = useState([]);
+  const [holidays, setHolidays] = useState([]);
 
   const fetchOverviewStats = async () => {
     setStatsLoading(true);
@@ -345,6 +350,61 @@ export default function AdminPanel({ setActiveView, onLogout, adminView, setAdmi
       }
 
       setOverviewStats({ students, staff: staffStats, employees: employeeStats });
+
+      // Fetch published events, notices, and holidays
+      try {
+        const [eventsRes, noticesRes, holidaysRes] = await Promise.all([
+          fetch(`/api/academics/events?_t=${Date.now()}`),
+          fetch(`/api/academics/notices?_t=${Date.now()}`),
+          fetch(`/api/academics/holidays?_t=${Date.now()}`)
+        ]);
+
+        const today = new Date();
+        const yyyy = today.getFullYear();
+        const mm = String(today.getMonth() + 1).padStart(2, '0');
+        const dd = String(today.getDate()).padStart(2, '0');
+        const todayStr = `${yyyy}-${mm}-${dd}`;
+
+        let publishedEvents = [];
+        let publishedNotices = [];
+        let publishedHolidays = [];
+
+        if (eventsRes.ok) {
+          const eventsData = await eventsRes.json();
+          publishedEvents = (eventsData || []).filter(evt => {
+            const isNotDeleted = evt.isDeleted !== 1 && evt.isDeleted !== true;
+            const isPublished = evt.status === 'Published';
+            const isFutureOrToday = !evt.date || evt.date >= todayStr;
+            return isNotDeleted && isPublished && isFutureOrToday;
+          });
+        }
+
+        if (noticesRes.ok) {
+          const noticesData = await noticesRes.json();
+          publishedNotices = (noticesData || []).filter(nt => {
+            const isNotDeleted = nt.isDeleted !== 1 && nt.isDeleted !== true;
+            const isPublished = nt.status === 'Published';
+            const isNotExpired = !nt.expiryDate || nt.expiryDate >= todayStr;
+            return isNotDeleted && isPublished && isNotExpired;
+          });
+        }
+
+        if (holidaysRes.ok) {
+          const holidaysData = await holidaysRes.json();
+          publishedHolidays = (holidaysData || []).filter(h => {
+            const isNotDeleted = h.isDeleted !== 1 && h.isDeleted !== true;
+            const isPublished = h.status === 'Published';
+            const isNotExpired = !h.endDate || h.endDate >= todayStr;
+            return isNotDeleted && isPublished && isNotExpired;
+          });
+        }
+
+        setEvents(publishedEvents);
+        setNotices(publishedNotices);
+        setHolidays(publishedHolidays);
+      } catch (e) {
+        console.error('Error fetching dashboard feeds:', e);
+      }
     } catch (err) {
       console.error('Error fetching overview stats:', err);
     } finally {
@@ -353,8 +413,10 @@ export default function AdminPanel({ setActiveView, onLogout, adminView, setAdmi
   };
 
   useEffect(() => {
-    fetchOverviewStats();
-  }, []);
+    if (adminView === 'overview' || !adminView) {
+      fetchOverviewStats();
+    }
+  }, [adminView]);
 
   // Sync adminView with attendanceTab and active grades
   useEffect(() => {
@@ -628,6 +690,160 @@ export default function AdminPanel({ setActiveView, onLogout, adminView, setAdmi
                 }
               </div>
 
+            </div>
+
+            {/* ── ROW 3: Published School Events ─────────────── */}
+            <div className="glass-panel" style={{
+              borderRadius: '16px', padding: '24px',
+              border: '1px solid var(--border-glass)', background: 'var(--bg-card)',
+              display: 'flex', flexDirection: 'column', gap: '20px'
+            }}>
+              <div>
+                <h3 style={{ fontSize: '1.15rem', fontWeight: 800, margin: '0 0 4px 0', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Calendar size={20} style={{ color: 'hsl(var(--color-primary))' }} /> Published School Events
+                </h3>
+                <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', margin: 0 }}>Active events broadcasted to the school portal</p>
+              </div>
+              <div style={{ height: '1px', background: 'var(--border-glass)' }} />
+              {events.length > 0 ? (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '16px' }}>
+                  {events.map(evt => {
+                    const lowerType = (evt.type || '').toLowerCase();
+                    const badgeColor = lowerType.includes('exam') ? { bg: 'rgba(236,72,153,0.1)', text: '#ec4899' }
+                                     : lowerType.includes('holiday') ? { bg: 'rgba(245,158,11,0.1)', text: '#f59e0b' }
+                                     : lowerType.includes('sport') ? { bg: 'rgba(34,197,94,0.1)', text: '#16a34a' }
+                                     : lowerType.includes('health') || lowerType.includes('well') ? { bg: 'rgba(34,197,94,0.1)', text: '#16a34a' }
+                                     : lowerType.includes('celebr') ? { bg: 'rgba(251,146,60,0.1)', text: '#ea580c' }
+                                     : lowerType.includes('cultur') ? { bg: 'rgba(168,85,247,0.1)', text: '#9333ea' }
+                                     : { bg: 'rgba(99,102,241,0.1)', text: 'hsl(var(--color-primary))' };
+                    return (
+                      <div key={evt.id} style={{
+                        padding: '16px', borderRadius: '12px', background: 'var(--bg-glass-active)',
+                        border: '1px solid var(--border-glass)', display: 'flex', flexDirection: 'column', gap: '10px'
+                      }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span style={{
+                            padding: '3px 8px', borderRadius: '12px', fontSize: '0.62rem', fontWeight: 700,
+                            background: badgeColor.bg, color: badgeColor.text
+                          }}>{evt.type || 'Event'}</span>
+                          <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 600 }}>⏰ {evt.startTime || evt.time || ''}{evt.endTime ? ` - ${evt.endTime}` : ''}</span>
+                        </div>
+                        <h4 style={{ fontSize: '0.92rem', fontWeight: 800, margin: 0, color: 'var(--text-main)' }}>{evt.title}</h4>
+                        <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', margin: 0 }}>{evt.description || 'No description provided.'}</p>
+                        <div style={{
+                          display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '0.75rem',
+                          borderTop: '1px solid var(--border-glass)', paddingTop: '8px', color: 'var(--text-muted)', marginTop: '4px'
+                        }}>
+                          <span>📅 Date: <strong>{new Date(evt.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</strong></span>
+                          <span>📍 Venue: {evt.venue}</span>
+                          <span>👥 Target: {evt.participants}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div style={{ padding: '30px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                  No published events found.
+                </div>
+              )}
+            </div>
+
+            {/* ── ROW 4: Published Notice Board ─────────────── */}
+            <div className="glass-panel" style={{
+              borderRadius: '16px', padding: '24px',
+              border: '1px solid var(--border-glass)', background: 'var(--bg-card)',
+              display: 'flex', flexDirection: 'column', gap: '20px'
+            }}>
+              <div>
+                <h3 style={{ fontSize: '1.15rem', fontWeight: 800, margin: '0 0 4px 0', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Bell size={20} style={{ color: '#f59e0b' }} /> Published Notice Board
+                </h3>
+                <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', margin: 0 }}>Active notices broadcasted to the school portal</p>
+              </div>
+              <div style={{ height: '1px', background: 'var(--border-glass)' }} />
+              {notices.length > 0 ? (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '16px' }}>
+                  {notices.map(nt => {
+                    return (
+                      <div key={nt.id} style={{
+                        padding: '16px', borderRadius: '12px', background: 'var(--bg-glass-active)',
+                        border: '1px solid var(--border-glass)', display: 'flex', flexDirection: 'column', gap: '10px'
+                      }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span style={{
+                            padding: '3px 8px', borderRadius: '12px', fontSize: '0.62rem', fontWeight: 700,
+                            background: 'rgba(99,102,241,0.1)', color: 'hsl(var(--color-primary))'
+                          }}>{nt.category}</span>
+                        </div>
+                        <h4 style={{ fontSize: '0.92rem', fontWeight: 800, margin: 0, color: 'var(--text-main)' }}>{nt.title}</h4>
+                        <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', margin: 0 }}>{nt.content}</p>
+                        <div style={{
+                          display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '0.75rem',
+                          borderTop: '1px solid var(--border-glass)', paddingTop: '8px', color: 'var(--text-muted)', marginTop: '4px'
+                        }}>
+                          <span>📅 Published: <strong>{new Date(nt.publishDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</strong></span>
+                          {nt.expiryDate && <span>⏳ Expires: <strong>{new Date(nt.expiryDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</strong></span>}
+                          <span>👥 Target: {nt.visibility}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div style={{ padding: '30px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                  No published notices found.
+                </div>
+              )}
+            </div>
+
+            {/* ── ROW 5: Published Holidays ─────────────── */}
+            <div className="glass-panel" style={{
+              borderRadius: '16px', padding: '24px',
+              border: '1px solid var(--border-glass)', background: 'var(--bg-card)',
+              display: 'flex', flexDirection: 'column', gap: '20px'
+            }}>
+              <div>
+                <h3 style={{ fontSize: '1.15rem', fontWeight: 800, margin: '0 0 4px 0', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Sun size={20} style={{ color: '#ef4444' }} /> Published Holidays
+                </h3>
+                <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', margin: 0 }}>Active holidays declared for the school</p>
+              </div>
+              <div style={{ height: '1px', background: 'var(--border-glass)' }} />
+              {holidays.length > 0 ? (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '16px' }}>
+                  {holidays.map(h => {
+                    return (
+                      <div key={h.id} style={{
+                        padding: '16px', borderRadius: '12px', background: 'var(--bg-glass-active)',
+                        border: '1px solid var(--border-glass)', display: 'flex', flexDirection: 'column', gap: '10px'
+                      }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span style={{
+                            padding: '3px 8px', borderRadius: '12px', fontSize: '0.62rem', fontWeight: 700,
+                            background: h.type === 'Emergency' ? 'rgba(239, 68, 68, 0.08)' : 'rgba(245, 158, 11, 0.08)',
+                            color: h.type === 'Emergency' ? '#ef4444' : '#f59e0b',
+                            border: h.type === 'Emergency' ? '1px solid rgba(239, 68, 68, 0.15)' : '1px solid rgba(245, 158, 11, 0.15)'
+                          }}>{h.type}</span>
+                        </div>
+                        <h4 style={{ fontSize: '0.92rem', fontWeight: 800, margin: 0, color: 'var(--text-main)' }}>{h.name}</h4>
+                        <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', margin: 0 }}>{h.description || 'No notes provided.'}</p>
+                        <div style={{
+                          display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '0.75rem',
+                          borderTop: '1px solid var(--border-glass)', paddingTop: '8px', color: 'var(--text-muted)', marginTop: '4px'
+                        }}>
+                          <span>📅 Starts: <strong>{new Date(h.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</strong></span>
+                          <span>📅 Ends: <strong>{new Date(h.endDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</strong></span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div style={{ padding: '30px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                  No published holidays found.
+                </div>
+              )}
             </div>
 
           </div>

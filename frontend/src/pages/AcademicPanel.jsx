@@ -207,16 +207,37 @@ export default function AcademicPanel({ subView, setAdminView }) {
   const [draggedSlotIndex, setDraggedSlotIndex] = useState(null);
   const [expandedTimetables, setExpandedTimetables] = useState({}); // key: `${examId}-${grade}-${section}` -> boolean
   const [eventForm, setEventForm] = useState({
-    title: '', type: 'Academic', date: '', time: '', venue: '', description: '', organizer: 'School Admin', participants: 'All Students', status: 'Scheduled'
+    title: '', type: '', date: '', startTime: '', endTime: '', venue: '', description: '', organizer: 'School Admin', participants: 'All Students', status: 'Scheduled'
   });
+  const [eventsTab, setEventsTab] = useState('active'); // 'active' or 'history'
+  const [historySearch, setHistorySearch] = useState('');
+  const [historyTypeFilter, setHistoryTypeFilter] = useState('All');
   const [eventTypeOpen, setEventTypeOpen] = useState(false);
   const eventTypeRef = useRef(null);
-  const eventTypes = ['Academic', 'Examination', 'Sports', 'Cultural', 'Competition', 'Workshop', 'Seminar', 'Meeting', 'Orientation', 'Celebration', 'Holiday', 'National Event', 'Educational Tour', 'Exhibition', 'Guest Lecture', 'Health & Wellness', 'Administrative', 'Other'];
+  const [eventTypes, setEventTypes] = useState([]);
+  const [showManageEventTypesModal, setShowManageEventTypesModal] = useState(false);
+
+  const [noticesTab, setNoticesTab] = useState('active'); // 'active' or 'history'
+  const [noticeSearch, setNoticeSearch] = useState('');
+  const [noticeCategoryFilter, setNoticeCategoryFilter] = useState('All');
+  const [noticeCategories, setNoticeCategories] = useState([]);
+  const [showManageNoticeCategoriesModal, setShowManageNoticeCategoriesModal] = useState(false);
+  const [noticeCategoryOpen, setNoticeCategoryOpen] = useState(false);
+  const noticeCategoryRef = useRef(null);
+
+  const [holidaysTab, setHolidaysTab] = useState('active'); // 'active' or 'history'
+  const [holidaySearch, setHolidaySearch] = useState('');
+  const [holidayClassificationFilter, setHolidayClassificationFilter] = useState('All');
+  const [holidayClassifications, setHolidayClassifications] = useState([]);
+  const [showManageHolidayClassificationsModal, setShowManageHolidayClassificationsModal] = useState(false);
+  const [holidayClassificationOpen, setHolidayClassificationOpen] = useState(false);
+  const holidayClassificationRef = useRef(null);
+
   const [noticeForm, setNoticeForm] = useState({
-    title: '', content: '', category: 'General', priority: 'Medium', publishDate: new Date().toISOString().split('T')[0], expiryDate: '', visibility: 'All'
+    title: '', content: '', category: '', publishDate: new Date().toISOString().split('T')[0], expiryDate: '', visibility: 'All'
   });
   const [holidayForm, setHolidayForm] = useState({
-    name: '', type: 'Public', startDate: '', endDate: '', description: ''
+    name: '', type: '', startDate: '', endDate: '', description: ''
   });
 
   // Results Entry state: maps studentId -> obtainedMarks
@@ -377,7 +398,10 @@ export default function AcademicPanel({ subView, setAdminView }) {
         { url: '/api/academics/calendar-events', setter: setCalendarEvents },
         { url: '/api/academics/calendar-imports', setter: setCalendarImports },
         { url: '/api/academics/calendar/published', setter: setPublishedEventIds },
-        { url: '/api/academics/exam-types', setter: setExamTypes }
+        { url: '/api/academics/exam-types', setter: setExamTypes },
+        { url: '/api/academics/event-types', setter: setEventTypes },
+        { url: '/api/academics/notice-categories', setter: (data) => { let arr = data; if (typeof arr === 'string') { try { arr = JSON.parse(arr); } catch(e) { arr = []; } } setNoticeCategories(Array.isArray(arr) ? arr : []); } },
+        { url: '/api/academics/holiday-classifications', setter: (data) => { let arr = data; if (typeof arr === 'string') { try { arr = JSON.parse(arr); } catch(e) { arr = []; } } setHolidayClassifications(Array.isArray(arr) ? arr : []); } }
       ];
 
       await Promise.all(
@@ -794,11 +818,17 @@ export default function AcademicPanel({ subView, setAdminView }) {
     }
   }, [exams]);
 
-  // Close event type dropdown on outside click
+  // Close event/notice/holiday type dropdown on outside click
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (eventTypeRef.current && !eventTypeRef.current.contains(e.target)) {
         setEventTypeOpen(false);
+      }
+      if (noticeCategoryRef.current && !noticeCategoryRef.current.contains(e.target)) {
+        setNoticeCategoryOpen(false);
+      }
+      if (holidayClassificationRef.current && !holidayClassificationRef.current.contains(e.target)) {
+        setHolidayClassificationOpen(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -1081,6 +1111,57 @@ export default function AcademicPanel({ subView, setAdminView }) {
       }
     } catch (e) {
       showToast('Could not delete event.', 'error');
+    }
+  };
+
+  const togglePublishEvent = async (evt) => {
+    try {
+      const updatedStatus = evt.status === 'Published' ? 'Scheduled' : 'Published';
+      const res = await fetch(`/api/academics/events/${evt.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...evt, status: updatedStatus })
+      });
+      if (res.ok) {
+        showToast(updatedStatus === 'Published' ? 'Event published to Panel.' : 'Event unpublished from Panel.', 'success');
+        fetchAllData();
+      }
+    } catch (e) {
+      showToast('Could not update event status.', 'error');
+    }
+  };
+
+  const togglePublishNotice = async (nt) => {
+    try {
+      const updatedStatus = nt.status === 'Published' ? 'Draft' : 'Published';
+      const res = await fetch(`/api/academics/notices/${nt.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...nt, status: updatedStatus })
+      });
+      if (res.ok) {
+        showToast(updatedStatus === 'Published' ? 'Notice published to Panel.' : 'Notice unpublished from Panel.', 'success');
+        fetchAllData();
+      }
+    } catch (e) {
+      showToast('Could not update notice status.', 'error');
+    }
+  };
+
+  const togglePublishHoliday = async (h) => {
+    try {
+      const updatedStatus = h.status === 'Published' ? 'Draft' : 'Published';
+      const res = await fetch(`/api/academics/holidays/${h.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...h, status: updatedStatus })
+      });
+      if (res.ok) {
+        showToast(updatedStatus === 'Published' ? 'Holiday published to Panel.' : 'Holiday unpublished from Panel.', 'success');
+        fetchAllData();
+      }
+    } catch (e) {
+      showToast('Could not update holiday status.', 'error');
     }
   };
 
@@ -1408,7 +1489,7 @@ export default function AcademicPanel({ subView, setAdminView }) {
             <div class="card">
               <div class="header">
                 <h1>${nt.title}</h1>
-                <span class="badge ${nt.priority === 'High' ? 'badge-high' : ''}">${nt.priority} Priority Notice</span>
+                <span class="badge">${nt.category || 'General'} Notice</span>
               </div>
               <div class="content">
                 ${nt.content}
@@ -1446,7 +1527,6 @@ export default function AcademicPanel({ subView, setAdminView }) {
         ['Title', nt.title],
         ['Content', nt.content],
         ['Category', nt.category || ''],
-        ['Priority', nt.priority || ''],
         ['Date Published', nt.publishDate],
         ['Visibility', nt.visibility || '']
       ];
@@ -4421,6 +4501,15 @@ export default function AcademicPanel({ subView, setAdminView }) {
   };
 
   const renderEvents = () => {
+    const activeEvents = events.filter(evt => evt.isDeleted !== 1 && evt.isDeleted !== true);
+
+    // Filter history events based on search query (prefix match) and type dropdown
+    const filteredHistoryEvents = events.filter(evt => {
+      const matchesName = !historySearch || evt.title.toLowerCase().startsWith(historySearch.toLowerCase());
+      const matchesType = historyTypeFilter === 'All' || evt.type === historyTypeFilter;
+      return matchesName && matchesType;
+    });
+
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
         <div className="glass-panel" style={{ padding: '20px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
@@ -4428,32 +4517,141 @@ export default function AcademicPanel({ subView, setAdminView }) {
             <h3 style={{ fontSize: '1.1rem', fontWeight: 700 }}>Event Operations Coordinator</h3>
             <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Schedule school functions, PTA meets, competitions, and manage their status.</p>
           </div>
-          <button className="btn-primary" onClick={() => {
-            setEventForm({ title: '', type: 'Academic', date: '', time: '', venue: '', description: '', organizer: 'School Admin', participants: 'All Students', status: 'Scheduled' });
-            setEditingId(null);
-            setShowAddModal(true);
-          }}>
-            <Plus size={16} /> Create New Event
-          </button>
+          <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: '4px', background: 'var(--bg-glass-active)', border: '1px solid var(--border-glass)', borderRadius: '10px', padding: '3px' }}>
+              <button 
+                type="button"
+                onClick={() => setEventsTab('active')}
+                style={{
+                  padding: '6px 12px', borderRadius: '8px', fontSize: '0.78rem', fontWeight: 600,
+                  background: eventsTab === 'active' ? 'hsl(var(--color-primary))' : 'transparent',
+                  border: 'none',
+                  color: eventsTab === 'active' ? '#ffffff' : 'var(--text-muted)',
+                  cursor: 'pointer', transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: '6px'
+                }}
+              >
+                Active Operations
+              </button>
+              <button 
+                type="button"
+                onClick={() => setEventsTab('history')}
+                style={{
+                  padding: '6px 12px', borderRadius: '8px', fontSize: '0.78rem', fontWeight: 600,
+                  background: eventsTab === 'history' ? 'hsl(var(--color-primary))' : 'transparent',
+                  border: 'none',
+                  color: eventsTab === 'history' ? '#ffffff' : 'var(--text-muted)',
+                  cursor: 'pointer', transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: '6px'
+                }}
+              >
+                <History size={12} /> Event History
+              </button>
+            </div>
+
+            <button className="btn-secondary" onClick={() => setShowManageEventTypesModal(true)}>
+              <Settings size={16} /> Manage Event Types
+            </button>
+            <button className="btn-primary" onClick={() => {
+              setEventForm({ title: '', type: '', date: '', startTime: '', endTime: '', venue: '', description: '', organizer: 'School Admin', participants: 'All Students', status: 'Scheduled' });
+              setEditingId(null);
+              setShowAddModal(true);
+            }}>
+              <Plus size={16} /> Create New Event
+            </button>
+          </div>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '20px' }}>
-          {events.length > 0 ? (
-            events.map(evt => (
-              <div key={evt.id} className="glass-panel" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px', position: 'relative' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                  <span style={{
-                    padding: '3px 8px', borderRadius: '12px', fontSize: '0.65rem', fontWeight: 700,
-                    background: evt.type === 'Examination' ? 'rgba(236,72,153,0.1)' : evt.type === 'Holiday' ? 'rgba(245,158,11,0.1)' : evt.type === 'Sports' ? 'rgba(34,197,94,0.1)' : evt.type === 'Health & Wellness' ? 'rgba(34,197,94,0.1)' : evt.type === 'Celebration' ? 'rgba(251,146,60,0.1)' : evt.type === 'Cultural' ? 'rgba(168,85,247,0.1)' : 'rgba(99,102,241,0.1)',
-                    color: evt.type === 'Examination' ? '#ec4899' : evt.type === 'Holiday' ? '#f59e0b' : evt.type === 'Sports' ? '#16a34a' : evt.type === 'Health & Wellness' ? '#16a34a' : evt.type === 'Celebration' ? '#ea580c' : evt.type === 'Cultural' ? '#9333ea' : 'hsl(var(--color-primary))',
-                  }}>{evt.type}</span>
-                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+        {/* History Filters */}
+        {eventsTab === 'history' && (
+          <div className="glass-panel" style={{ padding: '16px 20px', display: 'flex', gap: '16px', alignItems: 'center', flexWrap: 'wrap', background: 'var(--bg-card)', border: '1px solid var(--border-glass)', borderRadius: '12px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: 1, minWidth: '200px' }}>
+              <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)' }}>Search Event Name</label>
+              <input
+                type="text"
+                className="form-control"
+                placeholder="e.g. Sports Day..."
+                value={historySearch}
+                onChange={(e) => {
+                  const val = e.target.value.replace(/[^a-zA-Z\s]/g, '').substring(0, 50);
+                  setHistorySearch(val);
+                }}
+                style={{ height: '36px', fontSize: '0.85rem' }}
+              />
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', width: '200px' }}>
+              <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)' }}>Filter by Type</label>
+              <select
+                className="select-custom"
+                value={historyTypeFilter}
+                onChange={(e) => setHistoryTypeFilter(e.target.value)}
+                style={{
+                  height: '36px',
+                  padding: '0 12px',
+                  fontSize: '0.85rem',
+                  borderRadius: '8px',
+                  background: 'var(--bg-glass-active)',
+                  border: '1px solid var(--border-glass)',
+                  color: 'var(--text-main)',
+                  cursor: 'pointer',
+                  width: '100%'
+                }}
+              >
+                <option value="All">All Event Types</option>
+                {eventTypes.map(t => (
+                  <option key={t} value={t}>{t}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+        )}
+
+        {/* Event Cards Grid */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '20px' }}>
+          {eventsTab === 'active' ? (
+            activeEvents.length > 0 ? (
+              activeEvents.map(evt => (
+                <div key={evt.id} className="glass-panel" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px', position: 'relative', maxWidth: '380px', width: '100%' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    {(() => {
+                      const lowerType = (evt.type || '').toLowerCase();
+                      const badgeColor = lowerType.includes('exam') ? { bg: 'rgba(236,72,153,0.1)', text: '#ec4899' }
+                                       : lowerType.includes('holiday') ? { bg: 'rgba(245,158,11,0.1)', text: '#f59e0b' }
+                                       : lowerType.includes('sport') ? { bg: 'rgba(34,197,94,0.1)', text: '#16a34a' }
+                                       : lowerType.includes('health') || lowerType.includes('well') ? { bg: 'rgba(34,197,94,0.1)', text: '#16a34a' }
+                                       : lowerType.includes('celebr') ? { bg: 'rgba(251,146,60,0.1)', text: '#ea580c' }
+                                       : lowerType.includes('cultur') ? { bg: 'rgba(168,85,247,0.1)', text: '#9333ea' }
+                                       : { bg: 'rgba(99,102,241,0.1)', text: 'hsl(var(--color-primary))' };
+                      return (
+                        <span style={{
+                          padding: '3px 8px', borderRadius: '12px', fontSize: '0.65rem', fontWeight: 700,
+                          background: badgeColor.bg,
+                          color: badgeColor.text,
+                        }}>{evt.type}</span>
+                      );
+                    })()}
+                    <span style={{
+                      fontSize: '0.68rem', fontWeight: 600,
+                      color: evt.status === 'Published' ? '#10b981' : 'var(--text-muted)',
+                      background: evt.status === 'Published' ? 'rgba(16, 185, 129, 0.08)' : 'var(--bg-glass-active)',
+                      padding: '3px 8px', borderRadius: '8px', border: '1px solid var(--border-glass)',
+                      display: 'flex', alignItems: 'center', gap: '4px'
+                    }}>
+                      {evt.status === 'Published' ? '🟢 Published' : '⚪ Draft'}
+                    </span>
+                  </div>
+                  <div style={{
+                    display: 'flex',
+                    gap: '8px',
+                    borderBottom: '1px solid var(--border-glass)',
+                    paddingBottom: '12px',
+                    marginBottom: '4px'
+                  }}>
                     <button className="btn-secondary" onClick={() => {
                       setEventForm({
                         title: evt.title,
                         type: evt.type,
                         date: evt.date,
-                        time: evt.time,
+                        startTime: evt.startTime || evt.time || '',
+                        endTime: evt.endTime || '',
                         venue: evt.venue,
                         description: evt.description || '',
                         organizer: evt.organizer || 'School Admin',
@@ -4462,68 +4660,132 @@ export default function AcademicPanel({ subView, setAdminView }) {
                       });
                       setEditingId(evt.id);
                       setShowAddModal(true);
-                    }} style={{ padding: '4px', border: 'none', background: 'none', cursor: 'pointer', color: 'hsl(var(--color-primary))' }}>
-                      <Edit3 size={14} />
+                    }} style={{ flex: 1, padding: '6px 12px', fontSize: '0.78rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
+                      <Edit3 size={12} /> Edit
                     </button>
-                    <button className="btn-secondary" onClick={() => deleteEventLog(evt.id)} style={{ padding: '4px', border: 'none', background: 'none', cursor: 'pointer', color: 'rgb(var(--color-danger-rgb))' }}>
-                      <Trash2 size={14} />
+                    <button className="btn-secondary" onClick={() => {
+                      if (window.confirm('Are you sure you want to delete this event? This will also remove it from the published panel.')) {
+                        deleteEventLog(evt.id);
+                      }
+                    }} style={{ flex: 1, padding: '6px 12px', fontSize: '0.78rem', color: '#ff4d4d', borderColor: 'rgba(255, 77, 77, 0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
+                      <Trash2 size={12} /> Delete
+                    </button>
+                    <button 
+                      className={evt.status === 'Published' ? "btn-secondary" : "btn-primary"} 
+                      onClick={() => togglePublishEvent(evt)} 
+                      style={{ 
+                        flex: 1, 
+                        padding: '6px 12px', 
+                        fontSize: '0.78rem',
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        justifyContent: 'center', 
+                        gap: '4px',
+                        ...(evt.status === 'Published' ? { color: '#f59e0b', borderColor: 'rgba(245, 158, 11, 0.2)' } : {})
+                      }}
+                    >
+                      {evt.status === 'Published' ? 'Unpublish' : 'Publish'}
+                    </button>
+                  </div>
+                  <h4 style={{ fontSize: '1rem', fontWeight: 800, margin: 0, color: 'var(--text-main)' }}>{evt.title}</h4>
+                  <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: 0 }}>{evt.description || 'No description provided.'}</p>
+                  <div style={{
+                    display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '0.78rem',
+                    borderTop: '1px solid var(--border-glass)', paddingTop: '10px', color: 'var(--text-muted)'
+                  }}>
+                    <span>📅 Date: <strong>{new Date(evt.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</strong></span>
+                    <span>⏰ Time: {evt.startTime || evt.time || ''}{evt.endTime ? ` - ${evt.endTime}` : ''}</span>
+                    <span>📍 Venue: {evt.venue}</span>
+                    <span>👥 Target: {evt.participants}</span>
+                  </div>
+                  <div style={{
+                    display: 'flex',
+                    justifyContent: 'flex-end',
+                    gap: '8px',
+                    borderTop: '1px solid var(--border-glass)',
+                    paddingTop: '10px',
+                    marginTop: '4px',
+                    alignItems: 'center'
+                  }}>
+                    <button
+                      type="button"
+                      onClick={() => handleExportEvent(evt, 'pdf')}
+                      className="btn-secondary"
+                      style={{
+                        padding: '4px 10px',
+                        fontSize: '0.75rem',
+                        borderRadius: '6px',
+                        height: '28px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        cursor: 'pointer',
+                        background: 'var(--bg-glass-active)',
+                        border: '1px solid var(--border-glass)',
+                        color: 'var(--text-main)',
+                        fontWeight: 600
+                      }}
+                    >
+                      <Download size={12} /> Export PDF
                     </button>
                   </div>
                 </div>
-                <h4 style={{ fontSize: '1rem', fontWeight: 800, margin: 0, color: 'var(--text-main)' }}>{evt.title}</h4>
-                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: 0 }}>{evt.description || 'No description provided.'}</p>
-                <div style={{
-                  display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '0.78rem',
-                  borderTop: '1px solid var(--border-glass)', paddingTop: '10px', color: 'var(--text-muted)'
-                }}>
-                  <span>📅 Date: <strong>{new Date(evt.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</strong></span>
-                  <span>⏰ Time: {evt.time}</span>
-                  <span>📍 Venue: {evt.venue}</span>
-                  <span>👥 Target: {evt.participants}</span>
-                </div>
-                <div style={{
-                  display: 'flex',
-                  justifyContent: 'flex-end',
-                  gap: '8px',
-                  borderTop: '1px solid var(--border-glass)',
-                  paddingTop: '10px',
-                  marginTop: '4px',
-                  alignItems: 'center'
-                }}>
-                  <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <Download size={12} /> Export:
-                  </span>
-                  <select
-                    onChange={(e) => {
-                      if (e.target.value) {
-                        handleExportEvent(evt, e.target.value);
-                        e.target.value = ''; // Reset select
-                      }
-                    }}
-                    className="select-custom"
-                    style={{
-                      padding: '2px 8px',
-                      fontSize: '0.75rem',
-                      borderRadius: '6px',
-                      height: '28px',
-                      background: 'var(--bg-glass-active)',
-                      border: '1px solid var(--border-glass)',
-                      color: 'var(--text-main)',
-                      cursor: 'pointer',
-                      width: 'auto'
-                    }}
-                  >
-                    <option value="">Select format...</option>
-                    <option value="csv">CSV File</option>
-                    <option value="json">JSON File</option>
-                  </select>
-                </div>
+              ))
+            ) : (
+              <div className="glass-panel" style={{ padding: '40px', gridColumn: '1 / -1', textAlign: 'center', color: 'var(--text-muted)' }}>
+                No school events registered. Click "Create New Event" to register academic activities.
               </div>
-            ))
+            )
           ) : (
-            <div className="glass-panel" style={{ padding: '40px', gridColumn: '1 / -1', textAlign: 'center', color: 'var(--text-muted)' }}>
-              No school events registered. Click "Create New Event" to register academic activities.
-            </div>
+            filteredHistoryEvents.length > 0 ? (
+              filteredHistoryEvents.map(evt => (
+                <div key={evt.id} className="glass-panel" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px', position: 'relative', maxWidth: '380px', width: '100%' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    {(() => {
+                      const lowerType = (evt.type || '').toLowerCase();
+                      const badgeColor = lowerType.includes('exam') ? { bg: 'rgba(236,72,153,0.1)', text: '#ec4899' }
+                                       : lowerType.includes('holiday') ? { bg: 'rgba(245,158,11,0.1)', text: '#f59e0b' }
+                                       : lowerType.includes('sport') ? { bg: 'rgba(34,197,94,0.1)', text: '#16a34a' }
+                                       : lowerType.includes('health') || lowerType.includes('well') ? { bg: 'rgba(34,197,94,0.1)', text: '#16a34a' }
+                                       : lowerType.includes('celebr') ? { bg: 'rgba(251,146,60,0.1)', text: '#ea580c' }
+                                       : lowerType.includes('cultur') ? { bg: 'rgba(168,85,247,0.1)', text: '#9333ea' }
+                                       : { bg: 'rgba(99,102,241,0.1)', text: 'hsl(var(--color-primary))' };
+                      return (
+                        <span style={{
+                          padding: '3px 8px', borderRadius: '12px', fontSize: '0.65rem', fontWeight: 700,
+                          background: badgeColor.bg,
+                          color: badgeColor.text,
+                        }}>{evt.type}</span>
+                      );
+                    })()}
+                    <span style={{
+                      fontSize: '0.68rem', fontWeight: 600,
+                      color: evt.status === 'Published' ? '#10b981' : 'var(--text-muted)',
+                      background: evt.status === 'Published' ? 'rgba(16, 185, 129, 0.08)' : 'var(--bg-glass-active)',
+                      padding: '3px 8px', borderRadius: '8px', border: '1px solid var(--border-glass)',
+                      display: 'flex', alignItems: 'center', gap: '4px'
+                    }}>
+                      {evt.status === 'Published' ? '🟢 Published' : '⚪ Draft'}
+                    </span>
+                  </div>
+                  <h4 style={{ fontSize: '1rem', fontWeight: 800, margin: 0, color: 'var(--text-main)' }}>{evt.title}</h4>
+                  <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: 0 }}>{evt.description || 'No description provided.'}</p>
+                  <div style={{
+                    display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '0.78rem',
+                    borderTop: '1px solid var(--border-glass)', paddingTop: '10px', color: 'var(--text-muted)'
+                  }}>
+                    <span>📅 Date: <strong>{new Date(evt.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</strong></span>
+                    <span>⏰ Time: {evt.startTime || evt.time || ''}{evt.endTime ? ` - ${evt.endTime}` : ''}</span>
+                    <span>📍 Venue: {evt.venue}</span>
+                    <span>👥 Target: {evt.participants}</span>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="glass-panel" style={{ padding: '40px', gridColumn: '1 / -1', textAlign: 'center', color: 'var(--text-muted)' }}>
+                No matching events found in history.
+              </div>
+            )
           )}
         </div>
       </div>
@@ -4531,6 +4793,14 @@ export default function AcademicPanel({ subView, setAdminView }) {
   };
 
   const renderNotices = () => {
+    const activeNotices = notices.filter(nt => nt.isDeleted !== 1 && nt.isDeleted !== true);
+
+    const filteredHistoryNotices = notices.filter(nt => {
+      const matchesName = !noticeSearch || nt.title.toLowerCase().startsWith(noticeSearch.toLowerCase());
+      const matchesCategory = noticeCategoryFilter === 'All' || nt.category === noticeCategoryFilter;
+      return matchesName && matchesCategory;
+    });
+
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
         <div className="glass-panel" style={{ padding: '20px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
@@ -4538,95 +4808,268 @@ export default function AcademicPanel({ subView, setAdminView }) {
             <h3 style={{ fontSize: '1.1rem', fontWeight: 700 }}>Notice & Announcements Board</h3>
             <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Publish official announcements mapping targeted reader visibility groups.</p>
           </div>
-          <button className="btn-primary" onClick={() => {
-            setNoticeForm({ title: '', content: '', category: 'General', priority: 'Medium', publishDate: new Date().toISOString().split('T')[0], expiryDate: '', visibility: 'All' });
-            setEditingId(null);
-            setShowAddModal(true);
-          }}>
-            <Plus size={16} /> Broadcast Notice
-          </button>
+          <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: '4px', background: 'var(--bg-glass-active)', border: '1px solid var(--border-glass)', borderRadius: '10px', padding: '3px' }}>
+              <button 
+                type="button"
+                onClick={() => setNoticesTab('active')}
+                style={{
+                  padding: '6px 12px', borderRadius: '8px', fontSize: '0.78rem', fontWeight: 600,
+                  background: noticesTab === 'active' ? 'hsl(var(--color-primary))' : 'transparent',
+                  border: 'none',
+                  color: noticesTab === 'active' ? '#ffffff' : 'var(--text-muted)',
+                  cursor: 'pointer', transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: '6px'
+                }}
+              >
+                Active Operations
+              </button>
+              <button 
+                type="button"
+                onClick={() => setNoticesTab('history')}
+                style={{
+                  padding: '6px 12px', borderRadius: '8px', fontSize: '0.78rem', fontWeight: 600,
+                  background: noticesTab === 'history' ? 'hsl(var(--color-primary))' : 'transparent',
+                  border: 'none',
+                  color: noticesTab === 'history' ? '#ffffff' : 'var(--text-muted)',
+                  cursor: 'pointer', transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: '6px'
+                }}
+              >
+                <History size={12} /> Notice History
+              </button>
+            </div>
+
+            <button className="btn-secondary" onClick={() => setShowManageNoticeCategoriesModal(true)}>
+              <Settings size={16} /> Manage Notice Categories
+            </button>
+            <button className="btn-primary" onClick={() => {
+              setNoticeForm({ title: '', content: '', category: '', publishDate: new Date().toISOString().split('T')[0], expiryDate: '', visibility: 'All' });
+              setEditingId(null);
+              setShowAddModal(true);
+            }}>
+              <Plus size={16} /> Broadcast Notice
+            </button>
+          </div>
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          {notices.length > 0 ? (
-            notices.map(nt => (
-              <div key={nt.id} className="glass-panel" style={{ padding: '20px', display: 'flex', gap: '16px', alignItems: 'flex-start', position: 'relative' }}>
-                <div style={{
-                  padding: '10px', borderRadius: '10px',
-                  background: nt.priority === 'High' ? 'rgba(239, 68, 68, 0.08)' : nt.priority === 'Medium' ? 'rgba(245, 158, 11, 0.08)' : 'rgba(99, 102, 241, 0.08)',
-                  color: nt.priority === 'High' ? '#ef4444' : nt.priority === 'Medium' ? '#f59e0b' : 'hsl(var(--color-primary))',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
-                }}>
-                  <Bell size={20} />
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: 1 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <h4 style={{ fontSize: '1rem', fontWeight: 800, margin: 0 }}>{nt.title}</h4>
+        {/* History Filters */}
+        {noticesTab === 'history' && (
+          <div className="glass-panel" style={{ padding: '16px 20px', display: 'flex', gap: '16px', alignItems: 'center', flexWrap: 'wrap', background: 'var(--bg-card)', border: '1px solid var(--border-glass)', borderRadius: '12px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: 1, minWidth: '200px' }}>
+              <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)' }}>Search Notice Title</label>
+              <input
+                type="text"
+                className="form-control"
+                placeholder="e.g. Exam Alert..."
+                value={noticeSearch}
+                onChange={(e) => {
+                  const val = e.target.value.replace(/[^a-zA-Z\s]/g, '').substring(0, 50);
+                  setNoticeSearch(val);
+                }}
+                style={{ height: '36px', fontSize: '0.85rem' }}
+              />
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', width: '200px' }}>
+              <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)' }}>Filter by Category</label>
+              <select
+                className="select-custom"
+                value={noticeCategoryFilter}
+                onChange={(e) => setNoticeCategoryFilter(e.target.value)}
+                style={{
+                  height: '36px',
+                  padding: '0 12px',
+                  fontSize: '0.85rem',
+                  borderRadius: '8px',
+                  background: 'var(--bg-glass-active)',
+                  border: '1px solid var(--border-glass)',
+                  color: 'var(--text-main)',
+                  cursor: 'pointer',
+                  width: '100%'
+                }}
+              >
+                <option value="All">All Categories</option>
+                {noticeCategories.map(c => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+        )}
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '20px' }}>
+          {noticesTab === 'active' ? (
+            activeNotices.length > 0 ? (
+              activeNotices.map(nt => (
+                <div key={nt.id} className="glass-panel" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px', position: 'relative', maxWidth: '380px', width: '100%' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <span style={{
+                      padding: '3px 8px', borderRadius: '12px', fontSize: '0.65rem', fontWeight: 700,
+                      background: 'rgba(99, 102, 241, 0.1)', color: 'hsl(var(--color-primary))',
+                    }}>{nt.category}</span>
                     <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                       <span style={{ fontSize: '0.68rem', padding: '3px 8px', borderRadius: '10px', background: 'var(--bg-glass-active)', border: '1px solid var(--border-glass)', fontWeight: 600 }}>Audience: {nt.visibility}</span>
-                      <button className="btn-secondary" onClick={() => {
-                        setNoticeForm({
-                          title: nt.title,
-                          content: nt.content,
-                          category: nt.category,
-                          priority: nt.priority,
-                          publishDate: nt.publishDate,
-                          expiryDate: nt.expiryDate || '',
-                          visibility: nt.visibility
-                        });
-                        setEditingId(nt.id);
-                        setShowAddModal(true);
-                      }} style={{ padding: '4px', border: 'none', background: 'none', cursor: 'pointer', color: 'hsl(var(--color-primary))' }}>
-                        <Edit3 size={14} />
-                      </button>
-                      <button className="btn-secondary" onClick={() => deleteNoticeBoard(nt.id)} style={{ padding: '4px', border: 'none', background: 'none', cursor: 'pointer', color: 'rgb(var(--color-danger-rgb))' }}>
-                        <Trash2 size={14} />
-                      </button>
+                      <span style={{
+                        fontSize: '0.68rem', fontWeight: 600,
+                        color: nt.status === 'Published' ? '#10b981' : 'var(--text-muted)',
+                        background: nt.status === 'Published' ? 'rgba(16, 185, 129, 0.08)' : 'var(--bg-glass-active)',
+                        padding: '3px 8px', borderRadius: '8px', border: '1px solid var(--border-glass)',
+                        display: 'flex', alignItems: 'center', gap: '4px'
+                      }}>
+                        {nt.status === 'Published' ? '🟢 Published' : '⚪ Draft'}
+                      </span>
                     </div>
                   </div>
-                  <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', margin: '4px 0', lineHeight: 1.4 }}>{nt.content}</p>
-                  <div style={{ display: 'flex', gap: '16px', fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap' }}>
-                    <div>
-                      <span>Category: <strong>{nt.category}</strong></span>
-                      <span style={{ marginLeft: '16px' }}>Date Published: {nt.publishDate}</span>
+
+                  <div style={{ display: 'flex', gap: '8px', borderBottom: '1px solid var(--border-glass)', paddingBottom: '12px', marginBottom: '4px' }}>
+                    <button className="btn-secondary" onClick={() => {
+                      setNoticeForm({
+                        title: nt.title,
+                        content: nt.content,
+                        category: nt.category,
+                        publishDate: nt.publishDate,
+                        expiryDate: nt.expiryDate || '',
+                        visibility: nt.visibility
+                      });
+                      setEditingId(nt.id);
+                      setShowAddModal(true);
+                    }} style={{ flex: 1, padding: '6px 12px', fontSize: '0.78rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
+                      <Edit3 size={12} /> Edit
+                    </button>
+                    <button className="btn-secondary" onClick={() => {
+                      if (window.confirm('Are you sure you want to delete this notice? This will also remove it from the active panel.')) {
+                        deleteNoticeBoard(nt.id);
+                      }
+                    }} style={{ flex: 1, padding: '6px 12px', fontSize: '0.78rem', color: '#ff4d4d', borderColor: 'rgba(255, 77, 77, 0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
+                      <Trash2 size={12} /> Delete
+                    </button>
+                    <button 
+                      className={nt.status === 'Published' ? "btn-secondary" : "btn-primary"} 
+                      onClick={() => togglePublishNotice(nt)} 
+                      style={{ 
+                        flex: 1, 
+                        padding: '6px 12px', 
+                        fontSize: '0.78rem',
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        justifyContent: 'center', 
+                        gap: '4px',
+                        ...(nt.status === 'Published' ? { color: '#f59e0b', borderColor: 'rgba(245, 158, 11, 0.2)' } : {})
+                      }}
+                    >
+                      {nt.status === 'Published' ? 'Unpublish' : 'Publish'}
+                    </button>
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
+                    <div style={{
+                      padding: '8px', borderRadius: '8px',
+                      background: 'rgba(99, 102, 241, 0.08)',
+                      color: 'hsl(var(--color-primary))',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
+                    }}>
+                      <Bell size={16} />
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        <Download size={12} /> Export:
-                      </span>
-                      <select
-                        onChange={(e) => {
-                          if (e.target.value) {
-                            handleExportNotice(nt, e.target.value);
-                            e.target.value = '';
-                          }
-                        }}
-                        className="select-custom"
-                        style={{
-                          padding: '2px 8px',
-                          fontSize: '0.75rem',
-                          borderRadius: '6px',
-                          height: '28px',
-                          background: 'var(--bg-glass-active)',
-                          border: '1px solid var(--border-glass)',
-                          color: 'var(--text-main)',
-                          cursor: 'pointer',
-                          width: 'auto'
-                        }}
-                      >
-                        <option value="">Select format...</option>
-                        <option value="csv">CSV File</option>
-                        <option value="json">JSON File</option>
-                      </select>
-                    </div>
+                    <h4 style={{ fontSize: '1.0rem', fontWeight: 800, margin: 0, color: 'var(--text-main)' }}>{nt.title}</h4>
+                  </div>
+                  
+                  <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', margin: 0, lineHeight: 1.4, flex: 1, whiteSpace: 'pre-wrap' }}>{nt.content}</p>
+                  
+                  <div style={{
+                    display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '0.78rem',
+                    borderTop: '1px solid var(--border-glass)', paddingTop: '10px', color: 'var(--text-muted)'
+                  }}>
+                    <span>📅 Publish Date: <strong>{new Date(nt.publishDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</strong></span>
+                    {nt.expiryDate && <span>⏳ Expiry Date: <strong>{new Date(nt.expiryDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</strong></span>}
+
+                  </div>
+
+                  <div style={{
+                    display: 'flex',
+                    justifyContent: 'flex-end',
+                    borderTop: '1px solid var(--border-glass)',
+                    paddingTop: '10px',
+                    marginTop: '4px'
+                  }}>
+                    <button
+                      type="button"
+                      onClick={() => handleExportNotice(nt, 'pdf')}
+                      className="btn-secondary"
+                      style={{
+                        padding: '4px 10px',
+                        fontSize: '0.75rem',
+                        borderRadius: '6px',
+                        height: '28px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        cursor: 'pointer',
+                        background: 'var(--bg-glass-active)',
+                        border: '1px solid var(--border-glass)',
+                        color: 'var(--text-main)',
+                        fontWeight: 600
+                      }}
+                    >
+                      <Download size={12} /> Export PDF
+                    </button>
                   </div>
                 </div>
+              ))
+            ) : (
+              <div className="glass-panel" style={{ padding: '40px', gridColumn: '1 / -1', textAlign: 'center', color: 'var(--text-muted)' }}>
+                Notice board is empty. Click "Broadcast Notice" to publish statements.
               </div>
-            ))
+            )
           ) : (
-            <div className="glass-panel" style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>
-              Notice board is empty. Click "Broadcast Notice" to publish statements.
-            </div>
+            filteredHistoryNotices.length > 0 ? (
+              filteredHistoryNotices.map(nt => (
+                <div key={nt.id} className="glass-panel" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px', position: 'relative', maxWidth: '380px', width: '100%' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <span style={{
+                      padding: '3px 8px', borderRadius: '12px', fontSize: '0.65rem', fontWeight: 700,
+                      background: 'rgba(99, 102, 241, 0.1)', color: 'hsl(var(--color-primary))',
+                    }}>{nt.category}</span>
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                      <span style={{ fontSize: '0.68rem', padding: '3px 8px', borderRadius: '10px', background: 'var(--bg-glass-active)', border: '1px solid var(--border-glass)', fontWeight: 600 }}>Audience: {nt.visibility}</span>
+                      <span style={{
+                        fontSize: '0.68rem', fontWeight: 600,
+                        color: nt.status === 'Published' ? '#10b981' : 'var(--text-muted)',
+                        background: nt.status === 'Published' ? 'rgba(16, 185, 129, 0.08)' : 'var(--bg-glass-active)',
+                        padding: '3px 8px', borderRadius: '8px', border: '1px solid var(--border-glass)',
+                        display: 'flex', alignItems: 'center', gap: '4px'
+                      }}>
+                        {nt.status === 'Published' ? '🟢 Published' : '⚪ Draft'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
+                    <div style={{
+                      padding: '8px', borderRadius: '8px',
+                      background: 'rgba(99, 102, 241, 0.08)',
+                      color: 'hsl(var(--color-primary))',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
+                    }}>
+                      <Bell size={16} />
+                    </div>
+                    <h4 style={{ fontSize: '1.0rem', fontWeight: 800, margin: 0, color: 'var(--text-main)' }}>{nt.title}</h4>
+                  </div>
+                  
+                  <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', margin: 0, lineHeight: 1.4, flex: 1, whiteSpace: 'pre-wrap' }}>{nt.content}</p>
+                  
+                  <div style={{
+                    display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '0.78rem',
+                    borderTop: '1px solid var(--border-glass)', paddingTop: '10px', color: 'var(--text-muted)'
+                  }}>
+                    <span>📅 Publish Date: <strong>{new Date(nt.publishDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</strong></span>
+                    {nt.expiryDate && <span>⏳ Expiry Date: <strong>{new Date(nt.expiryDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</strong></span>}
+
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="glass-panel" style={{ padding: '40px', gridColumn: '1 / -1', textAlign: 'center', color: 'var(--text-muted)' }}>
+                No matching notices found in history.
+              </div>
+            )
           )}
         </div>
       </div>
@@ -4634,6 +5077,15 @@ export default function AcademicPanel({ subView, setAdminView }) {
   };
 
   const renderHolidays = () => {
+    const activeHolidays = holidays.filter(h => h.isDeleted !== 1 && h.isDeleted !== true);
+
+    const filteredHistoryHolidays = holidays.filter(h => {
+      const name = h.name || h.title || '';
+      const matchesName = !holidaySearch || name.toLowerCase().startsWith(holidaySearch.toLowerCase());
+      const matchesClassification = holidayClassificationFilter === 'All' || h.type === holidayClassificationFilter;
+      return matchesName && matchesClassification;
+    });
+
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
         <div className="glass-panel" style={{ padding: '20px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
@@ -4641,27 +5093,117 @@ export default function AcademicPanel({ subView, setAdminView }) {
             <h3 style={{ fontSize: '1.1rem', fontWeight: 700 }}>Holidays & Calendar Closures</h3>
             <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Configure festival recesses, official holidays, and emergency closures.</p>
           </div>
-          <button className="btn-primary" onClick={() => {
-            setHolidayForm({ name: '', type: 'Public', startDate: '', endDate: '', description: '' });
-            setEditingId(null);
-            setShowAddModal(true);
-          }}>
-            <Plus size={16} /> Declare Holiday
-          </button>
+          <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: '4px', background: 'var(--bg-glass-active)', border: '1px solid var(--border-glass)', borderRadius: '10px', padding: '3px' }}>
+              <button 
+                type="button"
+                onClick={() => setHolidaysTab('active')}
+                style={{
+                  padding: '6px 12px', borderRadius: '8px', fontSize: '0.78rem', fontWeight: 600,
+                  background: holidaysTab === 'active' ? 'hsl(var(--color-primary))' : 'transparent',
+                  border: 'none',
+                  color: holidaysTab === 'active' ? '#ffffff' : 'var(--text-muted)',
+                  cursor: 'pointer', transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: '6px'
+                }}
+              >
+                Active Operations
+              </button>
+              <button 
+                type="button"
+                onClick={() => setHolidaysTab('history')}
+                style={{
+                  padding: '6px 12px', borderRadius: '8px', fontSize: '0.78rem', fontWeight: 600,
+                  background: holidaysTab === 'history' ? 'hsl(var(--color-primary))' : 'transparent',
+                  border: 'none',
+                  color: holidaysTab === 'history' ? '#ffffff' : 'var(--text-muted)',
+                  cursor: 'pointer', transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: '6px'
+                }}
+              >
+                <History size={12} /> Holiday History
+              </button>
+            </div>
+
+            <button className="btn-secondary" onClick={() => setShowManageHolidayClassificationsModal(true)}>
+              <Settings size={16} /> Manage Holiday Classifications
+            </button>
+            <button className="btn-primary" onClick={() => {
+              setHolidayForm({ name: '', type: '', startDate: '', endDate: '', description: '' });
+              setEditingId(null);
+              setShowAddModal(true);
+            }}>
+              <Plus size={16} /> Declare Holiday
+            </button>
+          </div>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '20px' }}>
-          {holidays.length > 0 ? (
-            holidays.map(h => (
-              <div key={h.id} className="glass-panel" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px', position: 'relative' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                  <span style={{
-                    padding: '3px 8px', borderRadius: '12px', fontSize: '0.65rem', fontWeight: 700,
-                    background: h.type === 'Emergency' ? 'rgba(239, 68, 68, 0.08)' : 'rgba(245, 158, 11, 0.08)',
-                    color: h.type === 'Emergency' ? '#ef4444' : '#f59e0b',
-                    border: h.type === 'Emergency' ? '1px solid rgba(239, 68, 68, 0.15)' : '1px solid rgba(245, 158, 11, 0.15)'
-                  }}>{h.type}</span>
-                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+        {/* History Filters */}
+        {holidaysTab === 'history' && (
+          <div className="glass-panel" style={{ padding: '16px 20px', display: 'flex', gap: '16px', alignItems: 'center', flexWrap: 'wrap', background: 'var(--bg-card)', border: '1px solid var(--border-glass)', borderRadius: '12px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: 1, minWidth: '200px' }}>
+              <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)' }}>Search Holiday Name</label>
+              <input
+                type="text"
+                className="form-control"
+                placeholder="e.g. Winter Break..."
+                value={holidaySearch}
+                onChange={(e) => {
+                  const val = e.target.value.replace(/[^a-zA-Z\s]/g, '').substring(0, 50);
+                  setHolidaySearch(val);
+                }}
+                style={{ height: '36px', fontSize: '0.85rem' }}
+              />
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', width: '200px' }}>
+              <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)' }}>Filter by Classification</label>
+              <select
+                className="select-custom"
+                value={holidayClassificationFilter}
+                onChange={(e) => setHolidayClassificationFilter(e.target.value)}
+                style={{
+                  height: '36px',
+                  padding: '0 12px',
+                  fontSize: '0.85rem',
+                  borderRadius: '8px',
+                  background: 'var(--bg-glass-active)',
+                  border: '1px solid var(--border-glass)',
+                  color: 'var(--text-main)',
+                  cursor: 'pointer',
+                  width: '100%'
+                }}
+              >
+                <option value="All">All Classifications</option>
+                {holidayClassifications.map(c => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+        )}
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '20px' }}>
+          {holidaysTab === 'active' ? (
+            activeHolidays.length > 0 ? (
+              activeHolidays.map(h => (
+                <div key={h.id} className="glass-panel" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px', position: 'relative', maxWidth: '380px', width: '100%' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <span style={{
+                      padding: '3px 8px', borderRadius: '12px', fontSize: '0.65rem', fontWeight: 700,
+                      background: h.type === 'Emergency' ? 'rgba(239, 68, 68, 0.08)' : 'rgba(245, 158, 11, 0.08)',
+                      color: h.type === 'Emergency' ? '#ef4444' : '#f59e0b',
+                      border: h.type === 'Emergency' ? '1px solid rgba(239, 68, 68, 0.15)' : '1px solid rgba(245, 158, 11, 0.15)'
+                    }}>{h.type}</span>
+                    <span style={{
+                      fontSize: '0.68rem', fontWeight: 600,
+                      color: h.status === 'Published' ? '#10b981' : 'var(--text-muted)',
+                      background: h.status === 'Published' ? 'rgba(16, 185, 129, 0.08)' : 'var(--bg-glass-active)',
+                      padding: '3px 8px', borderRadius: '8px', border: '1px solid var(--border-glass)',
+                      display: 'flex', alignItems: 'center', gap: '4px'
+                    }}>
+                      {h.status === 'Published' ? '🟢 Published' : '⚪ Draft'}
+                    </span>
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '8px', borderBottom: '1px solid var(--border-glass)', paddingBottom: '12px', marginBottom: '4px' }}>
                     <button className="btn-secondary" onClick={() => {
                       setHolidayForm({
                         name: h.name,
@@ -4672,66 +5214,121 @@ export default function AcademicPanel({ subView, setAdminView }) {
                       });
                       setEditingId(h.id);
                       setShowAddModal(true);
-                    }} style={{ padding: '4px', border: 'none', background: 'none', cursor: 'pointer', color: 'hsl(var(--color-primary))' }}>
-                      <Edit3 size={14} />
+                    }} style={{ flex: 1, padding: '6px 12px', fontSize: '0.78rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
+                      <Edit3 size={12} /> Edit
                     </button>
-                    <button className="btn-secondary" onClick={() => deleteHolidaySchedule(h.id)} style={{ padding: '4px', border: 'none', background: 'none', cursor: 'pointer', color: 'rgb(var(--color-danger-rgb))' }}>
-                      <Trash2 size={14} />
+                    <button className="btn-secondary" onClick={() => {
+                      if (window.confirm('Are you sure you want to delete this holiday? This will also remove it from the active panel.')) {
+                        deleteHolidaySchedule(h.id);
+                      }
+                    }} style={{ flex: 1, padding: '6px 12px', fontSize: '0.78rem', color: '#ff4d4d', borderColor: 'rgba(255, 77, 77, 0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
+                      <Trash2 size={12} /> Delete
+                    </button>
+                    <button 
+                      className={h.status === 'Published' ? "btn-secondary" : "btn-primary"} 
+                      onClick={() => togglePublishHoliday(h)} 
+                      style={{ 
+                        flex: 1, 
+                        padding: '6px 12px', 
+                        fontSize: '0.78rem',
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        justifyContent: 'center', 
+                        gap: '4px',
+                        ...(h.status === 'Published' ? { color: '#f59e0b', borderColor: 'rgba(245, 158, 11, 0.2)' } : {})
+                      }}
+                    >
+                      {h.status === 'Published' ? 'Unpublish' : 'Publish'}
+                    </button>
+                  </div>
+
+                  <h4 style={{ fontSize: '1rem', fontWeight: 800, margin: 0, color: 'var(--text-main)' }}>{h.name}</h4>
+                  <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: 0, flex: 1 }}>{h.description || 'No notes provided.'}</p>
+                  
+                  <div style={{
+                    display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '0.78rem',
+                    borderTop: '1px solid var(--border-glass)', paddingTop: '10px', color: 'var(--text-muted)'
+                  }}>
+                    <span>📅 Start Date: <strong>{new Date(h.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</strong></span>
+                    <span>📅 End Date: <strong>{new Date(h.endDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</strong></span>
+                  </div>
+
+                  <div style={{
+                    display: 'flex',
+                    justifyContent: 'flex-end',
+                    borderTop: '1px solid var(--border-glass)',
+                    paddingTop: '10px',
+                    marginTop: '4px',
+                    alignItems: 'center'
+                  }}>
+                    <button
+                      type="button"
+                      onClick={() => handleExportHoliday(h, 'pdf')}
+                      className="btn-secondary"
+                      style={{
+                        padding: '4px 10px',
+                        fontSize: '0.75rem',
+                        borderRadius: '6px',
+                        height: '28px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        cursor: 'pointer',
+                        background: 'var(--bg-glass-active)',
+                        border: '1px solid var(--border-glass)',
+                        color: 'var(--text-main)',
+                        fontWeight: 600
+                      }}
+                    >
+                      <Download size={12} /> Export PDF
                     </button>
                   </div>
                 </div>
-                <h4 style={{ fontSize: '1rem', fontWeight: 800, margin: 0, color: 'var(--text-main)' }}>{h.name}</h4>
-                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: 0 }}>{h.description || 'No notes provided.'}</p>
-                <div style={{
-                  display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '0.78rem',
-                  borderTop: '1px solid var(--border-glass)', paddingTop: '10px', color: 'var(--text-muted)'
-                }}>
-                  <span>📅 Start Date: <strong>{new Date(h.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</strong></span>
-                  <span>📅 End Date: <strong>{new Date(h.endDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</strong></span>
-                </div>
-                <div style={{
-                  display: 'flex',
-                  justifyContent: 'flex-end',
-                  gap: '8px',
-                  borderTop: '1px solid var(--border-glass)',
-                  paddingTop: '10px',
-                  marginTop: '4px',
-                  alignItems: 'center'
-                }}>
-                  <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <Download size={12} /> Export:
-                  </span>
-                  <select
-                    onChange={(e) => {
-                      if (e.target.value) {
-                        handleExportHoliday(h, e.target.value);
-                        e.target.value = '';
-                      }
-                    }}
-                    className="select-custom"
-                    style={{
-                      padding: '2px 8px',
-                      fontSize: '0.75rem',
-                      borderRadius: '6px',
-                      height: '28px',
-                      background: 'var(--bg-glass-active)',
-                      border: '1px solid var(--border-glass)',
-                      color: 'var(--text-main)',
-                      cursor: 'pointer',
-                      width: 'auto'
-                    }}
-                  >
-                    <option value="">Select format...</option>
-                    <option value="csv">CSV File</option>
-                    <option value="json">JSON File</option>
-                  </select>
-                </div>
+              ))
+            ) : (
+              <div className="glass-panel" style={{ padding: '40px', gridColumn: '1 / -1', textAlign: 'center', color: 'var(--text-muted)' }}>
+                No active holidays currently registered. Click "Declare Holiday".
               </div>
-            ))
+            )
           ) : (
-            <div className="glass-panel" style={{ padding: '40px', gridColumn: '1 / -1', textAlign: 'center', color: 'var(--text-muted)' }}>
-              No holidays currently registered. Click "Declare Holiday".
-            </div>
+            filteredHistoryHolidays.length > 0 ? (
+              filteredHistoryHolidays.map(h => (
+                <div key={h.id} className="glass-panel" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px', position: 'relative', maxWidth: '380px', width: '100%' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <span style={{
+                      padding: '3px 8px', borderRadius: '12px', fontSize: '0.65rem', fontWeight: 700,
+                      background: h.type === 'Emergency' ? 'rgba(239, 68, 68, 0.08)' : 'rgba(245, 158, 11, 0.08)',
+                      color: h.type === 'Emergency' ? '#ef4444' : '#f59e0b',
+                      border: h.type === 'Emergency' ? '1px solid rgba(239, 68, 68, 0.15)' : '1px solid rgba(245, 158, 11, 0.15)'
+                    }}>{h.type}</span>
+                    <span style={{
+                      fontSize: '0.68rem', fontWeight: 600,
+                      color: h.status === 'Published' ? '#10b981' : 'var(--text-muted)',
+                      background: h.status === 'Published' ? 'rgba(16, 185, 129, 0.08)' : 'var(--bg-glass-active)',
+                      padding: '3px 8px', borderRadius: '8px', border: '1px solid var(--border-glass)',
+                      display: 'flex', alignItems: 'center', gap: '4px'
+                    }}>
+                      {h.status === 'Published' ? '🟢 Published' : '⚪ Draft'}
+                    </span>
+                  </div>
+
+                  <h4 style={{ fontSize: '1rem', fontWeight: 800, margin: 0, color: 'var(--text-main)' }}>{h.name}</h4>
+                  <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: 0, flex: 1 }}>{h.description || 'No notes provided.'}</p>
+                  
+                  <div style={{
+                    display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '0.78rem',
+                    borderTop: '1px solid var(--border-glass)', paddingTop: '10px', color: 'var(--text-muted)'
+                  }}>
+                    <span>📅 Start Date: <strong>{new Date(h.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</strong></span>
+                    <span>📅 End Date: <strong>{new Date(h.endDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</strong></span>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="glass-panel" style={{ padding: '40px', gridColumn: '1 / -1', textAlign: 'center', color: 'var(--text-muted)' }}>
+                No matching holidays found in history.
+              </div>
+            )
           )}
         </div>
       </div>
@@ -6678,6 +7275,7 @@ export default function AcademicPanel({ subView, setAdminView }) {
           );
         }
 
+      case 'academic-activities':
       case 'academic-events':
         return (
           <form onSubmit={handleEventSubmit}>
@@ -6689,26 +7287,51 @@ export default function AcademicPanel({ subView, setAdminView }) {
               <div className="form-group">
                 <label>Event Type</label>
                 <div className="form-control" ref={eventTypeRef} style={{ position: 'relative', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', userSelect: 'none' }} onClick={() => setEventTypeOpen(!eventTypeOpen)}>
-                  <span>{eventForm.type}</span>
+                  <span>{eventForm.type || 'Select Event Type...'}</span>
                   <ChevronDown size={16} style={{ transform: eventTypeOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
                   {eventTypeOpen && (
-                    <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 1000, background: 'var(--bg-card)', border: '1px solid var(--border-glass)', borderRadius: '8px', maxHeight: '250px', overflowY: 'auto', boxShadow: '0 8px 30px rgba(0,0,0,0.3)' }}>
-                      {eventTypes.map(type => (
-                        <div key={type} style={{ padding: '8px 12px', cursor: 'pointer', background: eventForm.type === type ? 'rgba(99,102,241,0.15)' : 'transparent', color: eventForm.type === type ? 'hsl(var(--color-primary))' : 'inherit' }} onClick={() => { setEventForm({ ...eventForm, type }); setEventTypeOpen(false); }} onMouseEnter={e => e.target.style.background = 'rgba(99,102,241,0.08)'} onMouseLeave={e => e.target.style.background = eventForm.type === type ? 'rgba(99,102,241,0.15)' : 'transparent'}>
-                          {type}
+                    <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 1000, background: 'var(--bg-dropdown)', border: '1px solid var(--border-glass)', borderRadius: '8px', maxHeight: '250px', overflowY: 'auto', boxShadow: '0 8px 30px rgba(0,0,0,0.3)' }}>
+                      {eventTypes.length > 0 ? (
+                        eventTypes.map(type => (
+                          <div key={type} style={{ padding: '8px 12px', cursor: 'pointer', background: eventForm.type === type ? 'rgba(99,102,241,0.15)' : 'transparent', color: eventForm.type === type ? 'hsl(var(--color-primary))' : 'inherit' }} onClick={() => { setEventForm({ ...eventForm, type }); setEventTypeOpen(false); }} onMouseEnter={e => e.target.style.background = 'rgba(99,102,241,0.08)'} onMouseLeave={e => e.target.style.background = eventForm.type === type ? 'rgba(99,102,241,0.15)' : 'transparent'}>
+                            {type}
+                          </div>
+                        ))
+                      ) : (
+                        <div style={{ padding: '12px', fontSize: '0.85rem', color: 'var(--text-muted)', textAlign: 'center', fontStyle: 'italic' }}>
+                          No event types created yet.
                         </div>
-                      ))}
+                      )}
                     </div>
                   )}
                 </div>
               </div>
               <div className="form-group">
                 <label>Date</label>
-                <input type="date" className="form-control" value={eventForm.date} onChange={(e) => { const val = e.target.value; if (!val || val.split('-')[0].length <= 4) setEventForm({ ...eventForm, date: val }); }} required />
+                <input
+                  type="date"
+                  className="form-control"
+                  value={eventForm.date}
+                  min={(() => {
+                    const today = new Date();
+                    const yyyy = today.getFullYear();
+                    const mm = String(today.getMonth() + 1).padStart(2, '0');
+                    const dd = String(today.getDate()).padStart(2, '0');
+                    return `${yyyy}-${mm}-${dd}`;
+                  })()}
+                  onChange={(e) => { const val = e.target.value; if (!val || val.split('-')[0].length <= 4) setEventForm({ ...eventForm, date: val }); }}
+                  required
+                />
               </div>
-              <div className="form-group">
-                <label>Time</label>
-                <input type="text" className="form-control" placeholder="e.g. 10:00 AM" value={eventForm.time} onChange={(e) => setEventForm({ ...eventForm, time: e.target.value })} required />
+              <div style={{ display: 'flex', gap: '12px' }}>
+                <div className="form-group" style={{ flex: 1 }}>
+                  <label>Start Time</label>
+                  <input type="text" className="form-control" placeholder="e.g. 10:00 AM" value={eventForm.startTime || ''} onChange={(e) => setEventForm({ ...eventForm, startTime: e.target.value })} required />
+                </div>
+                <div className="form-group" style={{ flex: 1 }}>
+                  <label>End Time</label>
+                  <input type="text" className="form-control" placeholder="e.g. 11:30 AM" value={eventForm.endTime || ''} onChange={(e) => setEventForm({ ...eventForm, endTime: e.target.value })} />
+                </div>
               </div>
               <div className="form-group">
                 <label>Venue</label>
@@ -6729,7 +7352,7 @@ export default function AcademicPanel({ subView, setAdminView }) {
       case 'academic-notices':
         return (
           <form onSubmit={handleNoticeSubmit}>
-            <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '14px', paddingBottom: '200px' }}>
               <div className="form-group">
                 <label>Notice Headline</label>
                 <input type="text" className="form-control" placeholder="e.g. Exam Schedule Alterations" value={noticeForm.title} onChange={(e) => setNoticeForm({ ...noticeForm, title: e.target.value })} required />
@@ -6740,19 +7363,61 @@ export default function AcademicPanel({ subView, setAdminView }) {
               </div>
               <div className="form-group">
                 <label>Category</label>
-                <select className="form-control" value={noticeForm.category} onChange={(e) => setNoticeForm({ ...noticeForm, category: e.target.value })}>
-                  <option value="General">General Notice</option>
-                  <option value="Academic">Academic Notice</option>
-                  <option value="Admissions">Admissions Board</option>
-                </select>
+                <div className="form-control" ref={noticeCategoryRef} style={{ position: 'relative', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', userSelect: 'none' }} onClick={() => setNoticeCategoryOpen(!noticeCategoryOpen)}>
+                  <span>{noticeForm.category || 'Select Category...'}</span>
+                  <ChevronDown size={16} style={{ transform: noticeCategoryOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
+                  {noticeCategoryOpen && (
+                    <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 1000, background: 'var(--bg-dropdown)', border: '1px solid var(--border-glass)', borderRadius: '8px', maxHeight: '200px', overflowY: 'auto', boxShadow: '0 8px 30px rgba(0,0,0,0.3)' }}>
+                      {noticeCategories.length > 0 ? (
+                        noticeCategories.map(cat => (
+                          <div key={cat} style={{ padding: '8px 12px', cursor: 'pointer', background: noticeForm.category === cat ? 'rgba(99,102,241,0.15)' : 'transparent', color: noticeForm.category === cat ? 'hsl(var(--color-primary))' : 'inherit' }} onClick={() => { setNoticeForm({ ...noticeForm, category: cat }); setNoticeCategoryOpen(false); }} onMouseEnter={e => e.target.style.background = 'rgba(99,102,241,0.08)'} onMouseLeave={e => e.target.style.background = noticeForm.category === cat ? 'rgba(99,102,241,0.15)' : 'transparent'}>
+                            {cat}
+                          </div>
+                        ))
+                      ) : (
+                        <div style={{ padding: '12px', fontSize: '0.85rem', color: 'var(--text-muted)', textAlign: 'center', fontStyle: 'italic' }}>
+                          No notice categories created yet.
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
-              <div className="form-group">
-                <label>Priority</label>
-                <select className="form-control" value={noticeForm.priority} onChange={(e) => setNoticeForm({ ...noticeForm, priority: e.target.value })}>
-                  <option value="Low">Low Priority</option>
-                  <option value="Medium">Medium Priority</option>
-                  <option value="High">High Priority</option>
-                </select>
+
+              <div style={{ display: 'flex', gap: '12px' }}>
+                <div className="form-group" style={{ flex: 1 }}>
+                  <label>Publish Date</label>
+                  <input
+                    type="date"
+                    className="form-control"
+                    value={noticeForm.publishDate}
+                    min={(() => {
+                      const today = new Date();
+                      const yyyy = today.getFullYear();
+                      const mm = String(today.getMonth() + 1).padStart(2, '0');
+                      const dd = String(today.getDate()).padStart(2, '0');
+                      return `${yyyy}-${mm}-${dd}`;
+                    })()}
+                    onChange={(e) => { const val = e.target.value; if (!val || val.split('-')[0].length <= 4) setNoticeForm({ ...noticeForm, publishDate: val }); }}
+                    required
+                  />
+                </div>
+                <div className="form-group" style={{ flex: 1 }}>
+                  <label>Expiry Date</label>
+                  <input
+                    type="date"
+                    className="form-control"
+                    value={noticeForm.expiryDate || ''}
+                    min={(() => {
+                      const today = new Date();
+                      const yyyy = today.getFullYear();
+                      const mm = String(today.getMonth() + 1).padStart(2, '0');
+                      const dd = String(today.getDate()).padStart(2, '0');
+                      return `${yyyy}-${mm}-${dd}`;
+                    })()}
+                    onChange={(e) => { const val = e.target.value; if (!val || val.split('-')[0].length <= 4) setNoticeForm({ ...noticeForm, expiryDate: val }); }}
+                  />
+                </div>
               </div>
               <div className="form-group">
                 <label>Target Audience Visibility</label>
@@ -6775,27 +7440,66 @@ export default function AcademicPanel({ subView, setAdminView }) {
       case 'academic-holidays':
         return (
           <form onSubmit={handleHolidaySubmit}>
-            <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '14px', paddingBottom: '200px' }}>
               <div className="form-group">
                 <label>Holiday Name</label>
                 <input type="text" className="form-control" placeholder="e.g. Diwali Break" value={holidayForm.name} onChange={(e) => setHolidayForm({ ...holidayForm, name: e.target.value })} required />
               </div>
               <div className="form-group">
                 <label>Classification Type</label>
-                <select className="form-control" value={holidayForm.type} onChange={(e) => setHolidayForm({ ...holidayForm, type: e.target.value })}>
-                  <option value="Public">Public Holiday</option>
-                  <option value="Festival">Festival Break</option>
-                  <option value="School">School Holiday</option>
-                  <option value="Emergency">Emergency Closure</option>
-                </select>
+                <div className="form-control" ref={holidayClassificationRef} style={{ position: 'relative', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', userSelect: 'none' }} onClick={() => setHolidayClassificationOpen(!holidayClassificationOpen)}>
+                  <span>{holidayForm.type || 'Select Classification...'}</span>
+                  <ChevronDown size={16} style={{ transform: holidayClassificationOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
+                  {holidayClassificationOpen && (
+                    <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 1000, background: 'var(--bg-dropdown)', border: '1px solid var(--border-glass)', borderRadius: '8px', maxHeight: '200px', overflowY: 'auto', boxShadow: '0 8px 30px rgba(0,0,0,0.3)' }}>
+                      {holidayClassifications.length > 0 ? (
+                        holidayClassifications.map(cls => (
+                          <div key={cls} style={{ padding: '8px 12px', cursor: 'pointer', background: holidayForm.type === cls ? 'rgba(99,102,241,0.15)' : 'transparent', color: holidayForm.type === cls ? 'hsl(var(--color-primary))' : 'inherit' }} onClick={() => { setHolidayForm({ ...holidayForm, type: cls }); setHolidayClassificationOpen(false); }} onMouseEnter={e => e.target.style.background = 'rgba(99,102,241,0.08)'} onMouseLeave={e => e.target.style.background = holidayForm.type === cls ? 'rgba(99,102,241,0.15)' : 'transparent'}>
+                            {cls}
+                          </div>
+                        ))
+                      ) : (
+                        <div style={{ padding: '12px', fontSize: '0.85rem', color: 'var(--text-muted)', textAlign: 'center', fontStyle: 'italic' }}>
+                          No classifications created yet.
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
               <div className="form-group">
                 <label>Start Date</label>
-                <input type="date" className="form-control" value={holidayForm.startDate} onChange={(e) => setHolidayForm({ ...holidayForm, startDate: e.target.value })} required />
+                <input
+                  type="date"
+                  className="form-control"
+                  value={holidayForm.startDate}
+                  min={(() => {
+                    const today = new Date();
+                    const yyyy = today.getFullYear();
+                    const mm = String(today.getMonth() + 1).padStart(2, '0');
+                    const dd = String(today.getDate()).padStart(2, '0');
+                    return `${yyyy}-${mm}-${dd}`;
+                  })()}
+                  onChange={(e) => { const val = e.target.value; if (!val || val.split('-')[0].length <= 4) setHolidayForm({ ...holidayForm, startDate: val }); }}
+                  required
+                />
               </div>
               <div className="form-group">
                 <label>End Date</label>
-                <input type="date" className="form-control" value={holidayForm.endDate} onChange={(e) => setHolidayForm({ ...holidayForm, endDate: e.target.value })} required />
+                <input
+                  type="date"
+                  className="form-control"
+                  value={holidayForm.endDate}
+                  min={(() => {
+                    const today = new Date();
+                    const yyyy = today.getFullYear();
+                    const mm = String(today.getMonth() + 1).padStart(2, '0');
+                    const dd = String(today.getDate()).padStart(2, '0');
+                    return `${yyyy}-${mm}-${dd}`;
+                  })()}
+                  onChange={(e) => { const val = e.target.value; if (!val || val.split('-')[0].length <= 4) setHolidayForm({ ...holidayForm, endDate: val }); }}
+                  required
+                />
               </div>
               <div className="form-group">
                 <label>Remarks / Notes</label>
@@ -7007,7 +7711,7 @@ export default function AcademicPanel({ subView, setAdminView }) {
           <div className="modal-content glass-panel" style={{ maxWidth: '550px', maxHeight: '90vh', overflowY: 'auto', borderRadius: '16px', padding: '24px', alignSelf: 'flex-start', marginTop: '5vh' }}>
             <div className="modal-header">
               <h2 style={{ fontSize: '1.25rem', textTransform: 'capitalize' }}>
-                {editingId ? 'Edit' : 'Add'} {subView.replace('academic-', '').replace('-', ' ')}
+                {editingId ? 'Edit' : 'Add'} {['academic-activities', 'academic-events'].includes(subView) ? 'Event' : subView.replace('academic-', '').replace('-', ' ')}
               </h2>
               <button className="modal-close" onClick={() => setShowAddModal(false)}>×</button>
             </div>
@@ -8138,9 +8842,13 @@ export default function AcademicPanel({ subView, setAdminView }) {
                 <input
                   type="text"
                   id="new-exam-type-input"
+                  data-type="alphanumeric"
                   className="form-control"
                   placeholder="e.g. Mid Term Exam"
                   style={{ flex: 1, padding: '8px 12px', fontSize: '0.85rem' }}
+                  onChange={(e) => {
+                    e.target.value = e.target.value.replace(/[^a-zA-Z0-9\s-]/g, '');
+                  }}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') {
                       e.preventDefault();
@@ -8210,6 +8918,435 @@ export default function AcademicPanel({ subView, setAdminView }) {
                     }
                   } catch (e) {
                     showToast('Failed to save exam types.', 'error');
+                  }
+                }}
+                className="btn-primary"
+                style={{ flex: 1, borderRadius: '8px', padding: '10px 18px', fontWeight: 700, justifyContent: 'center' }}
+              >
+                Save Changes
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {showManageEventTypesModal && createPortal(
+        <div className="modal-overlay" style={{ zIndex: 20000000 }}>
+          <div className="animate-scale-up" style={{
+            width: '100%', maxWidth: '500px', padding: '28px', borderRadius: '16px',
+            background: 'var(--bg-card)', border: '1px solid var(--border-glass)',
+            boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)', display: 'flex', flexDirection: 'column', gap: '20px'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-glass)', paddingBottom: '12px' }}>
+              <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-main)', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Settings size={18} /> Manage Event Types
+              </h3>
+              <button
+                type="button"
+                onClick={() => {
+                  fetchAllData();
+                  setShowManageEventTypesModal(false);
+                }}
+                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '1.5rem', lineHeight: 1 }}
+              >
+                ×
+              </button>
+            </div>
+
+            {/* List of current event types */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '250px', overflowY: 'auto', paddingRight: '4px' }}>
+              <span style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Current Event Types</span>
+              {eventTypes.length > 0 ? (
+                eventTypes.map((type, idx) => (
+                  <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', background: 'var(--bg-glass-active)', border: '1px solid var(--border-glass)', borderRadius: '8px' }}>
+                    <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-main)' }}>{type}</span>
+                    <button
+                      onClick={() => {
+                        const updated = eventTypes.filter((_, i) => i !== idx);
+                        setEventTypes(updated);
+                      }}
+                      style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: '4px' }}
+                      title="Delete Event Type"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                ))
+              ) : (
+                <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontStyle: 'italic', textAlign: 'center', padding: '10px 0' }}>No event types defined.</span>
+              )}
+            </div>
+
+            {/* Add New Event Type Form */}
+            <div style={{ borderTop: '1px solid var(--border-glass)', paddingTop: '16px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <span style={{ fontSize: '0.75rem', fontWeight: 800, color: 'hsl(var(--color-primary))', textTransform: 'uppercase' }}>Add New Event Type</span>
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <input
+                  type="text"
+                  id="new-event-type-input"
+                  data-type="alphanumeric"
+                  className="form-control"
+                  placeholder="e.g. Sports Carnival"
+                  style={{ flex: 1, padding: '8px 12px', fontSize: '0.85rem' }}
+                  onChange={(e) => {
+                    e.target.value = e.target.value.replace(/[^a-zA-Z0-9\s-]/g, '');
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      const val = e.target.value.trim();
+                      if (!val) return;
+                      if (eventTypes.includes(val)) {
+                        showToast('Event type already exists.', 'error');
+                        return;
+                      }
+                      setEventTypes([...eventTypes, val]);
+                      e.target.value = '';
+                    }
+                  }}
+                />
+                <button
+                  type="button"
+                  className="btn-primary"
+                  style={{ borderRadius: '8px', padding: '8px 16px', fontSize: '0.85rem', whiteSpace: 'nowrap' }}
+                  onClick={() => {
+                    const input = document.getElementById('new-event-type-input');
+                    const val = input ? input.value.trim() : '';
+                    if (!val) {
+                      showToast('Please enter an event type.', 'error');
+                      return;
+                    }
+                    if (eventTypes.includes(val)) {
+                      showToast('Event type already exists.', 'error');
+                      return;
+                    }
+                    setEventTypes([...eventTypes, val]);
+                    if (input) input.value = '';
+                  }}
+                >
+                  Add
+                </button>
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div style={{ display: 'flex', gap: '12px', width: '100%', borderTop: '1px solid var(--border-glass)', paddingTop: '16px' }}>
+              <button
+                type="button"
+                onClick={() => {
+                  fetchAllData();
+                  setShowManageEventTypesModal(false);
+                }}
+                className="btn-secondary"
+                style={{ flex: 1, borderRadius: '8px', padding: '10px 18px', fontWeight: 600, justifyContent: 'center' }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    const res = await fetch('/api/academics/event-types', {
+                      method: 'PUT',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ eventTypes })
+                    });
+                    if (res.ok) {
+                      showToast('Event types saved successfully.', 'success');
+                      setShowManageEventTypesModal(false);
+                      fetchAllData();
+                    } else {
+                      showToast('Failed to save event types.', 'error');
+                    }
+                  } catch (e) {
+                    showToast('Failed to save event types.', 'error');
+                  }
+                }}
+                className="btn-primary"
+                style={{ flex: 1, borderRadius: '8px', padding: '10px 18px', fontWeight: 700, justifyContent: 'center' }}
+              >
+                Save Changes
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {showManageNoticeCategoriesModal && createPortal(
+        <div className="modal-overlay" style={{ zIndex: 20000000 }}>
+          <div className="animate-scale-up" style={{
+            width: '100%', maxWidth: '500px', padding: '28px', borderRadius: '16px',
+            background: 'var(--bg-card)', border: '1px solid var(--border-glass)',
+            boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)', display: 'flex', flexDirection: 'column', gap: '20px'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-glass)', paddingBottom: '12px' }}>
+              <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-main)', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Settings size={18} /> Manage Notice Categories
+              </h3>
+              <button
+                type="button"
+                onClick={() => {
+                  fetchAllData();
+                  setShowManageNoticeCategoriesModal(false);
+                }}
+                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '1.5rem', lineHeight: 1 }}
+              >
+                ×
+              </button>
+            </div>
+
+            {/* List of current categories */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '250px', overflowY: 'auto', paddingRight: '4px' }}>
+              <span style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Current Categories</span>
+              {noticeCategories.length > 0 ? (
+                noticeCategories.map((cat, idx) => (
+                  <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', background: 'var(--bg-glass-active)', border: '1px solid var(--border-glass)', borderRadius: '8px' }}>
+                    <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-main)' }}>{cat}</span>
+                    <button
+                      onClick={() => {
+                        const updated = noticeCategories.filter((_, i) => i !== idx);
+                        setNoticeCategories(updated);
+                      }}
+                      style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: '4px' }}
+                      title="Delete Notice Category"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                ))
+              ) : (
+                <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontStyle: 'italic', textAlign: 'center', padding: '10px 0' }}>No categories defined.</span>
+              )}
+            </div>
+
+            {/* Add New Notice Category Form */}
+            <div style={{ borderTop: '1px solid var(--border-glass)', paddingTop: '16px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <span style={{ fontSize: '0.75rem', fontWeight: 800, color: 'hsl(var(--color-primary))', textTransform: 'uppercase' }}>Add New Notice Category</span>
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <input
+                  type="text"
+                  id="new-notice-category-input"
+                  data-type="alphanumeric"
+                  className="form-control"
+                  placeholder="e.g. Exam Alert"
+                  style={{ flex: 1, padding: '8px 12px', fontSize: '0.85rem' }}
+                  onChange={(e) => {
+                    e.target.value = e.target.value.replace(/[^a-zA-Z0-9\s-]/g, '');
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      const val = e.target.value.trim();
+                      if (!val) return;
+                      if (noticeCategories.includes(val)) {
+                        showToast('Category already exists.', 'error');
+                        return;
+                      }
+                      setNoticeCategories([...noticeCategories, val]);
+                      e.target.value = '';
+                    }
+                  }}
+                />
+                <button
+                  type="button"
+                  className="btn-primary"
+                  style={{ borderRadius: '8px', padding: '8px 16px', fontSize: '0.85rem', whiteSpace: 'nowrap' }}
+                  onClick={() => {
+                    const input = document.getElementById('new-notice-category-input');
+                    const val = input ? input.value.trim() : '';
+                    if (!val) {
+                      showToast('Please enter a notice category.', 'error');
+                      return;
+                    }
+                    if (noticeCategories.includes(val)) {
+                      showToast('Category already exists.', 'error');
+                      return;
+                    }
+                    setNoticeCategories([...noticeCategories, val]);
+                    if (input) input.value = '';
+                  }}
+                >
+                  Add
+                </button>
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div style={{ display: 'flex', gap: '12px', width: '100%', borderTop: '1px solid var(--border-glass)', paddingTop: '16px' }}>
+              <button
+                type="button"
+                onClick={() => {
+                  fetchAllData();
+                  setShowManageNoticeCategoriesModal(false);
+                }}
+                className="btn-secondary"
+                style={{ flex: 1, borderRadius: '8px', padding: '10px 18px', fontWeight: 600, justifyContent: 'center' }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    const res = await fetch('/api/academics/notice-categories', {
+                      method: 'PUT',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ noticeCategories })
+                    });
+                    if (res.ok) {
+                      showToast('Notice categories saved successfully.', 'success');
+                      setShowManageNoticeCategoriesModal(false);
+                      fetchAllData();
+                    } else {
+                      showToast('Failed to save notice categories.', 'error');
+                    }
+                  } catch (e) {
+                    showToast('Failed to save notice categories.', 'error');
+                  }
+                }}
+                className="btn-primary"
+                style={{ flex: 1, borderRadius: '8px', padding: '10px 18px', fontWeight: 700, justifyContent: 'center' }}
+              >
+                Save Changes
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {showManageHolidayClassificationsModal && createPortal(
+        <div className="modal-overlay" style={{ zIndex: 20000000 }}>
+          <div className="animate-scale-up" style={{
+            width: '100%', maxWidth: '500px', padding: '28px', borderRadius: '16px',
+            background: 'var(--bg-card)', border: '1px solid var(--border-glass)',
+            boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)', display: 'flex', flexDirection: 'column', gap: '20px'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-glass)', paddingBottom: '12px' }}>
+              <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-main)', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Settings size={18} /> Manage Holiday Classifications
+              </h3>
+              <button
+                type="button"
+                onClick={() => {
+                  fetchAllData();
+                  setShowManageHolidayClassificationsModal(false);
+                }}
+                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '1.5rem', lineHeight: 1 }}
+              >
+                ×
+              </button>
+            </div>
+
+            {/* List of current classifications */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '250px', overflowY: 'auto', paddingRight: '4px' }}>
+              <span style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Current Classifications</span>
+              {holidayClassifications.length > 0 ? (
+                holidayClassifications.map((cls, idx) => (
+                  <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', background: 'var(--bg-glass-active)', border: '1px solid var(--border-glass)', borderRadius: '8px' }}>
+                    <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-main)' }}>{cls}</span>
+                    <button
+                      onClick={() => {
+                        const updated = holidayClassifications.filter((_, i) => i !== idx);
+                        setHolidayClassifications(updated);
+                      }}
+                      style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: '4px' }}
+                      title="Delete Holiday Classification"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                ))
+              ) : (
+                <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontStyle: 'italic', textAlign: 'center', padding: '10px 0' }}>No classifications defined.</span>
+              )}
+            </div>
+
+            {/* Add New Holiday Classification Form */}
+            <div style={{ borderTop: '1px solid var(--border-glass)', paddingTop: '16px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <span style={{ fontSize: '0.75rem', fontWeight: 800, color: 'hsl(var(--color-primary))', textTransform: 'uppercase' }}>Add New Holiday Classification</span>
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <input
+                  type="text"
+                  id="new-holiday-classification-input"
+                  data-type="alphanumeric"
+                  className="form-control"
+                  placeholder="e.g. Restricted"
+                  style={{ flex: 1, padding: '8px 12px', fontSize: '0.85rem' }}
+                  onChange={(e) => {
+                    e.target.value = e.target.value.replace(/[^a-zA-Z0-9\s-]/g, '');
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      const val = e.target.value.trim();
+                      if (!val) return;
+                      if (holidayClassifications.includes(val)) {
+                        showToast('Classification already exists.', 'error');
+                        return;
+                      }
+                      setHolidayClassifications([...holidayClassifications, val]);
+                      e.target.value = '';
+                    }
+                  }}
+                />
+                <button
+                  type="button"
+                  className="btn-primary"
+                  style={{ borderRadius: '8px', padding: '8px 16px', fontSize: '0.85rem', whiteSpace: 'nowrap' }}
+                  onClick={() => {
+                    const input = document.getElementById('new-holiday-classification-input');
+                    const val = input ? input.value.trim() : '';
+                    if (!val) {
+                      showToast('Please enter a classification.', 'error');
+                      return;
+                    }
+                    if (holidayClassifications.includes(val)) {
+                      showToast('Classification already exists.', 'error');
+                      return;
+                    }
+                    setHolidayClassifications([...holidayClassifications, val]);
+                    if (input) input.value = '';
+                  }}
+                >
+                  Add
+                </button>
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div style={{ display: 'flex', gap: '12px', width: '100%', borderTop: '1px solid var(--border-glass)', paddingTop: '16px' }}>
+              <button
+                type="button"
+                onClick={() => {
+                  fetchAllData();
+                  setShowManageHolidayClassificationsModal(false);
+                }}
+                className="btn-secondary"
+                style={{ flex: 1, borderRadius: '8px', padding: '10px 18px', fontWeight: 600, justifyContent: 'center' }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    const res = await fetch('/api/academics/holiday-classifications', {
+                      method: 'PUT',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ holidayClassifications })
+                    });
+                    if (res.ok) {
+                      showToast('Holiday classifications saved successfully.', 'success');
+                      setShowManageHolidayClassificationsModal(false);
+                      fetchAllData();
+                    } else {
+                      showToast('Failed to save holiday classifications.', 'error');
+                    }
+                  } catch (e) {
+                    showToast('Failed to save holiday classifications.', 'error');
                   }
                 }}
                 className="btn-primary"
