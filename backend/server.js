@@ -4,6 +4,17 @@ import compression from 'compression';
 import fs from 'fs';
 import path from 'path';
 import { execSync } from 'child_process';
+
+process.on('uncaughtException', (err) => {
+  const msg = `\n[${new Date().toISOString()}] UNCAUGHT EXCEPTION:\n${err.stack || err}\n`;
+  fs.appendFileSync(path.join(process.cwd(), 'backend', 'crash.log'), msg);
+  console.error(msg);
+});
+process.on('unhandledRejection', (reason, promise) => {
+  const msg = `\n[${new Date().toISOString()}] UNHANDLED REJECTION:\n${(reason && reason.stack) || reason}\n`;
+  fs.appendFileSync(path.join(process.cwd(), 'backend', 'crash.log'), msg);
+  console.error(msg);
+});
 import { fileURLToPath } from 'url';
 import studentRoutes from './routes/studentRoutes.js';
 import staffRoutes from './routes/staffRoutes.js';
@@ -2070,7 +2081,7 @@ startSqlDbInit().then(() => {
     if (e.code === 'EADDRINUSE') {
       console.error(`[Server Error] Port ${PORT} is already in use. Force-killing zombie process on port ${PORT}...`);
       try {
-        execSync(`npx kill-port ${PORT}`);
+        execSync(`npx -y kill-port ${PORT}`);
         console.log(`[Server] Port ${PORT} freed successfully. Retrying listen in 1.5 seconds...`);
         setTimeout(() => {
           app.listen(PORT, () => {
