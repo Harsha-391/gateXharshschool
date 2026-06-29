@@ -364,14 +364,8 @@ export default function AttendanceManager() {
       fetchReports();
 
       if (!res.ok) {
-        let errorMsg = 'Failed to delete attendance record.';
-        try {
-          const data = await res.json();
-          errorMsg = data.error || errorMsg;
-        } catch (_) {
-          errorMsg = `Server error: ${res.status} ${res.statusText}`;
-        }
-        alert(errorMsg);
+        const data = await res.json();
+        alert(data.error || 'Failed to delete attendance record.');
       }
     } catch (err) {
       console.error('Error deleting attendance record:', err);

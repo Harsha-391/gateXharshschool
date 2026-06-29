@@ -16,16 +16,15 @@ const parseTimeToMinutes = (timeStr) => {
   return hours * 60 + minutes;
 };
 
-// Helper: Get formatted current time in "HH:MM AM/PM"
+// Helper: Get formatted current time in "HH:MM AM/PM" (Asia/Kolkata timezone)
 const getCurrentFormattedTime = (dateObj = new Date()) => {
-  let hours = dateObj.getHours();
-  const minutes = dateObj.getMinutes();
-  const ampm = hours >= 12 ? 'PM' : 'AM';
-  hours = hours % 12;
-  hours = hours ? hours : 12; // the hour '0' should be '12'
-  const minutesStr = minutes < 10 ? '0' + minutes : minutes;
-  const hoursStr = hours < 10 ? '0' + hours : hours;
-  return `${hoursStr}:${minutesStr} ${ampm}`;
+  const timeStr = dateObj.toLocaleTimeString('en-US', {
+    timeZone: 'Asia/Kolkata',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true
+  });
+  return timeStr.toUpperCase();
 };
 
 /**
@@ -53,9 +52,9 @@ export const scanEmployeeQr = async (req, res) => {
       return res.status(404).json({ error: `Employee profile not found for ID: ${employeeId} (${employeeType}).` });
     }
 
-    // Server-side current date, time, and timestamp
+    // Server-side current date, time, and timestamp (Asia/Kolkata timezone)
     const nowServer = new Date();
-    const todayStr = nowServer.toISOString().split('T')[0]; // YYYY-MM-DD
+    const todayStr = nowServer.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }); // YYYY-MM-DD
     const nowTimeStr = getCurrentFormattedTime(nowServer); // HH:MM AM/PM
     const timestamp = nowServer.toISOString();
 
@@ -233,7 +232,7 @@ export const scanEmployeeQr = async (req, res) => {
 export const getTodayAttendance = (req, res) => {
   try {
     const db = readDb();
-    const todayStr = new Date().toISOString().split('T')[0];
+    const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
     const records = (db.attendanceRecords || []).filter(r => r.date === todayStr);
 
     res.json(records);
@@ -250,7 +249,7 @@ export const getTodayAttendance = (req, res) => {
 export const getAttendanceAnalytics = (req, res) => {
   try {
     const db = readDb();
-    const todayStr = new Date().toISOString().split('T')[0];
+    const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
     
     const records = db.attendanceRecords || [];
     const teachersList = db.teachers || [];
