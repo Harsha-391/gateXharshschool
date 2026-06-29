@@ -178,15 +178,36 @@ app.post('/api/auth/login', (req, res) => {
         t.password === password
       );
       if (teacher) {
-        const access = (db.userAccess || []).find(ua => ua.userId === teacher.id && (ua.userType === 'Staff' || ua.userType === 'Teacher'));
+        console.log("[AUTH DEBUG] Teacher login check for:", username, "teacher.id:", teacher.id, "designation:", teacher.designation, "email:", teacher.email);
+        const access = (db.userAccess || []).find(ua => ua.userId === teacher.id && (ua.userType === 'Staff' || ua.userType === 'Teacher' || ua.userType === 'Employee'));
         let roleRecord = access ? (db.roles || []).find(r => r.id === access.roleId) : null;
-        if (!roleRecord && teacher.role) {
-          roleRecord = (db.roles || []).find(r => r.name.toLowerCase() === teacher.role.toLowerCase());
+        
+        const possibleDesignation = teacher.designation || teacher.role;
+        if (!roleRecord && possibleDesignation) {
+          roleRecord = (db.roles || []).find(r => r.name.toLowerCase() === possibleDesignation.toLowerCase());
         }
+        
+        if (!roleRecord && teacher.email) {
+          const emailLower = teacher.email.toLowerCase();
+          if (emailLower.includes('receptionist')) {
+            roleRecord = (db.roles || []).find(r => r.name.toLowerCase() === 'receptionist');
+          } else if (emailLower.includes('accountant')) {
+            roleRecord = (db.roles || []).find(r => r.name.toLowerCase() === 'accountant');
+          } else if (emailLower.includes('academic')) {
+            roleRecord = (db.roles || []).find(r => r.name.toLowerCase() === 'academic coordinator');
+          } else if (emailLower.includes('expense')) {
+            roleRecord = (db.roles || []).find(r => r.name.toLowerCase() === 'expense manager');
+          } else if (emailLower.includes('teacher')) {
+            roleRecord = (db.roles || []).find(r => r.name.toLowerCase() === 'teacher');
+          }
+        }
+
         if (!roleRecord) {
           roleRecord = (db.roles || []).find(r => r.id === 'role-teacher' || r.name === 'Staff' || r.name === 'Teacher');
         }
+        
         const roleName = roleRecord ? roleRecord.name : (teacher.role || 'Staff');
+        console.log("[AUTH DEBUG] Resolved roleRecord.name:", roleRecord ? roleRecord.name : "null", "final roleName:", roleName);
         const permissions = roleRecord ? roleRecord.permissions : {};
         const overrides = access ? access.overrides : {};
         const token = generateToken({
@@ -219,13 +240,31 @@ app.post('/api/auth/login', (req, res) => {
         if (staffMember) {
           const access = (db.userAccess || []).find(ua => ua.userId === staffMember.id && (ua.userType === 'Employee' || ua.userType === 'Staff'));
           let roleRecord = access ? (db.roles || []).find(r => r.id === access.roleId) : null;
-          if (!roleRecord) {
-            const possibleRoleName = staffMember.role || 'Employee';
-            roleRecord = (db.roles || []).find(r => r.name.toLowerCase() === possibleRoleName.toLowerCase());
-            if (!roleRecord) {
-              roleRecord = (db.roles || []).find(r => r.name.toLowerCase() === 'staff');
+          
+          const possibleDesignation = staffMember.designation || staffMember.role;
+          if (!roleRecord && possibleDesignation) {
+            roleRecord = (db.roles || []).find(r => r.name.toLowerCase() === possibleDesignation.toLowerCase());
+          }
+          
+          if (!roleRecord && staffMember.email) {
+            const emailLower = staffMember.email.toLowerCase();
+            if (emailLower.includes('receptionist')) {
+              roleRecord = (db.roles || []).find(r => r.name.toLowerCase() === 'receptionist');
+            } else if (emailLower.includes('accountant')) {
+              roleRecord = (db.roles || []).find(r => r.name.toLowerCase() === 'accountant');
+            } else if (emailLower.includes('academic')) {
+              roleRecord = (db.roles || []).find(r => r.name.toLowerCase() === 'academic coordinator');
+            } else if (emailLower.includes('expense')) {
+              roleRecord = (db.roles || []).find(r => r.name.toLowerCase() === 'expense manager');
+            } else if (emailLower.includes('teacher')) {
+              roleRecord = (db.roles || []).find(r => r.name.toLowerCase() === 'teacher');
             }
           }
+
+          if (!roleRecord) {
+            roleRecord = (db.roles || []).find(r => r.name.toLowerCase() === 'staff' || r.name.toLowerCase() === 'teacher');
+          }
+          
           const roleName = roleRecord ? roleRecord.name : (staffMember.role || 'Employee');
           const permissions = roleRecord ? roleRecord.permissions : {};
           const overrides = access ? access.overrides : {};
@@ -260,13 +299,31 @@ app.post('/api/auth/login', (req, res) => {
       if (staffMember) {
         const access = (db.userAccess || []).find(ua => ua.userId === staffMember.id && (ua.userType === 'Employee' || ua.userType === 'Staff'));
         let roleRecord = access ? (db.roles || []).find(r => r.id === access.roleId) : null;
-        if (!roleRecord) {
-          const possibleRoleName = staffMember.role || 'Employee';
-          roleRecord = (db.roles || []).find(r => r.name.toLowerCase() === possibleRoleName.toLowerCase());
-          if (!roleRecord) {
-            roleRecord = (db.roles || []).find(r => r.name.toLowerCase() === 'staff');
+        
+        const possibleDesignation = staffMember.designation || staffMember.role;
+        if (!roleRecord && possibleDesignation) {
+          roleRecord = (db.roles || []).find(r => r.name.toLowerCase() === possibleDesignation.toLowerCase());
+        }
+        
+        if (!roleRecord && staffMember.email) {
+          const emailLower = staffMember.email.toLowerCase();
+          if (emailLower.includes('receptionist')) {
+            roleRecord = (db.roles || []).find(r => r.name.toLowerCase() === 'receptionist');
+          } else if (emailLower.includes('accountant')) {
+            roleRecord = (db.roles || []).find(r => r.name.toLowerCase() === 'accountant');
+          } else if (emailLower.includes('academic')) {
+            roleRecord = (db.roles || []).find(r => r.name.toLowerCase() === 'academic coordinator');
+          } else if (emailLower.includes('expense')) {
+            roleRecord = (db.roles || []).find(r => r.name.toLowerCase() === 'expense manager');
+          } else if (emailLower.includes('teacher')) {
+            roleRecord = (db.roles || []).find(r => r.name.toLowerCase() === 'teacher');
           }
         }
+
+        if (!roleRecord) {
+          roleRecord = (db.roles || []).find(r => r.name.toLowerCase() === 'staff' || r.name.toLowerCase() === 'teacher');
+        }
+        
         const roleName = roleRecord ? roleRecord.name : (staffMember.role || 'Employee');
         const permissions = roleRecord ? roleRecord.permissions : {};
         const overrides = access ? access.overrides : {};
@@ -831,16 +888,35 @@ app.get('/api/auth/profile', auth, restoreTenantContext, (req, res) => {
       return res.status(404).json({ error: 'Staff profile not found.' });
     }
     
-    // Look up permissions matrix
+    // Look up permissions matrix using robust logic matching login
     let permissions = {};
-    const access = (db.userAccess || []).find(ua => ua.userId === teacher.id && (ua.userType === 'Staff' || ua.userType === 'Teacher'));
+    const access = (db.userAccess || []).find(ua => ua.userId === teacher.id && (ua.userType === 'Staff' || ua.userType === 'Teacher' || ua.userType === 'Employee'));
     let roleRecord = access ? (db.roles || []).find(r => r.id === access.roleId) : null;
-    if (!roleRecord && teacher.role) {
-      roleRecord = (db.roles || []).find(r => r.name.toLowerCase() === teacher.role.toLowerCase());
+    
+    const possibleDesignation = teacher.designation || teacher.role;
+    if (!roleRecord && possibleDesignation) {
+      roleRecord = (db.roles || []).find(r => r.name.toLowerCase() === possibleDesignation.toLowerCase());
     }
+    
+    if (!roleRecord && teacher.email) {
+      const emailLower = teacher.email.toLowerCase();
+      if (emailLower.includes('receptionist')) {
+        roleRecord = (db.roles || []).find(r => r.name.toLowerCase() === 'receptionist');
+      } else if (emailLower.includes('accountant')) {
+        roleRecord = (db.roles || []).find(r => r.name.toLowerCase() === 'accountant');
+      } else if (emailLower.includes('academic')) {
+        roleRecord = (db.roles || []).find(r => r.name.toLowerCase() === 'academic coordinator');
+      } else if (emailLower.includes('expense')) {
+        roleRecord = (db.roles || []).find(r => r.name.toLowerCase() === 'expense manager');
+      } else if (emailLower.includes('teacher')) {
+        roleRecord = (db.roles || []).find(r => r.name.toLowerCase() === 'teacher');
+      }
+    }
+
     if (!roleRecord) {
       roleRecord = (db.roles || []).find(r => r.id === 'role-teacher' || r.name === 'Staff' || r.name === 'Teacher');
     }
+    
     if (roleRecord) {
       permissions = roleRecord.permissions;
     }
@@ -864,21 +940,35 @@ app.get('/api/auth/profile', auth, restoreTenantContext, (req, res) => {
       return res.status(404).json({ error: 'Employee profile not found.' });
     }
 
-    // Look up permissions matrix
+    // Look up permissions matrix using robust logic matching login
     let permissions = {};
     const access = (db.userAccess || []).find(ua => ua.userId === staff.id && (ua.userType === 'Employee' || ua.userType === 'Staff'));
     let roleRecord = access ? (db.roles || []).find(r => r.id === access.roleId) : null;
-    if (!roleRecord && staff.role) {
-      roleRecord = (db.roles || []).find(r => r.name.toLowerCase() === staff.role.toLowerCase());
+    
+    const possibleDesignation = staff.designation || staff.role;
+    if (!roleRecord && possibleDesignation) {
+      roleRecord = (db.roles || []).find(r => r.name.toLowerCase() === possibleDesignation.toLowerCase());
     }
+    
+    if (!roleRecord && staff.email) {
+      const emailLower = staff.email.toLowerCase();
+      if (emailLower.includes('receptionist')) {
+        roleRecord = (db.roles || []).find(r => r.name.toLowerCase() === 'receptionist');
+      } else if (emailLower.includes('accountant')) {
+        roleRecord = (db.roles || []).find(r => r.name.toLowerCase() === 'accountant');
+      } else if (emailLower.includes('academic')) {
+        roleRecord = (db.roles || []).find(r => r.name.toLowerCase() === 'academic coordinator');
+      } else if (emailLower.includes('expense')) {
+        roleRecord = (db.roles || []).find(r => r.name.toLowerCase() === 'expense manager');
+      } else if (emailLower.includes('teacher')) {
+        roleRecord = (db.roles || []).find(r => r.name.toLowerCase() === 'teacher');
+      }
+    }
+
     if (!roleRecord) {
-      if (staff.role) {
-        roleRecord = (db.roles || []).find(r => r.name.toLowerCase() === staff.role.toLowerCase());
-      }
-      if (!roleRecord) {
-        roleRecord = (db.roles || []).find(r => r.name.toLowerCase() === 'staff');
-      }
+      roleRecord = (db.roles || []).find(r => r.name.toLowerCase() === 'staff' || r.name.toLowerCase() === 'teacher');
     }
+    
     if (roleRecord) {
       permissions = roleRecord.permissions;
     }
