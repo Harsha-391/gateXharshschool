@@ -162,6 +162,29 @@ export const checkPermission = (module, action) => {
       return false;
     };
 
+    // Cross-module directory view fallback permissions (e.g. Academic Coordinators listing teachers/students)
+    if (action === 'view') {
+      if (module === 'staff-directory' || module === 'employee-directory' || module === 'teacher-directory') {
+        if (
+          hasPerm('academic-manager') ||
+          hasPerm('attendance') ||
+          hasPerm('results-manager') ||
+          hasPerm('payroll')
+        ) {
+          return next();
+        }
+      }
+      if (module === 'student-directory') {
+        if (
+          hasPerm('academic-manager') ||
+          hasPerm('attendance') ||
+          hasPerm('results-manager')
+        ) {
+          return next();
+        }
+      }
+    }
+
     if (hasPerm(module)) {
       return next();
     }
