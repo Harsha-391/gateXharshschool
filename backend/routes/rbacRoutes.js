@@ -80,12 +80,13 @@ router.post('/roles', (req, res) => {
       return res.status(400).json({ error: 'A role with this name already exists.' });
     }
 
+    const isSystemName = ['Academic Coordinator', 'Staff', 'Teacher', 'Receptionist', 'Accountant', 'Expense Manager', 'Principal', 'Vice Principal'].includes(name);
     const newRole = {
       id: `role-${Date.now()}`,
       name,
       description: description || '',
       active: active !== undefined ? active : true,
-      isSystem: false,
+      isSystem: isSystemName || false,
       permissions: permissions || {},
       createdAt: new Date().toISOString()
     };
@@ -140,6 +141,11 @@ router.put('/roles/:id', (req, res) => {
     if (description !== undefined) existingRole.description = description;
     if (active !== undefined) existingRole.active = active;
     if (permissions) existingRole.permissions = permissions;
+
+    const isSystemName = ['Academic Coordinator', 'Staff', 'Teacher', 'Receptionist', 'Accountant', 'Expense Manager', 'Principal', 'Vice Principal'].includes(existingRole.name);
+    if (isSystemName) {
+      existingRole.isSystem = true;
+    }
 
     db.roles[roleIndex] = existingRole;
     logAudit(db, req, 'Update Role', `Updated role: ${existingRole.name}`);

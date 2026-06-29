@@ -1400,7 +1400,7 @@ export const initializeOnboardedSchoolDatabase = async (subdomain) => {
     ]);
     
     const valuePlaceholders = roleRows.map(() => `(?, ?, ?, ?, ?, ?, ?)`).join(', ');
-    const sql = `INSERT INTO \`roles\` (${roleColumns.map(col => `\`${col}\``).join(', ')}) VALUES ${valuePlaceholders} ON DUPLICATE KEY UPDATE \`permissions\`=VALUES(\`permissions\`)`;
+    const sql = `INSERT INTO \`roles\` (${roleColumns.map(col => `\`${col}\``).join(', ')}) VALUES ${valuePlaceholders} ON DUPLICATE KEY UPDATE \`name\`=VALUES(\`name\`), \`description\`=VALUES(\`description\`), \`active\`=VALUES(\`active\`), \`isSystem\`=VALUES(\`isSystem\`), \`permissions\`=VALUES(\`permissions\`)`;
     await masterPool.query(sql, roleRows.flat());
 
     console.log(`[SQL Init] Successfully onboarded and seeded school database: ${dbName}`);
@@ -1426,8 +1426,18 @@ export const initSqlDb = async () => {
     // 1A. Perform startup migrations on master database pool
     try {
       console.log('[SQL Migration] Performing startup role and user type updates in master DB...');
-      // Rename Teacher role to Staff
-      await masterPool.query("UPDATE roles SET name = 'Staff', description = 'Staff. Records attendance, enters marks, manages academic activities, and views student profiles.' WHERE id = 'role-teacher'");
+      // Alter roles table primary key to composite (id, tenantId)
+      try {
+        await masterPool.query("UPDATE roles SET tenantId = 'platform' WHERE tenantId IS NULL OR tenantId = ''");
+        await masterPool.query("ALTER TABLE roles DROP PRIMARY KEY, ADD PRIMARY KEY (id, tenantId)");
+        console.log("[SQL Migration] Successfully altered roles table primary key to composite (id, tenantId).");
+      } catch (err) {
+        // Ignore if already composite
+      }
+      // Rename Teacher role from Staff to Teacher
+      await masterPool.query("UPDATE roles SET name = 'Teacher', description = 'Teacher. Records attendance, enters marks, manages academic activities, and views student profiles.' WHERE id = 'role-teacher'");
+      // Delete any duplicate roles named 'Staff' in the database to clear it up as requested
+      await masterPool.query("DELETE FROM roles WHERE name = 'Staff'");
       // Delete Principal and Vice Principal roles from roles table
       await masterPool.query("DELETE FROM roles WHERE id IN ('role-principal', 'role-vice-principal')");
       // Update user types in user_access table (first Staff -> Employee, then Teacher -> Staff)
@@ -1532,8 +1542,8 @@ export const getDefaultRoles = () => {
     },
     {
       id: 'role-teacher',
-      name: 'Staff',
-      description: 'Staff. Records attendance, enters marks, manages academic activities, and views student profiles.',
+      name: 'Teacher',
+      description: 'Teacher. Records attendance, enters marks, manages academic activities, and views student profiles.',
       active: true,
       isSystem: true,
       permissions: createEmptyMatrix()
@@ -2511,10 +2521,17 @@ export const saveMemoryDbToSql = async (tenantId, db, changedKeys, newUpdatedAt)
 
   const syncPromise = sqlSyncQueues[tId].then(async () => {
     try {
-      // Lightweight change detection: uses pre-computed Set instead of JSON.stringify comparison
-      const hasTableChanged = (key) => changedKeys.has(key);
+      // For the platform tenant, restrict synced tables to master tables only (other tables do not exist in the master DB)
+      let activeChangedKeys = changedKeys;
+      if (tId === 'platform') {
+        const allowedPlatformKeys = ['schools', 'subscription_plans', 'roles', 'user_access', 'student_accounts', 'parent_accounts'];
+        activeChangedKeys = new Set([...changedKeys].filter(k => allowedPlatformKeys.includes(k)));
+      }
 
-      console.log(`[SQL Sync] Initiating async MySQL database update for tenant: ${tId} (${changedKeys.size} changed)`);
+      // Lightweight change detection: uses pre-computed Set instead of JSON.stringify comparison
+      const hasTableChanged = (key) => activeChangedKeys.has(key);
+
+      console.log(`[SQL Sync] Initiating async MySQL database update for tenant: ${tId} (${activeChangedKeys.size} changed)`);
 
       const tasks = [];
       const dependentTasks = [];

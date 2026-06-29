@@ -109,88 +109,9 @@ async function seed() {
       );
     }
 
-    // 6. Seed default school (Green Valley Public School, subdomain: greenvalley)
-    console.log(`[Seeder] Seeding default multi-tenant school...`);
-    const schoolId = 'SCH-GV-001';
-    const tenantId = 'greenvalley';
-    await connection.query(
-      `INSERT INTO schools (
-        id, name, code, subdomain, logo, principalName, email, phone, address, city, state, country,
-        academicSession, subscriptionPlan, url, status, adminName, adminEmail, adminUsername, adminPassword,
-        createdAt
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        schoolId, 'Green Valley Public School', 'SCH-GV-001', tenantId, '', 'Dr. John Miller', 
-        'contact@greenvalley.edu', '1234567890', 'Khimel Rani Station Rd', 'Bali', 'Rajasthan', 'India', 
-        '2026-2027', 'Growth', `http://${tenantId}.localhost:3000`, 'Active', 'Zachary Langley', 
-        'qino@mailinator.com', 'school_admin', 'uttam@2004', 
-        new Date().toISOString()
-      ]
-    );
-
-    // 7. Seed teachers (Sarah Connor, Bruce Wayne)
-    console.log(`[Seeder] Seeding teacher profiles...`);
-    const teachers = [
-      {
-        id: 'TCH-101', name: 'Sarah Connor', email: 'sarah@greenvalley.edu', phone: '9876543210', 
-        username: 'sarah_connor', password: 'password123', gender: 'Female', qualification: 'M.Ed in Science', 
-        experience: '8 Years', dateOfJoining: '2022-06-01', salaryGrade: 'Grade A', address: '45 Blue St', 
-        city: 'Bali', state: 'Rajasthan', pincode: '306115', emergencyContact: 'John Connor', 
-        emergencyPhone: '9876543211', photo: '', aadharFile: '', certificateFile: '', status: 'Active', 
-        avatarBg: 'linear-gradient(135deg, #6366f1 0%, #ec4899 100%)', tenantId
-      },
-      {
-        id: 'TCH-102', name: 'Bruce Wayne', email: 'bruce@greenvalley.edu', phone: '9876543220', 
-        username: 'bruce_wayne', password: 'password123', gender: 'Male', qualification: 'Ph.D. in Literature', 
-        experience: '12 Years', dateOfJoining: '2020-08-15', salaryGrade: 'Grade S', address: 'Wayne Manor', 
-        city: 'Bali', state: 'Rajasthan', pincode: '306115', emergencyContact: 'Alfred Pennyworth', 
-        emergencyPhone: '9876543221', photo: '', aadharFile: '', certificateFile: '', status: 'Active', 
-        avatarBg: 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)', tenantId
-      }
-    ];
-    for (const t of teachers) {
-      await connection.query(
-        `INSERT INTO staff (
-          id, name, email, phone, username, password, gender, qualification, experience, dateOfJoining,
-          salaryGrade, address, city, state, pincode, emergencyContact, emergencyPhone, photo, aadharFile,
-          certificateFile, status, avatarBg, tenantId
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        Object.values(t)
-      );
-    }
-
-    // 8. Seed staff (Clark Kent as accountant/finance, Diana Prince as front desk)
-    console.log(`[Seeder] Seeding staff profiles...`);
-    const staffList = [
-      {
-        id: 'STF-201', name: 'Clark Kent', fullName: 'Clark Kent', role: 'Finance Manager', 
-        department: 'Accounts', email: 'clark@greenvalley.edu', phone: '9876543230', gender: 'Male', 
-        qualification: 'B.Com, CA', experience: '5 Years', dateOfJoining: '2023-01-10', salaryGrade: 'Grade B', 
-        reportingTo: 'Zachary Langley', address: 'Daily Planet', city: 'Bali', state: 'Rajasthan', 
-        pincode: '306115', emergencyContact: 'Lois Lane', emergencyPhone: '9876543231', photo: '', 
-        aadharFile: '', certificateFile: '', status: 'Active', avatarBg: 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)', 
-        password: 'password123', tenantId
-      },
-      {
-        id: 'STF-202', name: 'Diana Prince', fullName: 'Diana Prince', role: 'Receptionist', 
-        department: 'Front Desk', email: 'diana@greenvalley.edu', phone: '9876543240', gender: 'Female', 
-        qualification: 'B.A. in Hospitality', experience: '6 Years', dateOfJoining: '2024-03-01', salaryGrade: 'Grade C', 
-        reportingTo: 'Zachary Langley', address: 'Themyscira Rd', city: 'Bali', state: 'Rajasthan', 
-        pincode: '306115', emergencyContact: 'Steve Trevor', emergencyPhone: '9876543241', photo: '', 
-        aadharFile: '', certificateFile: '', status: 'Active', avatarBg: 'linear-gradient(135deg, #ef4444 0%, #b91c1c 100%)', 
-        password: 'password123', tenantId
-      }
-    ];
-    for (const stf of staffList) {
-      await connection.query(
-        `INSERT INTO employees (
-          id, name, fullName, role, department, email, phone, gender, qualification, experience,
-          dateOfJoining, salaryGrade, reportingTo, address, city, state, pincode, emergencyContact,
-          emergencyPhone, photo, aadharFile, certificateFile, status, avatarBg, password, tenantId
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        Object.values(stf)
-      );
-    }
+    console.log(`[Seeder] Default school seeding skipped for clean registry start.`);
+    console.log('[Seeder SUCCESS] MySQL Database initialized successfully!');
+    return;
 
     // 9. Seed 3 mock students with normalized tables and logins
     console.log(`[Seeder] Seeding student profiles and linked records...`);

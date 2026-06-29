@@ -323,6 +323,26 @@ export default function RolesPermissions({ initialTab = 'dashboard', hideTabs = 
     setRoles(roles.map(r => r.id === matrixRoleId ? { ...r, permissions: updatedPermissions } : r));
   };
 
+  const handleToggleRowAllCheckboxes = (moduleId, shouldSelectAll) => {
+    const selectedRole = roles.find(r => r.id === matrixRoleId);
+    if (!selectedRole) return;
+
+    const updatedPermissions = {};
+    Object.keys(selectedRole.permissions || {}).forEach(k => {
+      updatedPermissions[k] = { ...selectedRole.permissions[k] };
+    });
+
+    if (!updatedPermissions[moduleId]) {
+      updatedPermissions[moduleId] = {};
+    }
+
+    actions.forEach(act => {
+      updatedPermissions[moduleId][act.id] = shouldSelectAll;
+    });
+
+    setRoles(roles.map(r => r.id === matrixRoleId ? { ...r, permissions: updatedPermissions } : r));
+  };
+
   const handleBulkMatrixToggle = (mode) => {
     const selectedRole = roles.find(r => r.id === matrixRoleId);
     if (!selectedRole) return;
@@ -728,7 +748,7 @@ export default function RolesPermissions({ initialTab = 'dashboard', hideTabs = 
                     className="role-select-item"
                   >
                     <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</span>
-                    {r.isSystem && <Lock size={12} style={{ color: 'var(--text-muted)' }} />}
+                    <Lock size={12} style={{ color: 'var(--text-muted)' }} />
                   </button>
                 ))
               ) : (
@@ -817,6 +837,7 @@ export default function RolesPermissions({ initialTab = 'dashboard', hideTabs = 
                           {act.label}
                         </th>
                       ))}
+                      <th style={{ padding: '16px 12px', fontWeight: 700, color: 'var(--text-main)', textAlign: 'center', width: '100px' }}>Select All</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -864,6 +885,44 @@ export default function RolesPermissions({ initialTab = 'dashboard', hideTabs = 
                             </td>
                           );
                         })}
+                        {/* Select All Checkbox */}
+                        {(() => {
+                          let allChecked = true;
+                          const rolePermissions = selectedMatrixRole?.permissions;
+                          actions.forEach(act => {
+                            let checked = false;
+                            if (rolePermissions) {
+                              if (rolePermissions[mod.id]?.[act.id] !== undefined) {
+                                checked = !!rolePermissions[mod.id][act.id];
+                              } else {
+                                const compatModule = COMPATIBILITY_MAP[mod.id];
+                                if (compatModule && rolePermissions[compatModule]?.[act.id] !== undefined) {
+                                  checked = !!rolePermissions[compatModule][act.id];
+                                } else {
+                                  const legacyModule = LEGACY_MODULE_MAP[mod.id];
+                                  if (legacyModule && rolePermissions[legacyModule]?.[act.id] !== undefined) {
+                                    checked = !!rolePermissions[legacyModule][act.id];
+                                  }
+                                }
+                              }
+                            }
+                            if (!checked) allChecked = false;
+                          });
+
+                          return (
+                            <td style={{ padding: '12px', textAlign: 'center', borderLeft: '1px dashed rgba(255,255,255,0.08)' }}>
+                              <input
+                                type="checkbox"
+                                checked={allChecked}
+                                onChange={() => handleToggleRowAllCheckboxes(mod.id, !allChecked)}
+                                style={{
+                                  cursor: 'pointer', width: '16px', height: '16px', accentColor: 'hsl(var(--color-primary))'
+                                }}
+                                title="Toggle all permissions for this row"
+                              />
+                            </td>
+                          );
+                        })()}
                       </tr>
                     ))}
                   </tbody>
@@ -1000,7 +1059,7 @@ export default function RolesPermissions({ initialTab = 'dashboard', hideTabs = 
                 placeholder="e.g. Accounts Auditor, Front Desk Assistant"
                 value={roleForm.name}
                 onChange={(e) => setRoleForm({ ...roleForm, name: e.target.value })}
-                disabled={editingRole?.isSystem}
+                disabled={editingRole?.isSystem || ['Academic Coordinator', 'Staff', 'Teacher', 'Receptionist', 'Accountant', 'Expense Manager', 'Principal', 'Vice Principal'].includes(editingRole?.name)}
                 style={{ marginTop: '6px', borderRadius: '10px' }}
               />
             </div>

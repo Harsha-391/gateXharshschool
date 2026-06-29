@@ -643,14 +643,15 @@ CREATE TABLE IF NOT EXISTS subscription_plans (
 
 -- 35. Roles Table
 CREATE TABLE IF NOT EXISTS roles (
-  id VARCHAR(50) PRIMARY KEY,
+  id VARCHAR(50) NOT NULL,
   name VARCHAR(255) NOT NULL,
   description TEXT,
   active BOOLEAN DEFAULT TRUE,
   isSystem BOOLEAN DEFAULT FALSE,
   permissions JSON,
   createdAt VARCHAR(100),
-  tenantId VARCHAR(100)
+  tenantId VARCHAR(100) NOT NULL,
+  PRIMARY KEY (id, tenantId)
 );
 
 -- 36. User Access Table

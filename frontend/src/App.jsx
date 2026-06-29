@@ -186,10 +186,25 @@ window.fetch = function (url, options = {}) {
   return fetchPromise.then(res => res.clone());
 }
 
+const getRouteForRole = (role) => {
+  if (!role) return 'admin';
+  const lowerRole = role.toLowerCase().trim();
+  if (lowerRole.includes('teacher') || lowerRole.includes('staff')) return 'teacher';
+  if (lowerRole.includes('expense')) return 'expense';
+  if (lowerRole.includes('academic') || lowerRole.includes('coordinator')) return 'academic';
+  
+  // Otherwise, dynamically generate a clean kebab-case route segment:
+  return lowerRole.replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || 'admin';
+};
+
 const getInitialAuthState = (targetRole) => {
   const path = window.location.pathname;
-  if (path.startsWith('/admin') && targetRole === 'Admin') return true;
   if (path.startsWith('/school') && targetRole === 'Developer') return true;
+  
+  const isDeveloperPath = path.startsWith('/school');
+  const isStudentGuestPath = path === '/' || path.startsWith('/students');
+  
+  if (!isDeveloperPath && !isStudentGuestPath && targetRole === 'Admin') return true;
   
   const savedRole = sessionStorage.getItem('role') || sessionStorage.getItem('portal_role');
   if (!savedRole) return false;
@@ -617,11 +632,13 @@ export default function App() {
     } else if (isDeveloperAdmin) {
       window.history.pushState(null, '', `/school${query}`);
     } else if (isAdmin) {
-      window.history.pushState(null, '', `/admin${query}`);
+      const userRole = userProfile?.role || sessionStorage.getItem('role') || sessionStorage.getItem('portal_role') || 'Admin';
+      const roleRoute = getRouteForRole(userRole);
+      window.history.pushState(null, '', `/${roleRoute}${query}`);
     } else {
       window.history.pushState(null, '', `/${activeView}${query}`);
     }
-  }, [activeView, isDeveloperAdmin, isAdmin, isSchoolAdmin]);
+  }, [activeView, isDeveloperAdmin, isAdmin, isSchoolAdmin, userProfile.role]);
 
   // Dynamic Browser Tab Title and Favicon Manager
   useEffect(() => {
