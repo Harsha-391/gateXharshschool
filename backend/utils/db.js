@@ -3806,6 +3806,10 @@ export const readDb = () => {
   }
 
   // Fallback to synchronous local file read
+  if (activeTenant !== 'platform') {
+    throw new Error(`[CRITICAL] MySQL Database is offline or connection limit exceeded. Local JSON fallbacks are disabled for tenant '${activeTenant}'.`);
+  }
+
   const dbFile = getDbPath();
   try {
     const data = fs.readFileSync(dbFile, 'utf8');
@@ -4007,8 +4011,8 @@ export const writeDb = (data) => {
     }
   }
 
-  // Backup to JSON file asynchronously to avoid blocking (always for platform owner, or when SQL is inactive)
-  if (activeTenant === 'platform' || !isSqlActive()) {
+  // Backup to JSON file asynchronously to avoid blocking (always for platform owner)
+  if (activeTenant === 'platform') {
     const dbFile = getDbPath();
     if (!isSqlActive() && !fs.existsSync(TENANTS_DIR)) {
       try {

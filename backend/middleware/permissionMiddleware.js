@@ -171,7 +171,12 @@ export const checkPermission = (module, action) => {
           hasPerm('results-manager') ||
           hasPerm('payroll') ||
           hasPerm('finance') ||
-          hasPerm('expense-dashboard')
+          hasPerm('expense-dashboard') ||
+          hasPerm('expense-all-expenses') ||
+          hasPerm('expense-tracker') ||
+          hasPerm('financial-reports') ||
+          hasPerm('income') ||
+          hasPerm('auxiliary-income')
         ) {
           return next();
         }
@@ -180,10 +185,17 @@ export const checkPermission = (module, action) => {
         if (
           hasPerm('academic-manager') ||
           hasPerm('attendance') ||
+          hasPerm('attendance-history') ||
           hasPerm('results-manager') ||
+          hasPerm('results-history') ||
           hasPerm('student-manager') ||
           hasPerm('finance') ||
-          hasPerm('expense-dashboard')
+          hasPerm('expense-dashboard') ||
+          hasPerm('expense-all-expenses') ||
+          hasPerm('expense-tracker') ||
+          hasPerm('financial-reports') ||
+          hasPerm('income') ||
+          hasPerm('auxiliary-income')
         ) {
           return next();
         }

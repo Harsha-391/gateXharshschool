@@ -714,7 +714,7 @@ export default function AttendanceManager() {
                       <td>{r.designation}</td>
                       <td style={{ fontWeight: 600, color: 'rgb(var(--color-success-rgb))' }}>{r.checkIn}</td>
                       <td style={{ fontWeight: 600, color: r.checkOut ? 'hsl(var(--color-primary))' : 'var(--text-muted)' }}>{r.checkOut || '—'}</td>
-                      <td style={{ fontWeight: 600 }}>{r.workingHours ? `${r.workingHours} hrs` : '—'}</td>
+                      <td style={{ fontWeight: 600 }}>{r.checkOut && r.workingHours !== undefined && r.workingHours !== null ? `${r.workingHours} hrs` : '—'}</td>
                       <td>
                         <span className="badge" style={{ background: 'rgba(255,255,255,0.03)', color: getStatusColor(r.status), border: `1px solid ${getStatusColor(r.status)}`, padding: '2px 8px', borderRadius: '12px', fontSize: '0.72rem', fontWeight: 700 }}>
                           {r.status}

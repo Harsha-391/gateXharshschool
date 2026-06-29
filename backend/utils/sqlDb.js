@@ -18,7 +18,7 @@ const masterConfig = {
   database: process.env.DB_NAME || 'school_management',
   ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : undefined,
   waitForConnections: true,
-  connectionLimit: 30,
+  connectionLimit: parseInt(process.env.DB_CONNECTION_LIMIT || '5'),
   queueLimit: 0,
   enableKeepAlive: true,
   keepAliveInitialDelay: 10000
@@ -88,7 +88,7 @@ export const getPoolForTenant = (tenantId) => {
   const poolConfig = {
     ...masterConfig,
     database: dbName,
-    connectionLimit: 10 // Safe limit per school database
+    connectionLimit: parseInt(process.env.DB_CONNECTION_LIMIT_TENANT || '3') // Safe limit per school database
   };
 
   const pool = mysql.createPool(poolConfig);

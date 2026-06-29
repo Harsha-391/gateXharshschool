@@ -111,8 +111,35 @@ export const scanEmployeeQr = async (req, res) => {
       // CASE 2: CHECK-OUT OR DUPLICATE WARN
       // ----------------------------------------------------
       const existingRecord = db.attendanceRecords[recordIndex];
+      const now = Date.now();
+      const checkInTime = new Date(existingRecord.createdAt || existingRecord.updatedAt).getTime();
+      const elapsedMinutes = (now - checkInTime) / (1000 * 60);
 
       if (existingRecord.checkOut) {
+        const checkOutTime = new Date(existingRecord.updatedAt).getTime();
+        const elapsedOutMinutes = (now - checkOutTime) / (1000 * 60);
+
+        if (elapsedOutMinutes < 5) {
+          // Cooldown for duplicate check-out scan: return checkout info successfully instead of showing error
+          return res.json({
+            success: true,
+            message: `Checked Out successfully. Working Hours: ${existingRecord.workingHours} hrs`,
+            scanType: 'Check-Out',
+            employeeDetails: {
+              photo: employee.photo || '',
+              name: employee.fullName || employee.name,
+              employeeId,
+              designation: employee.designation || employee.role || 'N/A',
+              date: todayStr,
+              time: existingRecord.checkOut,
+              status: existingRecord.status,
+              checkIn: existingRecord.checkIn,
+              checkOut: existingRecord.checkOut,
+              workingHours: existingRecord.workingHours
+            }
+          });
+        }
+
         // Prevent duplicate check-ins/scans once day is complete
         return res.status(400).json({ 
           error: 'Attendance completed.',
@@ -128,6 +155,27 @@ export const scanEmployeeQr = async (req, res) => {
             checkOut: existingRecord.checkOut,
             workingHours: existingRecord.workingHours,
             status: existingRecord.status
+          }
+        });
+      }
+
+      if (elapsedMinutes < 5) {
+        // Cooldown for duplicate check-in scan: return checkin info successfully
+        return res.json({
+          success: true,
+          message: existingRecord.status === 'Present' ? 'Checked In successfully (Present)' : 'Checked In successfully (Late Arrival)',
+          scanType: 'Check-In',
+          employeeDetails: {
+            photo: employee.photo || '',
+            name: employee.fullName || employee.name,
+            employeeId,
+            designation: employee.designation || employee.role || 'N/A',
+            date: todayStr,
+            time: existingRecord.checkIn,
+            status: existingRecord.status,
+            checkIn: existingRecord.checkIn,
+            checkOut: '—',
+            workingHours: 0
           }
         });
       }

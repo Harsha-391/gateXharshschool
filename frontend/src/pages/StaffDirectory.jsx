@@ -803,10 +803,6 @@ export default function StaffDirectory({ setActiveView, readOnly = true, onAddCl
                       style={{ padding: '6px 12px', fontSize: '0.75rem', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '4px' }}>
                       Print Badge
                     </button>
-                    <button onClick={() => handleRegenerateQR(selectedTeacher.employeeId || selectedTeacher.id)} className="btn-secondary" disabled={qrLoading}
-                      style={{ padding: '6px 12px', fontSize: '0.75rem', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '4px', borderColor: 'rgba(hsl(var(--color-primary)), 0.2)', color: 'hsl(var(--color-primary))' }}>
-                      {qrLoading ? 'Generating...' : selectedTeacher.qrCodePath ? 'Regenerate' : 'Generate QR Code'}
-                    </button>
                   </div>
                 </div>
               </div>
