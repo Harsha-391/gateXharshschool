@@ -377,12 +377,12 @@ export const getAttendanceReports = (req, res) => {
       records = records.filter(r => r.employeeType === employeeType);
     }
     
-    // Filter by ID or Name
+    // Filter by starting characters of Name or ID
     if (employeeId && employeeId.trim() !== '') {
       const searchLower = employeeId.toLowerCase();
       records = records.filter(r => 
-        r.employeeId.toLowerCase().includes(searchLower) ||
-        r.name.toLowerCase().includes(searchLower)
+        r.name.toLowerCase().startsWith(searchLower) ||
+        r.employeeId.toLowerCase().startsWith(searchLower)
       );
     }
 
