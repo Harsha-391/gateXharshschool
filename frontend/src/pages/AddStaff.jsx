@@ -1187,7 +1187,7 @@ export default function AddStaff({ setActiveView, editData }) {
                 />
               </div>
 
-              {formData.designation === 'Staff' && (
+              {(formData.designation === 'Teacher' || formData.designation === 'Staff') && (
                 <>
                   <div className="form-group animate-slide-down">
                     <label>Primary Subject</label>
@@ -1776,7 +1776,7 @@ export default function AddStaff({ setActiveView, editData }) {
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '0.85rem' }}>
                   <div><strong>Role:</strong> {formData.designation || 'N/A'}</div>
-                  {formData.designation === 'Staff' && (
+                  {(formData.designation === 'Teacher' || formData.designation === 'Staff') && (
                     <>
                       <div><strong>Subjects:</strong> {formData.primarySubject || 'N/A'} {formData.secondarySubject ? `, ${formData.secondarySubject}` : ''}</div>
                     </>

@@ -868,8 +868,8 @@ export default function StaffDirectory({ setActiveView, readOnly = true, onAddCl
                       setEditFormData({ 
                         ...editFormData, 
                         designation: newDesignation,
-                        department: newDesignation === 'Staff' ? editFormData.department : '',
-                        subjectSpecialization: newDesignation === 'Staff' ? editFormData.subjectSpecialization : ''
+                        department: (newDesignation === 'Teacher' || newDesignation === 'Staff') ? editFormData.department : '',
+                        subjectSpecialization: (newDesignation === 'Teacher' || newDesignation === 'Staff') ? editFormData.subjectSpecialization : ''
                       });
                     }}
                     className="form-control" 
@@ -882,7 +882,7 @@ export default function StaffDirectory({ setActiveView, readOnly = true, onAddCl
                   </select>
                 </div>
 
-                {editFormData.designation === 'Teacher' && (
+                {(editFormData.designation === 'Teacher' || editFormData.designation === 'Staff') && (
                   <>
                     <div className="form-group animate-slide-down">
                       <label>Department</label>
