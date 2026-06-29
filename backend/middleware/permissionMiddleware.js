@@ -162,14 +162,16 @@ export const checkPermission = (module, action) => {
       return false;
     };
 
-    // Cross-module directory view fallback permissions (e.g. Academic Coordinators listing teachers/students)
+    // Cross-module directory view fallback permissions (e.g. Academic Coordinators / Student Managers / Accountants listing teachers/students)
     if (action === 'view') {
       if (module === 'staff-directory' || module === 'employee-directory' || module === 'teacher-directory') {
         if (
           hasPerm('academic-manager') ||
           hasPerm('attendance') ||
           hasPerm('results-manager') ||
-          hasPerm('payroll')
+          hasPerm('payroll') ||
+          hasPerm('finance') ||
+          hasPerm('expense-dashboard')
         ) {
           return next();
         }
@@ -178,7 +180,10 @@ export const checkPermission = (module, action) => {
         if (
           hasPerm('academic-manager') ||
           hasPerm('attendance') ||
-          hasPerm('results-manager')
+          hasPerm('results-manager') ||
+          hasPerm('student-manager') ||
+          hasPerm('finance') ||
+          hasPerm('expense-dashboard')
         ) {
           return next();
         }

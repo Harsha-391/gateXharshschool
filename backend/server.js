@@ -208,7 +208,7 @@ app.post('/api/auth/login', (req, res) => {
         
         const roleName = roleRecord ? roleRecord.name : (teacher.role || 'Staff');
         console.log("[AUTH DEBUG] Resolved roleRecord.name:", roleRecord ? roleRecord.name : "null", "final roleName:", roleName);
-        const permissions = roleRecord ? roleRecord.permissions : {};
+        const permissions = roleRecord ? (typeof roleRecord.permissions === 'string' ? JSON.parse(roleRecord.permissions) : roleRecord.permissions) : {};
         const overrides = access ? access.overrides : {};
         const token = generateToken({
           role: roleName,
@@ -266,7 +266,7 @@ app.post('/api/auth/login', (req, res) => {
           }
           
           const roleName = roleRecord ? roleRecord.name : (staffMember.role || 'Employee');
-          const permissions = roleRecord ? roleRecord.permissions : {};
+          const permissions = roleRecord ? (typeof roleRecord.permissions === 'string' ? JSON.parse(roleRecord.permissions) : roleRecord.permissions) : {};
           const overrides = access ? access.overrides : {};
           const token = generateToken({
             role: roleName,
@@ -325,7 +325,7 @@ app.post('/api/auth/login', (req, res) => {
         }
         
         const roleName = roleRecord ? roleRecord.name : (staffMember.role || 'Employee');
-        const permissions = roleRecord ? roleRecord.permissions : {};
+        const permissions = roleRecord ? (typeof roleRecord.permissions === 'string' ? JSON.parse(roleRecord.permissions) : roleRecord.permissions) : {};
         const overrides = access ? access.overrides : {};
         const token = generateToken({
           role: roleName,
@@ -918,7 +918,7 @@ app.get('/api/auth/profile', auth, restoreTenantContext, (req, res) => {
     }
     
     if (roleRecord) {
-      permissions = roleRecord.permissions;
+      permissions = typeof roleRecord.permissions === 'string' ? JSON.parse(roleRecord.permissions) : (roleRecord.permissions || {});
     }
 
     return res.json({
@@ -970,7 +970,7 @@ app.get('/api/auth/profile', auth, restoreTenantContext, (req, res) => {
     }
     
     if (roleRecord) {
-      permissions = roleRecord.permissions;
+      permissions = typeof roleRecord.permissions === 'string' ? JSON.parse(roleRecord.permissions) : (roleRecord.permissions || {});
     }
 
     return res.json({
