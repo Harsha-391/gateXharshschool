@@ -74,7 +74,7 @@ export default function AttendanceManager() {
       setAnalyticsLoading(true);
       const token = sessionStorage.getItem('token');
       const tenant = getTenantHeader();
-      const res = await fetch('/api/employee-attendance/analytics', {
+      const res = await fetch(`/api/employee-attendance/analytics?_t=${Date.now()}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'x-tenant-id': tenant
@@ -95,7 +95,7 @@ export default function AttendanceManager() {
     try {
       const token = sessionStorage.getItem('token');
       const tenant = getTenantHeader();
-      const res = await fetch('/api/employee-attendance/today', {
+      const res = await fetch(`/api/employee-attendance/today?_t=${Date.now()}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'x-tenant-id': tenant
@@ -120,7 +120,8 @@ export default function AttendanceManager() {
         department: filterDept,
         employeeType: filterType,
         month: filterMonth,
-        year: filterYear
+        year: filterYear,
+        _t: Date.now()
       }).toString();
       
       const res = await fetch(`/api/employee-attendance/reports?${queryParams}`, {
