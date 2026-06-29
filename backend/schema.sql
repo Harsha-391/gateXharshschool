@@ -862,6 +862,21 @@ CREATE TABLE IF NOT EXISTS designations (
   tenantId VARCHAR(100)
 );
 
+-- 52. Attendance Settings Table
+CREATE TABLE IF NOT EXISTS attendance_settings (
+  id VARCHAR(50) PRIMARY KEY,
+  checkInStart VARCHAR(50) DEFAULT '08:00 AM',
+  lateTime VARCHAR(50) DEFAULT '09:00 AM',
+  halfDayTime VARCHAR(50) DEFAULT '11:00 AM',
+  checkOutTime VARCHAR(50) DEFAULT '05:00 PM',
+  minWorkingHours DECIMAL(5,2) DEFAULT 8.00,
+  gracePeriod INT DEFAULT 15,
+  tenantId VARCHAR(100) NOT NULL,
+  createdAt VARCHAR(100),
+  updatedAt VARCHAR(100),
+  INDEX idx_att_sett_tenant (tenantId)
+);
+
 -- Re-enable foreign key checks
 SET FOREIGN_KEY_CHECKS = 1;
 

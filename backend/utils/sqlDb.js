@@ -18,7 +18,7 @@ const masterConfig = {
   database: process.env.DB_NAME || 'school_management',
   ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : undefined,
   waitForConnections: true,
-  connectionLimit: parseInt(process.env.DB_CONNECTION_LIMIT || '5'),
+  connectionLimit: parseInt(process.env.DB_CONNECTION_LIMIT || '1'),
   queueLimit: 0,
   enableKeepAlive: true,
   keepAliveInitialDelay: 10000
@@ -88,7 +88,7 @@ export const getPoolForTenant = (tenantId) => {
   const poolConfig = {
     ...masterConfig,
     database: dbName,
-    connectionLimit: parseInt(process.env.DB_CONNECTION_LIMIT_TENANT || '3') // Safe limit per school database
+    connectionLimit: parseInt(process.env.DB_CONNECTION_LIMIT_TENANT || '1') // Safe limit per school database
   };
 
   const pool = mysql.createPool(poolConfig);
@@ -121,6 +121,15 @@ export const query = async (sql, params, explicitTenantId) => {
 };
 
 export const getPool = () => masterPool;
+
+export const closeAllPools = async () => {
+  if (masterPool) {
+    try { await masterPool.end(); } catch (e) {}
+  }
+  for (const dbName in tenantPools) {
+    try { await tenantPools[dbName].end(); } catch (e) {}
+  }
+};
 
 export const testConnection = async () => {
   try {

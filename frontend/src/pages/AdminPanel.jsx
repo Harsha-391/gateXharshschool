@@ -40,6 +40,7 @@ const DesignationManager = lazy(() => import('./DesignationManager'));
 import ExpensePanel from './ExpensePanel';
 const AttendanceManager = lazy(() => import('./AttendanceManager'));
 const RolesPermissions = lazy(() => import('./RolesPermissions'));
+const AttendanceSettings = lazy(() => import('./AttendanceSettings'));
 const GradeManagement = lazy(() => import('./GradeManagement'));
 const UserProfile = lazy(() => import('./UserProfile'));
 const AuxiliaryIncome = lazy(() => import('./AuxiliaryIncome'));
@@ -1124,6 +1125,10 @@ export default function AdminPanel({ setActiveView, onLogout, adminView, setAdmi
 
         <KeepAlive active={adminView === 'security-audit'}>
           <RolesPermissions key="security-audit-ledger" initialTab="audit" hideTabs={true} onPermissionsSave={fetchUserProfile} />
+        </KeepAlive>
+
+        <KeepAlive active={adminView === 'attendance-settings'}>
+          <AttendanceSettings showToast={showToast} />
         </KeepAlive>
 
         <KeepAlive active={adminView === 'profile'}>

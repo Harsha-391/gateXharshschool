@@ -19,8 +19,23 @@ import {
   AlertCircle,
   CheckCircle2,
   Calendar,
-  AlertTriangle
+  AlertTriangle,
+  Coffee,
+  Trash2
 } from 'lucide-react';
+
+const getTenantHeader = () => {
+  const urlParams = new URLSearchParams(window.location.search);
+  const tenantParam = urlParams.get('tenant');
+  if (tenantParam) return tenantParam;
+
+  const hostname = window.location.hostname;
+  const parts = hostname.split('.');
+  if (parts.length > 2 && parts[0] !== 'www') {
+    return parts[0];
+  }
+  return '';
+};
 
 export default function AttendanceManager() {
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -56,7 +71,14 @@ export default function AttendanceManager() {
   const fetchAnalytics = async () => {
     try {
       setAnalyticsLoading(true);
-      const res = await fetch('/api/employee-attendance/analytics');
+      const token = sessionStorage.getItem('token');
+      const tenant = getTenantHeader();
+      const res = await fetch('/api/employee-attendance/analytics', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'x-tenant-id': tenant
+        }
+      });
       if (res.ok) {
         const data = await res.json();
         setAnalytics(data);
@@ -70,7 +92,14 @@ export default function AttendanceManager() {
 
   const fetchTodayRecords = async () => {
     try {
-      const res = await fetch('/api/employee-attendance/today');
+      const token = sessionStorage.getItem('token');
+      const tenant = getTenantHeader();
+      const res = await fetch('/api/employee-attendance/today', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'x-tenant-id': tenant
+        }
+      });
       if (res.ok) {
         const data = await res.json();
         setTodayRecords(data || []);
@@ -83,6 +112,8 @@ export default function AttendanceManager() {
   const fetchReports = async () => {
     try {
       setLoading(true);
+      const token = sessionStorage.getItem('token');
+      const tenant = getTenantHeader();
       const queryParams = new URLSearchParams({
         employeeId: filterEmpId,
         department: filterDept,
@@ -91,7 +122,12 @@ export default function AttendanceManager() {
         year: filterYear
       }).toString();
       
-      const res = await fetch(`/api/employee-attendance/reports?${queryParams}`);
+      const res = await fetch(`/api/employee-attendance/reports?${queryParams}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'x-tenant-id': tenant
+        }
+      });
       if (res.ok) {
         const data = await res.json();
         setReports(data || []);
@@ -225,9 +261,15 @@ export default function AttendanceManager() {
 
   const processAttendanceScan = async (employeeId, employeeType) => {
     try {
+      const token = sessionStorage.getItem('token');
+      const tenant = getTenantHeader();
       const res = await fetch('/api/employee-attendance/scan', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+          'x-tenant-id': tenant
+        },
         body: JSON.stringify({ employeeId, employeeType })
       });
       
@@ -270,6 +312,71 @@ export default function AttendanceManager() {
     }, 4500);
   };
 
+  const handleDeleteRecord = async (recordId) => {
+    if (!window.confirm('Are you sure you want to delete this attendance record? The employee will be able to check-in fresh again.')) {
+      return;
+    }
+
+    // Find the record locally to calculate stats adjustment before deleting
+    const deletedRecord = todayRecords.find(r => r.id === recordId) || reports.find(r => r.id === recordId);
+
+    // 1. Optimistic UI update: instantly remove from state lists
+    setTodayRecords(prev => prev.filter(r => r.id !== recordId));
+    setReports(prev => prev.filter(r => r.id !== recordId));
+
+    // 2. Optimistic UI update: adjust stats counts locally
+    if (deletedRecord && analytics) {
+      setAnalytics(prev => {
+        if (!prev) return prev;
+        const newAnalytics = { ...prev };
+        
+        if (deletedRecord.status === 'Present') {
+          newAnalytics.presentToday = Math.max(0, (newAnalytics.presentToday || 0) - 1);
+        } else if (deletedRecord.status === 'Late') {
+          newAnalytics.lateToday = Math.max(0, (newAnalytics.lateToday || 0) - 1);
+        } else if (deletedRecord.status === 'Half Day') {
+          newAnalytics.halfDayToday = Math.max(0, (newAnalytics.halfDayToday || 0) - 1);
+        }
+        
+        if (deletedRecord.checkOut) {
+          newAnalytics.checkOutsToday = Math.max(0, (newAnalytics.checkOutsToday || 0) - 1);
+        }
+        
+        newAnalytics.absentToday = (newAnalytics.absentToday || 0) + 1;
+        return newAnalytics;
+      });
+    }
+
+    try {
+      const token = sessionStorage.getItem('token');
+      const tenant = getTenantHeader();
+      const res = await fetch(`/api/employee-attendance/record/${recordId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'x-tenant-id': tenant
+        }
+      });
+      
+      // Fetch fresh sync in the background
+      fetchAnalytics();
+      fetchTodayRecords();
+      fetchReports();
+
+      if (!res.ok) {
+        const data = await res.json();
+        alert(data.error || 'Failed to delete attendance record.');
+      }
+    } catch (err) {
+      console.error('Error deleting attendance record:', err);
+      // Re-fetch everything to restore UI in case request failed
+      fetchAnalytics();
+      fetchTodayRecords();
+      fetchReports();
+      alert('Network error deleting record.');
+    }
+  };
+
   useEffect(() => {
     return () => {
       stopScanner();
@@ -281,6 +388,7 @@ export default function AttendanceManager() {
     switch (status) {
       case 'Present': return 'rgb(var(--color-success-rgb))';
       case 'Late': return 'rgb(var(--color-warning-rgb))';
+      case 'Half Day': return 'hsl(var(--color-info))';
       case 'Incomplete Attendance': return 'rgb(var(--color-danger-rgb))';
       case 'Absent': return '#6b7280';
       default: return 'var(--text-main)';
@@ -411,10 +519,12 @@ export default function AttendanceManager() {
           {/* Quick Stats Cards */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '16px' }}>
             {[
+              { label: 'Total Employees', value: analytics?.totalEmployees ?? '—', icon: Users, color: 'var(--text-main)', bg: 'rgba(255, 255, 255, 0.04)' },
               { label: 'Present Today', value: analytics?.presentToday ?? '—', icon: UserCheck, color: 'rgb(var(--color-success-rgb))', bg: 'rgba(var(--color-success-rgb), 0.1)' },
               { label: 'Late Arrivals', value: analytics?.lateToday ?? '—', icon: Clock, color: 'rgb(var(--color-warning-rgb))', bg: 'rgba(var(--color-warning-rgb), 0.1)' },
+              { label: 'Half Day Today', value: analytics?.halfDayToday ?? '—', icon: Coffee, color: 'hsl(var(--color-info))', bg: 'rgba(hsl(var(--color-info)), 0.1)' },
               { label: 'Absent Today', value: analytics?.absentToday ?? '—', icon: UserMinus, color: 'rgb(var(--color-danger-rgb))', bg: 'rgba(var(--color-danger-rgb), 0.1)' },
-              { label: 'Check-Outs', value: analytics?.checkOutsToday ?? '—', icon: QrCode, color: 'hsl(var(--color-info))', bg: 'rgba(hsl(var(--color-info)), 0.1)' }
+              { label: 'Checked Out', value: analytics?.checkOutsToday ?? '—', icon: QrCode, color: 'hsl(var(--color-primary))', bg: 'rgba(hsl(var(--color-primary)), 0.1)' }
             ].map((card, i) => (
               <div key={i} className="glass-panel" style={{ padding: '20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderRadius: '16px' }}>
                 <div>
@@ -438,7 +548,7 @@ export default function AttendanceManager() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                 {analytics?.departmentStats && Object.keys(analytics.departmentStats).length > 0 ? (
                   Object.entries(analytics.departmentStats).map(([dept, stats]) => {
-                    const present = stats.present + stats.late;
+                    const present = (stats.present || 0) + (stats.late || 0) + (stats.halfDay || 0);
                     const total = stats.total || 1;
                     const percent = Math.round((present / total) * 100);
                     return (
@@ -469,7 +579,7 @@ export default function AttendanceManager() {
 
             {/* Roster Summaries */}
             <div className="glass-panel" style={{ padding: '24px', display: 'flex', flexDirection: 'column', justifyBetween: 'space-between', gap: '20px' }}>
-              <h3 style={{ fontSize: '1.05rem', fontWeight: 700, margin: 0 }}>Roster Compliance summaries</h3>
+              <h3 style={{ fontSize: '1.05rem', fontWeight: 700, margin: 0 }}>Roster Compliance Summaries</h3>
               
               {/* Teacher Summary */}
               <div className="glass-panel" style={{ padding: '16px', borderRadius: '12px', background: 'rgba(255,255,255,0.01)' }}>
@@ -477,18 +587,22 @@ export default function AttendanceManager() {
                   <span style={{ fontWeight: 700, fontSize: '0.88rem' }}>Staff Summary</span>
                   <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Total: {analytics?.teacherSummary?.total ?? 0}</span>
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', textAlign: 'center' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px', textAlign: 'center' }}>
                   <div style={{ background: 'rgba(var(--color-success-rgb), 0.05)', padding: '8px', borderRadius: '8px' }}>
-                    <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Present</div>
-                    <div style={{ fontSize: '1.1rem', fontWeight: 800, color: 'rgb(var(--color-success-rgb))', marginTop: '2px' }}>{analytics?.teacherSummary?.present ?? 0}</div>
+                    <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Present</div>
+                    <div style={{ fontSize: '1.05rem', fontWeight: 800, color: 'rgb(var(--color-success-rgb))', marginTop: '2px' }}>{analytics?.teacherSummary?.present ?? 0}</div>
                   </div>
                   <div style={{ background: 'rgba(var(--color-warning-rgb), 0.05)', padding: '8px', borderRadius: '8px' }}>
-                    <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Late</div>
-                    <div style={{ fontSize: '1.1rem', fontWeight: 800, color: 'rgb(var(--color-warning-rgb))', marginTop: '2px' }}>{analytics?.teacherSummary?.late ?? 0}</div>
+                    <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Late</div>
+                    <div style={{ fontSize: '1.05rem', fontWeight: 800, color: 'rgb(var(--color-warning-rgb))', marginTop: '2px' }}>{analytics?.teacherSummary?.late ?? 0}</div>
+                  </div>
+                  <div style={{ background: 'rgba(hsl(var(--color-info)), 0.05)', padding: '8px', borderRadius: '8px' }}>
+                    <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Half Day</div>
+                    <div style={{ fontSize: '1.05rem', fontWeight: 800, color: 'hsl(var(--color-info))', marginTop: '2px' }}>{analytics?.teacherSummary?.halfDay ?? 0}</div>
                   </div>
                   <div style={{ background: 'rgba(var(--color-danger-rgb), 0.05)', padding: '8px', borderRadius: '8px' }}>
-                    <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Absent</div>
-                    <div style={{ fontSize: '1.1rem', fontWeight: 800, color: 'rgb(var(--color-danger-rgb))', marginTop: '2px' }}>{analytics?.teacherSummary?.absent ?? 0}</div>
+                    <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Absent</div>
+                    <div style={{ fontSize: '1.05rem', fontWeight: 800, color: 'rgb(var(--color-danger-rgb))', marginTop: '2px' }}>{analytics?.teacherSummary?.absent ?? 0}</div>
                   </div>
                 </div>
               </div>
@@ -499,18 +613,22 @@ export default function AttendanceManager() {
                   <span style={{ fontWeight: 700, fontSize: '0.88rem' }}>Non-Academic Employee Summary</span>
                   <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Total: {analytics?.staffSummary?.total ?? 0}</span>
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', textAlign: 'center' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px', textAlign: 'center' }}>
                   <div style={{ background: 'rgba(var(--color-success-rgb), 0.05)', padding: '8px', borderRadius: '8px' }}>
-                    <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Present</div>
-                    <div style={{ fontSize: '1.1rem', fontWeight: 800, color: 'rgb(var(--color-success-rgb))', marginTop: '2px' }}>{analytics?.staffSummary?.present ?? 0}</div>
+                    <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Present</div>
+                    <div style={{ fontSize: '1.05rem', fontWeight: 800, color: 'rgb(var(--color-success-rgb))', marginTop: '2px' }}>{analytics?.staffSummary?.present ?? 0}</div>
                   </div>
                   <div style={{ background: 'rgba(var(--color-warning-rgb), 0.05)', padding: '8px', borderRadius: '8px' }}>
-                    <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Late</div>
-                    <div style={{ fontSize: '1.1rem', fontWeight: 800, color: 'rgb(var(--color-warning-rgb))', marginTop: '2px' }}>{analytics?.staffSummary?.late ?? 0}</div>
+                    <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Late</div>
+                    <div style={{ fontSize: '1.05rem', fontWeight: 800, color: 'rgb(var(--color-warning-rgb))', marginTop: '2px' }}>{analytics?.staffSummary?.late ?? 0}</div>
+                  </div>
+                  <div style={{ background: 'rgba(hsl(var(--color-info)), 0.05)', padding: '8px', borderRadius: '8px' }}>
+                    <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Half Day</div>
+                    <div style={{ fontSize: '1.05rem', fontWeight: 800, color: 'hsl(var(--color-info))', marginTop: '2px' }}>{analytics?.staffSummary?.halfDay ?? 0}</div>
                   </div>
                   <div style={{ background: 'rgba(var(--color-danger-rgb), 0.05)', padding: '8px', borderRadius: '8px' }}>
-                    <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Absent</div>
-                    <div style={{ fontSize: '1.1rem', fontWeight: 800, color: 'rgb(var(--color-danger-rgb))', marginTop: '2px' }}>{analytics?.staffSummary?.absent ?? 0}</div>
+                    <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Absent</div>
+                    <div style={{ fontSize: '1.05rem', fontWeight: 800, color: 'rgb(var(--color-danger-rgb))', marginTop: '2px' }}>{analytics?.staffSummary?.absent ?? 0}</div>
                   </div>
                 </div>
               </div>
@@ -700,7 +818,9 @@ export default function AttendanceManager() {
                   <th>Check-In</th>
                   <th>Check-Out</th>
                   <th>Working Hours</th>
+                  <th>Method</th>
                   <th>Status</th>
+                  <th>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -715,16 +835,37 @@ export default function AttendanceManager() {
                       <td style={{ fontWeight: 600, color: 'rgb(var(--color-success-rgb))' }}>{r.checkIn}</td>
                       <td style={{ fontWeight: 600, color: r.checkOut ? 'hsl(var(--color-primary))' : 'var(--text-muted)' }}>{r.checkOut || '—'}</td>
                       <td style={{ fontWeight: 600 }}>{r.checkOut && r.workingHours !== undefined && r.workingHours !== null ? `${r.workingHours} hrs` : '—'}</td>
+                      <td style={{ fontWeight: 600, color: 'var(--text-muted)' }}>QR Code</td>
                       <td>
                         <span className="badge" style={{ background: 'rgba(255,255,255,0.03)', color: getStatusColor(r.status), border: `1px solid ${getStatusColor(r.status)}`, padding: '2px 8px', borderRadius: '12px', fontSize: '0.72rem', fontWeight: 700 }}>
                           {r.status}
                         </span>
                       </td>
+                      <td>
+                        <button
+                          onClick={() => handleDeleteRecord(r.id)}
+                          style={{
+                            background: 'rgba(239, 68, 68, 0.1)',
+                            border: 'none',
+                            color: '#ef4444',
+                            padding: '6px',
+                            borderRadius: '6px',
+                            cursor: 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            transition: 'all 0.2s'
+                          }}
+                          title="Delete Attendance"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </td>
                     </tr>
                   ))
                 ) : (
                   <tr>
-                    <td colSpan="9" style={{ textAlign: 'center', padding: '60px', color: 'var(--text-muted)' }}>No attendance scans recorded today yet. Enable QR Scanner tab to check-in.</td>
+                    <td colSpan="11" style={{ textAlign: 'center', padding: '60px', color: 'var(--text-muted)' }}>No attendance scans recorded today yet. Enable QR Scanner tab to check-in.</td>
                   </tr>
                 )}
               </tbody>
@@ -818,13 +959,14 @@ export default function AttendanceManager() {
                     <th>Check-In</th>
                     <th>Check-Out</th>
                     <th>Hours</th>
+                    <th>Method</th>
                     <th>Status</th>
                   </tr>
                 </thead>
                 <tbody>
                   {loading ? (
                     <tr>
-                      <td colSpan="10" style={{ textAlign: 'center', padding: '60px', color: 'var(--text-muted)' }}>Querying attendance logs...</td>
+                      <td colSpan="11" style={{ textAlign: 'center', padding: '60px', color: 'var(--text-muted)' }}>Querying attendance logs...</td>
                     </tr>
                   ) : reports.length > 0 ? (
                     reports.map((r) => (
@@ -838,6 +980,7 @@ export default function AttendanceManager() {
                         <td style={{ color: 'rgb(var(--color-success-rgb))', fontWeight: 600 }}>{r.checkIn || '—'}</td>
                         <td style={{ color: r.checkOut ? 'hsl(var(--color-primary))' : 'var(--text-muted)', fontWeight: 600 }}>{r.checkOut || '—'}</td>
                         <td style={{ fontWeight: 600 }}>{r.workingHours ? `${r.workingHours} hrs` : '—'}</td>
+                        <td style={{ fontWeight: 600, color: 'var(--text-muted)' }}>QR Code</td>
                         <td>
                           <span className="badge" style={{ background: 'rgba(255,255,255,0.03)', color: getStatusColor(r.status), border: `1px solid ${getStatusColor(r.status)}`, padding: '2px 8px', borderRadius: '12px', fontSize: '0.72rem', fontWeight: 700 }}>
                             {r.status}
@@ -847,7 +990,7 @@ export default function AttendanceManager() {
                     ))
                   ) : (
                     <tr>
-                      <td colSpan="10" style={{ textAlign: 'center', padding: '60px', color: 'var(--text-muted)' }}>No historical logs found matching the selected filters.</td>
+                      <td colSpan="11" style={{ textAlign: 'center', padding: '60px', color: 'var(--text-muted)' }}>No historical logs found matching the selected filters.</td>
                     </tr>
                   )}
                 </tbody>

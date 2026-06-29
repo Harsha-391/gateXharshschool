@@ -737,6 +737,14 @@ export default function Sidebar({
                   <Shield size={20} className="flex-shrink-0" />
                   <span className="nav-label">Roles & Permissions</span>
                 </button>
+                <button
+                  onClick={() => { setAdminView('attendance-settings'); setMobileOpen(false); }}
+                  className={`nav-item ${adminView === 'attendance-settings' ? 'active' : ''}`}
+                  style={{ fontWeight: 500 }}
+                >
+                  <Settings size={20} className="flex-shrink-0" />
+                  <span className="nav-label">Attendance Settings</span>
+                </button>
               </div>
             )}
 

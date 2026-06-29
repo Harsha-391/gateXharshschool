@@ -53,14 +53,26 @@ export const scanEmployeeQr = async (req, res) => {
       return res.status(404).json({ error: `Employee profile not found for ID: ${employeeId} (${employeeType}).` });
     }
 
-    const todayStr = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
-    const nowTimeStr = getCurrentFormattedTime(); // HH:MM AM/PM
-    const timestamp = new Date().toISOString();
+    // Server-side current date, time, and timestamp
+    const nowServer = new Date();
+    const todayStr = nowServer.toISOString().split('T')[0]; // YYYY-MM-DD
+    const nowTimeStr = getCurrentFormattedTime(nowServer); // HH:MM AM/PM
+    const timestamp = nowServer.toISOString();
 
     if (!db.attendanceRecords) db.attendanceRecords = [];
     if (!db.attendanceLogs) db.attendanceLogs = [];
 
-    // Find if employee already checked in today
+    // Load Attendance Settings
+    const settings = (db.attendanceSettings && db.attendanceSettings[0]) || {
+      checkInStart: '08:00 AM',
+      lateTime: '09:00 AM',
+      halfDayTime: '11:00 AM',
+      checkOutTime: '05:00 PM',
+      minWorkingHours: 8.00,
+      gracePeriod: 15
+    };
+
+    // Find today's attendance record
     const recordIndex = db.attendanceRecords.findIndex(r => r.employeeId === employeeId && r.date === todayStr);
 
     let statusMsg = '';
@@ -68,13 +80,18 @@ export const scanEmployeeQr = async (req, res) => {
 
     if (recordIndex === -1) {
       // ----------------------------------------------------
-      // CASE 1: CHECK-IN
+      // CASE 1: CHECK-IN (First scan of the day)
       // ----------------------------------------------------
-      
-      // Rule: Before 9:00 AM = Present, After 9:00 AM = Late
       const checkInMinutes = parseTimeToMinutes(nowTimeStr);
-      const cutoffMinutes = 9 * 60; // 9:00 AM -> 540 minutes
-      const attendanceStatus = checkInMinutes <= cutoffMinutes ? 'Present' : 'Late';
+      const lateTimeMinutes = parseTimeToMinutes(settings.lateTime) + (settings.gracePeriod || 0);
+      const halfDayTimeMinutes = parseTimeToMinutes(settings.halfDayTime);
+
+      let attendanceStatus = 'Present';
+      if (checkInMinutes > halfDayTimeMinutes) {
+        attendanceStatus = 'Half Day';
+      } else if (checkInMinutes > lateTimeMinutes) {
+        attendanceStatus = 'Late';
+      }
 
       record = {
         id: `REC-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`,
@@ -104,46 +121,19 @@ export const scanEmployeeQr = async (req, res) => {
         status: attendanceStatus
       });
 
-      statusMsg = attendanceStatus === 'Present' ? 'Checked In successfully (Present)' : 'Checked In successfully (Late Arrival)';
+      statusMsg = `Checked In successfully as ${attendanceStatus}`;
       
     } else {
       // ----------------------------------------------------
-      // CASE 2: CHECK-OUT OR DUPLICATE WARN
+      // CASE 2: CHECK-OUT OR COOLDOWN/COMPLETED WARNINGS
       // ----------------------------------------------------
       const existingRecord = db.attendanceRecords[recordIndex];
-      const now = Date.now();
-      const checkInTime = new Date(existingRecord.createdAt || existingRecord.updatedAt).getTime();
-      const elapsedMinutes = (now - checkInTime) / (1000 * 60);
 
       if (existingRecord.checkOut) {
-        const checkOutTime = new Date(existingRecord.updatedAt).getTime();
-        const elapsedOutMinutes = (now - checkOutTime) / (1000 * 60);
-
-        if (elapsedOutMinutes < 5) {
-          // Cooldown for duplicate check-out scan: return checkout info successfully instead of showing error
-          return res.json({
-            success: true,
-            message: `Checked Out successfully. Working Hours: ${existingRecord.workingHours} hrs`,
-            scanType: 'Check-Out',
-            employeeDetails: {
-              photo: employee.photo || '',
-              name: employee.fullName || employee.name,
-              employeeId,
-              designation: employee.designation || employee.role || 'N/A',
-              date: todayStr,
-              time: existingRecord.checkOut,
-              status: existingRecord.status,
-              checkIn: existingRecord.checkIn,
-              checkOut: existingRecord.checkOut,
-              workingHours: existingRecord.workingHours
-            }
-          });
-        }
-
-        // Prevent duplicate check-ins/scans once day is complete
+        // Attendance completed for today
         return res.status(400).json({ 
-          error: 'Attendance completed.',
-          message: 'Check-out has already been recorded for this employee today.',
+          error: 'Attendance already completed for today.',
+          message: 'Attendance already completed for today.',
           alreadyRecorded: true,
           employeeDetails: {
             photo: employee.photo || '',
@@ -159,12 +149,16 @@ export const scanEmployeeQr = async (req, res) => {
         });
       }
 
-      if (elapsedMinutes < 5) {
-        // Cooldown for duplicate check-in scan: return checkin info successfully
-        return res.json({
-          success: true,
-          message: existingRecord.status === 'Present' ? 'Checked In successfully (Present)' : 'Checked In successfully (Late Arrival)',
-          scanType: 'Check-In',
+      // Check scan interval (cooldown of 1 minute)
+      const checkInTimeMs = new Date(existingRecord.createdAt).getTime();
+      const elapsedMs = nowServer.getTime() - checkInTimeMs;
+      const elapsedMinutes = elapsedMs / (1000 * 60);
+
+      if (elapsedMinutes < 1.0) {
+        // Less than 1 minute since check-in: return error warning
+        return res.status(400).json({
+          error: 'Attendance already marked. Please scan after 1 minute for Check-Out.',
+          message: 'Attendance already marked. Please scan after 1 minute for Check-Out.',
           employeeDetails: {
             photo: employee.photo || '',
             name: employee.fullName || employee.name,
@@ -180,14 +174,12 @@ export const scanEmployeeQr = async (req, res) => {
         });
       }
 
-      // Record check-out
+      // Record check-out (after 1 minute)
       const checkInMin = parseTimeToMinutes(existingRecord.checkIn);
       const checkOutMin = parseTimeToMinutes(nowTimeStr);
-      const diffMin = checkOutMin - checkInMin;
-
-      // Handle negative minutes in case of crossing midnight (not expected, but safe fallback)
-      const totalMinutes = diffMin < 0 ? 0 : diffMin;
-      const hoursDecimal = parseFloat((totalMinutes / 60).toFixed(2));
+      let diffMin = checkOutMin - checkInMin;
+      if (diffMin < 0) diffMin = 0;
+      const hoursDecimal = parseFloat((diffMin / 60).toFixed(2));
 
       existingRecord.checkOut = nowTimeStr;
       existingRecord.workingHours = hoursDecimal;
@@ -269,8 +261,10 @@ export const getAttendanceAnalytics = (req, res) => {
     const todayRecords = records.filter(r => r.date === todayStr);
     const checkedInCount = todayRecords.length;
     const checkedOutCount = todayRecords.filter(r => r.checkOut !== null && r.checkOut !== '').length;
+    
+    const presentCount = todayRecords.filter(r => r.status === 'Present').length;
     const lateCount = todayRecords.filter(r => r.status === 'Late').length;
-    const presentCount = checkedInCount - lateCount;
+    const halfDayCount = todayRecords.filter(r => r.status === 'Half Day').length;
     
     // Absent count
     const absentCount = Math.max(0, totalEmployeesCount - checkedInCount);
@@ -280,10 +274,12 @@ export const getAttendanceAnalytics = (req, res) => {
     todayRecords.forEach(r => {
       const dept = r.department || 'Other';
       if (!deptStats[dept]) {
-        deptStats[dept] = { present: 0, late: 0, absent: 0, total: 0 };
+        deptStats[dept] = { present: 0, late: 0, halfDay: 0, absent: 0, total: 0 };
       }
       if (r.status === 'Late') {
         deptStats[dept].late++;
+      } else if (r.status === 'Half Day') {
+        deptStats[dept].halfDay++;
       } else {
         deptStats[dept].present++;
       }
@@ -292,18 +288,18 @@ export const getAttendanceAnalytics = (req, res) => {
     // Populate total counts per department from registry
     teachersList.forEach(t => {
       const dept = t.department || 'Other';
-      if (!deptStats[dept]) deptStats[dept] = { present: 0, late: 0, absent: 0, total: 0 };
+      if (!deptStats[dept]) deptStats[dept] = { present: 0, late: 0, halfDay: 0, absent: 0, total: 0 };
       deptStats[dept].total++;
     });
     staffList.forEach(s => {
       const dept = s.department || 'Other';
-      if (!deptStats[dept]) deptStats[dept] = { present: 0, late: 0, absent: 0, total: 0 };
+      if (!deptStats[dept]) deptStats[dept] = { present: 0, late: 0, halfDay: 0, absent: 0, total: 0 };
       deptStats[dept].total++;
     });
 
     // Calculate absent counts for departments
     Object.keys(deptStats).forEach(dept => {
-      const activeInDept = deptStats[dept].present + deptStats[dept].late;
+      const activeInDept = (deptStats[dept].present || 0) + (deptStats[dept].late || 0) + (deptStats[dept].halfDay || 0);
       deptStats[dept].absent = Math.max(0, deptStats[dept].total - activeInDept);
     });
 
@@ -315,6 +311,7 @@ export const getAttendanceAnalytics = (req, res) => {
       total: teachersList.length,
       present: teacherRecords.filter(r => r.status === 'Present').length,
       late: teacherRecords.filter(r => r.status === 'Late').length,
+      halfDay: teacherRecords.filter(r => r.status === 'Half Day').length,
       absent: Math.max(0, teachersList.length - teacherRecords.length)
     };
 
@@ -322,6 +319,7 @@ export const getAttendanceAnalytics = (req, res) => {
       total: staffList.length,
       present: staffRecords.filter(r => r.status === 'Present').length,
       late: staffRecords.filter(r => r.status === 'Late').length,
+      halfDay: staffRecords.filter(r => r.status === 'Half Day').length,
       absent: Math.max(0, staffList.length - staffRecords.length)
     };
 
@@ -338,6 +336,7 @@ export const getAttendanceAnalytics = (req, res) => {
         label: d.toLocaleDateString('en-US', { weekday: 'short', month: 'numeric', day: 'numeric' }),
         present: dayRecords.filter(r => r.status === 'Present').length,
         late: dayRecords.filter(r => r.status === 'Late').length,
+        halfDay: dayRecords.filter(r => r.status === 'Half Day').length,
         absent: Math.max(0, totalEmployeesCount - dayRecords.length)
       });
     }
@@ -347,6 +346,7 @@ export const getAttendanceAnalytics = (req, res) => {
       presentToday: presentCount,
       absentToday: absentCount,
       lateToday: lateCount,
+      halfDayToday: halfDayCount,
       checkInsToday: checkedInCount,
       checkOutsToday: checkedOutCount,
       departmentStats: deptStats,
@@ -475,5 +475,32 @@ export const regenerateEmployeeQr = async (req, res) => {
   } catch (error) {
     console.error('Error regenerating QR Code:', error);
     res.status(500).json({ error: 'Server error regenerating QR code.' });
+  }
+};
+
+/**
+ * 6. DELETE ATTENDANCE RECORD
+ * DELETE /api/employee-attendance/record/:id
+ */
+export const deleteAttendanceRecord = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const db = readDb();
+    
+    if (!db.attendanceRecords) db.attendanceRecords = [];
+    const index = db.attendanceRecords.findIndex(r => r.id === id);
+    
+    if (index === -1) {
+      return res.status(404).json({ error: 'Attendance record not found.' });
+    }
+    
+    // Remove the record
+    db.attendanceRecords.splice(index, 1);
+    writeDb(db);
+    
+    res.json({ message: 'Attendance record deleted successfully.' });
+  } catch (error) {
+    console.error('Error deleting attendance record:', error);
+    res.status(500).json({ error: 'Server error deleting attendance record.' });
   }
 };

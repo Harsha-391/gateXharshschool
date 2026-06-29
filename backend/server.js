@@ -9,6 +9,7 @@ import studentRoutes from './routes/studentRoutes.js';
 import staffRoutes from './routes/staffRoutes.js';
 import attendanceRoutes from './routes/attendanceRoutes.js';
 import employeeAttendanceRoutes from './routes/employeeAttendanceRoutes.js';
+import attendanceSettingsRoutes from './routes/attendanceSettingsRoutes.js';
 import accountManagementRoutes from './routes/accountManagementRoutes.js';
 import auxiliaryIncomeRoutes from './routes/auxiliaryIncomeRoutes.js';
 import academicRoutes from './routes/academicRoutes.js';
@@ -16,7 +17,7 @@ import rbacRoutes from './routes/rbacRoutes.js';
 import gradeRoutes from './routes/gradeRoutes.js';
 import designationRoutes from './routes/designationRoutes.js';
 import upload from './middleware/upload.js';
-import { readDb, writeDb, addActivity, tenantStorage, slugify, restoreTenantContext, ensureTenantSqlLoaded, isSqlActive, initializeOnboardedSchoolDatabase } from './utils/db.js';
+import { readDb, writeDb, addActivity, tenantStorage, slugify, restoreTenantContext, ensureTenantSqlLoaded, isSqlActive, initializeOnboardedSchoolDatabase, startSqlDbInit, closeAllPools } from './utils/db.js';
 import { auth, generateToken } from './middleware/auth.js';
 import { checkPermission } from './middleware/permissionMiddleware.js';
 import { generateQrCode } from './utils/qrService.js';
@@ -1214,6 +1215,7 @@ app.use('/api/staff', staffRoutes);
 // ==========================================
 app.use('/api/attendance', attendanceRoutes);
 app.use('/api/employee-attendance', employeeAttendanceRoutes);
+app.use('/api/attendance-settings', attendanceSettingsRoutes);
 
 // ==========================================
 // 2B. ACCOUNT MANAGEMENT ROUTER
@@ -1683,12 +1685,12 @@ app.post('/api/invoices', (req, res) => {
 // ==========================================
 // 4B. SCHOOL PROFILE ENDPOINTS
 // ==========================================
-app.get('/api/school', (req, res) => {
+app.get('/api/school', restoreTenantContext, (req, res) => {
   const db = readDb();
   res.json(db.school || { name: "Aether Academy", principal: "Alex Devlin" });
 });
 
-app.post('/api/school', (req, res) => {
+app.post('/api/school', restoreTenantContext, (req, res) => {
   const { 
     name, 
     subdomain, 
@@ -2059,21 +2061,46 @@ app.use((err, req, res, next) => {
 });
 
 // Start Server
-const server = app.listen(PORT, () => {
-  console.log(`Aether Server running at http://localhost:${PORT}`);
+startSqlDbInit().then(() => {
+  const server = app.listen(PORT, () => {
+    console.log(`Aether Server running at http://localhost:${PORT}`);
+  });
+
+  server.on('error', (e) => {
+    if (e.code === 'EADDRINUSE') {
+      console.error(`[Server Error] Port ${PORT} is already in use. Force-killing zombie process on port ${PORT}...`);
+      try {
+        execSync(`npx kill-port ${PORT}`);
+        console.log(`[Server] Port ${PORT} freed successfully. Retrying listen in 1.5 seconds...`);
+        setTimeout(() => {
+          app.listen(PORT, () => {
+            console.log(`Aether Server running at http://localhost:${PORT}`);
+          });
+        }, 1500);
+      } catch (err) {
+        console.error('[Server Error] Failed to auto-kill process on port:', err.message);
+        process.exit(1);
+      }
+    }
+  });
+}).catch(err => {
+  console.error('[CRITICAL] Failed to initialize SQL database. Server startup aborted.', err.message);
+  process.exit(1);
 });
 
-server.on('error', (e) => {
-  if (e.code === 'EADDRINUSE') {
-    console.error(`[Server Error] Port ${PORT} is already in use. Force-killing zombie process on port ${PORT}...`);
-    try {
-      execSync(`npx kill-port ${PORT}`);
-      console.log(`[Server] Port ${PORT} freed successfully. Exiting to allow nodemon to restart...`);
-      process.exit(1);
-    } catch (err) {
-      console.error('[Server Error] Failed to auto-kill process on port:', err.message);
-      process.exit(1);
-    }
+// Graceful shutdown handlers
+const gracefulShutdown = async (signal) => {
+  console.log(`[Server] Received ${signal}. Closing MySQL connection pools...`);
+  try {
+    await closeAllPools();
+    console.log('[Server] MySQL connection pools closed safely.');
+  } catch (err) {
+    console.error('[Server Error] Error closing connection pools:', err.message);
   }
-});
+  process.exit(0);
+};
+process.once('SIGUSR2', () => gracefulShutdown('SIGUSR2'));
+process.once('SIGINT', () => gracefulShutdown('SIGINT'));
+process.once('SIGTERM', () => gracefulShutdown('SIGTERM'));
+
 // Trigger restart to sync database cache and reload server state v9

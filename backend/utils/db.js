@@ -455,15 +455,6 @@ const createTablesFromSchema = async () => {
 // Migrate legacy JSON databases (db.json and tenant files) to MySQL
 const migrateJsonToSql = async () => {
   try {
-    // Check if schools table is empty
-    const existingSchools = await sqlDb.query('SELECT COUNT(*) as cnt FROM schools');
-    if (existingSchools[0].cnt > 0) {
-      console.log('[SQL Migrate] Database is already populated. Skipping migration.');
-      return;
-    }
-
-    console.log('[SQL Migrate] No schools found. Starting legacy JSON database migration to MySQL...');
-
     // 1. Read Global Platform DB
     let globalDb = {};
     if (fs.existsSync(GLOBAL_DB_FILE)) {
@@ -485,14 +476,25 @@ const migrateJsonToSql = async () => {
     const globalActivities = globalDb.activities || [];
     for (const act of globalActivities) {
       const actType = act.type === 'finance' ? 'account_management' : act.type;
-      await sqlDb.query(
-        'INSERT INTO activities (id, type, title, description, time, timestamp, color, bg, tenantId) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-        [act.id, actType, act.title, act.desc || act.description, act.time, act.timestamp, act.color, act.bg, 'platform']
-      );
+      try {
+        await sqlDb.query(
+          'INSERT INTO activities (id, type, title, description, time, timestamp, color, bg, tenantId) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE title=VALUES(title)',
+          [act.id, actType, act.title, act.desc || act.description, act.time, act.timestamp, act.color, act.bg, 'platform']
+        );
+      } catch (err) {
+        // Ignore duplicate activities
+      }
     }
 
     // 2. Scan and migrate schools & tenants
     for (const school of schools) {
+      // Check if school already exists in master DB
+      const schoolExists = await sqlDb.query('SELECT COUNT(*) as cnt FROM schools WHERE subdomain = ?', [school.subdomain], 'platform');
+      if (schoolExists && schoolExists.length > 0 && schoolExists[0].cnt > 0) {
+        console.log(`[SQL Migrate] School ${school.name} (${school.subdomain}) already exists in SQL. Skipping profile migration.`);
+        continue;
+      }
+
       console.log(`[SQL Migrate] Migrating school: ${school.name} (${school.subdomain})...`);
       
       // Save school profile
@@ -983,7 +985,8 @@ const applySchemaUpdates = async (pool, isMaster = false, tenantId = null) => {
       "ALTER TABLE schools ADD COLUMN noticeCategories TEXT NULL",
       "ALTER TABLE schools ADD COLUMN holidayClassifications TEXT NULL",
       "ALTER TABLE student_accounts DROP FOREIGN KEY student_accounts_ibfk_1",
-      "ALTER TABLE parent_accounts DROP FOREIGN KEY parent_accounts_ibfk_1"
+      "ALTER TABLE parent_accounts DROP FOREIGN KEY parent_accounts_ibfk_1",
+      "CREATE TABLE IF NOT EXISTS attendance_settings (id VARCHAR(50) PRIMARY KEY, checkInStart VARCHAR(50) DEFAULT '08:00 AM', lateTime VARCHAR(50) DEFAULT '09:00 AM', halfDayTime VARCHAR(50) DEFAULT '11:00 AM', checkOutTime VARCHAR(50) DEFAULT '05:00 PM', minWorkingHours DECIMAL(5,2) DEFAULT 8.00, gracePeriod INT DEFAULT 15, tenantId VARCHAR(100) NOT NULL, createdAt VARCHAR(100), updatedAt VARCHAR(100), INDEX idx_att_sett_tenant (tenantId))"
     ];
     for (const sql of masterAlters) {
       try {
@@ -992,6 +995,7 @@ const applySchemaUpdates = async (pool, isMaster = false, tenantId = null) => {
     }
   } else {
     const schoolAlters = [
+      "CREATE TABLE IF NOT EXISTS attendance_settings (id VARCHAR(50) PRIMARY KEY, checkInStart VARCHAR(50) DEFAULT '08:00 AM', lateTime VARCHAR(50) DEFAULT '09:00 AM', halfDayTime VARCHAR(50) DEFAULT '11:00 AM', checkOutTime VARCHAR(50) DEFAULT '05:00 PM', minWorkingHours DECIMAL(5,2) DEFAULT 8.00, gracePeriod INT DEFAULT 15, tenantId VARCHAR(100) NOT NULL, createdAt VARCHAR(100), updatedAt VARCHAR(100), INDEX idx_att_sett_tenant (tenantId))",
       "ALTER TABLE grades ADD COLUMN sections JSON NULL",
       "ALTER TABLE grade_departments MODIFY COLUMN id VARCHAR(100)",
       "ALTER TABLE published_timetables MODIFY COLUMN id VARCHAR(255)",
@@ -1210,7 +1214,7 @@ export const migrateTenantDataToDedicatedDb = async (subdomain) => {
       'staff_salary_structures', 'fee_structures', 'timetables', 'students',
       'student_enrollments', 'parents', 'addresses', 'medical_records', 'documents',
       'fee_assignments', 'audit_logs', 'employee_qr_codes', 'attendance_records', 'attendance_logs',
-      'attendance_reports', 'grades', 'departments', 'grade_departments', 'fee_periods', 'auxiliary_income_categories', 'auxiliary_income'
+      'attendance_reports', 'grades', 'departments', 'grade_departments', 'fee_periods', 'auxiliary_income_categories', 'auxiliary_income', 'attendance_settings'
     ];
 
     for (const table of tables) {
@@ -1413,8 +1417,10 @@ export const initializeOnboardedSchoolDatabase = async (subdomain) => {
 // Initial database check called on server boot
 export const initSqlDb = async () => {
   const isConnected = await sqlDb.testConnection();
-  if (isConnected) {
-    const masterPool = sqlDb.getPoolForTenant(null);
+  if (!isConnected) {
+    throw new Error('MySQL Database connection is unavailable. Check credentials or network.');
+  }
+  const masterPool = sqlDb.getPoolForTenant(null);
 
     // 1. Initialize master database schema & updates
     await executeSchemaOnPool(masterPool, true);
@@ -1422,6 +1428,14 @@ export const initSqlDb = async () => {
 
     // Load subdomain-to-dbName mappings
     await sqlDb.loadDbMappings();
+
+    // Auto-trigger JSON-to-SQL migration to register any missing schools from JSON files
+    try {
+      await migrateJsonToSql();
+      await sqlDb.loadDbMappings(); // Reload mappings after migration
+    } catch (migrateErr) {
+      console.error('[SQL Init ERROR] Failed to run JSON migration:', migrateErr.message);
+    }
 
     // 1A. Perform startup migrations on master database pool
     try {
@@ -1471,15 +1485,13 @@ export const initSqlDb = async () => {
 
     isSqlInitialized = true;
     console.log('[SQL Init] MySQL Database-Per-School Multi-Tenant Adapter is active and running.');
-  } else {
-    console.warn('[SQL Init WARNING] MySQL Connection unavailable. Falling back to local JSON files.');
-    isSqlInitialized = false;
-  }
 };
 
 // Start the init procedure on boot
 export const startSqlDbInit = () => {
-  sqlInitPromise = initSqlDb();
+  if (!sqlInitPromise) {
+    sqlInitPromise = initSqlDb();
+  }
   return sqlInitPromise;
 };
 startSqlDbInit();
@@ -1746,7 +1758,8 @@ export const loadTenantSqlIntoMemory = async (tenantId) => {
       dbDepts,
       dbGradeDepts,
       dbFeePeriods,
-      dbDesignations
+      dbDesignations,
+      dbAttSettings
     ] = await Promise.all([
       !isGlobal ? sqlDb.query('SELECT * FROM sections WHERE tenantId = ?', [tId]) : Promise.resolve([]),
       !isGlobal ? sqlDb.query('SELECT * FROM published_timetables WHERE tenantId = ?', [tId]) : Promise.resolve([]),
@@ -1798,7 +1811,8 @@ export const loadTenantSqlIntoMemory = async (tenantId) => {
       sqlDb.query('SELECT * FROM departments WHERE tenantId = ?', [tId]),
       sqlDb.query('SELECT * FROM grade_departments WHERE tenantId = ?', [tId]),
       sqlDb.query('SELECT * FROM fee_periods WHERE tenantId = ? ORDER BY sortOrder', [tId]),
-      !isGlobal ? sqlDb.query('SELECT * FROM designations WHERE tenantId = ?', [tId]) : Promise.resolve([])
+      !isGlobal ? sqlDb.query('SELECT * FROM designations WHERE tenantId = ?', [tId]) : Promise.resolve([]),
+      sqlDb.query('SELECT * FROM attendance_settings WHERE tenantId = ?', [tId])
     ]);
 
     // Load custom fields
@@ -2342,6 +2356,48 @@ export const loadTenantSqlIntoMemory = async (tenantId) => {
       ...d,
       status: d.status || 'Active'
     }));
+
+    data.attendanceSettings = dbAttSettings.map(s => ({
+      id: s.id,
+      checkInStart: s.checkInStart || '08:00 AM',
+      lateTime: s.lateTime || '09:00 AM',
+      halfDayTime: s.halfDayTime || '11:00 AM',
+      checkOutTime: s.checkOutTime || '05:00 PM',
+      minWorkingHours: s.minWorkingHours ? Number(s.minWorkingHours) : 8.00,
+      gracePeriod: s.gracePeriod ? Number(s.gracePeriod) : 15,
+      tenantId: s.tenantId,
+      createdAt: s.createdAt,
+      updatedAt: s.updatedAt
+    }));
+
+    // Seed default settings if empty
+    if (!data.attendanceSettings || data.attendanceSettings.length === 0) {
+      const defaultSettings = {
+        id: `sett-${queryTenantId}-${Date.now()}`,
+        checkInStart: '08:00 AM',
+        lateTime: '09:00 AM',
+        halfDayTime: '11:00 AM',
+        checkOutTime: '05:00 PM',
+        minWorkingHours: 8.00,
+        gracePeriod: 15,
+        tenantId: queryTenantId,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      
+      // Seed into memory
+      data.attendanceSettings = [defaultSettings];
+      
+      // Async seed into SQL
+      sqlDb.query(
+        'INSERT INTO attendance_settings (id, checkInStart, lateTime, halfDayTime, checkOutTime, minWorkingHours, gracePeriod, tenantId, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        [
+          defaultSettings.id, defaultSettings.checkInStart, defaultSettings.lateTime, defaultSettings.halfDayTime,
+          defaultSettings.checkOutTime, defaultSettings.minWorkingHours, defaultSettings.gracePeriod,
+          defaultSettings.tenantId, defaultSettings.createdAt, defaultSettings.updatedAt
+        ]
+      ).catch(e => console.error('[SQL Preload] Failed to seed default attendance settings:', e.message));
+    }
 
     data.gradeDepartments = dbGradeDepts.map(gd => ({
       ...gd,
@@ -4043,3 +4099,5 @@ export const addActivity = (db, type, title, desc, color = 'hsl(var(--color-prim
   };
   db.activities = [newActivity, ...(db.activities || [])].slice(0, 50); // Keep last 50
 };
+
+export const closeAllPools = sqlDb.closeAllPools;
