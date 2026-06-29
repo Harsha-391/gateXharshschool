@@ -59,19 +59,45 @@ export const checkPermission = (module, action) => {
     const access = (db.userAccess || []).find(ua => ua.userId === user.id);
     let roleRecord = access ? (db.roles || []).find(r => r.id === access.roleId) : null;
     
+    if (!roleRecord && role) {
+      roleRecord = (db.roles || []).find(r => r.name.toLowerCase() === role.toLowerCase());
+    }
+
     if (!roleRecord) {
       // Find role from teacher or staff record directly
       let userRoleName = '';
+      let userEmail = '';
       if (user.userType === 'Staff') {
         const teacher = (db.teachers || []).find(t => t.id === user.id);
-        if (teacher) userRoleName = teacher.role;
+        if (teacher) {
+          userRoleName = teacher.designation || teacher.role;
+          userEmail = teacher.email;
+        }
       } else {
         const staff = (db.staff || []).find(s => s.id === user.id);
-        if (staff) userRoleName = staff.role;
+        if (staff) {
+          userRoleName = staff.designation || staff.role;
+          userEmail = staff.email;
+        }
       }
 
       if (userRoleName) {
         roleRecord = (db.roles || []).find(r => r.name.toLowerCase() === userRoleName.toLowerCase());
+      }
+
+      if (!roleRecord && userEmail) {
+        const emailLower = userEmail.toLowerCase();
+        if (emailLower.includes('receptionist')) {
+          roleRecord = (db.roles || []).find(r => r.name.toLowerCase() === 'receptionist');
+        } else if (emailLower.includes('accountant')) {
+          roleRecord = (db.roles || []).find(r => r.name.toLowerCase() === 'accountant');
+        } else if (emailLower.includes('academic')) {
+          roleRecord = (db.roles || []).find(r => r.name.toLowerCase() === 'academic coordinator');
+        } else if (emailLower.includes('expense')) {
+          roleRecord = (db.roles || []).find(r => r.name.toLowerCase() === 'expense manager');
+        } else if (emailLower.includes('teacher')) {
+          roleRecord = (db.roles || []).find(r => r.name.toLowerCase() === 'teacher');
+        }
       }
     }
 

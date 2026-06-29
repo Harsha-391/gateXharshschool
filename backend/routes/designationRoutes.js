@@ -58,6 +58,11 @@ const checkViewDesignationPermission = (req, res, next) => {
   const db = readDb();
   const access = (db.userAccess || []).find(ua => ua.userId === user.id);
   let roleRecord = access ? (db.roles || []).find(r => r.id === access.roleId) : null;
+  
+  if (!roleRecord && role) {
+    roleRecord = (db.roles || []).find(r => r.name.toLowerCase() === role.toLowerCase());
+  }
+  
   if (!roleRecord) {
     const defaultRoleName = user.userType === 'Teacher' ? 'Teacher' : 'Staff';
     roleRecord = (db.roles || []).find(r => r.id === `role-${defaultRoleName.toLowerCase()}` || r.name.toLowerCase() === defaultRoleName.toLowerCase());
