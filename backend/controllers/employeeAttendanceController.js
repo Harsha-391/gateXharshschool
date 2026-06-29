@@ -375,9 +375,13 @@ export const getAttendanceReports = (req, res) => {
       records = records.filter(r => r.employeeType === employeeType);
     }
     
-    // Filter by ID
+    // Filter by ID or Name
     if (employeeId && employeeId.trim() !== '') {
-      records = records.filter(r => r.employeeId.toLowerCase().includes(employeeId.toLowerCase()));
+      const searchLower = employeeId.toLowerCase();
+      records = records.filter(r => 
+        r.employeeId.toLowerCase().includes(searchLower) ||
+        r.name.toLowerCase().includes(searchLower)
+      );
     }
 
     // Filter by department

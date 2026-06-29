@@ -41,6 +41,7 @@ export default function AttendanceManager() {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [analytics, setAnalytics] = useState(null);
   const [todayRecords, setTodayRecords] = useState([]);
+  const [todaySubTab, setTodaySubTab] = useState('Staff');
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(false);
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
@@ -797,82 +798,118 @@ export default function AttendanceManager() {
       {/* ========================================================
           3. TODAY'S ATTENDANCE LOG VIEW
           ======================================================== */}
-      {activeTab === 'today' && (
-        <div className="glass-panel" style={{ padding: '24px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
-            <h3 style={{ fontSize: '1.05rem', fontWeight: 700, margin: 0 }}>Today's Check-ins & Check-outs</h3>
-            <button onClick={fetchTodayRecords} className="btn-secondary" style={{ padding: '6px 12px', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.8rem' }}>
-              <RefreshCw size={12} /> Refresh Logs
-            </button>
-          </div>
+      {activeTab === 'today' && (() => {
+        const filteredTodayRecords = todayRecords.filter(r => {
+          if (todaySubTab === 'Staff') {
+            return r.employeeType === 'Teacher';
+          } else {
+            return r.employeeType === 'Staff';
+          }
+        });
 
-          <div className="custom-table-container">
-            <table className="custom-table">
-              <thead>
-                <tr>
-                  <th>Employee ID</th>
-                  <th>Type</th>
-                  <th>Name</th>
-                  <th>Department</th>
-                  <th>Designation</th>
-                  <th>Check-In</th>
-                  <th>Check-Out</th>
-                  <th>Working Hours</th>
-                  <th>Method</th>
-                  <th>Status</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {todayRecords.length > 0 ? (
-                  todayRecords.map((r) => (
-                    <tr key={r.id}>
-                      <td style={{ fontWeight: 700, color: 'hsl(var(--color-primary))' }}>{r.employeeId}</td>
-                      <td style={{ fontWeight: 600 }}>{r.employeeType}</td>
-                      <td style={{ fontWeight: 600 }}>{r.name}</td>
-                      <td>{r.department}</td>
-                      <td>{r.designation}</td>
-                      <td style={{ fontWeight: 600, color: 'rgb(var(--color-success-rgb))' }}>{r.checkIn}</td>
-                      <td style={{ fontWeight: 600, color: r.checkOut ? 'hsl(var(--color-primary))' : 'var(--text-muted)' }}>{r.checkOut || '—'}</td>
-                      <td style={{ fontWeight: 600 }}>{r.checkOut && r.workingHours !== undefined && r.workingHours !== null ? `${r.workingHours} hrs` : '—'}</td>
-                      <td style={{ fontWeight: 600, color: 'var(--text-muted)' }}>QR Code</td>
-                      <td>
-                        <span className="badge" style={{ background: 'rgba(255,255,255,0.03)', color: getStatusColor(r.status), border: `1px solid ${getStatusColor(r.status)}`, padding: '2px 8px', borderRadius: '12px', fontSize: '0.72rem', fontWeight: 700 }}>
-                          {r.status}
-                        </span>
-                      </td>
-                      <td>
-                        <button
-                          onClick={() => handleDeleteRecord(r.id)}
-                          style={{
-                            background: 'rgba(239, 68, 68, 0.1)',
-                            border: 'none',
-                            color: '#ef4444',
-                            padding: '6px',
-                            borderRadius: '6px',
-                            cursor: 'pointer',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            transition: 'all 0.2s'
-                          }}
-                          title="Delete Attendance"
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      </td>
-                    </tr>
-                  ))
-                ) : (
+        return (
+          <div className="glass-panel" style={{ padding: '24px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <h3 style={{ fontSize: '1.05rem', fontWeight: 700, margin: 0 }}>Today's Check-ins & Check-outs</h3>
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: 0 }}>View logs separated by role category.</p>
+              </div>
+              <button onClick={fetchTodayRecords} className="btn-secondary" style={{ padding: '6px 12px', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.8rem' }}>
+                <RefreshCw size={12} /> Refresh Logs
+              </button>
+
+              <div style={{ display: 'flex', gap: '8px', background: 'rgba(255,255,255,0.02)', padding: '4px', borderRadius: '8px', border: '1px solid var(--border-glass)' }}>
+                <button
+                  onClick={() => setTodaySubTab('Staff')}
+                  style={{
+                    padding: '6px 14px', borderRadius: '6px', border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: '0.78rem', transition: 'all 0.2s',
+                    background: todaySubTab === 'Staff' ? 'hsl(var(--color-primary))' : 'transparent',
+                    color: todaySubTab === 'Staff' ? '#ffffff' : 'var(--text-muted)'
+                  }}
+                >
+                  Staff Attendance
+                </button>
+                <button
+                  onClick={() => setTodaySubTab('Employee')}
+                  style={{
+                    padding: '6px 14px', borderRadius: '6px', border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: '0.78rem', transition: 'all 0.2s',
+                    background: todaySubTab === 'Employee' ? 'hsl(var(--color-primary))' : 'transparent',
+                    color: todaySubTab === 'Employee' ? '#ffffff' : 'var(--text-muted)'
+                  }}
+                >
+                  Employee Attendance
+                </button>
+              </div>
+            </div>
+
+            <div className="custom-table-container">
+              <table className="custom-table">
+                <thead>
                   <tr>
-                    <td colSpan="11" style={{ textAlign: 'center', padding: '60px', color: 'var(--text-muted)' }}>No attendance scans recorded today yet. Enable QR Scanner tab to check-in.</td>
+                    <th>Employee ID</th>
+                    <th>Type</th>
+                    <th>Name</th>
+                    <th>Department</th>
+                    <th>Designation</th>
+                    <th>Check-In</th>
+                    <th>Check-Out</th>
+                    <th>Working Hours</th>
+                    <th>Method</th>
+                    <th>Status</th>
+                    <th>Actions</th>
                   </tr>
-                )}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {filteredTodayRecords.length > 0 ? (
+                    filteredTodayRecords.map((r) => (
+                      <tr key={r.id}>
+                        <td style={{ fontWeight: 700, color: 'hsl(var(--color-primary))' }}>{r.employeeId}</td>
+                        <td style={{ fontWeight: 600 }}>{r.employeeType}</td>
+                        <td style={{ fontWeight: 600 }}>{r.name}</td>
+                        <td>{r.department}</td>
+                        <td>{r.designation}</td>
+                        <td style={{ fontWeight: 600, color: 'rgb(var(--color-success-rgb))' }}>{r.checkIn}</td>
+                        <td style={{ fontWeight: 600, color: r.checkOut ? 'hsl(var(--color-primary))' : 'var(--text-muted)' }}>{r.checkOut || '—'}</td>
+                        <td style={{ fontWeight: 600 }}>{r.checkOut && r.workingHours !== undefined && r.workingHours !== null ? `${r.workingHours} hrs` : '—'}</td>
+                        <td style={{ fontWeight: 600, color: 'var(--text-muted)' }}>QR Code</td>
+                        <td>
+                          <span className="badge" style={{ background: 'rgba(255,255,255,0.03)', color: getStatusColor(r.status), border: `1px solid ${getStatusColor(r.status)}`, padding: '2px 8px', borderRadius: '12px', fontSize: '0.72rem', fontWeight: 700 }}>
+                            {r.status}
+                          </span>
+                        </td>
+                        <td>
+                          <button
+                            onClick={() => handleDeleteRecord(r.id)}
+                            style={{
+                              background: 'rgba(239, 68, 68, 0.1)',
+                              border: 'none',
+                              color: '#ef4444',
+                              padding: '6px',
+                              borderRadius: '6px',
+                              cursor: 'pointer',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              transition: 'all 0.2s'
+                            }}
+                            title="Delete Attendance"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan="11" style={{ textAlign: 'center', padding: '60px', color: 'var(--text-muted)' }}>No attendance scans recorded for this category today yet.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* ========================================================
           4. REPORTS & ANALYTICS VIEW
@@ -886,7 +923,7 @@ export default function AttendanceManager() {
               <Search size={16} style={{ color: 'var(--text-muted)' }} />
               <input
                 type="text"
-                placeholder="Search Employee ID..."
+                placeholder="Search Employee Name..."
                 className="search-bar-input"
                 value={filterEmpId}
                 onChange={(e) => setFilterEmpId(e.target.value)}
@@ -895,13 +932,6 @@ export default function AttendanceManager() {
             </div>
 
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
-              {/* Department */}
-              <select className="select-custom" value={filterDept} onChange={(e) => setFilterDept(e.target.value)}>
-                <option value="All">All Departments</option>
-                {['Science', 'Mathematics', 'English', 'Social Science', 'Computer Science', 'Administration', 'IT Department', 'Transport', 'Security'].map(d => (
-                  <option key={d} value={d}>{d}</option>
-                ))}
-              </select>
 
               {/* Type */}
               <select className="select-custom" value={filterType} onChange={(e) => setFilterType(e.target.value)}>
