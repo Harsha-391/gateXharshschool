@@ -517,26 +517,54 @@ export default function AttendanceManager() {
           ======================================================== */}
       {activeTab === 'dashboard' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-          {/* Quick Stats Cards */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '16px' }}>
-            {[
-              { label: 'Total Employees', value: analytics?.totalEmployees ?? '—', icon: Users, color: 'var(--text-main)', bg: 'rgba(255, 255, 255, 0.04)' },
-              { label: 'Present Today', value: analytics?.presentToday ?? '—', icon: UserCheck, color: 'rgb(var(--color-success-rgb))', bg: 'rgba(var(--color-success-rgb), 0.1)' },
-              { label: 'Late Arrivals', value: analytics?.lateToday ?? '—', icon: Clock, color: 'rgb(var(--color-warning-rgb))', bg: 'rgba(var(--color-warning-rgb), 0.1)' },
-              { label: 'Half Day Today', value: analytics?.halfDayToday ?? '—', icon: Coffee, color: 'hsl(var(--color-info))', bg: 'rgba(hsl(var(--color-info)), 0.1)' },
-              { label: 'Absent Today', value: analytics?.absentToday ?? '—', icon: UserMinus, color: 'rgb(var(--color-danger-rgb))', bg: 'rgba(var(--color-danger-rgb), 0.1)' },
-              { label: 'Checked Out', value: analytics?.checkOutsToday ?? '—', icon: QrCode, color: 'hsl(var(--color-primary))', bg: 'rgba(hsl(var(--color-primary)), 0.1)' }
-            ].map((card, i) => (
-              <div key={i} className="glass-panel" style={{ padding: '20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderRadius: '16px' }}>
-                <div>
-                  <div style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)' }}>{card.label}</div>
-                  <div style={{ fontSize: '1.8rem', fontWeight: 800, marginTop: '8px', color: card.color }}>{card.value}</div>
+          {/* Staff (Teachers) Attendance Summary */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            <h4 style={{ fontSize: '0.88rem', fontWeight: 700, margin: 0, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'hsl(var(--color-primary))' }}>Staff Attendance</h4>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '16px' }}>
+              {[
+                { label: 'Total Staff', value: analytics?.teacherSummary?.total ?? '—', icon: Users, color: 'var(--text-main)', bg: 'rgba(255, 255, 255, 0.04)' },
+                { label: 'Present Today', value: analytics?.teacherSummary?.present ?? '—', icon: UserCheck, color: 'rgb(var(--color-success-rgb))', bg: 'rgba(var(--color-success-rgb), 0.1)' },
+                { label: 'Late Arrivals', value: analytics?.teacherSummary?.late ?? '—', icon: Clock, color: 'rgb(var(--color-warning-rgb))', bg: 'rgba(var(--color-warning-rgb), 0.1)' },
+                { label: 'Half Day Today', value: analytics?.teacherSummary?.halfDay ?? '—', icon: Coffee, color: 'hsl(var(--color-info))', bg: 'rgba(255, 255, 255, 0.04)' },
+                { label: 'Absent Today', value: analytics?.teacherSummary?.absent ?? '—', icon: UserMinus, color: 'rgb(var(--color-danger-rgb))', bg: 'rgba(var(--color-danger-rgb), 0.1)' },
+                { label: 'Checked Out', value: analytics?.teacherSummary?.checkOuts ?? '—', icon: QrCode, color: 'hsl(var(--color-primary))', bg: 'rgba(255, 255, 255, 0.04)' }
+              ].map((card, i) => (
+                <div key={i} className="glass-panel" style={{ padding: '20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderRadius: '16px' }}>
+                  <div>
+                    <div style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)' }}>{card.label}</div>
+                    <div style={{ fontSize: '1.8rem', fontWeight: 800, marginTop: '8px', color: card.color }}>{card.value}</div>
+                  </div>
+                  <div style={{ padding: '12px', borderRadius: '12px', background: card.bg, color: card.color }}>
+                    <card.icon size={22} />
+                  </div>
                 </div>
-                <div style={{ padding: '12px', borderRadius: '12px', background: card.bg, color: card.color }}>
-                  <card.icon size={22} />
+              ))}
+            </div>
+          </div>
+
+          {/* Employee (Non-Academic) Attendance Summary */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            <h4 style={{ fontSize: '0.88rem', fontWeight: 700, margin: 0, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'hsl(var(--color-primary))' }}>Employee (Non-Academic) Attendance</h4>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '16px' }}>
+              {[
+                { label: 'Total Employees', value: analytics?.staffSummary?.total ?? '—', icon: Users, color: 'var(--text-main)', bg: 'rgba(255, 255, 255, 0.04)' },
+                { label: 'Present Today', value: analytics?.staffSummary?.present ?? '—', icon: UserCheck, color: 'rgb(var(--color-success-rgb))', bg: 'rgba(var(--color-success-rgb), 0.1)' },
+                { label: 'Late Arrivals', value: analytics?.staffSummary?.late ?? '—', icon: Clock, color: 'rgb(var(--color-warning-rgb))', bg: 'rgba(var(--color-warning-rgb), 0.1)' },
+                { label: 'Half Day Today', value: analytics?.staffSummary?.halfDay ?? '—', icon: Coffee, color: 'hsl(var(--color-info))', bg: 'rgba(255, 255, 255, 0.04)' },
+                { label: 'Absent Today', value: analytics?.staffSummary?.absent ?? '—', icon: UserMinus, color: 'rgb(var(--color-danger-rgb))', bg: 'rgba(var(--color-danger-rgb), 0.1)' },
+                { label: 'Checked Out', value: analytics?.staffSummary?.checkOuts ?? '—', icon: QrCode, color: 'hsl(var(--color-primary))', bg: 'rgba(255, 255, 255, 0.04)' }
+              ].map((card, i) => (
+                <div key={i} className="glass-panel" style={{ padding: '20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderRadius: '16px' }}>
+                  <div>
+                    <div style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)' }}>{card.label}</div>
+                    <div style={{ fontSize: '1.8rem', fontWeight: 800, marginTop: '8px', color: card.color }}>{card.value}</div>
+                  </div>
+                  <div style={{ padding: '12px', borderRadius: '12px', background: card.bg, color: card.color }}>
+                    <card.icon size={22} />
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '20px' }}>

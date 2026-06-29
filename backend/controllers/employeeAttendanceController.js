@@ -311,7 +311,8 @@ export const getAttendanceAnalytics = (req, res) => {
       present: teacherRecords.filter(r => r.status === 'Present').length,
       late: teacherRecords.filter(r => r.status === 'Late').length,
       halfDay: teacherRecords.filter(r => r.status === 'Half Day').length,
-      absent: Math.max(0, teachersList.length - teacherRecords.length)
+      absent: Math.max(0, teachersList.length - teacherRecords.length),
+      checkOuts: teacherRecords.filter(r => r.checkOut !== null && r.checkOut !== '').length
     };
 
     const staffSummary = {
@@ -319,7 +320,8 @@ export const getAttendanceAnalytics = (req, res) => {
       present: staffRecords.filter(r => r.status === 'Present').length,
       late: staffRecords.filter(r => r.status === 'Late').length,
       halfDay: staffRecords.filter(r => r.status === 'Half Day').length,
-      absent: Math.max(0, staffList.length - staffRecords.length)
+      absent: Math.max(0, staffList.length - staffRecords.length),
+      checkOuts: staffRecords.filter(r => r.checkOut !== null && r.checkOut !== '').length
     };
 
     // Calculate last 7 days trends

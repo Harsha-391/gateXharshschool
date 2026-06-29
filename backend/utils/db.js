@@ -1480,7 +1480,7 @@ export const initSqlDb = async () => {
     } catch (err) {}
 
     // 5. Trigger first database backup on boot
-    setTimeout(backupAllDatabases, 5000); // 5 seconds after startup
+    setTimeout(backupAllDatabases, 60000); // 60 seconds after startup to prevent port/connection blocking on boot
     startBackupInterval();
 
     isSqlInitialized = true;
