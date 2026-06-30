@@ -9,63 +9,7 @@
   "expenses": [],
   "payroll": [],
   "staffPayments": [],
-  "activities": [
-    {
-      "id": "ACT-1782299769157",
-      "type": "alert",
-      "title": "New School Onboarded",
-      "description": "School \"Camden Hooper\" registered on the platform.",
-      "time": "Just now",
-      "timestamp": "2026-06-24T11:16:09.157Z",
-      "color": "hsl(var(--color-primary))",
-      "bg": "rgba(hsl(var(--color-primary)), 0.1)",
-      "tenantId": "platform"
-    },
-    {
-      "id": "ACT-1782299878603",
-      "type": "alert",
-      "title": "New School Onboarded",
-      "description": "School \"Trevor Boone\" registered on the platform.",
-      "time": "Just now",
-      "timestamp": "2026-06-24T11:17:58.603Z",
-      "color": "hsl(var(--color-primary))",
-      "bg": "rgba(hsl(var(--color-primary)), 0.1)",
-      "tenantId": "platform"
-    },
-    {
-      "id": "ACT-1782299956618",
-      "type": "alert",
-      "title": "New School Onboarded",
-      "description": "School \"Noble school\" registered on the platform.",
-      "time": "Just now",
-      "timestamp": "2026-06-24T11:19:16.618Z",
-      "color": "hsl(var(--color-primary))",
-      "bg": "rgba(hsl(var(--color-primary)), 0.1)",
-      "tenantId": "platform"
-    },
-    {
-      "id": "ACT-1782375825734",
-      "type": "alert",
-      "title": "New School Onboarded",
-      "description": "School \"Owen Stanton\" registered on the platform.",
-      "time": "Just now",
-      "timestamp": "2026-06-25T08:23:45.734Z",
-      "color": "hsl(var(--color-primary))",
-      "bg": "rgba(hsl(var(--color-primary)), 0.1)",
-      "tenantId": "platform"
-    },
-    {
-      "id": "ACT-1782468779340",
-      "type": "alert",
-      "title": "New School Onboarded",
-      "description": "School \"Neville Davenport\" registered on the platform.",
-      "time": "Just now",
-      "timestamp": "2026-06-26T10:12:59.340Z",
-      "color": "hsl(var(--color-primary))",
-      "bg": "rgba(hsl(var(--color-primary)), 0.1)",
-      "tenantId": "platform"
-    }
-  ],
+  "activities": [],
   "exams": [],
   "examTimetables": [],
   "notices": [],
@@ -113,40 +57,7 @@
       ]
     }
   ],
-  "schools": [
-    {
-      "id": "SCH-1782299956618",
-      "name": "Noble school",
-      "code": "SCH-798",
-      "subdomain": "noble",
-      "logo": "",
-      "principalName": "Barbara Fischer",
-      "email": "ur61849@gmail.com",
-      "phone": "0787846835",
-      "address": "khimel,pali,rajasthan",
-      "city": "pali",
-      "state": "Rajasthan",
-      "country": "India",
-      "academicSession": "2026-2027",
-      "subscriptionPlan": "Starter",
-      "url": "https://noble.myschoolerp.com",
-      "status": "Active",
-      "adminName": "uttam rajpurohit",
-      "adminEmail": "ur61849@gmail.com",
-      "adminUsername": "school_admin",
-      "adminPassword": "uttam@2004",
-      "ratePerStudent": "250.00",
-      "createdAt": "2026-06-24T11:19:16.618Z",
-      "updatedAt": "2026-06-30T09:03:04.331Z",
-      "dbName": "school_noble",
-      "examTypes": "[]",
-      "eventTypes": "[\"dsfg\"]",
-      "noticeCategories": [
-        "ffgh"
-      ],
-      "holidayClassifications": []
-    }
-  ],
+  "schools": [],
   "roles": [
     {
       "id": "role-academic",
