@@ -11,16 +11,6 @@
   "staffPayments": [],
   "activities": [
     {
-      "id": "ACT-1782813508554",
-      "type": "alert",
-      "title": "New School Onboarded",
-      "desc": "School \"Shad Dixon\" registered on the platform.",
-      "time": "Just now",
-      "timestamp": "2026-06-30T09:58:28.554Z",
-      "color": "hsl(var(--color-primary))",
-      "bg": "rgba(hsl(var(--color-primary)), 0.1)"
-    },
-    {
       "id": "ACT-1782299769157",
       "type": "alert",
       "title": "New School Onboarded",
@@ -71,6 +61,17 @@
       "description": "School \"Neville Davenport\" registered on the platform.",
       "time": "Just now",
       "timestamp": "2026-06-26T10:12:59.340Z",
+      "color": "hsl(var(--color-primary))",
+      "bg": "rgba(hsl(var(--color-primary)), 0.1)",
+      "tenantId": "platform"
+    },
+    {
+      "id": "ACT-1782813508554",
+      "type": "alert",
+      "title": "New School Onboarded",
+      "description": "School \"Shad Dixon\" registered on the platform.",
+      "time": "Just now",
+      "timestamp": "2026-06-30T09:58:28.554Z",
       "color": "hsl(var(--color-primary))",
       "bg": "rgba(hsl(var(--color-primary)), 0.1)",
       "tenantId": "platform"
@@ -205,9 +206,14 @@
       "adminEmail": "xorepane@mailinator.com",
       "adminUsername": "kymogyzahy",
       "adminPassword": "$2b$10$6bIURXDwFGeB6qoIq0m64OUSlTLNe29n.CDEujqxyEqiPy8kxoioC",
-      "dbName": "school_sdfghj",
+      "ratePerStudent": "250.00",
       "createdAt": "2026-06-30T09:58:28.554Z",
-      "updatedAt": "2026-06-30T09:58:28.554Z"
+      "updatedAt": "2026-06-30T09:58:28.554Z",
+      "dbName": "school_sdfghj",
+      "examTypes": null,
+      "eventTypes": null,
+      "noticeCategories": [],
+      "holidayClassifications": []
     }
   ],
   "roles": [
@@ -1827,5 +1833,5 @@
       "updatedAt": "2026-06-29T10:01:55.628Z"
     }
   ],
-  "_signature": "SCH-1782811579832-amet-Active-Kameko Graham-SCH-338|SCH-1782811617866-accusantium-Active-Drake Booth-SCH-847"
+  "_signature": "SCH-1782811579832-amet-Active-Kameko Graham-SCH-338|SCH-1782811617866-accusantium-Active-Drake Booth-SCH-847|SCH-1782813508489-sdfghj-Active-Shad Dixon-SCH-891"
 }

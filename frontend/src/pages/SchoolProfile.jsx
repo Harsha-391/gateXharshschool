@@ -58,7 +58,8 @@ import {
   Building,
   KeyRound,
   Copy,
-  Play
+  Play,
+  Key
 } from 'lucide-react';
 
 export default function SchoolProfile({ schoolDetails, fetchSchoolDetails, isDeveloperAdmin, devActiveTab }) {
@@ -176,6 +177,85 @@ export default function SchoolProfile({ schoolDetails, fetchSchoolDetails, isDev
 
   const activeTab = devActiveTab || 'dashboard';
   const [schools, setSchools] = useState([]);
+
+  // States for Developer Admin managing a school's admin credentials
+  const [selectedSchoolForCredentials, setSelectedSchoolForCredentials] = useState(null);
+  const [showCredentialsModal, setShowCredentialsModal] = useState(false);
+  const [showConfirmCredentialsDialog, setShowConfirmCredentialsDialog] = useState(false);
+  const [devAdminPassword, setDevAdminPassword] = useState('');
+  const [newSchoolUsername, setNewSchoolUsername] = useState('');
+  const [newSchoolPassword, setNewSchoolPassword] = useState('');
+  const [confirmSchoolPassword, setConfirmSchoolPassword] = useState('');
+  const [credentialsModalLoading, setCredentialsModalLoading] = useState(false);
+  const [credentialsModalError, setCredentialsModalError] = useState(null);
+
+  const handleOpenManageCredentialsModal = (school) => {
+    setSelectedSchoolForCredentials(school);
+    setNewSchoolUsername(school.adminUsername || '');
+    setDevAdminPassword('');
+    setNewSchoolPassword('');
+    setConfirmSchoolPassword('');
+    setCredentialsModalError(null);
+    setShowCredentialsModal(true);
+  };
+
+  const validateStrength = (pass) => {
+    if (pass.length < 8) return false;
+    const hasUpper = /[A-Z]/.test(pass);
+    const hasLower = /[a-z]/.test(pass);
+    const hasNumber = /[0-9]/.test(pass);
+    const hasSpecial = /[^A-Za-z0-9]/.test(pass);
+    return hasUpper && hasLower && hasNumber && hasSpecial;
+  };
+
+  const handleUpdateSchoolCredentials = async () => {
+    setCredentialsModalError(null);
+    if (!devAdminPassword || !newSchoolUsername || !newSchoolPassword || !confirmSchoolPassword) {
+      setCredentialsModalError('All fields are required.');
+      return;
+    }
+    if (newSchoolPassword !== confirmSchoolPassword) {
+      setCredentialsModalError('New Password and Confirm Password do not match.');
+      return;
+    }
+    if (!validateStrength(newSchoolPassword)) {
+      setCredentialsModalError('Password must be at least 8 characters long, and contain uppercase, lowercase, numbers, and special characters.');
+      return;
+    }
+
+    setCredentialsModalLoading(true);
+    try {
+      const token = sessionStorage.getItem('token');
+      const res = await fetch(`/api/platform/schools/${selectedSchoolForCredentials.id}/credentials`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          developerAdminPassword: devAdminPassword,
+          newAdminUsername: newSchoolUsername,
+          newAdminPassword: newSchoolPassword
+        })
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        setNotification({ message: data.message || 'Admin credentials updated successfully.', type: 'success' });
+        setTimeout(() => setNotification(null), 4000);
+        setShowCredentialsModal(false);
+        setShowConfirmCredentialsDialog(false);
+        fetchPlatformData();
+      } else {
+        setCredentialsModalError(data.error || 'Failed to update credentials.');
+      }
+    } catch (err) {
+      setCredentialsModalError('Network error. Failed to connect to server.');
+    } finally {
+      setCredentialsModalLoading(false);
+    }
+  };
+
   const [analytics, setAnalytics] = useState({
     totalSchools: 0,
     activeSchools: 0,
@@ -223,7 +303,6 @@ export default function SchoolProfile({ schoolDetails, fetchSchoolDetails, isDev
   const [formErrors, setFormErrors] = useState({});
 
   const showToast = (message, type = 'success') => {
-    if (type === 'success' || type === 'info') return;
     setNotification({ message, type });
     setTimeout(() => setNotification(null), 4000);
   };
@@ -818,38 +897,7 @@ export default function SchoolProfile({ schoolDetails, fetchSchoolDetails, isDev
                     <span style={{ color: 'var(--text-muted)' }}>Employees: <strong>{school.staffCount || 0}</strong></span>
                   </div>
 
-                  {/* Credentials Utility */}
-                  <div style={{ 
-                    display: 'flex', 
-                    flexDirection: 'column', 
-                    gap: '4px', 
-                    padding: '8px 12px', 
-                    background: 'var(--bg-glass-active)', 
-                    borderRadius: '8px',
-                    border: '1px solid var(--border-glass)',
-                    fontSize: '0.74rem'
-                  }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontWeight: 600 }}>
-                      <span style={{ display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--text-muted)' }}>
-                        <KeyRound size={12} style={{ color: 'hsl(var(--color-primary))' }} /> School Admin Account:
-                      </span>
-                      <button 
-                        type="button"
-                        onClick={() => {
-                          navigator.clipboard.writeText(`Username: ${school.adminUsername}\nPassword: ${school.adminPassword}`);
-                          showToast('School Admin credentials copied!', 'success');
-                        }}
-                        title="Copy Credentials"
-                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 0 }}
-                      >
-                        <Copy size={11} />
-                      </button>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '2px', background: 'rgba(0,0,0,0.02)', padding: '2px 6px', borderRadius: '4px' }}>
-                      <span>U: <strong style={{ color: 'var(--text-main)' }}>{school.adminUsername}</strong></span>
-                      <span>P: <strong style={{ color: 'var(--text-main)' }}>{school.adminPassword}</strong></span>
-                    </div>
-                  </div>
+
 
                   {/* Subdomain + Actions */}
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
@@ -883,6 +931,15 @@ export default function SchoolProfile({ schoolDetails, fetchSchoolDetails, isDev
                       </button>
                     </div>
                     <div style={{ display: 'flex', gap: '4px' }}>
+                      <button 
+                        onClick={() => handleOpenManageCredentialsModal(school)} 
+                        className="btn-secondary" 
+                        title="Manage Credentials" 
+                        style={{ padding: '5px', border: 'none', background: 'none', cursor: 'pointer', color: 'hsl(var(--color-primary))' }}
+                      >
+                        <Key size={15} />
+                      </button>
+
                       <button onClick={() => handleOpenEditModal(school)} className="btn-secondary" title="Edit School" style={{ padding: '5px', border: 'none', background: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}>
                         <Edit2 size={15} />
                       </button>
@@ -1147,6 +1204,220 @@ export default function SchoolProfile({ schoolDetails, fetchSchoolDetails, isDev
 
 
 
+      {/* Target School Credentials Management Modal */}
+      {showCredentialsModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0, 0, 0, 0.7)',
+          backdropFilter: 'blur(8px)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 10000,
+          padding: '16px'
+        }}>
+          <div className="glass-panel" style={{
+            width: '100%',
+            maxWidth: '440px',
+            padding: '24px 30px',
+            borderRadius: '20px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '16px',
+            boxShadow: '0 20px 40px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.08)'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Key style={{ color: 'hsl(var(--color-primary))' }} size={20} />
+              <h3 style={{ fontSize: '1.2rem', fontWeight: 800, margin: 0, color: 'var(--text-main)' }}>Manage Admin Credentials</h3>
+            </div>
+            <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: 0 }}>
+              Update target school admin credentials for <strong>{selectedSchoolForCredentials?.name}</strong> (Subdomain: {selectedSchoolForCredentials?.subdomain}). You must verify your own Developer Admin password to save changes.
+            </p>
+
+            {credentialsModalError && (
+              <div style={{
+                background: 'rgba(239, 68, 68, 0.1)',
+                border: '1px solid rgba(239, 68, 68, 0.2)',
+                color: '#ef4444',
+                padding: '10px 12px',
+                borderRadius: '8px',
+                fontSize: '0.78rem',
+                fontWeight: 600,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px'
+              }}>
+                <AlertCircle size={16} />
+                <span>{credentialsModalError}</span>
+              </div>
+            )}
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              {/* Developer Admin Password */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)' }}>Developer Admin Current Password</label>
+                <input
+                  type="password"
+                  value={devAdminPassword}
+                  onChange={(e) => setDevAdminPassword(e.target.value)}
+                  style={{
+                    background: 'var(--bg-form)',
+                    border: '1px solid var(--border-glass)',
+                    borderRadius: '8px',
+                    padding: '8px 12px',
+                    color: 'var(--text-main)',
+                    fontSize: '0.85rem',
+                    outline: 'none'
+                  }}
+                  placeholder="Enter your Developer Admin password"
+                />
+              </div>
+
+              {/* New Admin Username */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)' }}>New School Admin Username</label>
+                <input
+                  type="text"
+                  value={newSchoolUsername}
+                  onChange={(e) => setNewSchoolUsername(e.target.value)}
+                  style={{
+                    background: 'var(--bg-form)',
+                    border: '1px solid var(--border-glass)',
+                    borderRadius: '8px',
+                    padding: '8px 12px',
+                    color: 'var(--text-main)',
+                    fontSize: '0.85rem',
+                    outline: 'none'
+                  }}
+                  placeholder="Enter new admin username"
+                />
+              </div>
+
+              {/* New Admin Password */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)' }}>New School Admin Password</label>
+                <input
+                  type="password"
+                  value={newSchoolPassword}
+                  onChange={(e) => setNewSchoolPassword(e.target.value)}
+                  style={{
+                    background: 'var(--bg-form)',
+                    border: '1px solid var(--border-glass)',
+                    borderRadius: '8px',
+                    padding: '8px 12px',
+                    color: 'var(--text-main)',
+                    fontSize: '0.85rem',
+                    outline: 'none'
+                  }}
+                  placeholder="Enter new admin password"
+                />
+              </div>
+
+              {/* Confirm Password */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)' }}>Confirm New Password</label>
+                <input
+                  type="password"
+                  value={confirmSchoolPassword}
+                  onChange={(e) => setConfirmSchoolPassword(e.target.value)}
+                  style={{
+                    background: 'var(--bg-form)',
+                    border: '1px solid var(--border-glass)',
+                    borderRadius: '8px',
+                    padding: '8px 12px',
+                    color: 'var(--text-main)',
+                    fontSize: '0.85rem',
+                    outline: 'none'
+                  }}
+                  placeholder="Confirm new admin password"
+                />
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '8px' }}>
+              <button
+                onClick={() => {
+                  setShowCredentialsModal(false);
+                  setCredentialsModalError(null);
+                  setDevAdminPassword('');
+                  setNewSchoolPassword('');
+                  setConfirmSchoolPassword('');
+                }}
+                className="btn-secondary"
+                style={{ padding: '8px 16px', fontSize: '0.8rem', borderRadius: '8px', border: 'none', cursor: 'pointer' }}
+                disabled={credentialsModalLoading}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => setShowConfirmCredentialsDialog(true)}
+                className="btn-primary"
+                style={{ padding: '8px 16px', fontSize: '0.8rem', borderRadius: '8px', border: 'none', cursor: 'pointer' }}
+                disabled={credentialsModalLoading}
+              >
+                {credentialsModalLoading ? 'Processing...' : 'Save Changes'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Confirmation Dialog Overlay */}
+      {showConfirmCredentialsDialog && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0, 0, 0, 0.8)',
+          backdropFilter: 'blur(4px)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 11000,
+          padding: '16px'
+        }}>
+          <div className="glass-panel" style={{
+            width: '100%',
+            maxWidth: '380px',
+            padding: '24px',
+            borderRadius: '16px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '16px',
+            textAlign: 'center',
+            boxShadow: '0 20px 40px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.08)'
+          }}>
+            <h4 style={{ fontSize: '1.1rem', fontWeight: 800, margin: 0, color: 'var(--text-main)' }}>Confirm Credentials Update</h4>
+            <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: 0 }}>
+              Are you absolutely sure you want to update the administrator credentials for <strong>{selectedSchoolForCredentials?.name}</strong>?
+            </p>
+            <div style={{ display: 'flex', justifyContent: 'center', gap: '10px' }}>
+              <button
+                onClick={() => setShowConfirmCredentialsDialog(false)}
+                className="btn-secondary"
+                style={{ padding: '6px 12px', fontSize: '0.8rem', borderRadius: '6px', border: 'none', cursor: 'pointer' }}
+                disabled={credentialsModalLoading}
+              >
+                No, Go Back
+              </button>
+              <button
+                onClick={handleUpdateSchoolCredentials}
+                className="btn-danger"
+                style={{ padding: '6px 12px', fontSize: '0.8rem', borderRadius: '6px', border: 'none', cursor: 'pointer' }}
+                disabled={credentialsModalLoading}
+              >
+                Yes, Update
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

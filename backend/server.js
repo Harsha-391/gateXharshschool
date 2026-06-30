@@ -957,6 +957,98 @@ app.delete('/api/platform/schools/:id', async (req, res) => {
   return res.status(404).json({ error: 'School not found.' });
 });
 
+// Secure endpoint to update an onboarded school's admin account credentials
+app.post('/api/platform/schools/:id/credentials', auth, restoreTenantContext, async (req, res) => {
+  const user = req.admin;
+  if (!user || user.role !== 'Developer Admin') {
+    return res.status(403).json({ error: 'Access denied.' });
+  }
+
+  const { developerAdminPassword, newAdminUsername, newAdminPassword } = req.body;
+  const schoolId = req.params.id;
+
+  if (!developerAdminPassword || !newAdminUsername || !newAdminPassword) {
+    return res.status(400).json({ error: 'All fields are required.' });
+  }
+
+  if (!validatePasswordStrength(newAdminPassword)) {
+    return res.status(400).json({ error: 'New password does not meet complexity requirements. It must be at least 8 characters long, and contain uppercase, lowercase, numbers, and special characters.' });
+  }
+
+  const globalDb = readDb();
+  
+  // 1. Verify Developer Admin's current password
+  const devAdmin = globalDb.platformOwner || {
+    name: "Platform Owner",
+    username: "dev@admin.com",
+    password: "admin123",
+    email: "dev@admin.com",
+    phone: "",
+    photo: ""
+  };
+
+  const isMatch = await comparePassword(developerAdminPassword, devAdmin.password);
+  if (!isMatch) {
+    return res.status(400).json({ error: 'Incorrect Developer Admin password.' });
+  }
+
+  // 2. Find target school
+  const schoolIdx = (globalDb.schools || []).findIndex(s => s.id === schoolId);
+  if (schoolIdx === -1) {
+    return res.status(404).json({ error: 'School not found.' });
+  }
+
+  const school = globalDb.schools[schoolIdx];
+  const oldUsername = school.adminUsername;
+  const hashedNewPassword = await hashPassword(newAdminPassword);
+
+  // Update target school credentials
+  school.adminUsername = newAdminUsername;
+  school.adminPassword = hashedNewPassword;
+  globalDb.schools[schoolIdx] = school;
+
+  // Add audit log entry
+  if (!globalDb.auditLogs) globalDb.auditLogs = [];
+  const log = {
+    id: `LOG-${Date.now()}`,
+    userId: user.id || 'dev_admin',
+    userName: devAdmin.username,
+    userRole: 'Developer Admin',
+    action: 'SCHOOL_CREDENTIALS_UPDATE',
+    details: `Updated credentials for school: ${school.name} (Subdomain: ${school.subdomain}). Admin username changed from ${oldUsername} to ${newAdminUsername}.`,
+    ipAddress: req.ip || req.headers['x-forwarded-for'] || req.socket.remoteAddress || '127.0.0.1',
+    timestamp: new Date().toISOString(),
+    tenantId: 'platform'
+  };
+  globalDb.auditLogs = [log, ...globalDb.auditLogs].slice(0, 500);
+
+  // Persist update
+  writeDb(globalDb);
+
+  // If SQL mode is active, sync back to master DB schools table & add SQL audit log
+  if (isSqlActive()) {
+    try {
+      const sqlDb = await import('./utils/sqlDb.js');
+      await sqlDb.query(
+        'UPDATE schools SET adminUsername = ?, adminPassword = ? WHERE id = ?',
+        [newAdminUsername, hashedNewPassword, schoolId]
+      );
+      await sqlDb.query(
+        `INSERT INTO audit_logs (id, userId, userName, userRole, action, details, ipAddress, timestamp, tenantId)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [log.id, log.userId, log.userName, log.userRole, log.action, log.details, log.ipAddress, log.timestamp, log.tenantId]
+      );
+    } catch (err) {
+      console.error('Failed to sync school credentials or audit log to SQL:', err.message);
+    }
+  }
+
+  // File logging
+  fileLogAudit('SCHOOL_CREDENTIALS_UPDATE', 'Developer Admin', `Updated credentials for school ${school.subdomain}. Old: ${oldUsername}, New: ${newAdminUsername}`, req);
+
+  res.json({ success: true, message: `Admin credentials for ${school.name} updated successfully.` });
+});
+
 // Get Platform Analytics
 app.get('/api/platform/analytics', async (req, res) => {
   const db = readDb(); // Global DB
@@ -974,9 +1066,7 @@ app.get('/api/platform/analytics', async (req, res) => {
   if (isSqlActive()) {
     try {
       const sqlDb = await import('./utils/sqlDb.js');
-      const tenantStats = [];
-      
-      for (const school of schools) {
+      const tenantStats = await Promise.all(schools.map(async (school) => {
         const subdomain = school.subdomain;
         try {
           const [studentsRes, teachersRes, staffRes] = await Promise.all([
@@ -984,16 +1074,16 @@ app.get('/api/platform/analytics', async (req, res) => {
             sqlDb.query('SELECT COUNT(*) as cnt FROM staff', [], subdomain),
             sqlDb.query('SELECT COUNT(*) as cnt FROM employees', [], subdomain)
           ]);
-          tenantStats.push({
+          return {
             students: studentsRes[0]?.cnt || 0,
             teachers: teachersRes[0]?.cnt || 0,
             staff: staffRes[0]?.cnt || 0
-          });
+          };
         } catch (err) {
           console.error(`Failed to query stats for tenant ${subdomain}:`, err);
-          tenantStats.push({ students: 0, teachers: 0, staff: 0 });
+          return { students: 0, teachers: 0, staff: 0 };
         }
-      }
+      }));
 
       tenantStats.forEach(ts => {
         totalStudents += ts.students;
@@ -1060,89 +1150,6 @@ app.get('/api/platform/analytics', async (req, res) => {
 // DYNAMIC USER PROFILE APIS
 // ==========================================
 
-// Secure endpoint to update platform owner (Developer Admin) username and password
-app.post('/api/platform/owner/credentials', auth, restoreTenantContext, async (req, res) => {
-  const user = req.admin;
-  if (!user || user.role !== 'Developer Admin') {
-    return res.status(403).json({ error: 'Access denied.' });
-  }
-
-  const { currentPassword, newUsername, newPassword } = req.body;
-
-  if (!currentPassword || !newUsername || !newPassword) {
-    return res.status(400).json({ error: 'All fields are required.' });
-  }
-
-  if (!validatePasswordStrength(newPassword)) {
-    return res.status(400).json({ error: 'New password does not meet complexity requirements. It must be at least 8 characters long, and contain uppercase, lowercase, numbers, and special characters.' });
-  }
-
-  const globalDb = readDb();
-  const owner = globalDb.platformOwner || {
-    name: "Platform Owner",
-    username: "dev@admin.com",
-    password: "admin123",
-    email: "dev@admin.com",
-    phone: "",
-    photo: ""
-  };
-
-  // Verify current password
-  const isMatch = await comparePassword(currentPassword, owner.password);
-  if (!isMatch) {
-    return res.status(400).json({ error: 'Incorrect current password.' });
-  }
-
-  if (newUsername.trim() === '') {
-    return res.status(400).json({ error: 'Username cannot be empty.' });
-  }
-
-  const oldUsername = owner.username;
-  const hashedNewPassword = await hashPassword(newPassword);
-
-  // Update credentials
-  owner.username = newUsername;
-  owner.password = hashedNewPassword;
-  globalDb.platformOwner = owner;
-
-  // Add audit log entry
-  if (!globalDb.auditLogs) globalDb.auditLogs = [];
-  const log = {
-    id: `LOG-${Date.now()}`,
-    userId: user.id || 'dev_admin',
-    userName: oldUsername,
-    userRole: 'Developer Admin',
-    action: 'DEVELOPER_CREDENTIALS_UPDATE',
-    details: `Updated Developer Admin credentials. Username changed from ${oldUsername} to ${newUsername}.`,
-    ipAddress: req.ip || req.headers['x-forwarded-for'] || req.socket.remoteAddress || '127.0.0.1',
-    timestamp: new Date().toISOString(),
-    tenantId: 'platform'
-  };
-  globalDb.auditLogs = [log, ...globalDb.auditLogs].slice(0, 500);
-
-  // Persist update
-  writeDb(globalDb);
-
-  // File logging
-  fileLogAudit('DEVELOPER_CREDENTIALS_UPDATE', 'Developer Admin', `Changed credentials. Old: ${oldUsername}, New: ${newUsername}`, req);
-
-  // SQL log insert (if SQL is active)
-  if (isSqlActive()) {
-    try {
-      const sqlDb = await import('./utils/sqlDb.js');
-      await sqlDb.query(
-        `INSERT INTO audit_logs (id, userId, userName, userRole, action, details, ipAddress, timestamp, tenantId)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [log.id, log.userId, log.userName, log.userRole, log.action, log.details, log.ipAddress, log.timestamp, log.tenantId]
-      );
-    } catch (err) {
-      console.error('Failed to insert audit log to SQL:', err.message);
-    }
-  }
-
-  res.json({ success: true, message: 'Developer Admin credentials updated successfully. Please log in again.' });
-});
-
 // GET Profile Info
 app.get('/api/auth/profile', auth, restoreTenantContext, (req, res) => {
   const user = req.admin;
@@ -1170,7 +1177,8 @@ app.get('/api/auth/profile', auth, restoreTenantContext, (req, res) => {
       username: globalDb.platformOwner.username,
       email: globalDb.platformOwner.email,
       phone: globalDb.platformOwner.phone,
-      photo: globalDb.platformOwner.photo
+      photo: globalDb.platformOwner.photo,
+      password: globalDb.platformOwner.password
     });
   }
 
