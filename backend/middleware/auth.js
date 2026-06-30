@@ -1,5 +1,5 @@
 import jwt from 'jsonwebtoken';
-import { tenantStorage } from '../utils/db.js';
+import { tenantStorage, readDb, slugify } from '../utils/db.js';
 import { logSecurity } from '../utils/logger.js';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'aether-erp-dashboard-super-secure-key-2026';
@@ -57,6 +57,20 @@ export const auth = (req, res, next) => {
   try {
     const verified = jwt.verify(token, JWT_SECRET);
     req.admin = verified;
+
+    // Immediate Session Invalidation on Password Change for Main Admin
+    if (verified.role === 'Main Admin') {
+      try {
+        const globalDb = readDb();
+        const schoolRecord = (globalDb.schools || []).find(s => slugify(s.subdomain) === slugify(verified.tenantId));
+        if (!schoolRecord || schoolRecord.adminPassword !== verified.passwordHash) {
+          logSecurity('INVALIDATED_SESSION_USE', `Attempted to use session token with outdated password for '${verified.username}'`, req);
+          return res.status(401).json({ error: 'Session invalidated. Password has been updated. Please log in again.' });
+        }
+      } catch (dbErr) {
+        console.error('[Auth Middleware] Failed to check database password for token invalidation:', dbErr.message);
+      }
+    }
 
     // Cross-Tenant Access Prevention
     if (verified.role !== 'Developer Admin') {

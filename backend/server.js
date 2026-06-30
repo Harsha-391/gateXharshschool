@@ -310,7 +310,7 @@ app.post('/api/auth/login', loginLimiter, loginValidation, async (req, res) => {
           });
           permissions = matrix;
         }
-        const payload = { role: 'Main Admin', tenantId, username, permissions };
+        const payload = { role: 'Main Admin', tenantId, username, permissions, passwordHash: schoolRecord.adminPassword };
         const token = generateToken(payload);
         const refreshToken = generateRefreshToken(payload);
         return res.json({ token, refreshToken, role: 'Main Admin', name: schoolRecord.principalName || schoolRecord.principal || schoolRecord.adminName, school: schoolRecord, permissions });
