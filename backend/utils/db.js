@@ -2534,10 +2534,25 @@ export const ensureTenantSqlLoaded = async (req, res, next) => {
         } else {
           console.log(`[SQL Cache] Invalidating cache for tenant: ${activeTenant} (Local: ${localUpdatedAtStr} != SQL: ${dbUpdatedAtStr})`);
           activeLoads[activeTenant] = (async () => {
-            const data = await loadTenantSqlIntoMemory(activeTenant);
-            if (data) {
-              data._updatedAt = dbUpdatedAt;
-              dbCache[activeTenant] = data;
+            try {
+              const data = await loadTenantSqlIntoMemory(activeTenant);
+              if (data) {
+                data._updatedAt = dbUpdatedAt;
+                dbCache[activeTenant] = data;
+              }
+            } catch (loadErr) {
+              console.warn(`[SQL Cache] Tenant database '${activeTenant}' failed to load (probably missing or uninitialized). Provisioning database on the fly... Error: ${loadErr.message}`);
+              try {
+                await initializeOnboardedSchoolDatabase(activeTenant);
+                const data = await loadTenantSqlIntoMemory(activeTenant);
+                if (data) {
+                  data._updatedAt = dbUpdatedAt;
+                  dbCache[activeTenant] = data;
+                }
+              } catch (provErr) {
+                console.error(`[SQL Cache] On-the-fly provisioning failed for tenant '${activeTenant}':`, provErr.message);
+                throw provErr;
+              }
             }
           })();
           try {
