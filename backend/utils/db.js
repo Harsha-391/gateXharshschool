@@ -66,6 +66,20 @@ export const convertToRoman = (str) => {
   return str;
 };
 
+export const isSubdomainRegistered = (subdomain) => {
+  if (!subdomain) return false;
+  const cleanSub = slugify(subdomain);
+  if (['localhost', 'platform', 'www', 'admin'].includes(cleanSub)) {
+    return false;
+  }
+  try {
+    const globalDb = tenantStorage.run(null, () => readDb());
+    return (globalDb.schools || []).some(s => slugify(s.subdomain) === cleanSub);
+  } catch (err) {
+    return false;
+  }
+};
+
 // Middleware to restore tenant context lost during async processing
 export const restoreTenantContext = (req, res, next) => {
   let tenantId = req.headers['x-tenant-id'] || req.query.tenantId;
@@ -81,6 +95,10 @@ export const restoreTenantContext = (req, res, next) => {
         tenantId = parts[0];
       }
     }
+  }
+  
+  if (tenantId && !isSubdomainRegistered(tenantId)) {
+    tenantId = null;
   }
   
   if (tenantId) {
@@ -2467,6 +2485,10 @@ export const ensureTenantSqlLoaded = async (req, res, next) => {
         tenantId = parts[0];
       }
     }
+  }
+
+  if (tenantId && !isSubdomainRegistered(tenantId)) {
+    tenantId = null;
   }
 
   const activeTenant = tenantId ? slugify(tenantId) : 'platform';
