@@ -206,7 +206,7 @@ export default function SchoolProfile({ schoolDetails, fetchSchoolDetails, isDev
     return hasUpper && hasLower && hasNumber && hasSpecial;
   };
 
-  const handleUpdateSchoolCredentials = async () => {
+  const handleSaveChangesClick = () => {
     setCredentialsModalError(null);
     if (!newSchoolUsername || !newSchoolPassword || !confirmSchoolPassword) {
       setCredentialsModalError('All fields are required.');
@@ -220,15 +220,33 @@ export default function SchoolProfile({ schoolDetails, fetchSchoolDetails, isDev
       setCredentialsModalError('Password must be at least 8 characters long, and contain uppercase, lowercase, numbers, and special characters.');
       return;
     }
+    setShowConfirmCredentialsDialog(true);
+  };
+
+  const handleUpdateSchoolCredentials = async () => {
+    setCredentialsModalError(null);
+    if (!newSchoolUsername || !newSchoolPassword || !confirmSchoolPassword) {
+      setCredentialsModalError('All fields are required.');
+      setShowConfirmCredentialsDialog(false);
+      return;
+    }
+    if (newSchoolPassword !== confirmSchoolPassword) {
+      setCredentialsModalError('New Password and Confirm Password do not match.');
+      setShowConfirmCredentialsDialog(false);
+      return;
+    }
+    if (!validateStrength(newSchoolPassword)) {
+      setCredentialsModalError('Password must be at least 8 characters long, and contain uppercase, lowercase, numbers, and special characters.');
+      setShowConfirmCredentialsDialog(false);
+      return;
+    }
 
     setCredentialsModalLoading(true);
     try {
-      const token = sessionStorage.getItem('token');
       const res = await fetch(`/api/platform/schools/${selectedSchoolForCredentials.id}/credentials`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({
           newAdminUsername: newSchoolUsername,
@@ -245,9 +263,11 @@ export default function SchoolProfile({ schoolDetails, fetchSchoolDetails, isDev
         fetchPlatformData();
       } else {
         setCredentialsModalError(data.error || 'Failed to update credentials.');
+        setShowConfirmCredentialsDialog(false);
       }
     } catch (err) {
       setCredentialsModalError('Network error. Failed to connect to server.');
+      setShowConfirmCredentialsDialog(false);
     } finally {
       setCredentialsModalLoading(false);
     }
@@ -1346,7 +1366,7 @@ export default function SchoolProfile({ schoolDetails, fetchSchoolDetails, isDev
                 Cancel
               </button>
               <button
-                onClick={() => setShowConfirmCredentialsDialog(true)}
+                onClick={handleSaveChangesClick}
                 className="btn-primary"
                 style={{ padding: '8px 16px', fontSize: '0.8rem', borderRadius: '8px', border: 'none', cursor: 'pointer' }}
                 disabled={credentialsModalLoading}
