@@ -182,7 +182,6 @@ export default function SchoolProfile({ schoolDetails, fetchSchoolDetails, isDev
   const [selectedSchoolForCredentials, setSelectedSchoolForCredentials] = useState(null);
   const [showCredentialsModal, setShowCredentialsModal] = useState(false);
   const [showConfirmCredentialsDialog, setShowConfirmCredentialsDialog] = useState(false);
-  const [devAdminPassword, setDevAdminPassword] = useState('');
   const [newSchoolUsername, setNewSchoolUsername] = useState('');
   const [newSchoolPassword, setNewSchoolPassword] = useState('');
   const [confirmSchoolPassword, setConfirmSchoolPassword] = useState('');
@@ -192,7 +191,6 @@ export default function SchoolProfile({ schoolDetails, fetchSchoolDetails, isDev
   const handleOpenManageCredentialsModal = (school) => {
     setSelectedSchoolForCredentials(school);
     setNewSchoolUsername(school.adminUsername || '');
-    setDevAdminPassword('');
     setNewSchoolPassword('');
     setConfirmSchoolPassword('');
     setCredentialsModalError(null);
@@ -210,7 +208,7 @@ export default function SchoolProfile({ schoolDetails, fetchSchoolDetails, isDev
 
   const handleUpdateSchoolCredentials = async () => {
     setCredentialsModalError(null);
-    if (!devAdminPassword || !newSchoolUsername || !newSchoolPassword || !confirmSchoolPassword) {
+    if (!newSchoolUsername || !newSchoolPassword || !confirmSchoolPassword) {
       setCredentialsModalError('All fields are required.');
       return;
     }
@@ -233,7 +231,6 @@ export default function SchoolProfile({ schoolDetails, fetchSchoolDetails, isDev
           'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
-          developerAdminPassword: devAdminPassword,
           newAdminUsername: newSchoolUsername,
           newAdminPassword: newSchoolPassword
         })
@@ -1235,7 +1232,7 @@ export default function SchoolProfile({ schoolDetails, fetchSchoolDetails, isDev
               <h3 style={{ fontSize: '1.2rem', fontWeight: 800, margin: 0, color: 'var(--text-main)' }}>Manage Admin Credentials</h3>
             </div>
             <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: 0 }}>
-              Update target school admin credentials for <strong>{selectedSchoolForCredentials?.name}</strong> (Subdomain: {selectedSchoolForCredentials?.subdomain}). You must verify your own Developer Admin password to save changes.
+              Update target school admin credentials for <strong>{selectedSchoolForCredentials?.name}</strong> (Subdomain: {selectedSchoolForCredentials?.subdomain}).
             </p>
 
             {credentialsModalError && (
@@ -1257,25 +1254,6 @@ export default function SchoolProfile({ schoolDetails, fetchSchoolDetails, isDev
             )}
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              {/* Developer Admin Password */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)' }}>Developer Admin Current Password</label>
-                <input
-                  type="password"
-                  value={devAdminPassword}
-                  onChange={(e) => setDevAdminPassword(e.target.value)}
-                  style={{
-                    background: 'var(--bg-form)',
-                    border: '1px solid var(--border-glass)',
-                    borderRadius: '8px',
-                    padding: '8px 12px',
-                    color: 'var(--text-main)',
-                    fontSize: '0.85rem',
-                    outline: 'none'
-                  }}
-                  placeholder="Enter your Developer Admin password"
-                />
-              </div>
 
               {/* New Admin Username */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
@@ -1343,7 +1321,6 @@ export default function SchoolProfile({ schoolDetails, fetchSchoolDetails, isDev
                 onClick={() => {
                   setShowCredentialsModal(false);
                   setCredentialsModalError(null);
-                  setDevAdminPassword('');
                   setNewSchoolPassword('');
                   setConfirmSchoolPassword('');
                 }}

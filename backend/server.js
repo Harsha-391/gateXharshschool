@@ -964,10 +964,10 @@ app.post('/api/platform/schools/:id/credentials', auth, restoreTenantContext, as
     return res.status(403).json({ error: 'Access denied.' });
   }
 
-  const { developerAdminPassword, newAdminUsername, newAdminPassword } = req.body;
+  const { newAdminUsername, newAdminPassword } = req.body;
   const schoolId = req.params.id;
 
-  if (!developerAdminPassword || !newAdminUsername || !newAdminPassword) {
+  if (!newAdminUsername || !newAdminPassword) {
     return res.status(400).json({ error: 'All fields are required.' });
   }
 
@@ -977,22 +977,7 @@ app.post('/api/platform/schools/:id/credentials', auth, restoreTenantContext, as
 
   const globalDb = readDb();
   
-  // 1. Verify Developer Admin's current password
-  const devAdmin = globalDb.platformOwner || {
-    name: "Platform Owner",
-    username: "dev@admin.com",
-    password: "admin123",
-    email: "dev@admin.com",
-    phone: "",
-    photo: ""
-  };
-
-  const isMatch = await comparePassword(developerAdminPassword, devAdmin.password);
-  if (!isMatch) {
-    return res.status(400).json({ error: 'Incorrect Developer Admin password.' });
-  }
-
-  // 2. Find target school
+  // 1. Find target school
   const schoolIdx = (globalDb.schools || []).findIndex(s => s.id === schoolId);
   if (schoolIdx === -1) {
     return res.status(404).json({ error: 'School not found.' });
@@ -1007,12 +992,14 @@ app.post('/api/platform/schools/:id/credentials', auth, restoreTenantContext, as
   school.adminPassword = hashedNewPassword;
   globalDb.schools[schoolIdx] = school;
 
+  const devAdminUsername = globalDb.platformOwner?.username || user.username || 'dev@admin.com';
+
   // Add audit log entry
   if (!globalDb.auditLogs) globalDb.auditLogs = [];
   const log = {
     id: `LOG-${Date.now()}`,
     userId: user.id || 'dev_admin',
-    userName: devAdmin.username,
+    userName: devAdminUsername,
     userRole: 'Developer Admin',
     action: 'SCHOOL_CREDENTIALS_UPDATE',
     details: `Updated credentials for school: ${school.name} (Subdomain: ${school.subdomain}). Admin username changed from ${oldUsername} to ${newAdminUsername}.`,
