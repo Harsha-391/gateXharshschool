@@ -1,4 +1,5 @@
 import { readDb, writeDb, addActivity } from '../utils/db.js';
+import { logAudit } from '../utils/logger.js';
 
 // 1. GET ATTENDANCE ROSTER FOR GIVEN DATE, CLASS, SECTION
 export const getAttendanceRoster = (req, res) => {
@@ -136,6 +137,7 @@ export const saveAttendanceRoster = (req, res) => {
     );
 
     writeDb(db);
+    logAudit('Save Student Attendance', `Class: ${studentClass}, Section: ${section}`, `Saved roster for ${date}. Created: ${createdCount}, Updated: ${updatedCount}`, req);
     res.json({ 
       success: true, 
       message: `Attendance marked successfully. Created: ${createdCount}, Updated: ${updatedCount}.` 

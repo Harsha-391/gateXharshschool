@@ -63,6 +63,7 @@ const IncomeView = lazy(() => import('./AccountantPanel').then(m => ({ default: 
 const ReportsView = lazy(() => import('./AccountantPanel').then(m => ({ default: m.ReportsView })));
 const StaffPaymentsView = lazy(() => import('./AccountantPanel').then(m => ({ default: m.StaffPaymentsView })));
 const StaffPaymentStructureView = lazy(() => import('./AccountantPanel').then(m => ({ default: m.StaffPaymentStructureView })));
+const PayrollHistoryView = lazy(() => import('./AccountantPanel').then(m => ({ default: m.PayrollHistoryView })));
 
 // ─── Overview Stats Card (Theme-Aware) ──────────────────────────────────────
 function GenderRatioBar({ maleCount, femaleCount, total }) {
@@ -229,7 +230,9 @@ const getViewPermissionModuleAndAction = (view) => {
   if (view === 'results') return { module: 'results-manager', action: 'view' };
   if (view === 'results-history') return { module: 'results-history', action: 'view' };
   
-  if (view === 'finance') return { module: 'finance', action: 'view' };
+  if (['finance', 'collect-fees', 'fee-structure', 'fees-history', 'payroll', 'payroll-history', 'teacher-pay-structure', 'staff-pay', 'staff-pay-structure'].includes(view)) {
+    return { module: 'finance', action: 'view' };
+  }
   
   if (view === 'expense-dashboard') return { module: 'expense-dashboard', action: 'view' };
   if (view === 'expense-all-expenses') return { module: 'expense-all-expenses', action: 'view' };
@@ -911,6 +914,10 @@ export default function AdminPanel({ setActiveView, onLogout, adminView, setAdmi
 
         <KeepAlive active={adminView === 'payroll'}>
           <PayrollView showToast={showToast} />
+        </KeepAlive>
+
+        <KeepAlive active={adminView === 'payroll-history'}>
+          <PayrollHistoryView showToast={showToast} />
         </KeepAlive>
 
         <KeepAlive active={adminView === 'teacher-pay-structure'}>

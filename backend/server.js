@@ -4,15 +4,28 @@ import compression from 'compression';
 import fs from 'fs';
 import path from 'path';
 import { execSync } from 'child_process';
+import helmet from 'helmet';
 
 process.on('uncaughtException', (err) => {
   const msg = `\n[${new Date().toISOString()}] UNCAUGHT EXCEPTION:\n${err.stack || err}\n`;
-  fs.appendFileSync(path.join(process.cwd(), 'backend', 'crash.log'), msg);
+  try {
+    const cwd = process.cwd();
+    const filePath = cwd.endsWith('backend') ? path.join(cwd, 'crash.log') : path.join(cwd, 'backend', 'crash.log');
+    fs.appendFileSync(filePath, msg);
+  } catch (e) {
+    console.error('Failed to write uncaughtException to crash.log:', e.message);
+  }
   console.error(msg);
 });
 process.on('unhandledRejection', (reason, promise) => {
   const msg = `\n[${new Date().toISOString()}] UNHANDLED REJECTION:\n${(reason && reason.stack) || reason}\n`;
-  fs.appendFileSync(path.join(process.cwd(), 'backend', 'crash.log'), msg);
+  try {
+    const cwd = process.cwd();
+    const filePath = cwd.endsWith('backend') ? path.join(cwd, 'crash.log') : path.join(cwd, 'backend', 'crash.log');
+    fs.appendFileSync(filePath, msg);
+  } catch (e) {
+    console.error('Failed to write unhandledRejection to crash.log:', e.message);
+  }
   console.error(msg);
 });
 import { fileURLToPath } from 'url';
@@ -29,10 +42,18 @@ import gradeRoutes from './routes/gradeRoutes.js';
 import designationRoutes from './routes/designationRoutes.js';
 import upload from './middleware/upload.js';
 import { readDb, writeDb, addActivity, tenantStorage, slugify, restoreTenantContext, ensureTenantSqlLoaded, isSqlActive, initializeOnboardedSchoolDatabase, startSqlDbInit, closeAllPools } from './utils/db.js';
-import { auth, generateToken } from './middleware/auth.js';
 import { checkPermission } from './middleware/permissionMiddleware.js';
 import { generateQrCode } from './utils/qrService.js';
 
+// Security additions
+import { loginLimiter, adminLimiter, publicLimiter } from './middleware/rateLimiter.js';
+import { loginValidation, schoolValidation } from './middleware/validationMiddleware.js';
+import { hashPassword, comparePassword, isBcryptHash, checkLoginLock, recordFailedAttempt, resetFailedAttempts, validatePasswordStrength } from './utils/authHelper.js';
+import { logAccess, logError, logSecurity, logAudit as fileLogAudit } from './utils/logger.js';
+import { sanitizeInput } from './middleware/sanitize.js';
+import { decrypt } from './utils/encryptionHelper.js';
+import { auth, generateToken, generateRefreshToken, verifyRefreshToken, blacklistToken } from './middleware/auth.js';
+import multer from 'multer';
 
 // Database cache refresh trigger
 const __filename = fileURLToPath(import.meta.url);
@@ -42,17 +63,96 @@ const GLOBAL_DB_FILE = path.join(__dirname, 'db.json');
 const app = express();
 const PORT = 5000;
 
+app.use((req, res, next) => {
+  const start = Date.now();
+  res.on('finish', () => {
+    const duration = Date.now() - start;
+    logAccess(req, res, duration);
+  });
+  next();
+});
+
+// 1. Enable Helmet.js
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+      fontSrc: ["'self'", "https://fonts.gstatic.com"],
+      imgSrc: ["'self'", "data:", "/uploads/", "blob:", "http://*", "https://*"],
+      connectSrc: ["'self'", "http://localhost:*", "ws://localhost:*", "http://127.0.0.1:*"],
+    },
+  },
+  crossOriginEmbedderPolicy: false,
+  crossOriginResourcePolicy: { policy: "cross-origin" },
+  referrerPolicy: { policy: "strict-origin-when-cross-origin" },
+  xContentTypeOptions: true,
+  xDnsPrefetchControl: { allow: false },
+  xFrameOptions: { action: "sameorigin" },
+  xPermittedCrossDomainPolicies: { permittedPolicies: "none" },
+  xXssFilter: true
+}));
+
+if (process.env.NODE_ENV === 'production') {
+  app.use(helmet.hsts({
+    maxAge: 31536000,
+    includeSubDomains: true,
+    preload: true
+  }));
+}
+
 app.use(compression());
+
+// 2. Configure Secure CORS Origin
+const allowedOrigins = [
+  'http://localhost:5173',
+  'http://localhost:3000',
+  'http://127.0.0.1:5173',
+  'http://127.0.0.1:3000'
+];
+
 app.use(cors({
   origin: (origin, callback) => {
-    // Dynamically echo the origin to support credentialed/header requests
-    callback(null, origin || '*');
+    if (!origin) return callback(null, true);
+    try {
+      const originUrl = new URL(origin);
+      const host = originUrl.hostname;
+      
+      const isLocalhost = host === 'localhost' || host === '127.0.0.1';
+      const isAdminDomain = host === 'admin.acadmay.in' || host === 'admin.myschoolerp.com';
+      const isSchoolDomain = host.endsWith('.myschoolerp.com') || host.endsWith('.localhost');
+      
+      let isRegisteredSchool = false;
+      const platformDb = readDb();
+      const schools = platformDb.schools || [];
+      isRegisteredSchool = schools.some(s => {
+        if (s.subdomain && host === `${s.subdomain}.localhost`) return true;
+        if (s.url) {
+          try {
+            const u = new URL(s.url);
+            return u.hostname === host;
+          } catch(e) {}
+        }
+        return false;
+      });
+
+      if (isLocalhost || isAdminDomain || isSchoolDomain || isRegisteredSchool || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error('Not allowed by CORS'));
+      }
+    } catch (err) {
+      callback(new Error('CORS processing error'));
+    }
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
   allowedHeaders: ['Content-Type', 'Authorization', 'x-tenant-id']
 }));
+
 app.use(express.json());
+app.use(sanitizeInput);
 
 // Multi-Tenant context middleware
 app.use((req, res, next) => {
@@ -103,19 +203,28 @@ app.use((req, res, next) => {
 // Ensure SQL tenant cache is loaded on demand
 app.use(ensureTenantSqlLoaded);
 
+// Apply public rate limiter on standard routes and admin limiter on platform APIs
+app.use('/api/platform', adminLimiter);
+app.use('/api', publicLimiter);
+
 // ==========================================
 // DEVELOPER PLATFORM OWNER & AUTH ENDPOINTS
 // ==========================================
 
 // Global Login API
-app.post('/api/auth/login', (req, res) => {
+app.post('/api/auth/login', loginLimiter, loginValidation, async (req, res) => {
   const { username, password } = req.body;
   const role = req.body.role || 'Auto';
-  if (!username || !password) {
-    return res.status(400).json({ error: 'Username and password are required.' });
+  const tenantId = tenantStorage.getStore() || 'platform';
+  const loginKey = `${tenantId}_${username}`;
+
+  // 1. Lock Status Check
+  const lockStatus = checkLoginLock(loginKey);
+  if (lockStatus.locked) {
+    return res.status(423).json({ error: `Account temporarily locked due to too many failed attempts. Try again after ${lockStatus.remainingMinutes} minutes.` });
   }
 
-  // 1. If role is Developer Admin or credentials match the Platform Owner (dev@admin.com)
+  // 2. If role is Developer Admin or credentials match the Platform Owner (dev@admin.com)
   const globalDb = tenantStorage.run(null, () => readDb());
   const owner = globalDb.platformOwner || {
     name: "Platform Owner",
@@ -126,14 +235,21 @@ app.post('/api/auth/login', (req, res) => {
     photo: ""
   };
   if (role === 'Developer Admin' || username === owner.username || username === owner.email) {
-    if ((username === owner.username || username === owner.email) && password === owner.password) {
-      const token = generateToken({ role: 'Developer Admin', username: owner.username });
-      return res.json({ token, role: 'Developer Admin', name: owner.name });
+    if ((username === owner.username || username === owner.email) && await comparePassword(password, owner.password)) {
+      if (!isBcryptHash(owner.password)) {
+        owner.password = await hashPassword(password);
+        writeDb(globalDb);
+      }
+      resetFailedAttempts(loginKey);
+      const payload = { role: 'Developer Admin', username: owner.username };
+      const token = generateToken(payload);
+      const refreshToken = generateRefreshToken(payload);
+      return res.json({ token, refreshToken, role: 'Developer Admin', name: owner.name });
     }
-    return res.status(401).json({ error: 'Invalid Developer Admin credentials.' });
+    const attemptsRecord = recordFailedAttempt(loginKey);
+    const remainingAttempts = Math.max(0, 5 - attemptsRecord.count);
+    return res.status(401).json({ error: 'Invalid Developer Admin credentials.', remainingAttempts });
   }
-
-  const tenantId = tenantStorage.getStore();
 
   if (!tenantId || tenantId === 'localhost' || tenantId === 'platform') {
     return res.status(401).json({ error: 'Please access through a specific school domain, or enter valid platform owner credentials.' });
@@ -157,7 +273,17 @@ app.post('/api/auth/login', (req, res) => {
   
   for (const currentRole of tryRoles) {
     if (currentRole === 'Main Admin') {
-      if ((username === schoolRecord.adminUsername || username === schoolRecord.adminEmail) && password === schoolRecord.adminPassword) {
+      if ((username === schoolRecord.adminUsername || username === schoolRecord.adminEmail) && await comparePassword(password, schoolRecord.adminPassword)) {
+        if (!isBcryptHash(schoolRecord.adminPassword)) {
+          schoolRecord.adminPassword = await hashPassword(password);
+          const platformDb = readDb();
+          const sIdx = platformDb.schools.findIndex(s => s.id === schoolRecord.id);
+          if (sIdx !== -1) {
+            platformDb.schools[sIdx].adminPassword = schoolRecord.adminPassword;
+            writeDb(platformDb);
+          }
+        }
+        resetFailedAttempts(loginKey);
         const adminRole = (db.roles || []).find(r => r.id === 'role-principal' || r.name === 'Principal' || r.id === 'role-super-admin' || r.name === 'Super Admin');
         let permissions = {};
         if (adminRole) {
@@ -179,17 +305,23 @@ app.post('/api/auth/login', (req, res) => {
           });
           permissions = matrix;
         }
-        const token = generateToken({ role: 'Main Admin', tenantId, username, permissions });
-        return res.json({ token, role: 'Main Admin', name: schoolRecord.principalName || schoolRecord.principal || schoolRecord.adminName, school: schoolRecord, permissions });
+        const payload = { role: 'Main Admin', tenantId, username, permissions };
+        const token = generateToken(payload);
+        const refreshToken = generateRefreshToken(payload);
+        return res.json({ token, refreshToken, role: 'Main Admin', name: schoolRecord.principalName || schoolRecord.principal || schoolRecord.adminName, school: schoolRecord, permissions });
       }
 
     } else if (currentRole === 'Teacher' || currentRole === 'Staff') {
       const teacher = (db.teachers || []).find(t =>
         (t.status === 'Active' || !t.status) &&
-        (t.username === username || t.email === username) &&
-        t.password === password
+        (t.username === username || t.email === username)
       );
-      if (teacher) {
+      if (teacher && await comparePassword(password, teacher.password)) {
+        if (!isBcryptHash(teacher.password)) {
+          teacher.password = await hashPassword(password);
+          writeDb(db);
+        }
+        resetFailedAttempts(loginKey);
         console.log("[AUTH DEBUG] Teacher login check for:", username, "teacher.id:", teacher.id, "designation:", teacher.designation, "email:", teacher.email);
         const access = (db.userAccess || []).find(ua => ua.userId === teacher.id && (ua.userType === 'Staff' || ua.userType === 'Teacher' || ua.userType === 'Employee'));
         let roleRecord = access ? (db.roles || []).find(r => r.id === access.roleId) : null;
@@ -222,7 +354,7 @@ app.post('/api/auth/login', (req, res) => {
         console.log("[AUTH DEBUG] Resolved roleRecord.name:", roleRecord ? roleRecord.name : "null", "final roleName:", roleName);
         const permissions = roleRecord ? (typeof roleRecord.permissions === 'string' ? JSON.parse(roleRecord.permissions) : roleRecord.permissions) : {};
         const overrides = access ? access.overrides : {};
-        const token = generateToken({
+        const payload = {
           role: roleName,
           userType: 'Staff',
           tenantId,
@@ -231,9 +363,12 @@ app.post('/api/auth/login', (req, res) => {
           name: teacher.fullName || teacher.name,
           permissions,
           overrides
-        });
+        };
+        const token = generateToken(payload);
+        const refreshToken = generateRefreshToken(payload);
         return res.json({
           token,
+          refreshToken,
           role: roleName,
           userType: 'Staff',
           name: teacher.fullName || teacher.name,
@@ -246,10 +381,14 @@ app.post('/api/auth/login', (req, res) => {
       if (currentRole === 'Staff') {
         const staffMember = (db.staff || []).find(s =>
           (s.status === 'Active' || !s.status) &&
-          (s.email === username || s.phone === username) &&
-          s.password === password
+          (s.email === username || s.phone === username)
         );
-        if (staffMember) {
+        if (staffMember && await comparePassword(password, staffMember.password)) {
+          if (!isBcryptHash(staffMember.password)) {
+            staffMember.password = await hashPassword(password);
+            writeDb(db);
+          }
+          resetFailedAttempts(loginKey);
           const access = (db.userAccess || []).find(ua => ua.userId === staffMember.id && (ua.userType === 'Employee' || ua.userType === 'Staff'));
           let roleRecord = access ? (db.roles || []).find(r => r.id === access.roleId) : null;
           
@@ -280,7 +419,7 @@ app.post('/api/auth/login', (req, res) => {
           const roleName = roleRecord ? roleRecord.name : (staffMember.role || 'Employee');
           const permissions = roleRecord ? (typeof roleRecord.permissions === 'string' ? JSON.parse(roleRecord.permissions) : roleRecord.permissions) : {};
           const overrides = access ? access.overrides : {};
-          const token = generateToken({
+          const payload = {
             role: roleName,
             userType: 'Employee',
             tenantId,
@@ -289,9 +428,12 @@ app.post('/api/auth/login', (req, res) => {
             name: staffMember.fullName || staffMember.name,
             permissions,
             overrides
-          });
+          };
+          const token = generateToken(payload);
+          const refreshToken = generateRefreshToken(payload);
           return res.json({
             token,
+            refreshToken,
             role: roleName,
             userType: 'Employee',
             name: staffMember.fullName || staffMember.name,
@@ -305,10 +447,14 @@ app.post('/api/auth/login', (req, res) => {
     } else if (currentRole === 'Employee') {
       const staffMember = (db.staff || []).find(s =>
         (s.status === 'Active' || !s.status) &&
-        (s.email === username || s.phone === username) &&
-        s.password === password
+        (s.email === username || s.phone === username)
       );
-      if (staffMember) {
+      if (staffMember && await comparePassword(password, staffMember.password)) {
+        if (!isBcryptHash(staffMember.password)) {
+          staffMember.password = await hashPassword(password);
+          writeDb(db);
+        }
+        resetFailedAttempts(loginKey);
         const access = (db.userAccess || []).find(ua => ua.userId === staffMember.id && (ua.userType === 'Employee' || ua.userType === 'Staff'));
         let roleRecord = access ? (db.roles || []).find(r => r.id === access.roleId) : null;
         
@@ -339,7 +485,7 @@ app.post('/api/auth/login', (req, res) => {
         const roleName = roleRecord ? roleRecord.name : (staffMember.role || 'Employee');
         const permissions = roleRecord ? (typeof roleRecord.permissions === 'string' ? JSON.parse(roleRecord.permissions) : roleRecord.permissions) : {};
         const overrides = access ? access.overrides : {};
-        const token = generateToken({
+        const payload = {
           role: roleName,
           userType: 'Employee',
           tenantId,
@@ -348,9 +494,12 @@ app.post('/api/auth/login', (req, res) => {
           name: staffMember.fullName || staffMember.name,
           permissions,
           overrides
-        });
+        };
+        const token = generateToken(payload);
+        const refreshToken = generateRefreshToken(payload);
         return res.json({
           token,
+          refreshToken,
           role: roleName,
           userType: 'Employee',
           name: staffMember.fullName || staffMember.name,
@@ -362,31 +511,91 @@ app.post('/api/auth/login', (req, res) => {
     } else if (currentRole === 'Student') {
       const student = (db.students || []).find(s => 
         (s.status === 'Active' || !s.status) &&
-        (s.studentUsername === username || s.admissionNumber === username) && 
-        (s.studentPassword === password || password === 'student123')
+        (s.studentUsername === username || s.admissionNumber === username)
       );
       if (student) {
-        const roleRecord = (db.roles || []).find(r => r.id === 'role-student' || r.name === 'Student');
-        const permissions = roleRecord ? roleRecord.permissions : {};
-        const token = generateToken({ role: 'Student', tenantId, username, id: student.id, permissions });
-        return res.json({ token, role: 'Student', name: student.name || student.fullName, school: schoolRecord, permissions });
+        const isPassMatch = await comparePassword(password, student.studentPassword);
+        const isFallbackMatch = password === 'student123';
+        if (isPassMatch || isFallbackMatch) {
+          if (isPassMatch && !isBcryptHash(student.studentPassword)) {
+            student.studentPassword = await hashPassword(password);
+            writeDb(db);
+          }
+          resetFailedAttempts(loginKey);
+          const roleRecord = (db.roles || []).find(r => r.id === 'role-student' || r.name === 'Student');
+          const permissions = roleRecord ? roleRecord.permissions : {};
+          const payload = { role: 'Student', tenantId, username, id: student.id, permissions };
+          const token = generateToken(payload);
+          const refreshToken = generateRefreshToken(payload);
+          return res.json({ token, refreshToken, role: 'Student', name: student.name || student.fullName, school: schoolRecord, permissions });
+        }
       }
     } else if (currentRole === 'Parent') {
-      const student = (db.students || []).find(s => 
-        (s.status === 'Active' || !s.status) &&
-        (s.parentUsername === username || s.fatherEmail === username || s.motherEmail === username || s.fatherMobile === username || s.motherMobile === username) && 
-        (s.parentPassword === password || password === 'parent123')
-      );
+      const student = (db.students || []).find(s => {
+        if (s.status === 'Inactive') return false;
+        const decryptedFatherEmail = decrypt(s.fatherEmail);
+        const decryptedMotherEmail = decrypt(s.motherEmail);
+        const decryptedFatherMobile = decrypt(s.fatherMobile);
+        const decryptedMotherMobile = decrypt(s.motherMobile);
+        return (
+          s.parentUsername === username ||
+          decryptedFatherEmail === username ||
+          decryptedMotherEmail === username ||
+          decryptedFatherMobile === username ||
+          decryptedMotherMobile === username
+        );
+      });
       if (student) {
-        const roleRecord = (db.roles || []).find(r => r.id === 'role-parent' || r.name === 'Parent');
-        const permissions = roleRecord ? roleRecord.permissions : {};
-        const token = generateToken({ role: 'Parent', tenantId, username, id: student.id, permissions });
-        return res.json({ token, role: 'Parent', name: student.fatherName || student.motherName || 'Parent', school: schoolRecord, permissions });
+        const isPassMatch = await comparePassword(password, student.parentPassword);
+        const isFallbackMatch = password === 'parent123';
+        if (isPassMatch || isFallbackMatch) {
+          if (isPassMatch && !isBcryptHash(student.parentPassword)) {
+            student.parentPassword = await hashPassword(password);
+            writeDb(db);
+          }
+          resetFailedAttempts(loginKey);
+          const roleRecord = (db.roles || []).find(r => r.id === 'role-parent' || r.name === 'Parent');
+          const permissions = roleRecord ? roleRecord.permissions : {};
+          const payload = { role: 'Parent', tenantId, username, id: student.id, permissions };
+          const token = generateToken(payload);
+          const refreshToken = generateRefreshToken(payload);
+          return res.json({ token, refreshToken, role: 'Parent', name: student.fatherName || student.motherName || 'Parent', school: schoolRecord, permissions });
+        }
       }
     }
   }
 
-  return res.status(401).json({ error: 'Invalid username or password.' });
+  const attemptsRecord = recordFailedAttempt(loginKey);
+  const remainingAttempts = Math.max(0, 5 - attemptsRecord.count);
+  return res.status(401).json({ error: 'Invalid username or password.', remainingAttempts });
+});
+
+// Refresh Token API
+app.post('/api/auth/refresh', (req, res) => {
+  const { refreshToken } = req.body;
+  if (!refreshToken) {
+    return res.status(400).json({ error: 'Refresh token is required.' });
+  }
+  try {
+    const verified = verifyRefreshToken(refreshToken);
+    const payload = { ...verified };
+    delete payload.iat;
+    delete payload.exp;
+    const token = generateToken(payload);
+    res.json({ token });
+  } catch (err) {
+    res.status(401).json({ error: 'Invalid or expired refresh token.' });
+  }
+});
+
+// Logout & Session Invalidation Route
+app.post('/api/auth/logout', (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    const token = authHeader.split(' ')[1];
+    blacklistToken(token);
+  }
+  res.json({ success: true, message: 'Logged out successfully, session invalidated.' });
 });
 
 // Get all schools with tenant counts
@@ -458,7 +667,7 @@ app.get('/api/platform/schools', async (req, res) => {
 });
 
 // Create new school
-app.post('/api/platform/schools', async (req, res) => {
+app.post('/api/platform/schools', schoolValidation, async (req, res) => {
   const { 
     name, 
     subdomain, 
@@ -477,10 +686,6 @@ app.post('/api/platform/schools', async (req, res) => {
     adminUsername, 
     adminPassword
   } = req.body;
-
-  if (!name || !subdomain || !adminEmail || !adminPassword || !adminUsername) {
-    return res.status(400).json({ error: 'Name, subdomain, admin email, admin username, and password are required.' });
-  }
 
   const cleanSubdomain = slugify(subdomain);
   const db = readDb(); // Global DB
@@ -512,7 +717,7 @@ app.post('/api/platform/schools', async (req, res) => {
     adminName: adminName || principalName || 'School Admin',
     adminEmail,
     adminUsername,
-    adminPassword,
+    adminPassword: await hashPassword(adminPassword),
     dbName: `school_${cleanSubdomain}`,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString()
@@ -1001,7 +1206,7 @@ app.get('/api/auth/profile', auth, restoreTenantContext, (req, res) => {
 });
 
 // UPDATE Profile Info
-app.put('/api/auth/profile', auth, upload.single('photo'), restoreTenantContext, (req, res) => {
+app.put('/api/auth/profile', auth, upload.single('photo'), restoreTenantContext, async (req, res) => {
   const user = req.admin;
   if (!user) {
     return res.status(401).json({ error: 'Unauthorized' });
@@ -1012,6 +1217,11 @@ app.put('/api/auth/profile', auth, upload.single('photo'), restoreTenantContext,
   }
 
   const { name, username, email, phone, password } = req.body;
+  if (password) {
+    if (!validatePasswordStrength(password)) {
+      return res.status(400).json({ error: 'Password does not meet strength requirements. It must be at least 8 characters long, and contain uppercase, lowercase, numbers, and special characters.' });
+    }
+  }
   const photoPath = req.file ? `/uploads/${req.file.filename}` : undefined;
 
   const globalDb = readDb();
@@ -1032,7 +1242,7 @@ app.put('/api/auth/profile', auth, upload.single('photo'), restoreTenantContext,
     globalDb.platformOwner.email = email || globalDb.platformOwner.email;
     globalDb.platformOwner.phone = phone !== undefined ? phone : globalDb.platformOwner.phone;
     if (password) {
-      globalDb.platformOwner.password = password;
+      globalDb.platformOwner.password = await hashPassword(password);
     }
     if (photoPath) {
       globalDb.platformOwner.photo = photoPath;
@@ -1074,7 +1284,7 @@ app.put('/api/auth/profile', auth, upload.single('photo'), restoreTenantContext,
       adminEmail: email || currentSchool.adminEmail,
       phone: phone || currentSchool.phone,
       logo: photoPath || currentSchool.logo,
-      adminPassword: password || currentSchool.adminPassword,
+      adminPassword: password ? await hashPassword(password) : currentSchool.adminPassword,
       updatedAt: nowStr
     };
     tenantStorage.run(null, () => writeDb(platformDb));
@@ -1157,7 +1367,7 @@ app.put('/api/auth/profile', auth, upload.single('photo'), restoreTenantContext,
       phone: phone || currentTeacher.phone || currentTeacher.mobile,
       mobile: phone || currentTeacher.phone || currentTeacher.mobile,
       photo: photoPath || currentTeacher.photo,
-      password: password || currentTeacher.password
+      password: password ? await hashPassword(password) : currentTeacher.password
     };
     writeDb(db);
     return res.json({
@@ -1190,7 +1400,7 @@ app.put('/api/auth/profile', auth, upload.single('photo'), restoreTenantContext,
       phone: phone || currentStaff.phone || currentStaff.mobile,
       mobile: phone || currentStaff.phone || currentStaff.mobile,
       photo: photoPath || currentStaff.photo,
-      password: password || currentStaff.password
+      password: password ? await hashPassword(password) : currentStaff.password
     };
     writeDb(db);
     return res.json({
@@ -2067,8 +2277,17 @@ app.get('/api/overview', (req, res) => {
 
 // Global error boundary middleware
 app.use((err, req, res, next) => {
+  logError(err, req);
   console.error('GLOBAL ERROR:', err);
-  res.status(500).json({ error: 'Internal Server Error', message: err.message, stack: err.stack });
+
+  if (err instanceof multer.MulterError) {
+    return res.status(400).json({ error: 'File upload error', details: err.message });
+  }
+  if (err.message && err.message.includes('Only JPG, PNG, GIF, WEBP, PDF, DOC, DOCX, XLS, XLSX files are allowed')) {
+    return res.status(400).json({ error: 'File type verification failed', details: err.message });
+  }
+
+  res.status(500).json({ error: 'Internal Server Error', message: err.message });
 });
 
 // Start Server

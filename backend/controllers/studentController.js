@@ -1,4 +1,8 @@
 import { readDb, writeDb, addActivity } from '../utils/db.js';
+import { hashPassword } from '../utils/authHelper.js';
+import { logAudit } from '../utils/logger.js';
+import { encrypt, decrypt } from '../utils/encryptionHelper.js';
+
 
 // ==========================================
 // STUDENT CONTROLLERS
@@ -116,9 +120,9 @@ export const registerStudent = async (req, res) => {
 
     // Student & Parent account logins creation
     const studentUsername = admissionNumber;
-    const studentPassword = `stu@${calculatedFirstName.toLowerCase() || 'student'}`;
+    const studentPassword = await hashPassword(`stu@${calculatedFirstName.toLowerCase() || 'student'}`);
     const parentUsername = fatherEmail || motherEmail || `parent_${admissionNumber}`;
-    const parentPassword = 'parent123';
+    const parentPassword = await hashPassword('parent123');
 
     const newStudent = {
       id: `STU-${Math.floor(1000 + Math.random() * 9000)}`,
@@ -138,19 +142,19 @@ export const registerStudent = async (req, res) => {
       nationality: nationality || 'Indian',
       category: category || 'General',
       religion: religion || 'Hinduism',
-      aadhaarNumber: aadhaarNumber || '',
+      aadhaarNumber: encrypt(aadhaarNumber || ''),
       
       fatherName: fatherName || '',
       fatherOccupation: fatherOccupation || '',
-      fatherMobile: fatherMobile || '',
-      fatherEmail: fatherEmail || '',
+      fatherMobile: encrypt(fatherMobile || ''),
+      fatherEmail: encrypt(fatherEmail || ''),
       motherName: motherName || '',
       motherOccupation: motherOccupation || '',
-      motherMobile: motherMobile || '',
-      motherEmail: motherEmail || '',
+      motherMobile: encrypt(motherMobile || ''),
+      motherEmail: encrypt(motherEmail || ''),
       guardianName: guardianName || '',
       guardianRelation: guardianRelation || '',
-      guardianContact: guardianContact || '',
+      guardianContact: encrypt(guardianContact || ''),
 
       admissionNumber,
       admissionDate: admissionDate || new Date().toISOString().split('T')[0],
@@ -212,8 +216,8 @@ export const registerStudent = async (req, res) => {
       // Backward-compatible properties
       grade: section ? `${studentClass}-${section}` : studentClass,
       guardian: guardianName || fatherName || motherName,
-      email: fatherEmail || motherEmail || `${admissionNumber}@academy.edu`,
-      phone: guardianContact || fatherMobile || motherMobile,
+      email: encrypt(fatherEmail || motherEmail || `${admissionNumber}@academy.edu`),
+      phone: encrypt(guardianContact || fatherMobile || motherMobile),
       rank: 'N/A',
       photoBg: `linear-gradient(135deg, hsl(${Math.random() * 360}, 75%, 60%) 0%, hsl(${Math.random() * 360}, 85%, 50%) 100%)`
     };
@@ -221,6 +225,7 @@ export const registerStudent = async (req, res) => {
     db.students.push(newStudent);
     addActivity(db, 'registration', 'New Student Admitted', `${calculatedFullName} registered in Grade ${newStudent.grade}`, 'hsl(var(--color-primary))', 'rgba(hsl(var(--color-primary)), 0.1)');
     writeDb(db);
+    logAudit('Create Student', `Student: ${newStudent.name} (Adm: ${newStudent.admissionNumber})`, `Registered student ID: ${newStudent.id}`, req);
 
     res.status(201).json(newStudent);
   } catch (error) {
@@ -298,12 +303,24 @@ export const getStudents = async (req, res) => {
     
     const paginatedItems = result.slice(startIndex, endIndex);
 
+    const decryptedStudents = paginatedItems.map(s => ({
+      ...s,
+      aadhaarNumber: decrypt(s.aadhaarNumber),
+      fatherMobile: decrypt(s.fatherMobile),
+      fatherEmail: decrypt(s.fatherEmail),
+      motherMobile: decrypt(s.motherMobile),
+      motherEmail: decrypt(s.motherEmail),
+      guardianContact: decrypt(s.guardianContact),
+      email: decrypt(s.email),
+      phone: decrypt(s.phone)
+    }));
+
     res.json({
       totalCount: result.length,
       page,
       limit,
       totalPages: Math.ceil(result.length / limit),
-      students: paginatedItems
+      students: decryptedStudents
     });
   } catch (error) {
     console.error('Error fetching students:', error);
@@ -357,12 +374,24 @@ export const updateStudent = async (req, res) => {
         ? `${updateData.studentClass || currentStudent.studentClass}-${updateData.section !== undefined ? updateData.section : currentStudent.section}`
         : (updateData.studentClass || currentStudent.studentClass),
       guardian: updateData.guardianName || updateData.fatherName || currentStudent.guardian,
-      phone: updateData.guardianContact || updateData.fatherMobile || currentStudent.phone
+      aadhaarNumber: updateData.aadhaarNumber !== undefined ? encrypt(updateData.aadhaarNumber) : currentStudent.aadhaarNumber,
+      fatherMobile: updateData.fatherMobile !== undefined ? encrypt(updateData.fatherMobile) : currentStudent.fatherMobile,
+      fatherEmail: updateData.fatherEmail !== undefined ? encrypt(updateData.fatherEmail) : currentStudent.fatherEmail,
+      motherMobile: updateData.motherMobile !== undefined ? encrypt(updateData.motherMobile) : currentStudent.motherMobile,
+      motherEmail: updateData.motherEmail !== undefined ? encrypt(updateData.motherEmail) : currentStudent.motherEmail,
+      guardianContact: updateData.guardianContact !== undefined ? encrypt(updateData.guardianContact) : currentStudent.guardianContact,
+      email: updateData.fatherEmail !== undefined || updateData.motherEmail !== undefined
+        ? encrypt(updateData.fatherEmail || updateData.motherEmail || decrypt(currentStudent.email))
+        : currentStudent.email,
+      phone: updateData.guardianContact !== undefined || updateData.fatherMobile !== undefined || updateData.motherMobile !== undefined
+        ? encrypt(updateData.guardianContact || updateData.fatherMobile || updateData.motherMobile || decrypt(currentStudent.phone))
+        : currentStudent.phone
     };
 
     db.students[studentIndex] = updatedStudent;
     addActivity(db, 'alert', 'Student Profile Modified', `${updatedStudent.name}'s registry was modified.`, 'hsl(var(--color-secondary))', 'rgba(hsl(var(--color-secondary)), 0.1)');
     writeDb(db);
+    logAudit('Update Student', `Student: ${updatedStudent.name} (Adm: ${updatedStudent.admissionNumber})`, `Updated student registry details`, req);
 
     res.json(updatedStudent);
   } catch (error) {
@@ -385,6 +414,7 @@ export const deleteStudent = async (req, res) => {
     db.students.splice(studentIndex, 1);
     addActivity(db, 'alert', 'Student Dismissed', `${studentName} was removed from the registry`, 'rgb(var(--color-danger-rgb))', 'rgba(var(--color-danger-rgb), 0.1)');
     writeDb(db);
+    logAudit('Delete Student', `Student: ${studentName} (ID: ${req.params.id})`, `Dismissed student record`, req);
 
     res.json({ success: true, message: `Removed student ${studentName}` });
   } catch (error) {

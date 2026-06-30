@@ -1,4 +1,5 @@
 import express from 'express';
+import { studentValidation } from '../middleware/validationMiddleware.js';
 import { 
   registerStudent, 
   getStudents, 
@@ -31,7 +32,7 @@ router.use(auth);
 router.get('/', restoreTenantContext, checkPermission('student-directory', 'view'), getStudents);
 
 // 2. REGISTER NEW STUDENT (Multer Files upload + JWT authentication)
-router.post('/', uploadFields, restoreTenantContext, checkPermission('register-student', 'create'), registerStudent);
+router.post('/', uploadFields, restoreTenantContext, checkPermission('register-student', 'create'), studentValidation, registerStudent);
 
 // 3. UPDATE STUDENT PROFILE
 router.put('/:id', uploadFields, restoreTenantContext, checkPermission('student-directory', 'edit'), updateStudent);

@@ -70,8 +70,8 @@ const checkViewDesignationPermission = (req, res, next) => {
 
   const permissions = roleRecord ? (typeof roleRecord.permissions === 'string' ? JSON.parse(roleRecord.permissions) : roleRecord.permissions) : {};
 
-  // Check if user has view on designation-manager, OR any permission on add-employee, add-staff, staff-directory, teacher-directory
-  const allowedModules = ['designation-manager', 'add-employee', 'add-staff', 'staff-directory', 'teacher-directory'];
+  // Check if user has view on designation-manager, OR any permission on add-employee, add-staff, staff-directory, teacher-directory, or finance
+  const allowedModules = ['designation-manager', 'add-employee', 'add-staff', 'staff-directory', 'teacher-directory', 'finance'];
   const actions = ['view', 'create', 'edit', 'delete'];
 
   const hasAnyPerm = allowedModules.some(mod => {

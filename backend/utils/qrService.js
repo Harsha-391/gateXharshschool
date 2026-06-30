@@ -2,6 +2,7 @@ import QRCode from 'qrcode';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import crypto from 'crypto';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -18,7 +19,11 @@ if (!fs.existsSync(QRCODES_DIR)) {
 
 export const generateQrCode = async (employeeId, employeeType) => {
   try {
-    const payload = JSON.stringify({ employeeId, employeeType });
+    const secret = process.env.JWT_SECRET || 'aether-erp-dashboard-super-secure-key-2026';
+    const dataToSign = `${employeeId}:${employeeType}`;
+    const sig = crypto.createHmac('sha256', secret).update(dataToSign).digest('hex');
+    
+    const payload = JSON.stringify({ employeeId, employeeType, sig });
     
     // Generate QR code as Base64 data URL (works everywhere on live/local without filesystem)
     const dataUrl = await QRCode.toDataURL(payload, {

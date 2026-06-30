@@ -132,13 +132,78 @@ export const closeAllPools = async () => {
 };
 
 export const testConnection = async () => {
-  try {
-    const conn = await masterPool.getConnection();
-    console.log('[SQL Connect] Master MySQL Server Connected Successfully!');
-    conn.release();
-    return true;
-  } catch (err) {
-    console.error('[SQL Connect ERROR] Failed to connect to Master MySQL:', err.message);
-    return false;
+  const maxRetries = 3;
+  const retryDelay = 2000;
+  let lastError;
+
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      if (attempt > 1) {
+        console.log(`[SQL Connect] Retrying connection to Master MySQL (${masterConfig.host}:${masterConfig.port})... Attempt ${attempt}/${maxRetries}`);
+      }
+      const conn = await masterPool.getConnection();
+      console.log(`[SQL Connect] Master MySQL Server (${masterConfig.host}) Connected Successfully!`);
+      conn.release();
+      return true;
+    } catch (err) {
+      lastError = err;
+      console.warn(`[SQL Connect Warning] Connection attempt ${attempt}/${maxRetries} failed:`, err.message);
+      if (attempt < maxRetries) {
+        await new Promise(resolve => setTimeout(resolve, retryDelay));
+      }
+    }
   }
+
+  // If we reach here, the configured connection has failed all retries.
+  // Check if we can fallback to local MySQL database.
+  const isLocalHost = masterConfig.host === '127.0.0.1' || masterConfig.host === 'localhost';
+  if (!isLocalHost) {
+    console.log('[SQL Connect] Configured remote MySQL connection failed. Checking local MySQL fallback...');
+    const localConfigs = [
+      { host: '127.0.0.1', port: 3306, user: 'root', password: 'uttam@2004', database: 'school_management' },
+      { host: 'localhost', port: 3306, user: 'root', password: 'uttam@2004', database: 'school_management' }
+    ];
+
+    for (const localConf of localConfigs) {
+      try {
+        const localConn = await mysql.createConnection({
+          host: localConf.host,
+          port: localConf.port,
+          user: localConf.user,
+          password: localConf.password,
+          database: localConf.database,
+          connectTimeout: 3000
+        });
+        await localConn.end();
+
+        console.log(`\n======================================================================`);
+        console.log(`[SQL Connect] WARNING: Failed to connect to remote MySQL server.`);
+        console.log(`[SQL Connect] Automatically falling back to LOCAL MySQL (${localConf.host}:${localConf.port}).`);
+        console.log(`======================================================================\n`);
+
+        // Close current master pool
+        if (masterPool) {
+          try { await masterPool.end(); } catch (e) {}
+        }
+
+        // Dynamically override masterConfig properties in-place
+        masterConfig.host = localConf.host;
+        masterConfig.port = localConf.port;
+        masterConfig.user = localConf.user;
+        masterConfig.password = localConf.password;
+        masterConfig.database = localConf.database;
+        masterConfig.ssl = undefined;
+
+        // Recreate masterPool with local credentials
+        masterPool = mysql.createPool(masterConfig);
+        return true;
+      } catch (localErr) {
+        // Silent fail on local attempt, try next one
+      }
+    }
+  }
+
+  console.error('[SQL Connect ERROR] Failed to connect to Master MySQL after all attempts:', lastError.message);
+  return false;
 };
+

@@ -1,5 +1,7 @@
 import { readDb, writeDb, addActivity } from '../utils/db.js';
 import { generateQrCode } from '../utils/qrService.js';
+import crypto from 'crypto';
+import { logAudit, logSecurity } from '../utils/logger.js';
 
 // Helper: Convert time string "HH:MM AM/PM" to minutes from midnight
 const parseTimeToMinutes = (timeStr) => {
@@ -33,12 +35,34 @@ const getCurrentFormattedTime = (dateObj = new Date()) => {
  */
 export const scanEmployeeQr = async (req, res) => {
   try {
-    const { employeeId, employeeType } = req.body;
+    const { employeeId, employeeType, sig } = req.body;
     if (!employeeId || !employeeType) {
       return res.status(400).json({ error: 'Employee ID and Employee Type are required in the payload.' });
     }
 
     const db = readDb();
+
+    // QR Code signature verification
+    const secret = process.env.JWT_SECRET || 'aether-erp-dashboard-super-secure-key-2026';
+    const dataToSign = `${employeeId}:${employeeType}`;
+    const expectedSig = crypto.createHmac('sha256', secret).update(dataToSign).digest('hex');
+
+    if (!sig || sig !== expectedSig) {
+      logSecurity('BAD_QR_SIGNATURE', `Employee ID: ${employeeId || 'Unknown'} (${employeeType || 'Unknown'}) - Spoofed or invalid signature`, req);
+      if (!db.attendanceLogs) db.attendanceLogs = [];
+      db.attendanceLogs.push({
+        id: `LOG-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`,
+        employeeId: employeeId || 'Unknown',
+        employeeType: employeeType || 'Unknown',
+        scanTime: getCurrentFormattedTime(new Date()),
+        scanType: 'Verification-Failure',
+        status: 'Rejected',
+        reason: !sig ? 'Signature missing' : 'Signature mismatch / spoofing detected',
+        ipAddress: req.ip || req.headers['x-forwarded-for'] || '127.0.0.1'
+      });
+      writeDb(db);
+      return res.status(401).json({ error: 'Invalid QR Code signature. Spoofing or tampering detected.' });
+    }
     
     // 1. Fetch employee details from DB
     let employee = null;
@@ -200,6 +224,7 @@ export const scanEmployeeQr = async (req, res) => {
 
     // Write database and trigger sync
     writeDb(db);
+    logAudit('Employee Attendance Scan', `Employee: ${employee.fullName || employee.name} (${employeeType})`, `Action: ${record.checkOut ? 'Check-Out' : 'Check-In'}, Status: ${record.status}`, req);
 
     res.json({
       success: true,

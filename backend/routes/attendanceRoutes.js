@@ -12,12 +12,14 @@ import {
 import { auth } from '../middleware/auth.js';
 import { checkPermission } from '../middleware/permissionMiddleware.js';
 import { restoreTenantContext } from '../utils/db.js';
+import { attendanceLimiter } from '../middleware/rateLimiter.js';
 
 const router = express.Router();
 
 // Apply auth to all attendance routes
 router.use(auth);
 router.use(restoreTenantContext);
+router.use(attendanceLimiter);
 
 // Apply checkPermission based on request method
 router.use((req, res, next) => {

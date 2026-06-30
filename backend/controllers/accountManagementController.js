@@ -6,6 +6,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const DB_FILE = path.join(__dirname, '..', 'db.json');
 import { readDb as centralReadDb, writeDb as centralWriteDb, addActivity, isSqlActive, tenantStorage, slugify } from '../utils/db.js';
+import { logAudit } from '../utils/logger.js';
 import * as sqlDb from '../utils/sqlDb.js';
 
 const DEFAULT_STAFF_SALARY_STRUCTURE_IDS = new Set([
@@ -81,8 +82,11 @@ const readDb = () => {
 };
 
 // Helper to write database
-const writeDb = (data) => {
+const writeDb = (data, req = null, action = null, details = null) => {
   centralWriteDb(data);
+  if (req && action) {
+    logAudit(action, 'Account Management', details || 'Database updated', req);
+  }
 };
 
 // =============================================
@@ -272,7 +276,7 @@ export const createFeeStructure = (req, res) => {
     }
 
     addActivity(db, 'account_management', 'Fee Structure Updated', `Fee structure for Grade ${studentClass} set to ₹${totalFee.toLocaleString()}`, 'rgb(var(--color-success-rgb))', 'rgba(var(--color-success-rgb), 0.1)');
-    writeDb(db);
+    writeDb(db, req, 'Update Fee Structure', `Grade: ${studentClass}, Total: ₹${totalFee}`);
 
     res.status(201).json(structure);
   } catch (err) {
@@ -289,7 +293,7 @@ export const deleteFeeStructure = (req, res) => {
 
     const removed = db.feeStructures.splice(idx, 1)[0];
     addActivity(db, 'alert', 'Fee Structure Removed', `Removed fee structure for Grade ${removed.studentClass}`, 'rgb(var(--color-danger-rgb))', 'rgba(var(--color-danger-rgb), 0.1)');
-    writeDb(db);
+    writeDb(db, req, 'Delete Fee Structure', `Grade: ${removed.studentClass}`);
 
     res.json({ success: true, message: `Removed fee structure for ${removed.studentClass}` });
   } catch (err) {
@@ -379,7 +383,7 @@ export const collectFee = (req, res) => {
     db.fees.push(newFee);
 
     addActivity(db, 'account_management', 'Fee Collected', `₹${paid.toLocaleString()} collected from ${studentName} (${feeType})`, 'rgb(var(--color-success-rgb))', 'rgba(var(--color-success-rgb), 0.1)');
-    writeDb(db);
+    writeDb(db, req, 'Collect Fee', `Student: ${studentName}, Amount: ₹${paid}`);
 
     res.status(201).json(newFee);
   } catch (err) {
@@ -428,7 +432,7 @@ export const updateFee = (req, res) => {
     };
 
     addActivity(db, 'account_management', 'Fee Collection Updated', `Fee record for ${db.fees[idx].studentName} updated`, 'rgb(var(--color-success-rgb))', 'rgba(var(--color-success-rgb), 0.1)');
-    writeDb(db);
+    writeDb(db, req, 'Update Fee', `Student: ${db.fees[idx].studentName}, Amount: ₹${paid}`);
 
     res.json(db.fees[idx]);
   } catch (err) {
@@ -448,7 +452,7 @@ export const deleteFee = (req, res) => {
 
     const removed = db.fees.splice(idx, 1)[0];
     addActivity(db, 'alert', 'Fee Record Deleted', `Deleted fee record of ${removed.studentName} for ${removed.feeType}`, 'rgb(var(--color-danger-rgb))', 'rgba(var(--color-danger-rgb), 0.1)');
-    writeDb(db);
+    writeDb(db, req, 'Delete Fee', `Student: ${removed.studentName}`);
 
     res.json({ success: true, message: `Deleted fee record for ${removed.studentName}` });
   } catch (err) {
@@ -471,18 +475,19 @@ export const getSalaryStructures = (req, res) => {
 
 export const createSalaryStructure = (req, res) => {
   try {
-    const { designation, basicSalary, allowances, deductions, pfDeduction, taxDeduction } = req.body;
+    const { role, designation, basicSalary, allowances, deductions, pfDeduction, taxDeduction } = req.body;
+    const roleName = role || designation;
 
-    if (!designation || !basicSalary) {
-      return res.status(400).json({ error: 'Designation and basic salary are required.' });
+    if (!roleName || !basicSalary) {
+      return res.status(400).json({ error: 'Role and basic salary are required.' });
     }
 
     const db = readDb();
-    const existingIdx = db.salaryStructures.findIndex(s => s.designation === designation);
+    const existingIdx = db.salaryStructures.findIndex(s => s.role === roleName || s.designation === roleName);
 
     const structure = {
       id: existingIdx > -1 ? db.salaryStructures[existingIdx].id : `SSTR-${Date.now()}`,
-      designation,
+      role: roleName,
       basicSalary: Number(basicSalary) || 0,
       allowances: Number(allowances) || 0,
       deductions: Number(deductions) || 0,
@@ -498,7 +503,7 @@ export const createSalaryStructure = (req, res) => {
       db.salaryStructures.push(structure);
     }
 
-    addActivity(db, 'account_management', 'Salary Structure Updated', `Structure for "${designation}" updated`, 'hsl(var(--color-info))', 'rgba(hsl(var(--color-info)), 0.1)');
+    addActivity(db, 'account_management', 'Salary Structure Updated', `Structure for "${roleName}" updated`, 'hsl(var(--color-info))', 'rgba(hsl(var(--color-info)), 0.1)');
     writeDb(db);
 
     res.status(201).json(structure);
@@ -538,7 +543,8 @@ export const getPayroll = (req, res) => {
 
 export const processPayroll = (req, res) => {
   try {
-    const { teacherId, teacherName, employeeId, designation, department, basicSalary, allowances, bonus, deductions, pfDeduction, taxDeduction, paymentMethod } = req.body;
+    const { teacherId, teacherName, employeeId, role, designation, department, basicSalary, allowances, bonus, deductions, pfDeduction, taxDeduction, paymentMethod, month } = req.body;
+    const roleName = role || designation;
 
     if (!teacherId || !teacherName || !basicSalary) {
       return res.status(400).json({ error: 'Teacher ID, name, and salary are required.' });
@@ -555,12 +561,14 @@ export const processPayroll = (req, res) => {
     const netSalary = basic + allow + bon - ded - pf - tax;
 
     const newPayroll = {
+      id: `PAY-${Date.now()}`,
       payrollId: `PAY-${Date.now()}`,
       teacherId,
       teacherName,
       employeeId: employeeId || `EMP-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
-      designation: designation || 'Teacher',
+      role: roleName || 'Teacher',
       department: department || 'General',
+      month: month || `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`,
       basicSalary: basic,
       allowances: allow,
       bonus: bon,
@@ -585,7 +593,7 @@ export const processPayroll = (req, res) => {
       category: 'Salary',
       subcategory: 'Teacher Salary',
       amount: netSalary,
-      description: `Monthly salary payout for ${teacherName} (${designation})`,
+      description: `Monthly salary payout for ${teacherName} (${roleName})`,
       date: new Date().toLocaleDateString('en-CA'),
       paidBy: 'Accountant',
       attachment: '',
@@ -600,6 +608,28 @@ export const processPayroll = (req, res) => {
     res.status(201).json(newPayroll);
   } catch (err) {
     res.status(500).json({ error: 'Server error processing payroll.' });
+  }
+};
+
+export const deletePayroll = (req, res) => {
+  try {
+    const { id } = req.params;
+    const db = readDb();
+    
+    const initialLength = db.payroll.length;
+    db.payroll = db.payroll.filter(p => p.payrollId !== id && p.id !== id);
+    
+    if (db.payroll.length === initialLength) {
+      return res.status(404).json({ error: 'Payroll record not found.' });
+    }
+    
+    // Also delete corresponding expense log if exists
+    db.expenses = db.expenses.filter(e => e.expenseId !== `EXP-${id}` && e.id !== `EXP-${id}`);
+    
+    writeDb(db);
+    res.json({ success: true, message: 'Payroll record deleted.' });
+  } catch (err) {
+    res.status(500).json({ error: 'Server error deleting payroll.' });
   }
 };
 
@@ -654,7 +684,7 @@ export const createStaffSalaryStructure = (req, res) => {
     const levelStr = designationLevel ? ` (${designationLevel})` : '';
     const typeStr = employmentType ? ` [${employmentType}]` : '';
     addActivity(db, 'account_management', 'Staff Salary Structure Updated', `Structure for "${designation}${levelStr}${typeStr}" updated`, 'hsl(var(--color-info))', 'rgba(hsl(var(--color-info)), 0.1)');
-    writeDb(db);
+    writeDb(db, req, 'Update Staff Salary Structure', `Designation: ${designation}, Net: ₹${structure.netSalary}`);
 
     res.status(201).json(structure);
   } catch (err) {
@@ -693,7 +723,7 @@ export const getStaffPayments = (req, res) => {
 
 export const processStaffPayment = (req, res) => {
   try {
-    const { staffId, staffName, staffRole, department, basicSalary, allowances, bonus, deductions, pfDeduction, taxDeduction, paymentMethod, designationLevel, employmentType } = req.body;
+    const { staffId, staffName, staffRole, department, basicSalary, allowances, bonus, deductions, pfDeduction, taxDeduction, paymentMethod, designationLevel, employmentType, month } = req.body;
 
     if (!staffId || !staffName || !basicSalary) {
       return res.status(400).json({ error: 'Staff ID, name, and salary are required.' });
@@ -717,6 +747,7 @@ export const processStaffPayment = (req, res) => {
       department: department || 'General',
       designationLevel: designationLevel || '',
       employmentType: employmentType || '',
+      month: month || `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`,
       basicSalary: basic,
       allowances: allow,
       bonus: bon,
@@ -751,11 +782,33 @@ export const processStaffPayment = (req, res) => {
     });
 
     addActivity(db, 'account_management', 'Staff Salary Processed', `₹${netSalary.toLocaleString()} paid to ${staffName}`, 'rgb(var(--color-success-rgb))', 'rgba(var(--color-success-rgb), 0.1)');
-    writeDb(db);
+    writeDb(db, req, 'Process Staff Payroll', `Staff: ${staffName}, Net Salary: ₹${netSalary}`);
 
     res.status(201).json(newPayment);
   } catch (err) {
     res.status(500).json({ error: 'Server error processing staff payment.' });
+  }
+};
+
+export const deleteStaffPayment = (req, res) => {
+  try {
+    const { id } = req.params;
+    const db = readDb();
+    
+    const initialLength = db.staffPayments.length;
+    db.staffPayments = db.staffPayments.filter(p => p.paymentId !== id && p.id !== id);
+    
+    if (db.staffPayments.length === initialLength) {
+      return res.status(404).json({ error: 'Staff payment record not found.' });
+    }
+    
+    // Also delete corresponding expense log if exists
+    db.expenses = db.expenses.filter(e => e.expenseId !== `EXP-${id}` && e.id !== `EXP-${id}`);
+    
+    writeDb(db);
+    res.json({ success: true, message: 'Staff payment record deleted.' });
+  } catch (err) {
+    res.status(500).json({ error: 'Server error deleting staff payment.' });
   }
 };
 
@@ -1051,10 +1104,11 @@ export const deleteSalaryStructure = (req, res) => {
     if (idx === -1) return res.status(404).json({ error: 'Salary structure not found.' });
 
     const removed = db.salaryStructures.splice(idx, 1)[0];
-    addActivity(db, 'alert', 'Salary Structure Removed', `Removed salary structure for ${removed.designation}`, 'rgb(var(--color-danger-rgb))', 'rgba(var(--color-danger-rgb), 0.1)');
+    const removedName = removed.role || removed.designation;
+    addActivity(db, 'alert', 'Salary Structure Removed', `Removed salary structure for ${removedName}`, 'rgb(var(--color-danger-rgb))', 'rgba(var(--color-danger-rgb), 0.1)');
     writeDb(db);
 
-    res.json({ success: true, message: `Removed salary structure for ${removed.designation}` });
+    res.json({ success: true, message: `Removed salary structure for ${removedName}` });
   } catch (err) {
     console.error('Error deleting salary structure:', err);
     res.status(500).json({ error: 'Server error deleting salary structure.' });
@@ -1128,7 +1182,8 @@ export const updateFeeStructure = (req, res) => {
 export const updateSalaryStructure = (req, res) => {
   try {
     const { id } = req.params;
-    const { designation, basicSalary, allowances, deductions, pfDeduction, taxDeduction } = req.body;
+    const { role, designation, basicSalary, allowances, deductions, pfDeduction, taxDeduction } = req.body;
+    const roleName = role || designation;
     const db = readDb();
 
     const idx = db.salaryStructures.findIndex(s => s.id === id);
@@ -1142,7 +1197,7 @@ export const updateSalaryStructure = (req, res) => {
 
     db.salaryStructures[idx] = {
       ...db.salaryStructures[idx],
-      designation: designation || db.salaryStructures[idx].designation,
+      role: roleName || db.salaryStructures[idx].role || db.salaryStructures[idx].designation,
       basicSalary: basic,
       allowances: allow,
       deductions: deduct,
@@ -1151,8 +1206,10 @@ export const updateSalaryStructure = (req, res) => {
       netSalary: basic + allow - deduct - pf - tax,
       updatedAt: new Date().toISOString()
     };
+    // Remove legacy designation field
+    delete db.salaryStructures[idx].designation;
 
-    addActivity(db, 'account_management', 'Salary Structure Updated', `Salary structure for "${db.salaryStructures[idx].designation}" updated`, 'hsl(var(--color-info))', 'rgba(hsl(var(--color-info)), 0.1)');
+    addActivity(db, 'account_management', 'Salary Structure Updated', `Salary structure for "${db.salaryStructures[idx].role}" updated`, 'hsl(var(--color-info))', 'rgba(hsl(var(--color-info)), 0.1)');
     writeDb(db);
 
     res.json(db.salaryStructures[idx]);

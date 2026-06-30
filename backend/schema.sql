@@ -397,7 +397,8 @@ CREATE TABLE IF NOT EXISTS staff_payments (
   deductions DECIMAL(10,2) DEFAULT 0.00,
   pfDeduction DECIMAL(10,2) DEFAULT 0.00,
   taxDeduction DECIMAL(10,2) DEFAULT 0.00,
-  netSalary DECIMAL(10,2) DEFAULT 0.00
+  netSalary DECIMAL(10,2) DEFAULT 0.00,
+  month VARCHAR(50)
 );
 
 -- 19. Activities Table
@@ -585,8 +586,8 @@ CREATE TABLE IF NOT EXISTS salary_structures (
   id VARCHAR(50) PRIMARY KEY,
   gradeName VARCHAR(100) NOT NULL,
   basicSalary DECIMAL(10,2) NOT NULL,
-  allowances JSON,
-  deductions JSON,
+  allowances DECIMAL(10,2) DEFAULT 0.00,
+  deductions DECIMAL(10,2) DEFAULT 0.00,
   tenantId VARCHAR(100)
 );
 
@@ -595,8 +596,8 @@ CREATE TABLE IF NOT EXISTS staff_salary_structures (
   id VARCHAR(50) PRIMARY KEY,
   position VARCHAR(255) NOT NULL,
   basicSalary DECIMAL(10,2) NOT NULL,
-  allowances JSON,
-  deductions JSON,
+  allowances DECIMAL(10,2) DEFAULT 0.00,
+  deductions DECIMAL(10,2) DEFAULT 0.00,
   tenantId VARCHAR(100),
   designation VARCHAR(255),
   bonus DECIMAL(10,2) DEFAULT 0.00,

@@ -215,6 +215,8 @@ const createTablesFromSchema = async () => {
       }
     }
 
+
+
     // Ensure new teacher columns exist in staff table
     const teacherAlters = [
       "ALTER TABLE staff MODIFY COLUMN qualification TEXT",
@@ -1098,7 +1100,8 @@ const applySchemaUpdates = async (pool, isMaster = false, tenantId = null) => {
       "ALTER TABLE notices ADD COLUMN isDeleted TINYINT(1) DEFAULT 0",
       "ALTER TABLE holidays ADD COLUMN status VARCHAR(50) DEFAULT 'Published'",
       "ALTER TABLE holidays ADD COLUMN isDeleted TINYINT(1) DEFAULT 0",
-      "ALTER TABLE holidays ADD COLUMN name VARCHAR(255)"
+      "ALTER TABLE holidays ADD COLUMN name VARCHAR(255)",
+      "ALTER TABLE staff_payments ADD COLUMN month VARCHAR(50)"
     ];
     for (const sql of schoolAlters) {
       try {
@@ -1106,6 +1109,24 @@ const applySchemaUpdates = async (pool, isMaster = false, tenantId = null) => {
       } catch (err) {}
     }
 
+  }
+
+  // Convert salary structures columns from JSON to DECIMAL if necessary for this pool
+  const tablesToMigrate = ['salary_structures', 'staff_salary_structures'];
+  const colsToMigrate = ['allowances', 'deductions'];
+  for (const table of tablesToMigrate) {
+    for (const col of colsToMigrate) {
+      try {
+        const [colInfo] = await pool.query(`SHOW COLUMNS FROM \`${table}\` LIKE ?`, [col]);
+        if (colInfo && colInfo[0] && colInfo[0].Type.toLowerCase().includes('json')) {
+          console.log(`[SQL Migration] Converting \`${table}\`.\`${col}\` from JSON to DECIMAL on database pool...`);
+          await pool.query(`ALTER TABLE \`${table}\` DROP COLUMN \`${col}\``);
+          await pool.query(`ALTER TABLE \`${table}\` ADD COLUMN \`${col}\` DECIMAL(10,2) DEFAULT 0.00`);
+        }
+      } catch (err) {
+        console.warn(`[SQL Migration WARNING] Failed migrating \`${table}\`.\`${col}\` on database pool:`, err.message);
+      }
+    }
   }
 };
 
@@ -1960,6 +1981,7 @@ export const loadTenantSqlIntoMemory = async (tenantId) => {
 
     data.payroll = rawPayroll.map(p => ({
       ...p,
+      payrollId: p.id,
       basicSalary: parseFloat(p.basicSalary || 0),
       allowances: parseFloat(p.allowances || 0),
       deductions: parseFloat(p.deductions || 0),
@@ -1984,7 +2006,8 @@ export const loadTenantSqlIntoMemory = async (tenantId) => {
       deductions: parseFloat(sp.deductions || 0),
       pfDeduction: parseFloat(sp.pfDeduction || 0),
       taxDeduction: parseFloat(sp.taxDeduction || 0),
-      netSalary: parseFloat(sp.netSalary || sp.amount || 0)
+      netSalary: parseFloat(sp.netSalary || sp.amount || 0),
+      month: sp.month || ''
     }));
 
     data.income = rawIncome.map(i => ({ ...i, amount: parseFloat(i.amount || 0) }));
@@ -3066,8 +3089,8 @@ export const saveMemoryDbToSql = async (tenantId, db, changedKeys, newUpdatedAt)
             await sqlDb.query('DELETE FROM staff_payments WHERE tenantId = ?', [tId]);
           }
 
-          const columns = ['id', 'staffId', 'amount', 'paymentDate', 'paymentMethod', 'status', 'remarks', 'tenantId', 'staffName', 'staffRole', 'basicSalary', 'allowances', 'bonus', 'deductions', 'pfDeduction', 'taxDeduction', 'netSalary'];
-          const updateColumns = ['amount', 'status', 'staffName', 'staffRole', 'basicSalary', 'allowances', 'bonus', 'deductions', 'pfDeduction', 'taxDeduction', 'netSalary'];
+          const columns = ['id', 'staffId', 'amount', 'paymentDate', 'paymentMethod', 'status', 'remarks', 'tenantId', 'staffName', 'staffRole', 'basicSalary', 'allowances', 'bonus', 'deductions', 'pfDeduction', 'taxDeduction', 'netSalary', 'month'];
+          const updateColumns = ['amount', 'status', 'staffName', 'staffRole', 'basicSalary', 'allowances', 'bonus', 'deductions', 'pfDeduction', 'taxDeduction', 'netSalary', 'month'];
           const valueRows = db.staffPayments.filter(sp => sp.id || sp.paymentId).map(sp => {
             const spId = sp.id || sp.paymentId;
             const netSal = sp.netSalary || sp.amount || 0;
@@ -3077,7 +3100,7 @@ export const saveMemoryDbToSql = async (tenantId, db, changedKeys, newUpdatedAt)
               sp.staffName || '', sp.staffRole || '',
               parseFloat(sp.basicSalary || 0), parseFloat(sp.allowances || 0), parseFloat(sp.bonus || 0),
               parseFloat(sp.deductions || 0), parseFloat(sp.pfDeduction || 0), parseFloat(sp.taxDeduction || 0),
-              parseFloat(netSal)
+              parseFloat(netSal), sp.month || ''
             ];
           });
           await bulkInsertOrUpdate('staff_payments', columns, valueRows, updateColumns);
@@ -3346,7 +3369,7 @@ export const saveMemoryDbToSql = async (tenantId, db, changedKeys, newUpdatedAt)
       // 16b. Sync Salary Structures
       if (db.salaryStructures && Array.isArray(db.salaryStructures) && hasTableChanged('salaryStructures')) {
         tasks.push((async () => {
-          const activeSsIds = db.salaryStructures.map(ss => ss.id || `SS-${ss.gradeName || ss.designation}`);
+          const activeSsIds = db.salaryStructures.map(ss => ss.id || `SS-${ss.role || ss.gradeName || ss.designation}`);
           if (activeSsIds.length > 0) {
             await sqlDb.query(`DELETE FROM salary_structures WHERE tenantId = ? AND id NOT IN (${activeSsIds.map(() => '?').join(',')})`, [tId, ...activeSsIds]);
           } else {
@@ -3356,14 +3379,14 @@ export const saveMemoryDbToSql = async (tenantId, db, changedKeys, newUpdatedAt)
           const columns = ['id', 'gradeName', 'basicSalary', 'allowances', 'deductions', 'tenantId', 'designation', 'pfDeduction', 'taxDeduction', 'netSalary'];
           const updateColumns = ['basicSalary', 'allowances', 'deductions', 'designation', 'pfDeduction', 'taxDeduction', 'netSalary'];
           const valueRows = db.salaryStructures.map(ss => {
-            const gradeVal = ss.gradeName || ss.designation;
+            const roleVal = ss.role || ss.gradeName || ss.designation;
             const basicVal = parseFloat(ss.basicSalary || 0);
             const allowVal = parseFloat(ss.allowances || 0);
             const dedVal = parseFloat(ss.deductions || 0);
             const netVal = parseFloat(ss.netSalary || (basicVal + allowVal - dedVal));
             return [
-              ss.id || `SS-${gradeVal}`, gradeVal, basicVal, allowVal, dedVal, tId,
-              ss.designation || gradeVal,
+              ss.id || `SS-${roleVal}`, roleVal, basicVal, allowVal, dedVal, tId,
+              roleVal,
               parseFloat(ss.pfDeduction || 0), parseFloat(ss.taxDeduction || 0), netVal
             ];
           });
@@ -3737,6 +3760,29 @@ export const saveMemoryDbToSql = async (tenantId, db, changedKeys, newUpdatedAt)
         })());
       }
 
+      // Sync attendance settings
+      if (db.attendanceSettings && Array.isArray(db.attendanceSettings) && hasTableChanged('attendanceSettings')) {
+        tasks.push((async () => {
+          const activeSettIds = db.attendanceSettings.map(s => s.id).filter(Boolean);
+          if (activeSettIds.length > 0) {
+            await sqlDb.query(`DELETE FROM attendance_settings WHERE tenantId = ? AND id NOT IN (${activeSettIds.map(() => '?').join(',')})`, [tId, ...activeSettIds]);
+          } else {
+            await sqlDb.query('DELETE FROM attendance_settings WHERE tenantId = ?', [tId]);
+          }
+
+          const columns = [
+            'id', 'checkInStart', 'lateTime', 'halfDayTime', 'checkOutTime', 'minWorkingHours', 'gracePeriod', 'tenantId', 'createdAt', 'updatedAt'
+          ];
+          const updateColumns = [
+            'checkInStart', 'lateTime', 'halfDayTime', 'checkOutTime', 'minWorkingHours', 'gracePeriod', 'updatedAt'
+          ];
+          const valueRows = db.attendanceSettings.filter(s => s.id).map(s => [
+            s.id, s.checkInStart, s.lateTime, s.halfDayTime, s.checkOutTime, Number(s.minWorkingHours), Number(s.gracePeriod), tId, s.createdAt || new Date().toISOString(), s.updatedAt || new Date().toISOString()
+          ]);
+          await bulkInsertOrUpdate('attendance_settings', columns, valueRows, updateColumns);
+        })());
+      }
+
       // Sync central grade mappings
       if (db.gradeDepartments && Array.isArray(db.gradeDepartments) && hasTableChanged('gradeDepartments')) {
         dependentTasks.push(async () => {
@@ -4018,7 +4064,7 @@ export const writeDb = (data) => {
       'attendanceRecords', 'attendanceLogs', 'attendanceReports',
       'academicCalendarEvents', 'academicCalendarImports',
       'publishedCalendarEvents', 'grades', 'departments', 'designations', 'gradeDepartments',
-      'sections', 'publishedClassTimetables', 'publishedTeacherTimetables'
+      'sections', 'publishedClassTimetables', 'publishedTeacherTimetables', 'attendanceSettings'
     ];
 
     if (!oldCache) {

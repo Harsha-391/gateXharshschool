@@ -63,6 +63,7 @@ export default function AccountantPanel({ setActiveView, onLogout, accountantVie
       case 'fee-structure': return <FeeStructureView showToast={showToast} />;
       case 'fees-history': return <FeesHistoryView showToast={showToast} />;
       case 'payroll': return <PayrollView showToast={showToast} />;
+      case 'payroll-history': return <PayrollHistoryView showToast={showToast} />;
       case 'teacher-pay-structure': return <TeacherSalaryStructureView showToast={showToast} />;
       case 'expenses': return <ExpensesView showToast={showToast} />;
       case 'income': return <IncomeView showToast={showToast} active={true} />;
@@ -113,6 +114,7 @@ export default function AccountantPanel({ setActiveView, onLogout, accountantVie
               accountantView === 'fee-structure' ? 'Fee Structure Configuration' :
               accountantView === 'fees-history' ? 'Fees Payment History' :
                accountantView === 'payroll' ? 'Pay Staff' :
+               accountantView === 'payroll-history' ? 'Payroll Payment History' :
                accountantView === 'teacher-pay-structure' ? 'Staff Pay Structure' :
                accountantView === 'expenses' ? 'Expense Tracker' :
                accountantView === 'income' ? 'Income Tracker' :
@@ -184,6 +186,7 @@ function DashboardView({ setAccountantView }) {
     { label: 'Staff Pay Structure', icon: Calculator, view: 'teacher-pay-structure', color: '#10b981' },
     { label: 'Pay Employee', icon: UserCog, view: 'staff-pay', color: '#ec4899' },
     { label: 'Employee Pay Structure', icon: Calculator, view: 'staff-pay-structure', color: '#14b8a6' },
+    { label: 'Payroll History', icon: History, view: 'payroll-history', color: '#db2777' },
     { label: 'Add Expense', icon: TrendingDown, view: 'expenses', color: '#ef4444' },
     { label: 'Add Income', icon: TrendingUp, view: 'income', color: '#f59e0b' },
     { label: 'View Reports', icon: BarChart3, view: 'reports', color: '#06b6d4' },
@@ -1835,7 +1838,7 @@ const defaultStaffDesignations = [
 
 export function StaffPaymentStructureView({ showToast }) {
   const [structures, setStructures] = useState([]);
-  const [designationOptions, setDesignationOptions] = useState(defaultStaffDesignations);
+  const [designationOptions, setDesignationOptions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
@@ -1847,17 +1850,17 @@ export function StaffPaymentStructureView({ showToast }) {
 
   const fetchStructures = () => {
     fetch('/api/finance/staff-salary-structures')
-      .then(r => r.json())
-      .then(d => { setStructures(d); setLoading(false); })
+      .then(r => r.ok ? r.json() : [])
+      .then(d => { setStructures(Array.isArray(d) ? d : []); setLoading(false); })
       .catch(() => setLoading(false));
   };
 
   const fetchDesignationOptions = () => {
-    fetch('/api/employees')
-      .then(r => r.json())
-      .then(staff => {
-        const staffRoles = (staff || []).map(s => s.role).filter(Boolean);
-        setDesignationOptions([...new Set([...defaultStaffDesignations, ...staffRoles])]);
+    fetch('/api/designations')
+      .then(r => r.ok ? r.json() : [])
+      .then(data => {
+        const activeDesignations = Array.isArray(data) ? data.filter(d => d.status === 'Active' || !d.status).map(d => d.name) : [];
+        setDesignationOptions(activeDesignations);
       })
       .catch(() => {});
   };
@@ -1866,6 +1869,12 @@ export function StaffPaymentStructureView({ showToast }) {
     fetchStructures();
     fetchDesignationOptions();
   }, []);
+
+  useEffect(() => {
+    if (showForm) {
+      fetchDesignationOptions();
+    }
+  }, [showForm]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -2103,10 +2112,12 @@ export function StaffPaymentsView({ showToast }) {
   const [form, setForm] = useState({
     staffId: '', staffName: '', staffRole: '', department: '',
     basicSalary: '30000', allowances: '6000', bonus: '0', deductions: '1500',
-    pfDeduction: '1500', taxDeduction: '1000', paymentMethod: 'Bank Transfer'
+    pfDeduction: '1500', taxDeduction: '1000', paymentMethod: 'Bank Transfer',
+    month: `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`
   });
   const [staffSearchQuery, setStaffSearchQuery] = useState('');
   const [showStaffDropdown, setShowStaffDropdown] = useState(false);
+  const [designationOptions, setDesignationOptions] = useState([]);
 
   useEffect(() => {
     if (!showForm) {
@@ -2132,19 +2143,39 @@ export function StaffPaymentsView({ showToast }) {
       .catch(() => {});
   };
 
-  useEffect(() => { fetchPayments(); fetchStaff(); }, [filterStatus, search]);
+  const fetchDesignationOptions = () => {
+    fetch('/api/designations')
+      .then(r => r.ok ? r.json() : [])
+      .then(data => {
+        const activeDesignations = Array.isArray(data) ? data.filter(d => d.status === 'Active' || !d.status).map(d => d.name) : [];
+        setDesignationOptions(activeDesignations);
+      })
+      .catch(() => {});
+  };
+
+  useEffect(() => { 
+    fetchPayments(); 
+    fetchStaff(); 
+    fetchDesignationOptions();
+  }, [filterStatus, search]);
+
+  useEffect(() => {
+    if (showForm) {
+      fetchDesignationOptions();
+    }
+  }, [showForm]);
 
   const selectStaff = (s) => {
     if (s) {
       fetch('/api/finance/staff-salary-structures')
         .then(r => r.json())
         .then(structures => {
-          const sstr = structures.find(st => st.designation === s.role);
+          const sstr = structures.find(st => st.designation === s.designation || st.designation === s.role);
           setForm(prev => ({
             ...prev,
             staffId: s.id,
             staffName: s.name,
-            staffRole: s.role,
+            staffRole: s.designation || s.role,
             department: s.department,
             basicSalary: sstr ? String(sstr.basicSalary) : '30000',
             allowances: sstr ? String(sstr.allowances) : '6000',
@@ -2176,12 +2207,12 @@ export function StaffPaymentsView({ showToast }) {
       fetch('/api/finance/staff-salary-structures')
         .then(r => r.json())
         .then(structures => {
-          const sstr = structures.find(st => st.designation === s.role);
+          const sstr = structures.find(st => st.designation === s.designation || st.designation === s.role);
           setForm(prev => ({
             ...prev,
             staffId: s.id,
             staffName: s.name,
-            staffRole: s.role,
+            staffRole: s.designation || s.role,
             department: s.department,
             basicSalary: sstr ? String(sstr.basicSalary) : '30000',
             allowances: sstr ? String(sstr.allowances) : '6000',
@@ -2200,6 +2231,11 @@ export function StaffPaymentsView({ showToast }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    const currentMonthStr = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
+    if (form.month && form.month > currentMonthStr) {
+      showToast('Cannot select a future month.', 'error');
+      return;
+    }
     try {
       const res = await fetch('/api/finance/staff-payments', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -2210,7 +2246,8 @@ export function StaffPaymentsView({ showToast }) {
         setShowForm(false);
         setForm({ staffId: '', staffName: '', staffRole: '', department: '',
           basicSalary: '30000', allowances: '6000', bonus: '0', deductions: '1500',
-          pfDeduction: '1500', taxDeduction: '1000', paymentMethod: 'Bank Transfer' });
+          pfDeduction: '1500', taxDeduction: '1000', paymentMethod: 'Bank Transfer',
+          month: `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}` });
         fetchPayments();
       } else {
         const err = await res.json();
@@ -2218,6 +2255,24 @@ export function StaffPaymentsView({ showToast }) {
       }
     } catch { showToast('Network error', 'error'); }
   };
+
+  const handleDeleteStaffPayment = (id) => {
+    if (window.confirm('Are you sure you want to delete this employee payment record? This will also remove the corresponding salary expense log.')) {
+      fetch(`/api/finance/staff-payments/${id}`, { method: 'DELETE' })
+        .then(res => {
+          if (res.ok) {
+            showToast('Employee payment record deleted successfully.');
+            fetchPayments();
+          } else {
+            showToast('Failed to delete employee payment record.', 'error');
+          }
+        })
+        .catch(() => showToast('Network error', 'error'));
+    }
+  };
+
+  const todayStr = new Date().toLocaleDateString('en-CA');
+  const todaysPayments = payments.filter(p => p.paymentDate === todayStr);
 
   const inputStyle = {
     width: '100%', padding: '10px 14px', background: 'var(--bg-form)',
@@ -2229,16 +2284,20 @@ export function StaffPaymentsView({ showToast }) {
 
   const filteredStaffForSelect = staff.filter(s => {
     if (form.staffRole) {
-      if ((s.role || '').toLowerCase() !== form.staffRole.toLowerCase()) {
+      const matchRole = form.staffRole.toLowerCase();
+      const empDesg = (s.designation || '').toLowerCase();
+      const empRole = (s.role || '').toLowerCase();
+      if (empDesg !== matchRole && empRole !== matchRole) {
         return false;
       }
     }
     if (staffSearchQuery.trim()) {
       const name = (s.name || '').toLowerCase();
       const role = (s.role || '').toLowerCase();
+      const desg = (s.designation || '').toLowerCase();
       const dept = (s.department || '').toLowerCase();
       const query = staffSearchQuery.toLowerCase();
-      return name.includes(query) || role.includes(query) || dept.includes(query);
+      return name.includes(query) || role.includes(query) || desg.includes(query) || dept.includes(query);
     }
     return true;
   });
@@ -2389,7 +2448,7 @@ export function StaffPaymentsView({ showToast }) {
                     style={{ ...inputStyle, cursor: 'pointer' }}
                   >
                     <option value="" style={optionStyle}>Select designation</option>
-                    {defaultStaffDesignations.map(designation => (
+                    {designationOptions.map(designation => (
                       <option key={designation} value={designation} style={optionStyle}>{designation}</option>
                     ))}
                   </select>
@@ -2408,6 +2467,17 @@ export function StaffPaymentsView({ showToast }) {
                   <select value={form.paymentMethod} onChange={e => setForm({ ...form, paymentMethod: e.target.value })} style={{ ...inputStyle, cursor: 'pointer' }}>
                     {['Bank Transfer', 'UPI', 'Cheque', 'Cash'].map(m => <option key={m} value={m} style={optionStyle}>{m}</option>)}
                   </select>
+                </div>
+                <div>
+                  <label style={labelStyle}>Salary Month</label>
+                  <input
+                    type="month"
+                    value={form.month || `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`}
+                    max={`${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`}
+                    onChange={e => setForm({ ...form, month: e.target.value })}
+                    required
+                    style={{ ...inputStyle, cursor: 'pointer' }}
+                  />
                 </div>
               </div>
               <div style={{ padding: '12px 16px', background: 'rgba(236,72,153,0.06)', borderRadius: '10px', border: '1px solid rgba(236,72,153,0.1)', display: 'flex', justifyContent: 'space-between' }}>
@@ -2438,18 +2508,18 @@ export function StaffPaymentsView({ showToast }) {
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ background: 'rgba(255,255,255,0.02)' }}>
-                {['Payment ID', 'Employee', 'Role', 'Basic', 'Allowances', 'Deductions', 'Net Salary', 'Status', 'Date'].map(h => (
+                {['Payment ID', 'Employee', 'Role', 'Basic', 'Allowances', 'Deductions', 'Net Salary', 'Status', 'Date', 'Actions'].map(h => (
                   <th key={h} style={{ padding: '14px 16px', textAlign: 'left', fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={9} style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>Loading...</td></tr>
-              ) : payments.length === 0 ? (
-                <tr><td colSpan={9} style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)', fontSize: '0.85rem' }}>No employee payment records. Click "Process Employee Payment" to get started.</td></tr>
+                <tr><td colSpan={10} style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>Loading...</td></tr>
+              ) : todaysPayments.length === 0 ? (
+                <tr><td colSpan={10} style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)', fontSize: '0.85rem' }}>No employee payments processed today. Click "Process Employee Payment" to get started.</td></tr>
               ) : (
-                payments.slice(0, 50).map((p, i) => (
+                todaysPayments.map((p, i) => (
                   <tr key={i} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}
                     onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.02)'}
                     onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
@@ -2468,6 +2538,20 @@ export function StaffPaymentsView({ showToast }) {
                       }}>{p.paymentStatus}</span>
                     </td>
                     <td style={{ padding: '12px 16px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>{p.paymentDate}</td>
+                    <td style={{ padding: '12px 16px' }}>
+                      <button
+                        onClick={() => handleDeleteStaffPayment(p.paymentId)}
+                        style={{
+                          padding: '6px 12px', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)',
+                          borderRadius: '8px', color: '#ef4444', fontWeight: 600, cursor: 'pointer', fontSize: '0.75rem',
+                          display: 'flex', alignItems: 'center', gap: '4px', transition: 'all 0.2s'
+                        }}
+                        onMouseEnter={e => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.2)'}
+                        onMouseLeave={e => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.1)'}
+                      >
+                        <Trash2 size={13} /> Delete
+                      </button>
+                    </td>
                   </tr>
                 ))
               )}
@@ -2490,14 +2574,16 @@ export function PayrollView({ showToast }) {
   const [filterStatus, setFilterStatus] = useState('All');
   const [search, setSearch] = useState('');
   const [form, setForm] = useState({
-    teacherId: '', teacherName: '', employeeId: '', designation: '', department: '',
+    teacherId: '', teacherName: '', employeeId: '', role: '', department: '',
     basicSalary: '45000', allowances: '5000', bonus: '0', deductions: '2000',
-    pfDeduction: '1800', taxDeduction: '1200', paymentMethod: 'Bank Transfer'
+    pfDeduction: '1800', taxDeduction: '1200', paymentMethod: 'Bank Transfer',
+    month: `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`
   });
   const [teacherSearchQuery, setTeacherSearchQuery] = useState('');
   const [showTeacherDropdown, setShowTeacherDropdown] = useState(false);
   const [salaryStructures, setSalaryStructures] = useState([]);
   const [selectedStructureId, setSelectedStructureId] = useState('');
+  const [roles, setRoles] = useState([]);
 
   useEffect(() => {
     if (!showForm) {
@@ -2531,34 +2617,44 @@ export function PayrollView({ showToast }) {
       .catch(() => {});
   };
 
+  const fetchRoles = () => {
+    fetch('/api/rbac/roles')
+      .then(r => r.ok ? r.json() : [])
+      .then(d => {
+        const activeRoles = d.filter(r => r.active && !['Developer Admin', 'Main Admin', 'Admin Dashboard'].includes(r.name));
+        setRoles(activeRoles);
+      })
+      .catch(() => {});
+  };
+
   useEffect(() => {
     fetchPayroll();
     fetchTeachers();
     fetchSalaryStructures();
+    fetchRoles();
   }, [filterStatus, search]);
+
+  useEffect(() => {
+    if (showForm) {
+      fetchRoles();
+    }
+  }, [showForm]);
 
   const selectTeacher = (t) => {
     if (t) {
-      const isStandardRole = [
-        'Principal', 'Vice Principal', 'Academic Coordinator',
-        'Receptionist', 'Accountant', 'Expense Manager'
-      ].includes(t.designation);
-
       let basicSalary = '45000';
       let allowances = '5000';
       let deductions = '2000';
       let pfDeduction = '1800';
       let taxDeduction = '1200';
 
-      if (isStandardRole) {
-        const matchingStructure = salaryStructures.find(s => s.designation === t.designation);
-        if (matchingStructure) {
-          basicSalary = String(matchingStructure.basicSalary || '0');
-          allowances = String(matchingStructure.allowances || '0');
-          deductions = String(matchingStructure.deductions || '0');
-          pfDeduction = String(matchingStructure.pfDeduction || '0');
-          taxDeduction = String(matchingStructure.taxDeduction || '0');
-        }
+      const matchingStructure = salaryStructures.find(s => (s.role || s.designation) === t.designation);
+      if (matchingStructure) {
+        basicSalary = String(matchingStructure.basicSalary || '0');
+        allowances = String(matchingStructure.allowances || '0');
+        deductions = String(matchingStructure.deductions || '0');
+        pfDeduction = String(matchingStructure.pfDeduction || '0');
+        taxDeduction = String(matchingStructure.taxDeduction || '0');
       }
 
       setForm(prev => ({
@@ -2566,7 +2662,7 @@ export function PayrollView({ showToast }) {
         teacherId: t.id,
         teacherName: t.name,
         employeeId: t.employeeId || `EMP-${t.id}`,
-        designation: t.designation || 'Teacher',
+        role: t.designation || 'Teacher',
         department: t.department || 'General',
         basicSalary,
         allowances,
@@ -2582,7 +2678,7 @@ export function PayrollView({ showToast }) {
         teacherId: '',
         teacherName: '',
         employeeId: '',
-        designation: '',
+        role: '',
         department: '',
         basicSalary: '45000',
         allowances: '5000',
@@ -2600,7 +2696,7 @@ export function PayrollView({ showToast }) {
       setForm(prev => ({
         ...prev, teacherId: t.id, teacherName: t.name,
         employeeId: t.employeeId || `EMP-${t.id}`,
-        designation: t.designation || 'Teacher',
+        role: t.designation || 'Teacher',
         department: t.department || 'General'
       }));
     }
@@ -2611,6 +2707,11 @@ export function PayrollView({ showToast }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    const currentMonthStr = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
+    if (form.month && form.month > currentMonthStr) {
+      showToast('Cannot select a future month.', 'error');
+      return;
+    }
     try {
       const res = await fetch('/api/finance/payroll', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -2619,9 +2720,10 @@ export function PayrollView({ showToast }) {
       if (res.ok) {
         showToast(`Salary processed for ${form.teacherName}! Net: ₹${netSalary.toLocaleString()}`);
         setShowForm(false);
-        setForm({ teacherId: '', teacherName: '', employeeId: '', designation: '', department: '',
+        setForm({ teacherId: '', teacherName: '', employeeId: '', role: '', department: '',
           basicSalary: '45000', allowances: '5000', bonus: '0', deductions: '2000',
-          pfDeduction: '1800', taxDeduction: '1200', paymentMethod: 'Bank Transfer' });
+          pfDeduction: '1800', taxDeduction: '1200', paymentMethod: 'Bank Transfer',
+          month: `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}` });
         setSelectedStructureId('');
         fetchPayroll();
       } else {
@@ -2630,6 +2732,24 @@ export function PayrollView({ showToast }) {
       }
     } catch { showToast('Network error', 'error'); }
   };
+
+  const handleDeletePayroll = (id) => {
+    if (window.confirm('Are you sure you want to delete this payroll record? This will also remove the corresponding salary expense log.')) {
+      fetch(`/api/finance/payroll/${id}`, { method: 'DELETE' })
+        .then(res => {
+          if (res.ok) {
+            showToast('Payroll record deleted successfully.');
+            fetchPayroll();
+          } else {
+            showToast('Failed to delete payroll record.', 'error');
+          }
+        })
+        .catch(() => showToast('Network error', 'error'));
+    }
+  };
+
+  const todayStr = new Date().toLocaleDateString('en-CA');
+  const todaysPayroll = payroll.filter(p => p.paymentDate === todayStr);
 
   const inputStyle = {
     width: '100%', padding: '10px 14px', background: 'var(--bg-form)',
@@ -2640,11 +2760,12 @@ export function PayrollView({ showToast }) {
   const optionStyle = { background: 'var(--bg-form)', color: 'var(--text-main)' };
 
   const filteredTeachersForSelect = teachers.filter(t => {
-    if (form.designation) {
-      const formDesg = form.designation.toLowerCase();
+    if (form.role) {
+      const formRole = form.role.toLowerCase();
       const teacherDesg = (t.designation || '').toLowerCase();
-      const isMatch = (formDesg === 'teacher' && (teacherDesg === 'subject teacher' || teacherDesg === 'teacher')) ||
-                      (formDesg === teacherDesg);
+      const teacherRole = (t.role || '').toLowerCase();
+      const isMatch = (formRole === 'teacher' && (teacherDesg === 'subject teacher' || teacherDesg === 'teacher')) ||
+                      (formRole === teacherDesg || formRole === teacherRole);
       if (!isMatch) return false;
     }
     if (teacherSearchQuery.trim()) {
@@ -2652,8 +2773,9 @@ export function PayrollView({ showToast }) {
       const name = (t.name || '').toLowerCase();
       const dept = (t.department || '').toLowerCase();
       const desg = (t.designation || '').toLowerCase();
+      const role = (t.role || '').toLowerCase();
       const empId = (t.employeeId || '').toLowerCase();
-      return name.includes(q) || dept.includes(q) || desg.includes(q) || empId.includes(q);
+      return name.includes(q) || dept.includes(q) || desg.includes(q) || role.includes(q) || empId.includes(q);
     }
     return true;
   });
@@ -2761,26 +2883,22 @@ export function PayrollView({ showToast }) {
                   )}
                 </div>
                 <div>
-                  <label style={labelStyle}>Designation</label>
+                  <label style={labelStyle}>Role</label>
                   <select
-                    value={form.designation}
+                    value={form.role}
                     onChange={e => {
-                      setForm({ ...form, designation: e.target.value });
+                      setForm({ ...form, role: e.target.value });
                     }}
                     required
                     style={{ ...inputStyle, cursor: 'pointer' }}
                   >
-                    <option value="" style={optionStyle}>Select designation</option>
-                    <option value="Teacher" style={optionStyle}>Teacher</option>
-                    <option value="Principal" style={optionStyle}>Principal</option>
-                    <option value="Vice Principal" style={optionStyle}>Vice Principal</option>
-                    <option value="Academic Coordinator" style={optionStyle}>Academic Coordinator</option>
-                    <option value="Receptionist" style={optionStyle}>Receptionist</option>
-                    <option value="Accountant" style={optionStyle}>Accountant</option>
-                    <option value="Expense Manager" style={optionStyle}>Expense Manager</option>
+                    <option value="" style={optionStyle}>Select role</option>
+                    {(roles.length > 0 ? roles.map(r => r.name) : fallbackStaffRoles).map(roleName => (
+                      <option key={roleName} value={roleName} style={optionStyle}>{roleName}</option>
+                    ))}
                   </select>
                 </div>
-                {form.designation === 'Teacher' && (
+                {form.role === 'Teacher' && (
                   <div>
                     <label style={labelStyle}>Grade Range Pay Tier</label>
                     <select
@@ -2805,7 +2923,7 @@ export function PayrollView({ showToast }) {
                       <option value="" style={optionStyle}>Select a configured grade/tier to pre-fill</option>
                       {salaryStructures.map(s => (
                         <option key={s.id} value={s.id} style={optionStyle}>
-                          {s.designation} (Net: ₹{(s.netSalary || 0).toLocaleString()})
+                          {s.role || s.designation} (Net: ₹{(s.netSalary || 0).toLocaleString()})
                         </option>
                       ))}
                     </select>
@@ -2825,6 +2943,17 @@ export function PayrollView({ showToast }) {
                   <select value={form.paymentMethod} onChange={e => setForm({ ...form, paymentMethod: e.target.value })} style={{ ...inputStyle, cursor: 'pointer' }}>
                     {['Bank Transfer', 'UPI', 'Cheque', 'Cash'].map(m => <option key={m} value={m} style={optionStyle}>{m}</option>)}
                   </select>
+                </div>
+                <div>
+                  <label style={labelStyle}>Salary Month</label>
+                  <input
+                    type="month"
+                    value={form.month || `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`}
+                    max={`${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`}
+                    onChange={e => setForm({ ...form, month: e.target.value })}
+                    required
+                    style={{ ...inputStyle, cursor: 'pointer' }}
+                  />
                 </div>
               </div>
               <div style={{ padding: '12px 16px', background: 'rgba(139,92,246,0.06)', borderRadius: '10px', border: '1px solid rgba(139,92,246,0.1)', display: 'flex', justifyContent: 'space-between' }}>
@@ -2856,24 +2985,24 @@ export function PayrollView({ showToast }) {
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ background: 'rgba(255,255,255,0.02)' }}>
-                {['Payroll ID', 'Staff', 'Designation', 'Basic', 'Allowances', 'Deductions', 'Net Salary', 'Status', 'Date'].map(h => (
+                {['Payroll ID', 'Staff', 'Role', 'Basic', 'Allowances', 'Deductions', 'Net Salary', 'Status', 'Date', 'Actions'].map(h => (
                   <th key={h} style={{ padding: '14px 16px', textAlign: 'left', fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={9} style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>Loading...</td></tr>
-              ) : payroll.length === 0 ? (
-                <tr><td colSpan={9} style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)', fontSize: '0.85rem' }}>No payroll records. Click "Process Salary" to get started.</td></tr>
+                <tr><td colSpan={10} style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>Loading...</td></tr>
+              ) : todaysPayroll.length === 0 ? (
+                <tr><td colSpan={10} style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)', fontSize: '0.85rem' }}>No staff payroll records processed today. Click "Process Staff Salary" to get started.</td></tr>
               ) : (
-                payroll.slice(0, 50).map((p, i) => (
+                todaysPayroll.map((p, i) => (
                   <tr key={i} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}
                     onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.02)'}
                     onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
                     <td style={{ padding: '12px 16px', fontSize: '0.8rem', fontWeight: 600, color: '#8b5cf6' }}>{p.payrollId}</td>
                     <td style={{ padding: '12px 16px', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-main)' }}>{p.teacherName}</td>
-                    <td style={{ padding: '12px 16px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>{p.designation}</td>
+                    <td style={{ padding: '12px 16px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>{p.role || p.designation}</td>
                     <td style={{ padding: '12px 16px', fontSize: '0.8rem', color: 'var(--text-main)' }}>₹{p.basicSalary?.toLocaleString()}</td>
                     <td style={{ padding: '12px 16px', fontSize: '0.8rem', color: '#10b981' }}>+₹{p.allowances?.toLocaleString()}</td>
                     <td style={{ padding: '12px 16px', fontSize: '0.8rem', color: '#ef4444' }}>-₹{(p.deductions + p.pfDeduction + p.taxDeduction)?.toLocaleString()}</td>
@@ -2886,6 +3015,20 @@ export function PayrollView({ showToast }) {
                       }}>{p.paymentStatus}</span>
                     </td>
                     <td style={{ padding: '12px 16px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>{p.paymentDate}</td>
+                    <td style={{ padding: '12px 16px' }}>
+                      <button
+                        onClick={() => handleDeletePayroll(p.payrollId)}
+                        style={{
+                          padding: '6px 12px', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)',
+                          borderRadius: '8px', color: '#ef4444', fontWeight: 600, cursor: 'pointer', fontSize: '0.75rem',
+                          display: 'flex', alignItems: 'center', gap: '4px', transition: 'all 0.2s'
+                        }}
+                        onMouseEnter={e => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.2)'}
+                        onMouseLeave={e => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.1)'}
+                      >
+                        <Trash2 size={13} /> Delete
+                      </button>
+                    </td>
                   </tr>
                 ))
               )}
@@ -4147,6 +4290,16 @@ export function ReportsView({ showToast }) {
 /* ============================================================
    TEACHER SALARY STRUCTURE VIEW
    ============================================================ */
+const fallbackStaffRoles = [
+  'Teacher',
+  'Principal',
+  'Vice Principal',
+  'Academic Coordinator',
+  'Receptionist',
+  'Accountant',
+  'Expense Manager'
+];
+
 export function TeacherSalaryStructureView({ showToast }) {
   const [structures, setStructures] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -4154,33 +4307,51 @@ export function TeacherSalaryStructureView({ showToast }) {
   const [editingId, setEditingId] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(null);
   const [form, setForm] = useState({
-    designation: '', basicSalary: '', allowances: '',
+    role: '', basicSalary: '', allowances: '',
     deductions: '0', pfDeduction: '0', taxDeduction: '0'
   });
   const [selectedRole, setSelectedRole] = useState('');
   const [gradeRange, setGradeRange] = useState('');
+  const [roles, setRoles] = useState([]);
 
   const fetchStructures = () => {
     fetch('/api/finance/salary-structures')
-      .then(r => r.json())
-      .then(d => { setStructures(d); setLoading(false); })
+      .then(r => r.ok ? r.json() : [])
+      .then(d => { setStructures(Array.isArray(d) ? d : []); setLoading(false); })
       .catch(() => setLoading(false));
+  };
+
+  const fetchRoles = () => {
+    fetch('/api/rbac/roles')
+      .then(r => r.ok ? r.json() : [])
+      .then(d => {
+        const activeRoles = d.filter(r => r.active && !['Developer Admin', 'Main Admin', 'Admin Dashboard'].includes(r.name));
+        setRoles(activeRoles);
+      })
+      .catch(() => {});
   };
 
   useEffect(() => {
     fetchStructures();
+    fetchRoles();
   }, []);
+
+  useEffect(() => {
+    if (showForm) {
+      fetchRoles();
+    }
+  }, [showForm]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const finalDesignation = selectedRole === 'Teacher' ? gradeRange : selectedRole;
-    if (!finalDesignation) {
-      showToast('Please specify a designation or grade range.', 'error');
+    const finalRole = selectedRole === 'Teacher' ? gradeRange : selectedRole;
+    if (!finalRole) {
+      showToast('Please specify a role or grade range.', 'error');
       return;
     }
     const formData = {
       ...form,
-      designation: finalDesignation
+      role: finalRole
     };
     try {
       const isEdit = !!editingId;
@@ -4191,10 +4362,10 @@ export function TeacherSalaryStructureView({ showToast }) {
         body: JSON.stringify(formData)
       });
       if (res.ok) {
-        showToast(`Salary structure for ${finalDesignation} saved!`);
+        showToast(`Salary structure for ${finalRole} saved!`);
         setEditingId(null);
         setForm({
-          designation: '', basicSalary: '', allowances: '',
+          role: '', basicSalary: '', allowances: '',
           deductions: '0', pfDeduction: '0', taxDeduction: '0'
         });
         setSelectedRole('');
@@ -4213,21 +4384,19 @@ export function TeacherSalaryStructureView({ showToast }) {
   };
 
   const handleEdit = (s) => {
-    const isStandardRole = [
-      'Principal', 'Vice Principal', 'Academic Coordinator',
-      'Receptionist', 'Accountant', 'Expense Manager'
-    ].includes(s.designation);
+    const roleName = s.role || s.designation;
+    const isRole = roles.some(r => r.name === roleName) || fallbackStaffRoles.includes(roleName);
 
-    if (isStandardRole) {
-      setSelectedRole(s.designation);
+    if (isRole) {
+      setSelectedRole(roleName);
       setGradeRange('');
     } else {
       setSelectedRole('Teacher');
-      setGradeRange(s.designation || '');
+      setGradeRange(roleName || '');
     }
 
     setForm({
-      designation: s.designation || '',
+      role: roleName || '',
       basicSalary: String(s.basicSalary || ''),
       allowances: String(s.allowances || ''),
       deductions: String(s.deductions || '0'),
@@ -4276,7 +4445,7 @@ export function TeacherSalaryStructureView({ showToast }) {
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '16px' }}>
                 <div>
-                  <label style={labelStyle}>Designation</label>
+                <label style={labelStyle}>Role</label>
                   <select
                     value={selectedRole}
                     onChange={e => {
@@ -4288,14 +4457,10 @@ export function TeacherSalaryStructureView({ showToast }) {
                     required
                     style={{ ...inputStyle, cursor: 'pointer' }}
                   >
-                    <option value="" style={optionStyle}>Select designation</option>
-                    <option value="Teacher" style={optionStyle}>Teacher</option>
-                    <option value="Principal" style={optionStyle}>Principal</option>
-                    <option value="Vice Principal" style={optionStyle}>Vice Principal</option>
-                    <option value="Academic Coordinator" style={optionStyle}>Academic Coordinator</option>
-                    <option value="Receptionist" style={optionStyle}>Receptionist</option>
-                    <option value="Accountant" style={optionStyle}>Accountant</option>
-                    <option value="Expense Manager" style={optionStyle}>Expense Manager</option>
+                    <option value="" style={optionStyle}>Select role</option>
+                    {(roles.length > 0 ? roles.map(r => r.name) : fallbackStaffRoles).map(roleName => (
+                      <option key={roleName} value={roleName} style={optionStyle}>{roleName}</option>
+                    ))}
                   </select>
                 </div>
                 {selectedRole === 'Teacher' && (
@@ -4343,7 +4508,7 @@ export function TeacherSalaryStructureView({ showToast }) {
         </div>,
         document.body
       )}
-
+ 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '16px' }}>
           {loading ? (
             <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
@@ -4369,10 +4534,7 @@ export function TeacherSalaryStructureView({ showToast }) {
               }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(0,0,0,0.06)', paddingBottom: '10px' }}>
                   <h4 style={{ fontSize: '1rem', fontWeight: 800, color: '#10b981' }}>
-                    {[
-                      'Principal', 'Vice Principal', 'Academic Coordinator',
-                      'Receptionist', 'Accountant', 'Expense Manager'
-                    ].includes(s.designation) ? s.designation : `Teacher (${s.designation})`}
+                    {(() => { const roleName = s.role || s.designation; return (roles.some(r => r.name === roleName) || fallbackStaffRoles.includes(roleName)) ? roleName : `Teacher (${roleName})`; })()}
                   </h4>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
@@ -4407,7 +4569,7 @@ export function TeacherSalaryStructureView({ showToast }) {
                        title="Edit Structure">
                       <Pencil size={15} />
                     </button>
-                    <button onClick={() => handleDelete(s.id, s.designation)} style={{
+                    <button onClick={() => handleDelete(s.id, s.role || s.designation)} style={{
                       background: 'rgba(0,0,0,0.03)', border: '1px solid rgba(0,0,0,0.08)', color: '#ef4444', cursor: 'pointer',
                       display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '6px', borderRadius: '6px',
                       transition: 'all 0.2s'
@@ -5173,6 +5335,277 @@ export function FeesHistoryView({ showToast }) {
         onCancel={() => setConfirmDeleteAllStudentFees(null)}
       />
 
+    </div>
+  );
+}
+
+/* ============================================================
+   PAYROLL HISTORY VIEW
+   ============================================================ */
+export function PayrollHistoryView({ showToast }) {
+  const [activeTab, setActiveTab] = useState('staff'); // 'staff' or 'employee'
+  const [staffHistory, setStaffHistory] = useState([]);
+  const [employeeHistory, setEmployeeHistory] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [monthFilter, setMonthFilter] = useState(''); // 'YYYY-MM'
+
+  const fetchHistory = () => {
+    setLoading(true);
+    Promise.all([
+      fetch('/api/finance/payroll').then(r => r.ok ? r.json() : []),
+      fetch('/api/finance/staff-payments').then(r => r.ok ? r.json() : [])
+    ]).then(([staffData, employeeData]) => {
+      setStaffHistory(Array.isArray(staffData) ? staffData : []);
+      setEmployeeHistory(Array.isArray(employeeData) ? employeeData : []);
+      setLoading(false);
+    }).catch(() => setLoading(false));
+  };
+
+  const handleDeletePayroll = (id) => {
+    if (window.confirm('Are you sure you want to delete this payroll record? This will also remove the corresponding salary expense log.')) {
+      fetch(`/api/finance/payroll/${id}`, { method: 'DELETE' })
+        .then(res => {
+          if (res.ok) {
+            showToast('Payroll record deleted successfully.');
+            fetchHistory();
+          } else {
+            showToast('Failed to delete payroll record.', 'error');
+          }
+        })
+        .catch(() => showToast('Network error', 'error'));
+    }
+  };
+
+  const handleDeleteEmployeePayment = (id) => {
+    if (window.confirm('Are you sure you want to delete this employee payment record? This will also remove the corresponding salary expense log.')) {
+      fetch(`/api/finance/staff-payments/${id}`, { method: 'DELETE' })
+        .then(res => {
+          if (res.ok) {
+            showToast('Employee payment record deleted successfully.');
+            fetchHistory();
+          } else {
+            showToast('Failed to delete employee payment record.', 'error');
+          }
+        })
+        .catch(() => showToast('Network error', 'error'));
+    }
+  };
+
+  useEffect(() => {
+    fetchHistory();
+  }, []);
+
+  const inputStyle = {
+    width: '100%', padding: '10px 14px', background: 'var(--bg-form)',
+    border: '1.5px solid var(--border-glass)', borderRadius: '10px', color: 'var(--text-main)',
+    fontSize: '0.85rem', outline: 'none', boxSizing: 'border-box'
+  };
+  const optionStyle = { background: 'var(--bg-form)', color: 'var(--text-main)' };
+
+  // Filter staff history
+  const filteredStaff = staffHistory.filter(p => {
+    if (monthFilter) {
+      if (!p.month || !p.month.startsWith(monthFilter)) return false;
+    }
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      const name = (p.teacherName || '').toLowerCase();
+      return name.startsWith(q);
+    }
+    return true;
+  });
+
+  // Filter employee history
+  const filteredEmployee = employeeHistory.filter(p => {
+    if (monthFilter) {
+      if (!p.month || !p.month.startsWith(monthFilter)) return false;
+    }
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      const name = (p.staffName || '').toLowerCase();
+      return name.startsWith(q);
+    }
+    return true;
+  });
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+      {/* Tab Row */}
+      <div style={{ display: 'flex', gap: '16px', borderBottom: '1px solid var(--border-glass)', paddingBottom: '10px' }}>
+        <button
+          onClick={() => { setActiveTab('staff'); setSearchQuery(''); }}
+          style={{
+            background: 'none', border: 'none', padding: '8px 16px', cursor: 'pointer',
+            fontSize: '0.9rem', fontWeight: 700,
+            color: activeTab === 'staff' ? '#8b5cf6' : 'var(--text-muted)',
+            borderBottom: activeTab === 'staff' ? '3px solid #8b5cf6' : 'none',
+            display: 'flex', alignItems: 'center', gap: '8px', transition: 'all 0.2s'
+          }}
+        >
+          <Users size={16} /> Staff Payroll History
+        </button>
+        <button
+          onClick={() => { setActiveTab('employee'); setSearchQuery(''); }}
+          style={{
+            background: 'none', border: 'none', padding: '8px 16px', cursor: 'pointer',
+            fontSize: '0.9rem', fontWeight: 700,
+            color: activeTab === 'employee' ? '#ec4899' : 'var(--text-muted)',
+            borderBottom: activeTab === 'employee' ? '3px solid #ec4899' : 'none',
+            display: 'flex', alignItems: 'center', gap: '8px', transition: 'all 0.2s'
+          }}
+        >
+          <UserCog size={16} /> Employee Payroll History
+        </button>
+      </div>
+
+      <div className="glass-panel" style={{ padding: '24px', borderRadius: '16px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+        {/* Search and Filters */}
+        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
+          <div style={{ position: 'relative', flex: 1, minWidth: '240px' }}>
+            <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+            <input
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              placeholder={activeTab === 'staff' ? "Search staff name, role..." : "Search employee name, designation..."}
+              style={{ ...inputStyle, paddingLeft: '38px' }}
+            />
+          </div>
+          <div>
+            <input
+              type="month"
+              value={monthFilter}
+              onChange={e => setMonthFilter(e.target.value)}
+              style={{ ...inputStyle, width: '200px', cursor: 'pointer' }}
+              placeholder="Filter by salary month"
+            />
+          </div>
+          {monthFilter && (
+            <button
+              onClick={() => setMonthFilter('')}
+              style={{
+                padding: '10px 16px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)',
+                borderRadius: '10px', color: 'var(--text-main)', fontWeight: 600, cursor: 'pointer', fontSize: '0.85rem'
+              }}
+            >
+              Clear Month
+            </button>
+          )}
+        </div>
+
+        {/* Table list */}
+        <div style={{ overflowX: 'auto', borderRadius: '12px', border: '1px solid var(--border-glass)' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+            {activeTab === 'staff' ? (
+              <>
+                <thead>
+                  <tr style={{ background: 'rgba(255,255,255,0.02)' }}>
+                    {['Payroll ID', 'Staff', 'Role', 'Basic', 'Allowances', 'Deductions', 'Net Salary', 'Status', 'Date', 'Actions'].map(h => (
+                      <th key={h} style={{ padding: '14px 16px', fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {loading ? (
+                    <tr><td colSpan={10} style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>Loading...</td></tr>
+                  ) : filteredStaff.length === 0 ? (
+                    <tr><td colSpan={10} style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)', fontSize: '0.85rem' }}>No staff payroll history records found.</td></tr>
+                  ) : (
+                    filteredStaff.map((p, idx) => (
+                      <tr key={idx} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}
+                        onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.02)'}
+                        onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                        <td style={{ padding: '12px 16px', fontSize: '0.8rem', fontWeight: 600, color: '#8b5cf6' }}>{p.payrollId}</td>
+                        <td style={{ padding: '12px 16px', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-main)' }}>{p.teacherName}</td>
+                        <td style={{ padding: '12px 16px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>{p.role || p.designation}</td>
+                        <td style={{ padding: '12px 16px', fontSize: '0.8rem', color: 'var(--text-main)' }}>₹{p.basicSalary?.toLocaleString()}</td>
+                        <td style={{ padding: '12px 16px', fontSize: '0.8rem', color: '#10b981' }}>+₹{p.allowances?.toLocaleString()}</td>
+                        <td style={{ padding: '12px 16px', fontSize: '0.8rem', color: '#ef4444' }}>-₹{((p.deductions || 0) + (p.pfDeduction || 0) + (p.taxDeduction || 0))?.toLocaleString()}</td>
+                        <td style={{ padding: '12px 16px', fontSize: '0.8rem', fontWeight: 700, color: '#8b5cf6' }}>₹{p.netSalary?.toLocaleString()}</td>
+                        <td style={{ padding: '12px 16px' }}>
+                          <span style={{
+                            padding: '4px 10px', borderRadius: '20px', fontSize: '0.7rem', fontWeight: 700,
+                            background: p.paymentStatus === 'Paid' ? 'rgba(16,185,129,0.1)' : 'rgba(245,158,11,0.1)',
+                            color: p.paymentStatus === 'Paid' ? '#10b981' : '#f59e0b'
+                          }}>{p.paymentStatus}</span>
+                        </td>
+                        <td style={{ padding: '12px 16px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>{p.paymentDate}</td>
+                        <td style={{ padding: '12px 16px' }}>
+                          <button
+                            onClick={() => handleDeletePayroll(p.payrollId)}
+                            style={{
+                              padding: '6px 12px', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)',
+                              borderRadius: '8px', color: '#ef4444', fontWeight: 600, cursor: 'pointer', fontSize: '0.75rem',
+                              display: 'flex', alignItems: 'center', gap: '4px', transition: 'all 0.2s'
+                            }}
+                            onMouseEnter={e => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.2)'}
+                            onMouseLeave={e => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.1)'}
+                          >
+                            <Trash2 size={13} /> Delete
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </>
+            ) : (
+              <>
+                <thead>
+                  <tr style={{ background: 'rgba(255,255,255,0.02)' }}>
+                    {['Payment ID', 'Employee', 'Role', 'Basic', 'Allowances', 'Deductions', 'Net Salary', 'Status', 'Date', 'Actions'].map(h => (
+                      <th key={h} style={{ padding: '14px 16px', fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {loading ? (
+                    <tr><td colSpan={10} style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>Loading...</td></tr>
+                  ) : filteredEmployee.length === 0 ? (
+                    <tr><td colSpan={10} style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)', fontSize: '0.85rem' }}>No employee payroll history records found.</td></tr>
+                  ) : (
+                    filteredEmployee.map((p, idx) => (
+                      <tr key={idx} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}
+                        onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.02)'}
+                        onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                        <td style={{ padding: '12px 16px', fontSize: '0.8rem', fontWeight: 600, color: '#ec4899' }}>{p.paymentId}</td>
+                        <td style={{ padding: '12px 16px', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-main)' }}>{p.staffName}</td>
+                        <td style={{ padding: '12px 16px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>{p.staffRole}</td>
+                        <td style={{ padding: '12px 16px', fontSize: '0.8rem', color: 'var(--text-main)' }}>₹{p.basicSalary?.toLocaleString()}</td>
+                        <td style={{ padding: '12px 16px', fontSize: '0.8rem', color: '#10b981' }}>+₹{((p.allowances || 0) + (p.bonus || 0))?.toLocaleString()}</td>
+                        <td style={{ padding: '12px 16px', fontSize: '0.8rem', color: '#ef4444' }}>-₹{((p.deductions || 0) + (p.pfDeduction || 0) + (p.taxDeduction || 0))?.toLocaleString()}</td>
+                        <td style={{ padding: '12px 16px', fontSize: '0.8rem', fontWeight: 700, color: '#ec4899' }}>₹{p.netSalary?.toLocaleString()}</td>
+                        <td style={{ padding: '12px 16px' }}>
+                          <span style={{
+                            padding: '4px 10px', borderRadius: '20px', fontSize: '0.7rem', fontWeight: 700,
+                            background: p.paymentStatus === 'Paid' ? 'rgba(16,185,129,0.1)' : 'rgba(245,158,11,0.1)',
+                            color: p.paymentStatus === 'Paid' ? '#10b981' : '#f59e0b'
+                          }}>{p.paymentStatus}</span>
+                        </td>
+                        <td style={{ padding: '12px 16px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>{p.paymentDate}</td>
+                        <td style={{ padding: '12px 16px' }}>
+                          <button
+                            onClick={() => handleDeleteEmployeePayment(p.paymentId)}
+                            style={{
+                              padding: '6px 12px', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)',
+                              borderRadius: '8px', color: '#ef4444', fontWeight: 600, cursor: 'pointer', fontSize: '0.75rem',
+                              display: 'flex', alignItems: 'center', gap: '4px', transition: 'all 0.2s'
+                            }}
+                            onMouseEnter={e => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.2)'}
+                            onMouseLeave={e => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.1)'}
+                          >
+                            <Trash2 size={13} /> Delete
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </>
+            )}
+          </table>
+        </div>
+      </div>
     </div>
   );
 }

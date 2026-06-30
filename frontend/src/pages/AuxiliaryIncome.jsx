@@ -398,7 +398,10 @@ export default function AuxiliaryIncome({ showToast }) {
           <button 
             onClick={() => {
               if (categories.length === 0) {
-                triggerToast('Please create at least one income category first.', 'error');
+                triggerToast('Please create at least one income category first. Opening Category Creator...', 'warning');
+                setSelectedCategory(null);
+                setCategoryForm({ name: '', description: '' });
+                setShowCategoryModal(true);
                 return;
               }
               setSelectedEntry(null);

@@ -202,6 +202,12 @@ export const checkPermission = (module, action) => {
       }
     }
 
+    if (module === 'salaries') {
+      if (hasPerm('finance')) {
+        return next();
+      }
+    }
+
     if (hasPerm(module)) {
       return next();
     }

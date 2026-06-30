@@ -1,4 +1,6 @@
 import express from 'express';
+import { auth } from '../middleware/auth.js';
+import { restoreTenantContext } from '../utils/db.js';
 import {
   getAccountManagementOverview,
   getFeeStructures,
@@ -14,12 +16,14 @@ import {
   deleteSalaryStructure,
   getPayroll,
   processPayroll,
+  deletePayroll,
   getStaffSalaryStructures,
   createStaffSalaryStructure,
   updateStaffSalaryStructure,
   deleteStaffSalaryStructure,
   getStaffPayments,
   processStaffPayment,
+  deleteStaffPayment,
   getExpenses,
   addExpense,
   updateExpense,
@@ -33,6 +37,53 @@ import {
 } from '../controllers/accountManagementController.js';
 
 const router = express.Router();
+
+// Apply auth and tenant context restore to all endpoints
+router.use(auth);
+router.use(restoreTenantContext);
+
+import { checkPermission } from '../middleware/permissionMiddleware.js';
+
+const getPermissionParams = (req) => {
+  const path = req.path;
+  const method = req.method;
+  
+  const methodActionMap = {
+    'GET': 'view',
+    'POST': 'create',
+    'PUT': 'edit',
+    'PATCH': 'edit',
+    'DELETE': 'delete'
+  };
+  const action = methodActionMap[method] || 'view';
+
+  if (path.startsWith('/fee-structures') || path.startsWith('/fee-periods')) {
+    return { module: 'fee-structures', action };
+  }
+  if (path.startsWith('/fees')) {
+    return { module: 'income', action };
+  }
+  if (path.startsWith('/salary-structures') || path.startsWith('/payroll') || path.startsWith('/staff-salary-structures') || path.startsWith('/staff-payments')) {
+    return { module: 'salaries', action };
+  }
+  if (path.startsWith('/expenses') || path.startsWith('/expense-history')) {
+    return { module: 'expenses', action };
+  }
+  if (path.startsWith('/income')) {
+    return { module: 'income', action };
+  }
+  if (path.startsWith('/overview')) {
+    return { module: 'dashboard', action };
+  }
+  
+  return null;
+};
+
+router.use((req, res, next) => {
+  const params = getPermissionParams(req);
+  if (!params) return next();
+  return checkPermission(params.module, params.action)(req, res, next);
+});
 
 // Dashboard overview
 router.get('/overview', getAccountManagementOverview);
@@ -57,6 +108,7 @@ router.delete('/salary-structures/:id', deleteSalaryStructure);
 // Payroll
 router.get('/payroll', getPayroll);
 router.post('/payroll', processPayroll);
+router.delete('/payroll/:id', deletePayroll);
 
 // Staff Salary Structures
   router.get('/staff-salary-structures', getStaffSalaryStructures);
@@ -67,6 +119,7 @@ router.post('/payroll', processPayroll);
   // Staff Payments
 router.get('/staff-payments', getStaffPayments);
 router.post('/staff-payments', processStaffPayment);
+router.delete('/staff-payments/:id', deleteStaffPayment);
 
 // Expenses
 router.get('/expenses', getExpenses);

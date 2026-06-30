@@ -80,7 +80,7 @@ export default function Sidebar({
   const [adminFinanceOpen, setAdminFinanceOpen] = useState(() => {
     return typeof adminView === 'string' && ([
       'collect-fees', 'fee-structure', 'fees-history',
-      'payroll', 'teacher-pay-structure', 'staff-pay', 'staff-pay-structure'
+      'payroll', 'payroll-history', 'teacher-pay-structure', 'staff-pay', 'staff-pay-structure'
     ].includes(adminView));
   });
   const [adminExpensesOpen, setAdminExpensesOpen] = useState(() => {
@@ -528,7 +528,7 @@ export default function Sidebar({
                   onClick={() => setAdminFinanceOpen(!adminFinanceOpen)}
                   className={`nav-item ${[
                     'collect-fees', 'fee-structure', 'fees-history', 
-                    'payroll', 'teacher-pay-structure', 'staff-pay', 'staff-pay-structure'
+                    'payroll', 'payroll-history', 'teacher-pay-structure', 'staff-pay', 'staff-pay-structure'
                   ].includes(adminView) ? 'parent-active' : ''}`}
                   style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', cursor: 'pointer' }}
                 >
@@ -599,6 +599,14 @@ export default function Sidebar({
                     >
                       <Calculator size={18} className="flex-shrink-0" />
                       <span className="nav-label">Employee Pay Structure</span>
+                    </button>
+                    <button
+                      onClick={() => { setAdminView('payroll-history'); setMobileOpen(false); }}
+                      className={`nav-item ${adminView === 'payroll-history' ? 'active' : ''}`}
+                      style={{ padding: '10px 12px', fontSize: '0.88rem', position: 'relative' }}
+                    >
+                      <History size={18} className="flex-shrink-0" />
+                      <span className="nav-label">Payroll History</span>
                     </button>
 
                   </div>

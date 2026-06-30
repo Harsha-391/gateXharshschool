@@ -1,6 +1,7 @@
 import express from 'express';
 import { readDb, writeDb, getDefaultRoles } from '../utils/db.js';
 import { auth } from '../middleware/auth.js';
+import { logAudit as fileLogAudit } from '../utils/logger.js';
 
 const router = express.Router();
 
@@ -28,6 +29,9 @@ const logAudit = (db, req, action, details) => {
   };
   // Prepend to show latest logs first, keeping last 500 logs max for sanity
   db.auditLogs = [log, ...db.auditLogs].slice(0, 500);
+  
+  // Write to centralized audit.log file
+  fileLogAudit(action, 'Roles & Permissions', details, req);
 };
 
 // Apply auth to all RBAC endpoints

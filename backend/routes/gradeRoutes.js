@@ -1,6 +1,7 @@
 import express from 'express';
 import { readDb, writeDb, slugify, convertToRoman, tenantStorage } from '../utils/db.js';
 import { auth } from '../middleware/auth.js';
+import { logAudit as fileLogAudit } from '../utils/logger.js';
 
 const router = express.Router();
 
@@ -22,6 +23,9 @@ const logAudit = (db, req, action, details) => {
     timestamp: new Date().toISOString()
   };
   db.auditLogs = [log, ...db.auditLogs].slice(0, 500);
+
+  // Write to centralized audit.log file
+  fileLogAudit(action, 'Grade/Event/Notice Management', details, req);
 };
 
 // Check reference usages before deleting grade or mapping

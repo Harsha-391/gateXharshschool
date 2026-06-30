@@ -251,7 +251,7 @@ export default function AttendanceManager() {
           } else {
             setLastScannedId(payload.employeeId);
             setLastScanTime(now);
-            processAttendanceScan(payload.employeeId, payload.employeeType);
+            processAttendanceScan(payload.employeeId, payload.employeeType, payload);
           }
         }
       } catch (err) {
@@ -261,7 +261,7 @@ export default function AttendanceManager() {
     requestRef.current = requestAnimationFrame(scanLoop);
   };
 
-  const processAttendanceScan = async (employeeId, employeeType) => {
+  const processAttendanceScan = async (employeeId, employeeType, rawPayload = {}) => {
     try {
       const token = sessionStorage.getItem('token');
       const tenant = getTenantHeader();
@@ -272,7 +272,11 @@ export default function AttendanceManager() {
           'Authorization': `Bearer ${token}`,
           'x-tenant-id': tenant
         },
-        body: JSON.stringify({ employeeId, employeeType })
+        body: JSON.stringify({ 
+          employeeId, 
+          employeeType,
+          sig: rawPayload.sig
+        })
       });
       
       if (res.ok) {

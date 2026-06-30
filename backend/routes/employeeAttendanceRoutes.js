@@ -10,6 +10,7 @@ import {
 import { restoreTenantContext, ensureTenantSqlLoaded } from '../utils/db.js';
 import { auth } from '../middleware/auth.js';
 import { checkPermission } from '../middleware/permissionMiddleware.js';
+import { qrAttendanceLimiter, attendanceLimiter } from '../middleware/rateLimiter.js';
 
 const router = express.Router();
 
@@ -25,11 +26,11 @@ router.use((req, res, next) => {
 });
 
 // Routes
-router.post('/scan', scanEmployeeQr);
-router.get('/today', getTodayAttendance);
-router.get('/analytics', getAttendanceAnalytics);
-router.get('/reports', getAttendanceReports);
-router.post('/regenerate-qr', regenerateEmployeeQr);
-router.delete('/record/:id', deleteAttendanceRecord);
+router.post('/scan', qrAttendanceLimiter, scanEmployeeQr);
+router.get('/today', attendanceLimiter, getTodayAttendance);
+router.get('/analytics', attendanceLimiter, getAttendanceAnalytics);
+router.get('/reports', attendanceLimiter, getAttendanceReports);
+router.post('/regenerate-qr', attendanceLimiter, regenerateEmployeeQr);
+router.delete('/record/:id', attendanceLimiter, deleteAttendanceRecord);
 
 export default router;

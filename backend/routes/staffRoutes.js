@@ -1,4 +1,5 @@
 import express from 'express';
+import { teacherValidation } from '../middleware/validationMiddleware.js';
 import { 
   registerTeacher, 
   getTeachers, 
@@ -35,7 +36,7 @@ router.get('/', restoreTenantContext, checkPermission('staff-directory', 'view')
 router.get('/:id', restoreTenantContext, checkPermission('staff-directory', 'view'), getTeacherById);
 
 // 3. REGISTER NEW TEACHER (Multer fields + optional security auth headers)
-router.post('/', uploadFields, restoreTenantContext, checkPermission('add-staff', 'create'), registerTeacher);
+router.post('/', uploadFields, restoreTenantContext, checkPermission('add-staff', 'create'), teacherValidation, registerTeacher);
 
 // 4. UPDATE TEACHER PROFILE
 router.put('/:id', uploadFields, restoreTenantContext, checkPermission('staff-directory', 'edit'), updateTeacher);

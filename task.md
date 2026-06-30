@@ -3,6 +3,6 @@
 - `[x]` Create settings APIs and register them in `server.js`
 - `[x]` Implement enhanced QR scan and status auto-calculation logic in `employeeAttendanceController.js`
 - `[x]` Create the frontend `AttendanceSettings.jsx` page
-- `[x]` Integrate settings page into sidebar and Admin workspace
-- `[x]` Update `AttendanceManager.jsx` with settings-based status counts and auto-refresh
-- `[x]` Validate and verify all changes
+- `[x]` Update `backend/utils/authHelper.js` with failed login tracking, lockout checks, and password strength check
+- `[x]` Update `backend/middleware/auth.js` with active tenant context checks for cross-tenant access prevention
+- `[x]` Mount dynamic `checkPermission` validation in `backend/routes/academicRoutes.js`

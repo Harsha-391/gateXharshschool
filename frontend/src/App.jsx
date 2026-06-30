@@ -198,21 +198,24 @@ const getRouteForRole = (role) => {
 };
 
 const getInitialAuthState = (targetRole) => {
-  const path = window.location.pathname;
-  if (path.startsWith('/school') && targetRole === 'Developer') return true;
-  
-  const isDeveloperPath = path.startsWith('/school');
-  const isStudentGuestPath = path === '/' || path.startsWith('/students');
-  
-  if (!isDeveloperPath && !isStudentGuestPath && targetRole === 'Admin') return true;
-  
+  const token = sessionStorage.getItem('token');
+  if (!token || token === 'null' || token === 'undefined') return false;
+
   const savedRole = sessionStorage.getItem('role') || sessionStorage.getItem('portal_role');
   if (!savedRole) return false;
-  
-  if (savedRole === 'Developer Admin' && targetRole === 'Developer') return true;
-  if (savedRole === 'Admin Dashboard' && targetRole === 'Admin') return true;
-  if ((savedRole === 'Main Admin' || savedRole === 'admin') && targetRole === 'Admin') return true;
-  
+
+  if (targetRole === 'Developer') {
+    return savedRole === 'Developer Admin';
+  }
+
+  if (targetRole === 'Admin') {
+    return !['Developer Admin', 'Student', 'Parent'].includes(savedRole);
+  }
+
+  if (targetRole === 'SchoolAdmin') {
+    return savedRole === 'Main Admin' || savedRole === 'Principal';
+  }
+
   return false;
 };
 

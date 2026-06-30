@@ -1,4 +1,8 @@
 import { readDb, writeDb, addActivity, getDefaultRoles } from '../utils/db.js';
+import { hashPassword } from '../utils/authHelper.js';
+import { encrypt, decrypt } from '../utils/encryptionHelper.js';
+import { logAudit } from '../utils/logger.js';
+
 
 const mapDesignationToRoleId = (designation, dbRoles = []) => {
   if (!designation) return 'role-teacher';
@@ -132,7 +136,7 @@ export const registerTeacher = async (req, res) => {
 
     // Auto-generate username and password if not provided
     const generatedUsername = username || `teacher_${employeeId.toLowerCase().replace(/-/g, '_')}`;
-    const generatedPassword = password || 'teacher123';
+    const generatedPassword = await hashPassword(password || 'teacher123');
 
     // Check username uniqueness
     const usernameExists = db.teachers.some(t => t.username === generatedUsername);
@@ -183,8 +187,8 @@ export const registerTeacher = async (req, res) => {
       bloodGroup: bloodGroup || '',
       nationality: nationality || 'Indian',
       maritalStatus: maritalStatus || '',
-      aadhaarNumber: aadhaarNumber || '',
-      panNumber: panNumber || '',
+      aadhaarNumber: encrypt(aadhaarNumber || ''),
+      panNumber: encrypt(panNumber || ''),
       joiningDate: joiningDate || '',
       employmentType: employmentType || '',
       designation: designation || '',
@@ -211,7 +215,12 @@ export const registerTeacher = async (req, res) => {
       qualification: parsedQualifications,
       experience: experience || '0',
       experiences: parsedExperiences,
-      salary: salary || '0',
+      salary: encrypt(salary || '0'),
+      bankAccount: encrypt(req.body.bankAccount || ''),
+      bankName: encrypt(req.body.bankName || ''),
+      ifscCode: encrypt(req.body.ifscCode || ''),
+      accountHolder: encrypt(req.body.accountHolder || ''),
+      upiId: encrypt(req.body.upiId || ''),
       status: 'Active', // Default status: "Active", "Inactive", "On Leave"
       username: generatedUsername,
       password: generatedPassword, // Plain text or hash depending on system architecture
@@ -274,6 +283,7 @@ export const registerTeacher = async (req, res) => {
 
     addActivity(db, 'registration', 'New Faculty Registered', `${fullName} joined ${department || 'School'} Department as ${employmentType || 'Faculty'}`, 'hsl(var(--color-secondary))', 'rgba(hsl(var(--color-secondary)), 0.1)');
     writeDb(db);
+    logAudit('Create Staff', `Staff: ${newTeacher.fullName} (Emp: ${newTeacher.employeeId})`, `Registered teacher/staff ID: ${newTeacher.id}`, req);
 
     res.status(201).json(newTeacher);
   } catch (error) {
@@ -373,12 +383,24 @@ export const getTeachers = async (req, res) => {
     
     const paginatedItems = mapped.slice(startIndex, endIndex);
 
+    const decryptedTeachers = paginatedItems.map(t => ({
+      ...t,
+      aadhaarNumber: decrypt(t.aadhaarNumber),
+      panNumber: decrypt(t.panNumber),
+      salary: decrypt(t.salary),
+      bankAccount: decrypt(t.bankAccount),
+      bankName: decrypt(t.bankName),
+      ifscCode: decrypt(t.ifscCode),
+      accountHolder: decrypt(t.accountHolder),
+      upiId: decrypt(t.upiId)
+    }));
+
     res.json({
       totalCount: result.length,
       page,
       limit,
       totalPages: Math.ceil(result.length / limit),
-      teachers: paginatedItems
+      teachers: decryptedTeachers
     });
   } catch (error) {
     console.error('Error fetching teachers registry:', error);
@@ -396,7 +418,18 @@ export const getTeacherById = async (req, res) => {
       return res.status(404).json({ error: 'Teacher profile not found.' });
     }
 
-    res.json(teacher);
+    const decryptedTeacher = {
+      ...teacher,
+      aadhaarNumber: decrypt(teacher.aadhaarNumber),
+      panNumber: decrypt(teacher.panNumber),
+      salary: decrypt(teacher.salary),
+      bankAccount: decrypt(teacher.bankAccount),
+      bankName: decrypt(teacher.bankName),
+      ifscCode: decrypt(teacher.ifscCode),
+      accountHolder: decrypt(teacher.accountHolder),
+      upiId: decrypt(teacher.upiId)
+    };
+    res.json(decryptedTeacher);
   } catch (error) {
     console.error('Error fetching single teacher profile:', error);
     res.status(500).json({ error: 'Internal server error fetching teacher profile.' });
@@ -473,6 +506,14 @@ export const updateTeacher = async (req, res) => {
       name: updateData.fullName || currentTeacher.fullName || currentTeacher.name, // Compatibility
       phone: updateData.mobile || currentTeacher.phone, // Compatibility
       subject: updateData.primarySubject || updateData.subjectSpecialization || currentTeacher.subject, // Compatibility
+      aadhaarNumber: updateData.aadhaarNumber !== undefined ? encrypt(updateData.aadhaarNumber) : currentTeacher.aadhaarNumber,
+      panNumber: updateData.panNumber !== undefined ? encrypt(updateData.panNumber) : currentTeacher.panNumber,
+      salary: updateData.salary !== undefined ? encrypt(updateData.salary) : currentTeacher.salary,
+      bankAccount: updateData.bankAccount !== undefined ? encrypt(updateData.bankAccount) : currentTeacher.bankAccount,
+      bankName: updateData.bankName !== undefined ? encrypt(updateData.bankName) : currentTeacher.bankName,
+      ifscCode: updateData.ifscCode !== undefined ? encrypt(updateData.ifscCode) : currentTeacher.ifscCode,
+      accountHolder: updateData.accountHolder !== undefined ? encrypt(updateData.accountHolder) : currentTeacher.accountHolder,
+      upiId: updateData.upiId !== undefined ? encrypt(updateData.upiId) : currentTeacher.upiId,
       updatedAt: new Date().toISOString()
     };
 
@@ -510,6 +551,7 @@ export const updateTeacher = async (req, res) => {
 
     addActivity(db, 'alert', 'Teacher Profile Modified', `${updatedTeacher.name || updatedTeacher.fullName}'s professional records were updated.`, 'hsl(var(--color-secondary))', 'rgba(hsl(var(--color-secondary)), 0.1)');
     writeDb(db);
+    logAudit('Update Staff', `Staff: ${updatedTeacher.fullName} (Emp: ${updatedTeacher.employeeId})`, `Updated teacher/staff profile professional records`, req);
 
     res.json(updatedTeacher);
   } catch (error) {
@@ -546,6 +588,7 @@ export const deleteTeacher = async (req, res) => {
 
     addActivity(db, 'alert', 'Faculty Dismissed', `${teacherName} was removed from the roster`, 'rgb(var(--color-danger-rgb))', 'rgba(var(--color-danger-rgb), 0.1)');
     writeDb(db);
+    logAudit('Delete Staff', `Staff: ${teacherName} (ID: ${deletedId})`, `Dismissed teacher/staff roster record`, req);
 
     res.json({ success: true, message: `Successfully dismissed teacher ${teacherName}` });
   } catch (error) {

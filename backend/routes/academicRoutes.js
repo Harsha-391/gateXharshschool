@@ -1,5 +1,7 @@
 import express from 'express';
 import multer from 'multer';
+import { auth } from '../middleware/auth.js';
+import { restoreTenantContext } from '../utils/db.js';
 import {
   getTimetables,
   createTimetable,
@@ -72,6 +74,68 @@ import {
 
 
 const router = express.Router();
+
+// Apply auth and tenant context restore to all endpoints
+router.use(auth);
+router.use(restoreTenantContext);
+
+import { checkPermission } from '../middleware/permissionMiddleware.js';
+
+const getPermissionParams = (req) => {
+  const path = req.path;
+  const method = req.method;
+  
+  const methodActionMap = {
+    'GET': 'view',
+    'POST': 'create',
+    'PUT': 'edit',
+    'PATCH': 'edit',
+    'DELETE': 'delete'
+  };
+  const action = methodActionMap[method] || 'view';
+
+  if (path.startsWith('/timetables')) {
+    return { module: 'class-timetable', action };
+  }
+  if (path.startsWith('/teacher-timetables')) {
+    return { module: 'teacher-timetable', action };
+  }
+  if (path.startsWith('/published-timetables')) {
+    return { module: 'published-timetable', action };
+  }
+  if (path.startsWith('/subjects') || path.startsWith('/timeslots')) {
+    return { module: 'academic-manager', action };
+  }
+  if (path.startsWith('/exams') || path.startsWith('/exam-timetables') || path.startsWith('/grades-sections') || path.startsWith('/exam-types')) {
+    return { module: 'exam-timetable', action };
+  }
+  if (path.startsWith('/events') || path.startsWith('/event-types')) {
+    return { module: 'events', action };
+  }
+  if (path.startsWith('/notices') || path.startsWith('/notice-categories')) {
+    return { module: 'notices', action };
+  }
+  if (path.startsWith('/holidays') || path.startsWith('/holiday-classifications')) {
+    return { module: 'holidays', action };
+  }
+  if (path.startsWith('/results') || path.startsWith('/overall-results') || path.startsWith('/cohort-results')) {
+    if (action === 'view') {
+      return { module: 'results', action };
+    }
+    return { module: 'results-manager', action };
+  }
+  if (path.startsWith('/calendar-events') || path.startsWith('/calendar-imports') || path.startsWith('/calendar-upload') || path.startsWith('/calendar-import-confirm') || path.startsWith('/calendar-template') || path.startsWith('/calendar-export') || path.startsWith('/calendar')) {
+    return { module: 'academic-calendar', action };
+  }
+  
+  return null;
+};
+
+router.use((req, res, next) => {
+  const params = getPermissionParams(req);
+  if (!params) return next();
+  return checkPermission(params.module, params.action)(req, res, next);
+});
 
 // Timetables
 router.get('/timetables', getTimetables);
