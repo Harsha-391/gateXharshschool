@@ -1060,6 +1060,89 @@ app.get('/api/platform/analytics', async (req, res) => {
 // DYNAMIC USER PROFILE APIS
 // ==========================================
 
+// Secure endpoint to update platform owner (Developer Admin) username and password
+app.post('/api/platform/owner/credentials', auth, restoreTenantContext, async (req, res) => {
+  const user = req.admin;
+  if (!user || user.role !== 'Developer Admin') {
+    return res.status(403).json({ error: 'Access denied.' });
+  }
+
+  const { currentPassword, newUsername, newPassword } = req.body;
+
+  if (!currentPassword || !newUsername || !newPassword) {
+    return res.status(400).json({ error: 'All fields are required.' });
+  }
+
+  if (!validatePasswordStrength(newPassword)) {
+    return res.status(400).json({ error: 'New password does not meet complexity requirements. It must be at least 8 characters long, and contain uppercase, lowercase, numbers, and special characters.' });
+  }
+
+  const globalDb = readDb();
+  const owner = globalDb.platformOwner || {
+    name: "Platform Owner",
+    username: "dev@admin.com",
+    password: "admin123",
+    email: "dev@admin.com",
+    phone: "",
+    photo: ""
+  };
+
+  // Verify current password
+  const isMatch = await comparePassword(currentPassword, owner.password);
+  if (!isMatch) {
+    return res.status(400).json({ error: 'Incorrect current password.' });
+  }
+
+  if (newUsername.trim() === '') {
+    return res.status(400).json({ error: 'Username cannot be empty.' });
+  }
+
+  const oldUsername = owner.username;
+  const hashedNewPassword = await hashPassword(newPassword);
+
+  // Update credentials
+  owner.username = newUsername;
+  owner.password = hashedNewPassword;
+  globalDb.platformOwner = owner;
+
+  // Add audit log entry
+  if (!globalDb.auditLogs) globalDb.auditLogs = [];
+  const log = {
+    id: `LOG-${Date.now()}`,
+    userId: user.id || 'dev_admin',
+    userName: oldUsername,
+    userRole: 'Developer Admin',
+    action: 'DEVELOPER_CREDENTIALS_UPDATE',
+    details: `Updated Developer Admin credentials. Username changed from ${oldUsername} to ${newUsername}.`,
+    ipAddress: req.ip || req.headers['x-forwarded-for'] || req.socket.remoteAddress || '127.0.0.1',
+    timestamp: new Date().toISOString(),
+    tenantId: 'platform'
+  };
+  globalDb.auditLogs = [log, ...globalDb.auditLogs].slice(0, 500);
+
+  // Persist update
+  writeDb(globalDb);
+
+  // File logging
+  fileLogAudit('DEVELOPER_CREDENTIALS_UPDATE', 'Developer Admin', `Changed credentials. Old: ${oldUsername}, New: ${newUsername}`, req);
+
+  // SQL log insert (if SQL is active)
+  if (isSqlActive()) {
+    try {
+      const sqlDb = await import('./utils/sqlDb.js');
+      await sqlDb.query(
+        `INSERT INTO audit_logs (id, userId, userName, userRole, action, details, ipAddress, timestamp, tenantId)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [log.id, log.userId, log.userName, log.userRole, log.action, log.details, log.ipAddress, log.timestamp, log.tenantId]
+      );
+    } catch (err) {
+      console.error('Failed to insert audit log to SQL:', err.message);
+    }
+  }
+
+  res.json({ success: true, message: 'Developer Admin credentials updated successfully. Please log in again.' });
+});
+
 // GET Profile Info
 app.get('/api/auth/profile', auth, restoreTenantContext, (req, res) => {
   const user = req.admin;
@@ -1087,8 +1170,7 @@ app.get('/api/auth/profile', auth, restoreTenantContext, (req, res) => {
       username: globalDb.platformOwner.username,
       email: globalDb.platformOwner.email,
       phone: globalDb.platformOwner.phone,
-      photo: globalDb.platformOwner.photo,
-      password: globalDb.platformOwner.password
+      photo: globalDb.platformOwner.photo
     });
   }
 
