@@ -66,10 +66,35 @@ export default function AuxiliaryIncome({ showToast }) {
   const [historyYear, setHistoryYear] = useState(new Date().getFullYear().toString());
   const [historyCategory, setHistoryCategory] = useState('All');
 
+  const getTenantHeader = () => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const tenantParam = urlParams.get('tenant');
+    if (tenantParam) return tenantParam;
+
+    const hostname = window.location.hostname;
+    const parts = hostname.split('.');
+    if (parts.length > 2 && parts[0] !== 'www') {
+      return parts[0];
+    }
+    return '';
+  };
+
+  const getHeaders = (extraHeaders = {}) => {
+    const token = sessionStorage.getItem('token');
+    const tenant = getTenantHeader();
+    return {
+      'Authorization': `Bearer ${token}`,
+      'x-tenant-id': tenant,
+      ...extraHeaders
+    };
+  };
+
   // Fetch categories and entries
   const fetchCategories = async () => {
     try {
-      const res = await fetch('/api/finance/auxiliary/categories');
+      const res = await fetch('/api/finance/auxiliary/categories', {
+        headers: getHeaders()
+      });
       if (!res.ok) throw new Error('Failed to load categories');
       const data = await res.json();
       setCategories(data || []);
@@ -83,7 +108,9 @@ export default function AuxiliaryIncome({ showToast }) {
     setLoading(true);
     try {
       const url = '/api/finance/auxiliary/entries';
-      const res = await fetch(url);
+      const res = await fetch(url, {
+        headers: getHeaders()
+      });
       if (!res.ok) throw new Error('Failed to load entries');
       const data = await res.json();
       setEntries(data || []);
@@ -126,7 +153,7 @@ export default function AuxiliaryIncome({ showToast }) {
 
       const res = await fetch(url, {
         method,
-        headers: { 'Content-Type': 'application/json' },
+        headers: getHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify(categoryForm)
       });
 
@@ -152,7 +179,8 @@ export default function AuxiliaryIncome({ showToast }) {
 
     try {
       const res = await fetch(`/api/finance/auxiliary/categories/${catId}`, {
-        method: 'DELETE'
+        method: 'DELETE',
+        headers: getHeaders()
       });
       if (!res.ok) throw new Error('Failed to delete category');
       triggerToast('Category removed successfully.');
@@ -190,7 +218,7 @@ export default function AuxiliaryIncome({ showToast }) {
 
       const res = await fetch(url, {
         method,
-        headers: { 'Content-Type': 'application/json' },
+        headers: getHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify(entryForm)
       });
 
@@ -224,7 +252,8 @@ export default function AuxiliaryIncome({ showToast }) {
 
     try {
       const res = await fetch(`/api/finance/auxiliary/entries/${entryId}`, {
-        method: 'DELETE'
+        method: 'DELETE',
+        headers: getHeaders()
       });
       if (!res.ok) throw new Error('Failed to delete entry');
       triggerToast('Entry deleted successfully.');
