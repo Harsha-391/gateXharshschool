@@ -11,6 +11,16 @@
   "staffPayments": [],
   "activities": [
     {
+      "id": "ACT-1782813508554",
+      "type": "alert",
+      "title": "New School Onboarded",
+      "desc": "School \"Shad Dixon\" registered on the platform.",
+      "time": "Just now",
+      "timestamp": "2026-06-30T09:58:28.554Z",
+      "color": "hsl(var(--color-primary))",
+      "bg": "rgba(hsl(var(--color-primary)), 0.1)"
+    },
+    {
       "id": "ACT-1782299769157",
       "type": "alert",
       "title": "New School Onboarded",
@@ -173,6 +183,31 @@
       "eventTypes": null,
       "noticeCategories": [],
       "holidayClassifications": []
+    },
+    {
+      "id": "SCH-1782813508489",
+      "name": "Shad Dixon",
+      "code": "SCH-891",
+      "subdomain": "sdfghj",
+      "logo": "Molestiae qui corrup",
+      "principalName": "Ray Holcomb",
+      "email": "nocil@mailinator.com",
+      "phone": "",
+      "address": "Consequatur Nam ven",
+      "city": "Id ut assumenda quas",
+      "state": "Quia nostrud consequ",
+      "country": "India",
+      "academicSession": "Delectus facilis qu",
+      "subscriptionPlan": "Starter",
+      "url": "https://sdfghj.myschoolerp.com",
+      "status": "Active",
+      "adminName": "Kareem Levine",
+      "adminEmail": "xorepane@mailinator.com",
+      "adminUsername": "kymogyzahy",
+      "adminPassword": "$2b$10$6bIURXDwFGeB6qoIq0m64OUSlTLNe29n.CDEujqxyEqiPy8kxoioC",
+      "dbName": "school_sdfghj",
+      "createdAt": "2026-06-30T09:58:28.554Z",
+      "updatedAt": "2026-06-30T09:58:28.554Z"
     }
   ],
   "roles": [
@@ -1792,5 +1827,5 @@
       "updatedAt": "2026-06-29T10:01:55.628Z"
     }
   ],
-  "_signature": "SCH-1782299956618-noble-Active-Noble school-SCH-798|SCH-1782811579832-amet-Active-Kameko Graham-SCH-338|SCH-1782811617866-accusantium-Active-Drake Booth-SCH-847"
+  "_signature": "SCH-1782811579832-amet-Active-Kameko Graham-SCH-338|SCH-1782811617866-accusantium-Active-Drake Booth-SCH-847"
 }
