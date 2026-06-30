@@ -419,7 +419,22 @@ export default function SchoolProfile({ schoolDetails, fetchSchoolDetails, isDev
       }
 
       if (!formData.adminUsername.trim()) errors.adminUsername = 'Admin Username is required.';
-      if (!formData.adminPassword.trim()) errors.adminPassword = 'Admin Password is required.';
+      if (!formData.adminPassword.trim()) {
+        errors.adminPassword = 'Admin Password is required.';
+      } else {
+        const pass = formData.adminPassword;
+        if (pass.length < 8) {
+          errors.adminPassword = 'Admin password must be at least 8 characters long.';
+        } else if (!/[A-Z]/.test(pass)) {
+          errors.adminPassword = 'Admin password must contain at least one uppercase letter.';
+        } else if (!/[a-z]/.test(pass)) {
+          errors.adminPassword = 'Admin password must contain at least one lowercase letter.';
+        } else if (!/[0-9]/.test(pass)) {
+          errors.adminPassword = 'Admin password must contain at least one number.';
+        } else if (!/[^A-Za-z0-9]/.test(pass)) {
+          errors.adminPassword = 'Admin password must contain at least one special character.';
+        }
+      }
     } else {
       if (formData.adminEmail && !emailRegex.test(formData.adminEmail.trim())) {
         errors.adminEmail = 'Invalid Admin Email format.';
@@ -466,7 +481,7 @@ export default function SchoolProfile({ schoolDetails, fetchSchoolDetails, isDev
         }
       } else {
         const errorData = await res.json();
-        showToast(errorData.error || 'Failed to complete registration operation.', 'error');
+        showToast(errorData.details || errorData.error || 'Failed to complete registration operation.', 'error');
       }
     } catch (err) {
       console.error(err);
