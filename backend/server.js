@@ -121,13 +121,18 @@ app.use(cors({
       
       const isLocalhost = host === 'localhost' || host === '127.0.0.1';
       const isAdminDomain = host === 'admin.acadmay.in' || host === 'admin.myschoolerp.com';
-      const isSchoolDomain = host.endsWith('.myschoolerp.com') || host.endsWith('.localhost');
+      const isSchoolDomain = host.endsWith('.myschoolerp.com') || host.endsWith('.localhost') || host.endsWith('.acadmay.in');
       
       let isRegisteredSchool = false;
       const platformDb = readDb();
       const schools = platformDb.schools || [];
       isRegisteredSchool = schools.some(s => {
-        if (s.subdomain && host === `${s.subdomain}.localhost`) return true;
+        if (s.subdomain && (
+          host === `${s.subdomain}.localhost` ||
+          host === `${s.subdomain}.acadmay.in` ||
+          host === `${s.subdomain}.myschoolerp.com` ||
+          host === s.subdomain
+        )) return true;
         if (s.url) {
           try {
             const u = new URL(s.url);
