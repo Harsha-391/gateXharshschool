@@ -21,7 +21,8 @@ const masterConfig = {
   connectionLimit: parseInt(process.env.DB_CONNECTION_LIMIT || '1'),
   queueLimit: 0,
   enableKeepAlive: true,
-  keepAliveInitialDelay: 10000
+  keepAliveInitialDelay: 10000,
+  idleTimeout: 5000
 };
 
 let masterPool;

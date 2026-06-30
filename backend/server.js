@@ -974,7 +974,9 @@ app.get('/api/platform/analytics', async (req, res) => {
   if (isSqlActive()) {
     try {
       const sqlDb = await import('./utils/sqlDb.js');
-      const tenantStats = await Promise.all(schools.map(async (school) => {
+      const tenantStats = [];
+      
+      for (const school of schools) {
         const subdomain = school.subdomain;
         try {
           const [studentsRes, teachersRes, staffRes] = await Promise.all([
@@ -982,16 +984,16 @@ app.get('/api/platform/analytics', async (req, res) => {
             sqlDb.query('SELECT COUNT(*) as cnt FROM staff', [], subdomain),
             sqlDb.query('SELECT COUNT(*) as cnt FROM employees', [], subdomain)
           ]);
-          return {
+          tenantStats.push({
             students: studentsRes[0]?.cnt || 0,
             teachers: teachersRes[0]?.cnt || 0,
             staff: staffRes[0]?.cnt || 0
-          };
+          });
         } catch (err) {
           console.error(`Failed to query stats for tenant ${subdomain}:`, err);
-          return { students: 0, teachers: 0, staff: 0 };
+          tenantStats.push({ students: 0, teachers: 0, staff: 0 });
         }
-      }));
+      }
 
       tenantStats.forEach(ts => {
         totalStudents += ts.students;
