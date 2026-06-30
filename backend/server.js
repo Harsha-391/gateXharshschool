@@ -921,10 +921,20 @@ app.delete('/api/platform/schools/:id', async (req, res) => {
     }
 
     // Delete all tenant-specific rows from SQL tables if active
-    const { isSqlActive } = await import('./utils/db.js');
+    const { isSqlActive, slugify } = await import('./utils/db.js');
     if (isSqlActive()) {
       try {
         const sqlDb = await import('./utils/sqlDb.js');
+
+        // Drop the dedicated database schema if active
+        const dbName = `school_${slugify(subdomainToDelete)}`;
+        await sqlDb.query(`DROP DATABASE IF EXISTS \`${dbName}\``, [], 'platform').catch((e) => {
+          console.error(`Failed to drop dedicated database for ${subdomainToDelete}:`, e.message);
+        });
+
+        // Close and remove connection pool for the deleted tenant
+        await sqlDb.removePoolForTenant(subdomainToDelete);
+
         const tenantTables = [
           'employees', 'staff', 'students', 'invoices', 'fees', 'expenses', 'payroll',
           'staff_payments', 'activities', 'exams', 'exam_timetables', 'notices',
@@ -937,7 +947,7 @@ app.delete('/api/platform/schools/:id', async (req, res) => {
           sqlDb.query(`DELETE FROM \`${tbl}\` WHERE tenantId = ?`, [subdomainToDelete]).catch(() => {})
         ));
       } catch (err) {
-        console.error('Failed to purge SQL tenant tables:', err);
+        console.error('Failed to purge SQL tenant tables and databases:', err);
       }
     }
 

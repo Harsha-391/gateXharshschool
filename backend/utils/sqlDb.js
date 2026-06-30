@@ -207,3 +207,19 @@ export const testConnection = async () => {
   return false;
 };
 
+export const removePoolForTenant = async (tenantId) => {
+  const subdomain = slugify(tenantId);
+  const dbName = dbMappings[subdomain] || `school_${subdomain}`;
+  delete dbMappings[subdomain];
+  
+  if (tenantPools[dbName]) {
+    try {
+      await tenantPools[dbName].end();
+    } catch (e) {
+      console.error(`[SQL Pool] Failed to close pool for database ${dbName}:`, e.message);
+    }
+    delete tenantPools[dbName];
+  }
+  console.log(`[SQL Pool] Removed mapping and closed pool for tenant subdomain: ${subdomain}`);
+};
+
