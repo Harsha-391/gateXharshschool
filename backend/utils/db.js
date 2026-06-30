@@ -3778,6 +3778,27 @@ export const saveMemoryDbToSql = async (tenantId, db, changedKeys, newUpdatedAt)
         })());
       }
 
+      // Sync central gradeDepartments (mappings)
+      if (db.gradeDepartments && Array.isArray(db.gradeDepartments) && hasTableChanged('gradeDepartments')) {
+        tasks.push((async () => {
+          const activeMapIds = db.gradeDepartments.map(gd => gd.id).filter(Boolean);
+          if (activeMapIds.length > 0) {
+            await sqlDb.query(`DELETE FROM grade_departments WHERE tenantId = ? AND id NOT IN (${activeMapIds.map(() => '?').join(',')})`, [tId, ...activeMapIds]);
+          } else {
+            await sqlDb.query('DELETE FROM grade_departments WHERE tenantId = ?', [tId]);
+          }
+
+          const columns = ['id', 'gradeId', 'departmentId', 'status', 'tenantId', 'createdAt', 'updatedAt', 'sections'];
+          const updateColumns = ['status', 'updatedAt', 'sections'];
+          const valueRows = db.gradeDepartments.filter(gd => gd.id).map(gd => [
+            gd.id, gd.gradeId, gd.departmentId, gd.status || 'Active', tId,
+            gd.createdAt || new Date().toISOString(), gd.updatedAt || new Date().toISOString(),
+            gd.sections ? (typeof gd.sections === 'string' ? gd.sections : JSON.stringify(gd.sections)) : '[]'
+          ]);
+          await bulkInsertOrUpdate('grade_departments', columns, valueRows, updateColumns);
+        })());
+      }
+
       // Sync central designations
       if (db.designations && Array.isArray(db.designations) && hasTableChanged('designations')) {
         tasks.push((async () => {
