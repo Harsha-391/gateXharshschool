@@ -1375,59 +1375,59 @@ export default function SchoolProfile({ schoolDetails, fetchSchoolDetails, isDev
               </button>
             </div>
           </div>
-        </div>
-      )}
 
-      {/* Confirmation Dialog Overlay */}
-      {showConfirmCredentialsDialog && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: 'rgba(0, 0, 0, 0.8)',
-          backdropFilter: 'blur(4px)',
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          zIndex: 11000,
-          padding: '16px'
-        }}>
-          <div className="glass-panel" style={{
-            width: '100%',
-            maxWidth: '380px',
-            padding: '24px',
-            borderRadius: '16px',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '16px',
-            textAlign: 'center',
-            boxShadow: '0 20px 40px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.08)'
-          }}>
-            <h4 style={{ fontSize: '1.1rem', fontWeight: 800, margin: 0, color: 'var(--text-main)' }}>Confirm Credentials Update</h4>
-            <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: 0 }}>
-              Are you absolutely sure you want to update the administrator credentials for <strong>{selectedSchoolForCredentials?.name}</strong>?
-            </p>
-            <div style={{ display: 'flex', justifyContent: 'center', gap: '10px' }}>
-              <button
-                onClick={() => setShowConfirmCredentialsDialog(false)}
-                className="btn-secondary"
-                style={{ padding: '6px 12px', fontSize: '0.8rem', borderRadius: '6px', border: 'none', cursor: 'pointer' }}
-                disabled={credentialsModalLoading}
-              >
-                No, Go Back
-              </button>
-              <button
-                onClick={handleUpdateSchoolCredentials}
-                className="btn-danger"
-                style={{ padding: '6px 12px', fontSize: '0.8rem', borderRadius: '6px', border: 'none', cursor: 'pointer' }}
-                disabled={credentialsModalLoading}
-              >
-                Yes, Update
-              </button>
+          {/* Confirmation Dialog Overlay nested inside the modal wrapper for perfect event dispatching */}
+          {showConfirmCredentialsDialog && (
+            <div style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              background: 'rgba(0, 0, 0, 0.8)',
+              backdropFilter: 'blur(4px)',
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+              zIndex: 11000,
+              padding: '16px'
+            }}>
+              <div className="glass-panel" style={{
+                width: '100%',
+                maxWidth: '380px',
+                padding: '24px',
+                borderRadius: '16px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '16px',
+                textAlign: 'center',
+                boxShadow: '0 20px 40px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.08)'
+              }}>
+                <h4 style={{ fontSize: '1.1rem', fontWeight: 800, margin: 0, color: 'var(--text-main)' }}>Confirm Credentials Update</h4>
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: 0 }}>
+                  Are you absolutely sure you want to update the administrator credentials for <strong>{selectedSchoolForCredentials?.name}</strong>?
+                </p>
+                <div style={{ display: 'flex', justifyContent: 'center', gap: '10px' }}>
+                  <button
+                    onClick={() => setShowConfirmCredentialsDialog(false)}
+                    className="btn-secondary"
+                    style={{ padding: '6px 12px', fontSize: '0.8rem', borderRadius: '6px', border: 'none', cursor: 'pointer' }}
+                    disabled={credentialsModalLoading}
+                  >
+                    No, Go Back
+                  </button>
+                  <button
+                    onClick={handleUpdateSchoolCredentials}
+                    className="btn-danger"
+                    style={{ padding: '6px 12px', fontSize: '0.8rem', borderRadius: '6px', border: 'none', cursor: 'pointer' }}
+                    disabled={credentialsModalLoading}
+                  >
+                    Yes, Update
+                  </button>
+                </div>
+              </div>
             </div>
-          </div>
+          )}
         </div>
       )}
     </div>
