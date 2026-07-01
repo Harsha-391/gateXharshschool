@@ -58,26 +58,26 @@ export default function SchoolLogin({ tenantSubdomain, onLoginSuccess }) {
 
       if (res.ok) {
         // Save token & active tenant details
-        sessionStorage.setItem('token', data.token);
-        sessionStorage.setItem('role', data.role);
-        sessionStorage.setItem('portal_role', data.role);
-        sessionStorage.setItem('username', data.username || username);
-        sessionStorage.setItem('name', data.name);
+        localStorage.setItem('token', data.token);
+        localStorage.setItem('role', data.role);
+        localStorage.setItem('portal_role', data.role);
+        localStorage.setItem('username', data.username || username);
+        localStorage.setItem('name', data.name);
         
         if (data.permissions) {
-          sessionStorage.setItem('permissions', JSON.stringify(data.permissions));
+          localStorage.setItem('permissions', JSON.stringify(data.permissions));
         } else {
-          sessionStorage.removeItem('permissions');
+          localStorage.removeItem('permissions');
         }
         if (data.overrides) {
-          sessionStorage.setItem('overrides', JSON.stringify(data.overrides));
+          localStorage.setItem('overrides', JSON.stringify(data.overrides));
         } else {
-          sessionStorage.removeItem('overrides');
+          localStorage.removeItem('overrides');
         }
 
         if (data.school) {
-          sessionStorage.setItem('school_name', data.school.name);
-          sessionStorage.setItem('school_subdomain', data.school.subdomain);
+          localStorage.setItem('school_name', data.school.name);
+          localStorage.setItem('school_subdomain', data.school.subdomain);
           localStorage.setItem('tenant_subdomain', data.school.subdomain);
         } else if (tenantSubdomain) {
           localStorage.setItem('tenant_subdomain', tenantSubdomain);

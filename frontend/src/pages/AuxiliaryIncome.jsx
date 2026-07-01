@@ -80,7 +80,7 @@ export default function AuxiliaryIncome({ showToast }) {
   };
 
   const getHeaders = (extraHeaders = {}) => {
-    const token = sessionStorage.getItem('token');
+    const token = localStorage.getItem('token');
     const tenant = getTenantHeader();
     return {
       'Authorization': `Bearer ${token}`,

@@ -18,26 +18,26 @@ export default function UserProfile({ onProfileUpdate, showToast, onLogout }) {
   const fetchProfile = async () => {
     try {
       setLoading(true);
-      const role = sessionStorage.getItem('role') || sessionStorage.getItem('portal_role');
+      const role = localStorage.getItem('role') || localStorage.getItem('portal_role');
       if (role === 'Developer Admin') {
         setProfile({
           role: 'Developer Admin',
-          name: sessionStorage.getItem('name') || 'Platform Owner',
-          username: sessionStorage.getItem('username') || 'dev@admin.com',
+          name: localStorage.getItem('name') || 'Platform Owner',
+          username: localStorage.getItem('username') || 'dev@admin.com',
           email: 'dev@admin.com',
           phone: 'N/A',
           photo: ''
         });
         return;
       }
-      const token = sessionStorage.getItem('token');
+      const token = localStorage.getItem('token');
       if (!token || token === 'null' || token === 'undefined') {
-        const savedRole = sessionStorage.getItem('role') || sessionStorage.getItem('portal_role');
+        const savedRole = localStorage.getItem('role') || localStorage.getItem('portal_role');
         if (savedRole) {
           setProfile({
             role: savedRole,
-            name: sessionStorage.getItem('name') || 'Local User',
-            username: sessionStorage.getItem('username') || 'local_user',
+            name: localStorage.getItem('name') || 'Local User',
+            username: localStorage.getItem('username') || 'local_user',
             email: savedRole.toLowerCase().includes('admin') ? 'dev@admin.com' : 'local@example.com',
             phone: 'N/A',
             photo: ''

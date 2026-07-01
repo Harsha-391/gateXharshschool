@@ -373,9 +373,9 @@ export default function ResultManagementPanel({ activeTab: propActiveTab = 'anal
 
   // Resolve session user role
   useEffect(() => {
-    const role = sessionStorage.getItem('portal_role') || sessionStorage.getItem('role') || 'Admin';
+    const role = localStorage.getItem('portal_role') || localStorage.getItem('role') || 'Admin';
     setUserRole(role);
-    setCurrentUsername(sessionStorage.getItem('name') || sessionStorage.getItem('username') || 'Administrator');
+    setCurrentUsername(localStorage.getItem('name') || localStorage.getItem('username') || 'Administrator');
   }, []);
 
   // Fetch all initial data from existing APIs

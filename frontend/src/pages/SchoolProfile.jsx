@@ -556,8 +556,8 @@ export default function SchoolProfile({ schoolDetails, fetchSchoolDetails, isDev
 
   // Launch School Portal - opens in a new tab without ending superadmin session
   const handleLaunchPortal = (school) => {
-    sessionStorage.setItem('from_dev_admin', 'true');
-    const devToken = sessionStorage.getItem('token') || '';
+    localStorage.setItem('from_dev_admin', 'true');
+    const devToken = localStorage.getItem('token') || '';
     const targetUrl = getSchoolSubdomainUrl(school.subdomain, `/?username=${encodeURIComponent(school.adminUsername)}&password=${encodeURIComponent(school.adminPassword)}&from_dev_admin=true&dev_token=${encodeURIComponent(devToken)}`);
     window.open(targetUrl, '_blank');
   };

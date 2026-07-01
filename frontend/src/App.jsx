@@ -86,7 +86,7 @@ window.fetch = function (url, options = {}) {
         options.headers['x-tenant-id'] = tenant;
       }
     }
-    const token = sessionStorage.getItem('token');
+    const token = localStorage.getItem('token');
     if (token && token !== 'null' && token !== 'undefined') {
       options.headers['Authorization'] = `Bearer ${token}`;
     }
@@ -198,10 +198,10 @@ const getRouteForRole = (role) => {
 };
 
 const getInitialAuthState = (targetRole) => {
-  const token = sessionStorage.getItem('token');
+  const token = localStorage.getItem('token');
   if (!token || token === 'null' || token === 'undefined') return false;
 
-  const savedRole = sessionStorage.getItem('role') || sessionStorage.getItem('portal_role');
+  const savedRole = localStorage.getItem('role') || localStorage.getItem('portal_role');
   if (!savedRole) return false;
 
   if (targetRole === 'Developer') {
@@ -244,27 +244,27 @@ export default function App() {
   const [schoolDetails, setSchoolDetails] = useState({ name: 'Aether Academy', principal: 'Alex Devlin' });
   
   const [userProfile, setUserProfile] = useState({
-    name: sessionStorage.getItem('name') || 'User',
-    role: sessionStorage.getItem('role') || sessionStorage.getItem('portal_role') || 'Guest',
-    photo: sessionStorage.getItem('photo') || '',
-    username: sessionStorage.getItem('username') || ''
+    name: localStorage.getItem('name') || 'User',
+    role: localStorage.getItem('role') || localStorage.getItem('portal_role') || 'Guest',
+    photo: localStorage.getItem('photo') || '',
+    username: localStorage.getItem('username') || ''
   });
 
   const fetchUserProfile = async () => {
     try {
-      const role = sessionStorage.getItem('role') || sessionStorage.getItem('portal_role');
+      const role = localStorage.getItem('role') || localStorage.getItem('portal_role');
       if (role === 'Developer Admin') {
         setUserProfile({
           role: 'Developer Admin',
-          name: sessionStorage.getItem('name') || 'Platform Owner',
-          username: sessionStorage.getItem('username') || 'dev@admin.com',
+          name: localStorage.getItem('name') || 'Platform Owner',
+          username: localStorage.getItem('username') || 'dev@admin.com',
           email: 'dev@admin.com',
           phone: 'N/A',
           photo: ''
         });
         return;
       }
-      const token = sessionStorage.getItem('token');
+      const token = localStorage.getItem('token');
       if (!token || token === 'null' || token === 'undefined') return;
       const res = await fetch('/api/auth/profile', {
         headers: {
@@ -274,21 +274,21 @@ export default function App() {
       if (res.ok) {
         const data = await res.json();
         setUserProfile(data);
-        sessionStorage.setItem('name', data.name);
-        sessionStorage.setItem('role', data.role);
-        sessionStorage.setItem('portal_role', data.role);
+        localStorage.setItem('name', data.name);
+        localStorage.setItem('role', data.role);
+        localStorage.setItem('portal_role', data.role);
         if (data.photo) {
-          sessionStorage.setItem('photo', data.photo);
+          localStorage.setItem('photo', data.photo);
         }
         if (data.permissions) {
-          sessionStorage.setItem('permissions', JSON.stringify(data.permissions));
+          localStorage.setItem('permissions', JSON.stringify(data.permissions));
         } else {
-          sessionStorage.removeItem('permissions');
+          localStorage.removeItem('permissions');
         }
         if (data.overrides) {
-          sessionStorage.setItem('overrides', JSON.stringify(data.overrides));
+          localStorage.setItem('overrides', JSON.stringify(data.overrides));
         } else {
-          sessionStorage.removeItem('overrides');
+          localStorage.removeItem('overrides');
         }
       } else if (res.status === 401) {
         handleLogout();
@@ -304,9 +304,9 @@ export default function App() {
   const [isSchoolAdmin, setIsSchoolAdmin] = useState(() => getInitialAuthState('SchoolAdmin'));
 
   // Active view states for sub-dashboards with persistence
-  const [adminView, setAdminViewState] = useState(() => sessionStorage.getItem('admin_view') || 'overview');
+  const [adminView, setAdminViewState] = useState(() => localStorage.getItem('admin_view') || 'overview');
   const setAdminView = (view) => {
-    sessionStorage.setItem('admin_view', view);
+    localStorage.setItem('admin_view', view);
     setAdminViewState(view);
   };
 
@@ -560,7 +560,7 @@ export default function App() {
     fetchSchoolDetails();
     fetchUserProfile();
 
-    const savedRole = sessionStorage.getItem('role') || sessionStorage.getItem('portal_role');
+    const savedRole = localStorage.getItem('role') || localStorage.getItem('portal_role');
     if (savedRole) {
       switch (savedRole) {
         case 'Developer Admin':
@@ -590,7 +590,7 @@ export default function App() {
       setIsAdmin(false);
       setIsSchoolAdmin(false);
 
-      const savedRole = sessionStorage.getItem('role') || sessionStorage.getItem('portal_role');
+      const savedRole = localStorage.getItem('role') || localStorage.getItem('portal_role');
       if (savedRole) {
         switch (savedRole) {
           case 'Developer Admin':
@@ -635,7 +635,7 @@ export default function App() {
     } else if (isDeveloperAdmin) {
       window.history.pushState(null, '', `/school${query}`);
     } else if (isAdmin) {
-      const userRole = userProfile?.role || sessionStorage.getItem('role') || sessionStorage.getItem('portal_role') || 'Admin';
+      const userRole = userProfile?.role || localStorage.getItem('role') || localStorage.getItem('portal_role') || 'Admin';
       const roleRoute = getRouteForRole(userRole);
       window.history.pushState(null, '', `/${roleRoute}${query}`);
     } else {
@@ -673,7 +673,7 @@ export default function App() {
     }
 
     // Logged-in user role
-    const role = userProfile?.role || sessionStorage.getItem('role') || sessionStorage.getItem('portal_role');
+    const role = userProfile?.role || localStorage.getItem('role') || localStorage.getItem('portal_role');
     if (role === 'Main Admin' || role === 'Admin Dashboard' || role === 'Principal') {
       document.title = `${schoolName} | Admin`;
     } else if (role) {
@@ -694,10 +694,10 @@ export default function App() {
       const devTokenParam = urlParams.get('dev_token');
 
       if (fromDevAdminParam === 'true') {
-        sessionStorage.setItem('from_dev_admin', 'true');
+        localStorage.setItem('from_dev_admin', 'true');
       }
       if (devTokenParam) {
-        sessionStorage.setItem('dev_token', devTokenParam);
+        localStorage.setItem('dev_token', devTokenParam);
       }
 
       if (usernameParam && passwordParam && tenantParam) {
@@ -713,26 +713,26 @@ export default function App() {
 
           if (res.ok) {
             const data = await res.json();
-            sessionStorage.setItem('token', data.token);
-            sessionStorage.setItem('role', data.role);
-            sessionStorage.setItem('portal_role', data.role);
-            sessionStorage.setItem('username', data.username || usernameParam);
-            sessionStorage.setItem('name', data.name);
+            localStorage.setItem('token', data.token);
+            localStorage.setItem('role', data.role);
+            localStorage.setItem('portal_role', data.role);
+            localStorage.setItem('username', data.username || usernameParam);
+            localStorage.setItem('name', data.name);
             
             if (data.permissions) {
-              sessionStorage.setItem('permissions', JSON.stringify(data.permissions));
+              localStorage.setItem('permissions', JSON.stringify(data.permissions));
             } else {
-              sessionStorage.removeItem('permissions');
+              localStorage.removeItem('permissions');
             }
             if (data.overrides) {
-              sessionStorage.setItem('overrides', JSON.stringify(data.overrides));
+              localStorage.setItem('overrides', JSON.stringify(data.overrides));
             } else {
-              sessionStorage.removeItem('overrides');
+              localStorage.removeItem('overrides');
             }
 
             if (data.school) {
-              sessionStorage.setItem('school_name', data.school.name);
-              sessionStorage.setItem('school_subdomain', data.school.subdomain);
+              localStorage.setItem('school_name', data.school.name);
+              localStorage.setItem('school_subdomain', data.school.subdomain);
               localStorage.setItem('tenant_subdomain', data.school.subdomain);
             }
 
@@ -754,7 +754,7 @@ export default function App() {
   }, []);
 
   const handleLoginSuccess = (role, name) => {
-    sessionStorage.setItem('portal_role', role);
+    localStorage.setItem('portal_role', role);
     if (role === 'Developer Admin') {
       setIsDeveloperAdmin(true);
       setActiveView('dashboard');
@@ -779,7 +779,12 @@ export default function App() {
   };
 
   const handleLogout = () => {
-    sessionStorage.clear();
+    const authKeys = [
+      'token', 'role', 'portal_role', 'username', 'name', 
+      'permissions', 'overrides', 'school_name', 'school_subdomain', 
+      'from_dev_admin', 'dev_token', 'admin_view'
+    ];
+    authKeys.forEach(k => localStorage.removeItem(k));
     localStorage.removeItem('tenant_subdomain');
     setIsDeveloperAdmin(false);
     setIsAdmin(false);
@@ -799,8 +804,8 @@ export default function App() {
     setIsAdmin(false);
     setIsSchoolAdmin(true);
     setActiveViewState('students');
-    sessionStorage.setItem('role', 'Main Admin');
-    sessionStorage.setItem('portal_role', 'Main Admin');
+    localStorage.setItem('role', 'Main Admin');
+    localStorage.setItem('portal_role', 'Main Admin');
 
     const tenant = getActiveTenant();
     const host = window.location.hostname;
@@ -871,10 +876,10 @@ export default function App() {
         {activeView === 'admin-login' && (
           <AdminLogin 
             onLogin={() => {
-              sessionStorage.setItem('role', 'Admin Dashboard');
-              sessionStorage.setItem('portal_role', 'Admin Dashboard');
-              sessionStorage.setItem('name', 'Admin');
-              sessionStorage.setItem('username', 'dev@admin.com');
+              localStorage.setItem('role', 'Admin Dashboard');
+              localStorage.setItem('portal_role', 'Admin Dashboard');
+              localStorage.setItem('name', 'Admin');
+              localStorage.setItem('username', 'dev@admin.com');
               setIsAdmin(true);
               setIsSchoolAdmin(false);
               setAdminView('students');
@@ -943,10 +948,10 @@ export default function App() {
           <Suspense fallback={<SkeletonLoader type="page" />}>
             <AdminLogin 
               onLogin={() => {
-                sessionStorage.setItem('role', 'Admin Dashboard');
-                sessionStorage.setItem('portal_role', 'Admin Dashboard');
-                sessionStorage.setItem('name', 'Admin');
-                sessionStorage.setItem('username', 'dev@admin.com');
+                localStorage.setItem('role', 'Admin Dashboard');
+                localStorage.setItem('portal_role', 'Admin Dashboard');
+                localStorage.setItem('name', 'Admin');
+                localStorage.setItem('username', 'dev@admin.com');
                 setIsAdmin(true);
                 setIsSchoolAdmin(false);
                 setAdminView('dashboard');

@@ -61,7 +61,7 @@ export default function Sidebar({
   userProfile
 }) {
   const prefetchApi = (url) => {
-    const token = sessionStorage.getItem('token');
+    const token = localStorage.getItem('token');
     if (!token) return;
     fetch(url).catch(() => {});
   };
@@ -787,17 +787,22 @@ export default function Sidebar({
                 </button>
               );
             })}
-            {sessionStorage.getItem('from_dev_admin') === 'true' && (
+            {localStorage.getItem('from_dev_admin') === 'true' && (
               <button
                 onClick={() => {
-                  const devToken = sessionStorage.getItem('dev_token');
-                  sessionStorage.clear();
-                  sessionStorage.setItem('role', 'Developer Admin');
-                  sessionStorage.setItem('portal_role', 'Developer Admin');
-                  sessionStorage.setItem('username', 'dev@admin.com');
-                  sessionStorage.setItem('name', 'Platform Owner');
+                  const devToken = localStorage.getItem('dev_token');
+                  const authKeys = [
+                    'token', 'role', 'portal_role', 'username', 'name', 
+                    'permissions', 'overrides', 'school_name', 'school_subdomain', 
+                    'from_dev_admin', 'dev_token', 'admin_view'
+                  ];
+                  authKeys.forEach(k => localStorage.removeItem(k));
+                  localStorage.setItem('role', 'Developer Admin');
+                  localStorage.setItem('portal_role', 'Developer Admin');
+                  localStorage.setItem('username', 'dev@admin.com');
+                  localStorage.setItem('name', 'Platform Owner');
                   if (devToken) {
-                    sessionStorage.setItem('token', devToken);
+                    localStorage.setItem('token', devToken);
                   }
                   localStorage.removeItem('tenant_subdomain');
                   setMobileOpen(false);

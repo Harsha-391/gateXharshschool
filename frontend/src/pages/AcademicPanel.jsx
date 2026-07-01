@@ -5433,7 +5433,7 @@ export default function AcademicPanel({ subView, setAdminView }) {
     }
 
     // Filter by Role audience
-    const userRole = (sessionStorage.getItem('portal_role') || sessionStorage.getItem('role') || 'Student').toLowerCase();
+    const userRole = (localStorage.getItem('portal_role') || localStorage.getItem('role') || 'Student').toLowerCase();
     const isCalendarAdmin = ['developer admin', 'main admin', 'admin dashboard', 'principal', 'admin'].includes(userRole);
     if (!isCalendarAdmin) {
       filtered = filtered.filter(e => {
@@ -6350,7 +6350,7 @@ export default function AcademicPanel({ subView, setAdminView }) {
                           {dayEvents.map(e => {
                             const colors = getEventColorStyle(e.eventType);
                             const isPublished = publishedEventIds.includes(e.id);
-                            const userRole = (sessionStorage.getItem('portal_role') || sessionStorage.getItem('role') || 'Student').toLowerCase();
+                            const userRole = (localStorage.getItem('portal_role') || localStorage.getItem('role') || 'Student').toLowerCase();
                             const isCalendarAdmin = ['developer admin', 'main admin', 'admin dashboard', 'principal', 'admin'].includes(userRole);
                             return (
                               <div key={e.id} style={{ display: 'flex', gap: '16px', alignItems: 'flex-start', padding: '10px', borderRadius: '8px', background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border-glass)' }}>

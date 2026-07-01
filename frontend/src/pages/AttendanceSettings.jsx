@@ -95,7 +95,7 @@ const AttendanceSettings = ({ showToast }) => {
   const fetchSettings = async () => {
     setLoading(true);
     try {
-      const token = sessionStorage.getItem('token');
+      const token = localStorage.getItem('token');
       const tenant = getTenantHeader();
       const response = await fetch('/api/attendance-settings', {
         headers: {
@@ -151,7 +151,7 @@ const AttendanceSettings = ({ showToast }) => {
     e.preventDefault();
     setSaving(true);
     try {
-      const token = sessionStorage.getItem('token');
+      const token = localStorage.getItem('token');
       const tenant = getTenantHeader();
       const response = await fetch('/api/attendance-settings', {
         method: 'POST',

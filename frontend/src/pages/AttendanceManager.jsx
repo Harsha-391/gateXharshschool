@@ -72,7 +72,7 @@ export default function AttendanceManager() {
   const fetchAnalytics = async () => {
     try {
       setAnalyticsLoading(true);
-      const token = sessionStorage.getItem('token');
+      const token = localStorage.getItem('token');
       const tenant = getTenantHeader();
       const res = await fetch(`/api/employee-attendance/analytics?_t=${Date.now()}`, {
         headers: {
@@ -93,7 +93,7 @@ export default function AttendanceManager() {
 
   const fetchTodayRecords = async () => {
     try {
-      const token = sessionStorage.getItem('token');
+      const token = localStorage.getItem('token');
       const tenant = getTenantHeader();
       const res = await fetch(`/api/employee-attendance/today?_t=${Date.now()}`, {
         headers: {
@@ -113,7 +113,7 @@ export default function AttendanceManager() {
   const fetchReports = async () => {
     try {
       setLoading(true);
-      const token = sessionStorage.getItem('token');
+      const token = localStorage.getItem('token');
       const tenant = getTenantHeader();
       const queryParams = new URLSearchParams({
         employeeId: filterEmpId,
@@ -263,7 +263,7 @@ export default function AttendanceManager() {
 
   const processAttendanceScan = async (employeeId, employeeType, rawPayload = {}) => {
     try {
-      const token = sessionStorage.getItem('token');
+      const token = localStorage.getItem('token');
       const tenant = getTenantHeader();
       const res = await fetch('/api/employee-attendance/scan', {
         method: 'POST',
@@ -354,7 +354,7 @@ export default function AttendanceManager() {
     }
 
     try {
-      const token = sessionStorage.getItem('token');
+      const token = localStorage.getItem('token');
       const tenant = getTenantHeader();
       const res = await fetch(`/api/employee-attendance/record/${recordId}`, {
         method: 'DELETE',

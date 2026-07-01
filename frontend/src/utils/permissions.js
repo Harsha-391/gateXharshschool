@@ -68,7 +68,7 @@ const COMPATIBILITY_MAP = {
  * @returns {boolean} - True if access is permitted, false otherwise.
  */
 export function hasPermission(module, action) {
-  const role = sessionStorage.getItem('portal_role') || sessionStorage.getItem('role');
+  const role = localStorage.getItem('portal_role') || localStorage.getItem('role');
   
   // Developer Admin and Super Admins (Main Admin, Admin Dashboard, Principal) have absolute access
   if (
@@ -90,21 +90,21 @@ export function hasPermission(module, action) {
   let overrides = {};
   
   try {
-    const rawPermissions = sessionStorage.getItem('permissions');
+    const rawPermissions = localStorage.getItem('permissions');
     if (rawPermissions) {
       permissions = JSON.parse(rawPermissions);
     }
   } catch (e) {
-    console.error('Failed to parse permissions from sessionStorage:', e);
+    console.error('Failed to parse permissions from localStorage:', e);
   }
 
   try {
-    const rawOverrides = sessionStorage.getItem('overrides');
+    const rawOverrides = localStorage.getItem('overrides');
     if (rawOverrides) {
       overrides = JSON.parse(rawOverrides);
     }
   } catch (e) {
-    console.error('Failed to parse overrides from sessionStorage:', e);
+    console.error('Failed to parse overrides from localStorage:', e);
   }
 
   // 1. Check specific granular module override first (takes priority)
@@ -161,6 +161,6 @@ export function hasPermission(module, action) {
  * @returns {boolean}
  */
 export function isSuperAdmin() {
-  const role = sessionStorage.getItem('portal_role') || sessionStorage.getItem('role');
+  const role = localStorage.getItem('portal_role') || localStorage.getItem('role');
   return role === 'Developer Admin' || role === 'Main Admin' || role === 'Admin Dashboard' || role === 'Principal';
 }
