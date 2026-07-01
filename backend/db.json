@@ -11,16 +11,6 @@
   "staffPayments": [],
   "activities": [
     {
-      "id": "ACT-1782814903196",
-      "type": "alert",
-      "title": "New School Onboarded",
-      "desc": "School \"Knox Bray\" registered on the platform.",
-      "time": "Just now",
-      "timestamp": "2026-06-30T10:21:43.196Z",
-      "color": "hsl(var(--color-primary))",
-      "bg": "rgba(hsl(var(--color-primary)), 0.1)"
-    },
-    {
       "id": "ACT-1782299769157",
       "type": "alert",
       "title": "New School Onboarded",
@@ -85,6 +75,17 @@
       "color": "hsl(var(--color-primary))",
       "bg": "rgba(hsl(var(--color-primary)), 0.1)",
       "tenantId": "platform"
+    },
+    {
+      "id": "ACT-1782814903196",
+      "type": "alert",
+      "title": "New School Onboarded",
+      "description": "School \"Knox Bray\" registered on the platform.",
+      "time": "Just now",
+      "timestamp": "2026-06-30T10:21:43.196Z",
+      "color": "hsl(var(--color-primary))",
+      "bg": "rgba(hsl(var(--color-primary)), 0.1)",
+      "tenantId": "platform"
     }
   ],
   "exams": [],
@@ -136,29 +137,34 @@
   ],
   "schools": [
     {
-      "id": "SCH-1782814903135",
-      "name": "Knox Bray",
-      "code": "SCH-213",
-      "subdomain": "aliquam",
-      "logo": "Consectetur voluptat",
-      "principalName": "Olga Powers",
-      "email": "dytasojiq@mailinator.com",
-      "phone": "",
-      "address": "Autem labore est eum",
-      "city": "Cupiditate voluptate",
-      "state": "Totam in est excepte",
+      "id": "SCH-1782821125653",
+      "name": "Thane Puckett",
+      "code": "SCH-596",
+      "subdomain": "culpa",
+      "logo": "",
+      "principalName": "Brendan Cherry",
+      "email": "mavo@mailinator.com",
+      "phone": "1234567654",
+      "address": "Fuga Voluptatum des",
+      "city": "Quia rerum blanditii",
+      "state": "Fugit in molestiae",
       "country": "India",
-      "academicSession": "Commodo qui itaque e",
-      "subscriptionPlan": "Premium",
-      "url": "https://aliquam.myschoolerp.com",
+      "academicSession": "Mollit in veniam se",
+      "subscriptionPlan": "Growth",
+      "url": "https://culpa.myschoolerp.com",
       "status": "Active",
-      "adminName": "Cecilia Gilbert",
-      "adminEmail": "fotozokebo@mailinator.com",
+      "adminName": "Vivien Calderon",
+      "adminEmail": "keri@mailinator.com",
       "adminUsername": "school_admin",
-      "adminPassword": "$2b$10$ORa8daUuO6HMicU4iaTqreJJQjEMZjy.5Ey.qpRey6L21naxq./xq",
-      "dbName": "school_aliquam",
-      "createdAt": "2026-06-30T10:21:43.196Z",
-      "updatedAt": "2026-06-30T10:21:43.196Z"
+      "adminPassword": "$2b$10$JxUIs2TeKnkhDx5LFyIGaeJ75Rnu9Sxf.MyEfZlg5EgKEDP5kSz4.",
+      "ratePerStudent": "250.00",
+      "createdAt": "2026-06-30T12:05:25.964Z",
+      "updatedAt": "2026-06-30T12:29:27.394Z",
+      "dbName": "school_culpa",
+      "examTypes": "[]",
+      "eventTypes": "[]",
+      "noticeCategories": [],
+      "holidayClassifications": []
     }
   ],
   "roles": [
@@ -1748,7 +1754,30 @@
     }
   ],
   "userAccess": [],
-  "auditLogs": [],
+  "auditLogs": [
+    {
+      "id": "LOG-1782818268975",
+      "userId": "dev_admin",
+      "userName": "dev@admin.com",
+      "userRole": "Developer Admin",
+      "action": "SCHOOL_CREDENTIALS_UPDATE",
+      "details": "Updated credentials for school: Knox Bray (Subdomain: aliquam). Admin username changed from school_admin to school_admin.",
+      "ipAddress": "::1",
+      "timestamp": "2026-06-30T11:17:48.975Z",
+      "tenantId": "platform"
+    },
+    {
+      "id": "LOG-1782818751461",
+      "userId": "dev_admin",
+      "userName": "dev@admin.com",
+      "userRole": "Developer Admin",
+      "action": "SCHOOL_CREDENTIALS_UPDATE",
+      "details": "Updated credentials for school: Knox Bray (Subdomain: aliquam). Admin username changed from school_admin to school_admin.",
+      "ipAddress": "::1",
+      "timestamp": "2026-06-30T11:25:51.461Z",
+      "tenantId": "platform"
+    }
+  ],
   "grades": [],
   "departments": [],
   "gradeDepartments": [],
@@ -1778,5 +1807,5 @@
       "updatedAt": "2026-06-29T10:01:55.628Z"
     }
   ],
-  "_signature": ""
+  "_signature": "SCH-1782814903135-aliquam-Active-Knox Bray-SCH-213|SCH-1782821125653-culpa-Active-Thane Puckett-SCH-596"
 }

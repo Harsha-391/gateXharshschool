@@ -52,7 +52,7 @@ import { hashPassword, comparePassword, isBcryptHash, checkLoginLock, recordFail
 import { logAccess, logError, logSecurity, logAudit as fileLogAudit } from './utils/logger.js';
 import { sanitizeInput } from './middleware/sanitize.js';
 import { decrypt } from './utils/encryptionHelper.js';
-import { auth, generateToken, generateRefreshToken, verifyRefreshToken, blacklistToken } from './middleware/auth.js';
+import { auth, generateToken, generateRefreshToken, verifyRefreshToken, blacklistToken, setAuthCookie, clearAuthCookie } from './middleware/auth.js';
 import multer from 'multer';
 
 // Database cache refresh trigger
@@ -249,6 +249,7 @@ app.post('/api/auth/login', loginLimiter, loginValidation, async (req, res) => {
       const payload = { role: 'Developer Admin', username: owner.username };
       const token = generateToken(payload);
       const refreshToken = generateRefreshToken(payload);
+      setAuthCookie(res, token, 'Developer Admin');
       return res.json({ token, refreshToken, role: 'Developer Admin', name: owner.name });
     }
     const attemptsRecord = recordFailedAttempt(loginKey);
@@ -313,6 +314,7 @@ app.post('/api/auth/login', loginLimiter, loginValidation, async (req, res) => {
         const payload = { role: 'Main Admin', tenantId, username, permissions, passwordHash: schoolRecord.adminPassword };
         const token = generateToken(payload);
         const refreshToken = generateRefreshToken(payload);
+        setAuthCookie(res, token, 'Main Admin');
         return res.json({ token, refreshToken, role: 'Main Admin', name: schoolRecord.principalName || schoolRecord.principal || schoolRecord.adminName, school: schoolRecord, permissions });
       }
 
@@ -371,6 +373,7 @@ app.post('/api/auth/login', loginLimiter, loginValidation, async (req, res) => {
         };
         const token = generateToken(payload);
         const refreshToken = generateRefreshToken(payload);
+        setAuthCookie(res, token, roleName);
         return res.json({
           token,
           refreshToken,
@@ -502,6 +505,7 @@ app.post('/api/auth/login', loginLimiter, loginValidation, async (req, res) => {
         };
         const token = generateToken(payload);
         const refreshToken = generateRefreshToken(payload);
+        setAuthCookie(res, token, roleName);
         return res.json({
           token,
           refreshToken,
@@ -532,6 +536,7 @@ app.post('/api/auth/login', loginLimiter, loginValidation, async (req, res) => {
           const payload = { role: 'Student', tenantId, username, id: student.id, permissions };
           const token = generateToken(payload);
           const refreshToken = generateRefreshToken(payload);
+          setAuthCookie(res, token, 'Student');
           return res.json({ token, refreshToken, role: 'Student', name: student.name || student.fullName, school: schoolRecord, permissions });
         }
       }
@@ -564,6 +569,7 @@ app.post('/api/auth/login', loginLimiter, loginValidation, async (req, res) => {
           const payload = { role: 'Parent', tenantId, username, id: student.id, permissions };
           const token = generateToken(payload);
           const refreshToken = generateRefreshToken(payload);
+          setAuthCookie(res, token, 'Parent');
           return res.json({ token, refreshToken, role: 'Parent', name: student.fatherName || student.motherName || 'Parent', school: schoolRecord, permissions });
         }
       }
@@ -595,11 +601,38 @@ app.post('/api/auth/refresh', (req, res) => {
 
 // Logout & Session Invalidation Route
 app.post('/api/auth/logout', (req, res) => {
-  const authHeader = req.headers.authorization;
-  if (authHeader && authHeader.startsWith('Bearer ')) {
-    const token = authHeader.split(' ')[1];
+  // 1. Clear cookie
+  clearAuthCookie(res);
+
+  // 2. Extract token from cookie or header and blacklist it
+  let token = null;
+  const cookieHeader = req.headers.cookie;
+  if (cookieHeader) {
+    const cookies = {};
+    cookieHeader.split(';').forEach(cookie => {
+      const parts = cookie.split('=');
+      if (parts.length >= 2) {
+        const name = parts[0].trim();
+        const val = parts.slice(1).join('=');
+        cookies[name] = decodeURIComponent(val);
+      }
+    });
+    if (cookies.token) {
+      token = cookies.token;
+    }
+  }
+
+  if (!token) {
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      token = authHeader.split(' ')[1];
+    }
+  }
+
+  if (token) {
     blacklistToken(token);
   }
+
   res.json({ success: true, message: 'Logged out successfully, session invalidated.' });
 });
 

@@ -41,13 +41,36 @@ export const isTokenBlacklisted = (token) => {
 };
 
 export const auth = (req, res, next) => {
-  const authHeader = req.headers.authorization;
-  
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.status(401).json({ error: 'Access denied. Authorization token missing.' });
+  let token = null;
+
+  // 1. Try to read token from cookies first
+  const cookieHeader = req.headers.cookie;
+  if (cookieHeader) {
+    const cookies = {};
+    cookieHeader.split(';').forEach(cookie => {
+      const parts = cookie.split('=');
+      if (parts.length >= 2) {
+        const name = parts[0].trim();
+        const val = parts.slice(1).join('=');
+        cookies[name] = decodeURIComponent(val);
+      }
+    });
+    if (cookies.token) {
+      token = cookies.token;
+    }
   }
 
-  const token = authHeader.split(' ')[1];
+  // 2. Fallback to Authorization header
+  if (!token) {
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      token = authHeader.split(' ')[1];
+    }
+  }
+
+  if (!token || token === 'null' || token === 'undefined') {
+    return res.status(401).json({ error: 'Access denied. Authorization token missing.' });
+  }
 
   if (isTokenBlacklisted(token)) {
     logSecurity('BLACKLISTED_TOKEN_USE', 'Attempted to use blacklisted/logged-out JWT token', req);
@@ -88,9 +111,11 @@ export const auth = (req, res, next) => {
   }
 };
 
-// Generates short-lived access tokens (configured in .env, default 1 hour)
+// Generates access tokens with role-based expiration (Developer Admin: 365d, Others: 1h)
 export const generateToken = (payload) => {
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: process.env.JWT_ACCESS_EXPIRE || '1h' });
+  const isDevAdmin = payload.role === 'Developer Admin';
+  const expiresIn = isDevAdmin ? '365d' : '1h';
+  return jwt.sign(payload, JWT_SECRET, { expiresIn });
 };
 
 // Generates longer-lived refresh tokens (configured in .env, default 7 days)
@@ -109,4 +134,26 @@ export const generateRefreshToken = (payload) => {
 // Verifies a refresh token
 export const verifyRefreshToken = (token) => {
   return jwt.verify(token, JWT_REFRESH_SECRET);
+};
+
+// Helper: Sets httpOnly secure session cookie on response
+export const setAuthCookie = (res, token, role) => {
+  const isDevAdmin = role === 'Developer Admin';
+  const maxAge = isDevAdmin ? 365 * 24 * 60 * 60 * 1000 : 60 * 60 * 1000; // 1 year vs 1 hour
+  
+  res.cookie('token', token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'Strict',
+    maxAge: maxAge
+  });
+};
+
+// Helper: Clears the session cookie on response
+export const clearAuthCookie = (res) => {
+  res.clearCookie('token', {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'Strict'
+  });
 };

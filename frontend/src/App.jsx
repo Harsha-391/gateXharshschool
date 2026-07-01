@@ -252,31 +252,22 @@ export default function App() {
 
   const fetchUserProfile = async () => {
     try {
-      const role = localStorage.getItem('role') || localStorage.getItem('portal_role');
-      if (role === 'Developer Admin') {
-        setUserProfile({
-          role: 'Developer Admin',
-          name: localStorage.getItem('name') || 'Platform Owner',
-          username: localStorage.getItem('username') || 'dev@admin.com',
-          email: 'dev@admin.com',
-          phone: 'N/A',
-          photo: ''
-        });
-        return;
-      }
       const token = localStorage.getItem('token');
-      if (!token || token === 'null' || token === 'undefined') return;
-      const res = await fetch('/api/auth/profile', {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
+      const headers = {};
+      if (token && token !== 'null' && token !== 'undefined') {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+      
+      const res = await fetch('/api/auth/profile', { headers });
       if (res.ok) {
         const data = await res.json();
         setUserProfile(data);
         localStorage.setItem('name', data.name);
         localStorage.setItem('role', data.role);
         localStorage.setItem('portal_role', data.role);
+        if (data.username) {
+          localStorage.setItem('username', data.username);
+        }
         if (data.photo) {
           localStorage.setItem('photo', data.photo);
         }
@@ -289,6 +280,21 @@ export default function App() {
           localStorage.setItem('overrides', JSON.stringify(data.overrides));
         } else {
           localStorage.removeItem('overrides');
+        }
+
+        // Dynamically align React states to match backend role response
+        if (data.role === 'Developer Admin') {
+          setIsDeveloperAdmin(true);
+          setIsAdmin(false);
+          setIsSchoolAdmin(false);
+          setActiveView('dashboard');
+        } else if (data.role === 'Student' || data.role === 'Parent') {
+          setIsAdmin(false);
+          setIsSchoolAdmin(false);
+          setActiveView('students');
+        } else {
+          setIsAdmin(true);
+          setIsSchoolAdmin(false);
         }
       } else if (res.status === 401) {
         handleLogout();
@@ -779,6 +785,20 @@ export default function App() {
   };
 
   const handleLogout = () => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      fetch('/api/auth/logout', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      }).catch(err => console.error('Error blacklisting token on logout:', err));
+    } else {
+      fetch('/api/auth/logout', {
+        method: 'POST'
+      }).catch(err => console.error('Error clearing session cookie on logout:', err));
+    }
+
     const authKeys = [
       'token', 'role', 'portal_role', 'username', 'name', 
       'permissions', 'overrides', 'school_name', 'school_subdomain', 
