@@ -62,14 +62,16 @@ export default function AccountantPanel({ setActiveView, onLogout, accountantVie
       case 'collect-fees': return <CollectFeesView showToast={showToast} />;
       case 'fee-structure': return <FeeStructureView showToast={showToast} />;
       case 'fees-history': return <FeesHistoryView showToast={showToast} />;
-      case 'payroll': return <PayrollView showToast={showToast} />;
-      case 'payroll-history': return <PayrollHistoryView showToast={showToast} />;
+      case 'staff-payroll': return <PayrollView showToast={showToast} type="Staff" />;
+      case 'staff-pay-structure': return <StaffPaymentStructureView showToast={showToast} type="Staff" />;
+      case 'teacher-payroll': return <PayrollView showToast={showToast} type="Teacher" />;
       case 'teacher-pay-structure': return <TeacherSalaryStructureView showToast={showToast} />;
+      case 'employee-payroll': return <StaffPaymentsView showToast={showToast} />;
+      case 'employee-pay-structure': return <StaffPaymentStructureView showToast={showToast} type="Employee" />;
+      case 'payroll-history': return <PayrollHistoryView showToast={showToast} />;
       case 'expenses': return <ExpensesView showToast={showToast} />;
       case 'income': return <IncomeView showToast={showToast} active={true} />;
       case 'reports': return <ReportsView showToast={showToast} />;
-      case 'staff-pay': return <StaffPaymentsView showToast={showToast} />;
-      case 'staff-pay-structure': return <StaffPaymentStructureView showToast={showToast} />;
       case 'students': return <StudentDirectory />;
       case 'staff-directory': return <StaffDirectory setActiveView={setActiveView} readOnly={true} />;
       case 'employees': return <EmployeeDirectory readOnly={true} />;
@@ -113,20 +115,22 @@ export default function AccountantPanel({ setActiveView, onLogout, accountantVie
               accountantView === 'collect-fees' ? 'Student Fee Collection' :
               accountantView === 'fee-structure' ? 'Fee Structure Configuration' :
               accountantView === 'fees-history' ? 'Fees Payment History' :
-               accountantView === 'payroll' ? 'Pay Staff' :
-               accountantView === 'payroll-history' ? 'Payroll Payment History' :
-               accountantView === 'teacher-pay-structure' ? 'Staff Pay Structure' :
-               accountantView === 'expenses' ? 'Expense Tracker' :
-               accountantView === 'income' ? 'Income Tracker' :
-               accountantView === 'reports' ? 'Financial Reports' :
-               accountantView === 'staff-pay' ? 'Pay Employee' :
-               accountantView === 'staff-pay-structure' ? 'Employee Pay Structure' :
-               accountantView === 'students' ? 'Student Directory' :
-               accountantView === 'teacher-list' ? 'Staff Directory' :
-               accountantView === 'staff' ? 'Employee Directory' :
-               accountantView === 'register-student' ? 'Register Student' :
-               accountantView === 'add-teacher' ? 'Add Staff' :
-               accountantView === 'add-staff' ? 'Add Employee' : 'Student Fee Collection'}</h2>
+              accountantView === 'staff-payroll' ? 'Staff Payroll' :
+              accountantView === 'staff-pay-structure' ? 'Staff Pay Structure' :
+              accountantView === 'teacher-payroll' ? 'Teacher Payroll' :
+              accountantView === 'teacher-pay-structure' ? 'Teacher Pay Structure' :
+              accountantView === 'employee-payroll' ? 'Employee Payroll' :
+              accountantView === 'employee-pay-structure' ? 'Employee Pay Structure' :
+              accountantView === 'payroll-history' ? 'Payroll History' :
+              accountantView === 'expenses' ? 'Expense Tracker' :
+              accountantView === 'income' ? 'Income Tracker' :
+              accountantView === 'reports' ? 'Financial Reports' :
+              accountantView === 'students' ? 'Student Directory' :
+              accountantView === 'teacher-list' ? 'Staff Directory' :
+              accountantView === 'staff' ? 'Employee Directory' :
+              accountantView === 'register-student' ? 'Register Student' :
+              accountantView === 'add-teacher' ? 'Add Staff' :
+              accountantView === 'add-staff' ? 'Add Employee' : 'Student Fee Collection'}</h2>
             <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
               Comprehensive financial management and accounting portal
             </p>
@@ -182,10 +186,12 @@ function DashboardView({ setAccountantView }) {
     { label: 'Collect Fees', icon: Receipt, view: 'collect-fees', color: '#10b981' },
     { label: 'Fee Structure', icon: BookOpen, view: 'fee-structure', color: '#3b82f6' },
     { label: 'Fees History', icon: History, view: 'fees-history', color: '#8b5cf6' },
-    { label: 'Pay Staff', icon: Banknote, view: 'payroll', color: '#8b5cf6' },
-    { label: 'Staff Pay Structure', icon: Calculator, view: 'teacher-pay-structure', color: '#10b981' },
-    { label: 'Pay Employee', icon: UserCog, view: 'staff-pay', color: '#ec4899' },
-    { label: 'Employee Pay Structure', icon: Calculator, view: 'staff-pay-structure', color: '#14b8a6' },
+    { label: 'Staff Payroll', icon: Banknote, view: 'staff-payroll', color: '#8b5cf6' },
+    { label: 'Staff Pay Structure', icon: Calculator, view: 'staff-pay-structure', color: '#10b981' },
+    { label: 'Teacher Payroll', icon: Banknote, view: 'teacher-payroll', color: '#3b82f6' },
+    { label: 'Teacher Pay Structure', icon: Calculator, view: 'teacher-pay-structure', color: '#0ea5e9' },
+    { label: 'Employee Payroll', icon: UserCog, view: 'employee-payroll', color: '#ec4899' },
+    { label: 'Employee Pay Structure', icon: Calculator, view: 'employee-pay-structure', color: '#14b8a6' },
     { label: 'Payroll History', icon: History, view: 'payroll-history', color: '#db2777' },
     { label: 'Add Expense', icon: TrendingDown, view: 'expenses', color: '#ef4444' },
     { label: 'Add Income', icon: TrendingUp, view: 'income', color: '#f59e0b' },
@@ -1836,7 +1842,7 @@ const defaultStaffDesignations = [
   'Other'
 ];
 
-export function StaffPaymentStructureView({ showToast }) {
+export function StaffPaymentStructureView({ showToast, type }) {
   const [structures, setStructures] = useState([]);
   const [designationOptions, setDesignationOptions] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -1856,19 +1862,29 @@ export function StaffPaymentStructureView({ showToast }) {
   };
 
   const fetchDesignationOptions = () => {
-    fetch('/api/designations')
-      .then(r => r.ok ? r.json() : [])
-      .then(data => {
-        const activeDesignations = Array.isArray(data) ? data.filter(d => d.status === 'Active' || !d.status).map(d => d.name) : [];
-        setDesignationOptions(activeDesignations);
-      })
-      .catch(() => {});
+    if (type === 'Staff') {
+      fetch('/api/rbac/roles')
+        .then(r => r.ok ? r.json() : [])
+        .then(data => {
+          const activeRoles = Array.isArray(data) ? data.filter(r => r.active && !['Developer Admin', 'Main Admin', 'Admin Dashboard', 'Teacher'].includes(r.name)).map(r => r.name) : [];
+          setDesignationOptions(activeRoles);
+        })
+        .catch(() => {});
+    } else {
+      fetch('/api/designations')
+        .then(r => r.ok ? r.json() : [])
+        .then(data => {
+          const activeDesignations = Array.isArray(data) ? data.filter(d => d.status === 'Active' || !d.status).map(d => d.name) : [];
+          setDesignationOptions(activeDesignations);
+        })
+        .catch(() => {});
+    }
   };
 
   useEffect(() => {
     fetchStructures();
     fetchDesignationOptions();
-  }, []);
+  }, [type]);
 
   useEffect(() => {
     if (showForm) {
@@ -1931,16 +1947,22 @@ export function StaffPaymentStructureView({ showToast }) {
   const labelStyle = { fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '6px', display: 'block' };
   const optionStyle = { background: 'var(--bg-form)', color: 'var(--text-main)' };
 
+  const isStaff = type === 'Staff';
+  const labelText = isStaff ? 'Staff' : 'Employee';
+  const filteredStructures = structures.filter(s => designationOptions.includes(s.designation));
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
       <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-        <button onClick={() => { setEditingId(null); setShowForm(true); }} style={{
-          padding: '10px 20px', background: 'linear-gradient(135deg, #14b8a6, #0d9488)', border: 'none',
-          borderRadius: '10px', color: '#fff', fontWeight: 700, cursor: 'pointer', display: 'flex',
-          alignItems: 'center', gap: '6px', fontSize: '0.85rem'
-        }}>
-          <Plus size={16} /> Add Employee Salary Structure
-        </button>
+        {hasPermission(isStaff ? 'staff-pay-structure' : 'employee-pay-structure', 'create') && (
+          <button onClick={() => { setEditingId(null); setShowForm(true); }} style={{
+            padding: '10px 20px', background: 'linear-gradient(135deg, #14b8a6, #0d9488)', border: 'none',
+            borderRadius: '10px', color: '#fff', fontWeight: 700, cursor: 'pointer', display: 'flex',
+            alignItems: 'center', gap: '6px', fontSize: '0.85rem'
+          }}>
+            <Plus size={16} /> Add {labelText} Salary Structure
+          </button>
+        )}
       </div>
 
       {showForm && createPortal(
@@ -1953,7 +1975,7 @@ export function StaffPaymentStructureView({ showToast }) {
             <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <h3 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
-                  <Calculator size={18} style={{ color: '#14b8a6' }} /> Configure Employee Salary Structure
+                  <Calculator size={18} style={{ color: '#14b8a6' }} /> Configure {labelText} Salary Structure
                 </h3>
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '16px' }}>
@@ -1990,7 +2012,7 @@ export function StaffPaymentStructureView({ showToast }) {
                   padding: '12px 24px', background: 'linear-gradient(135deg, #14b8a6, #0d9488)', border: 'none',
                   borderRadius: '10px', color: '#fff', fontWeight: 700, cursor: 'pointer',
                   display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem'
-                }}><CheckCircle size={16} /> Save Employee Structure</button>
+                }}><CheckCircle size={16} /> Save {labelText} Structure</button>
                 <button type="button" onClick={() => { setEditingId(null); setShowForm(false); }} style={{
                   padding: '12px 24px', background: 'var(--bg-card-subtle)', border: '1px solid var(--border-subtle)',
                   borderRadius: '10px', color: 'var(--text-main)', fontWeight: 600, cursor: 'pointer', fontSize: '0.85rem', transition: 'background 0.2s',
@@ -2009,12 +2031,12 @@ export function StaffPaymentStructureView({ showToast }) {
             <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
               <Loader2 className="animate-spin" size={24} />
             </div>
-          ) : structures.length === 0 ? (
+          ) : filteredStructures.length === 0 ? (
             <div className="glass-panel" style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '40px', color: 'var(--text-muted)', borderRadius: '16px' }}>
-              No employee salary structures configured yet.
+              No {labelText.toLowerCase()} salary structures configured yet.
             </div>
           ) : (
-            structures.map((s, i) => (
+            filteredStructures.map((s, i) => (
               <div key={i} className="glass-panel" style={{ 
                 padding: '24px', 
                 borderRadius: '16px', 
@@ -2053,24 +2075,28 @@ export function StaffPaymentStructureView({ showToast }) {
                     <span style={{ fontWeight: 800, color: '#14b8a6', fontSize: '1.15rem' }}>₹{(s.netSalary || 0).toLocaleString()}</span>
                   </div>
                   <div style={{ display: 'flex', gap: '8px' }}>
-                    <button onClick={() => handleEdit(s)} style={{
-                      background: 'rgba(0,0,0,0.03)', border: '1px solid rgba(0,0,0,0.08)', color: '#3b82f6', cursor: 'pointer',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '6px', borderRadius: '6px',
-                      transition: 'all 0.2s'
-                    }} onMouseEnter={e => { e.currentTarget.style.background = 'rgba(59,130,246,0.12)'; }}
-                       onMouseLeave={e => { e.currentTarget.style.background = 'rgba(0,0,0,0.03)'; }}
-                       title="Edit Structure">
-                      <Pencil size={15} />
-                    </button>
-                    <button onClick={() => handleDelete(s.id, s.designation)} style={{
-                      background: 'rgba(0,0,0,0.03)', border: '1px solid rgba(0,0,0,0.08)', color: '#ef4444', cursor: 'pointer',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '6px', borderRadius: '6px',
-                      transition: 'all 0.2s'
-                    }} onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.12)'; }}
-                       onMouseLeave={e => { e.currentTarget.style.background = 'rgba(0,0,0,0.03)'; }}
-                       title="Delete Structure">
-                      <Trash2 size={15} />
-                    </button>
+                    {hasPermission(isStaff ? 'staff-pay-structure' : 'employee-pay-structure', 'edit') && (
+                      <button onClick={() => handleEdit(s)} style={{
+                        background: 'rgba(0,0,0,0.03)', border: '1px solid rgba(0,0,0,0.08)', color: '#3b82f6', cursor: 'pointer',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '6px', borderRadius: '6px',
+                        transition: 'all 0.2s'
+                      }} onMouseEnter={e => { e.currentTarget.style.background = 'rgba(59,130,246,0.12)'; }}
+                         onMouseLeave={e => { e.currentTarget.style.background = 'rgba(0,0,0,0.03)'; }}
+                         title="Edit Structure">
+                        <Pencil size={15} />
+                      </button>
+                    )}
+                    {hasPermission(isStaff ? 'staff-pay-structure' : 'employee-pay-structure', 'delete') && (
+                      <button onClick={() => handleDelete(s.id, s.designation)} style={{
+                        background: 'rgba(0,0,0,0.03)', border: '1px solid rgba(0,0,0,0.08)', color: '#ef4444', cursor: 'pointer',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '6px', borderRadius: '6px',
+                        transition: 'all 0.2s'
+                      }} onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.12)'; }}
+                         onMouseLeave={e => { e.currentTarget.style.background = 'rgba(0,0,0,0.03)'; }}
+                         title="Delete Structure">
+                        <Trash2 size={15} />
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
@@ -2305,13 +2331,15 @@ export function StaffPaymentsView({ showToast }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
       <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
-        <button onClick={() => setShowForm(true)} style={{
-          padding: '10px 20px', background: 'linear-gradient(135deg, #ec4899, #db2777)', border: 'none',
-          borderRadius: '10px', color: '#fff', fontWeight: 700, cursor: 'pointer', display: 'flex',
-          alignItems: 'center', gap: '6px', fontSize: '0.85rem'
-        }}>
-          <Plus size={16} /> Process Employee Payment
-        </button>
+        {hasPermission('employee-payroll', 'create') && (
+          <button onClick={() => setShowForm(true)} style={{
+            padding: '10px 20px', background: 'linear-gradient(135deg, #ec4899, #db2777)', border: 'none',
+            borderRadius: '10px', color: '#fff', fontWeight: 700, cursor: 'pointer', display: 'flex',
+            alignItems: 'center', gap: '6px', fontSize: '0.85rem'
+          }}>
+            <Plus size={16} /> Process Employee Payment
+          </button>
+        )}
         <div style={{ flex: 1 }} />
         <div style={{ position: 'relative' }}>
           <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
@@ -2539,18 +2567,20 @@ export function StaffPaymentsView({ showToast }) {
                     </td>
                     <td style={{ padding: '12px 16px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>{p.paymentDate}</td>
                     <td style={{ padding: '12px 16px' }}>
-                      <button
-                        onClick={() => handleDeleteStaffPayment(p.paymentId)}
-                        style={{
-                          padding: '6px 12px', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)',
-                          borderRadius: '8px', color: '#ef4444', fontWeight: 600, cursor: 'pointer', fontSize: '0.75rem',
-                          display: 'flex', alignItems: 'center', gap: '4px', transition: 'all 0.2s'
-                        }}
-                        onMouseEnter={e => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.2)'}
-                        onMouseLeave={e => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.1)'}
-                      >
-                        <Trash2 size={13} /> Delete
-                      </button>
+                      {hasPermission('employee-payroll', 'delete') && (
+                        <button
+                          onClick={() => handleDeleteStaffPayment(p.paymentId)}
+                          style={{
+                            padding: '6px 12px', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)',
+                            borderRadius: '8px', color: '#ef4444', fontWeight: 600, cursor: 'pointer', fontSize: '0.75rem',
+                            display: 'flex', alignItems: 'center', gap: '4px', transition: 'all 0.2s'
+                          }}
+                          onMouseEnter={e => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.2)'}
+                          onMouseLeave={e => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.1)'}
+                        >
+                          <Trash2 size={13} /> Delete
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))
@@ -2566,7 +2596,7 @@ export function StaffPaymentsView({ showToast }) {
 /* ============================================================
    PAYROLL VIEW
    ============================================================ */
-export function PayrollView({ showToast }) {
+export function PayrollView({ showToast, type }) {
   const [payroll, setPayroll] = useState([]);
   const [teachers, setTeachers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -2574,7 +2604,7 @@ export function PayrollView({ showToast }) {
   const [filterStatus, setFilterStatus] = useState('All');
   const [search, setSearch] = useState('');
   const [form, setForm] = useState({
-    teacherId: '', teacherName: '', employeeId: '', role: '', department: '',
+    teacherId: '', teacherName: '', employeeId: '', role: type === 'Teacher' ? 'Teacher' : '', department: '',
     basicSalary: '45000', allowances: '5000', bonus: '0', deductions: '2000',
     pfDeduction: '1800', taxDeduction: '1200', paymentMethod: 'Bank Transfer',
     month: `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`
@@ -2604,10 +2634,24 @@ export function PayrollView({ showToast }) {
   };
 
   const fetchTeachers = () => {
-    fetch('/api/staff?limit=1000')
-      .then(r => r.json())
-      .then(d => setTeachers(d.teachers || []))
-      .catch(() => {});
+    if (type === 'Staff') {
+      fetch('/api/staff?limit=1000')
+        .then(r => r.json())
+        .then(d => setTeachers((d.teachers || []).map(t => ({ ...t, _source: 'Staff' }))))
+        .catch(() => {});
+    } else if (type === 'Teacher') {
+      fetch('/api/teachers')
+        .then(r => r.json())
+        .then(d => setTeachers((Array.isArray(d) ? d : []).map(t => ({ ...t, _source: 'Teacher' }))))
+        .catch(() => {});
+    } else {
+      Promise.all([
+        fetch('/api/staff?limit=1000').then(r => r.json()).then(d => (d.teachers || []).map(t => ({ ...t, _source: 'Staff' }))).catch(() => []),
+        fetch('/api/teachers').then(r => r.json()).then(d => (Array.isArray(d) ? d : []).map(t => ({ ...t, _source: 'Teacher' }))).catch(() => [])
+      ]).then(([staffList, teacherList]) => {
+        setTeachers([...staffList, ...teacherList]);
+      });
+    }
   };
 
   const fetchSalaryStructures = () => {
@@ -2713,14 +2757,18 @@ export function PayrollView({ showToast }) {
       return;
     }
     try {
+      const payload = {
+        ...form,
+        role: type === 'Teacher' ? 'Teacher' : form.role
+      };
       const res = await fetch('/api/finance/payroll', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form)
+        body: JSON.stringify(payload)
       });
       if (res.ok) {
         showToast(`Salary processed for ${form.teacherName}! Net: ₹${netSalary.toLocaleString()}`);
         setShowForm(false);
-        setForm({ teacherId: '', teacherName: '', employeeId: '', role: '', department: '',
+        setForm({ teacherId: '', teacherName: '', employeeId: '', role: type === 'Teacher' ? 'Teacher' : '', department: '',
           basicSalary: '45000', allowances: '5000', bonus: '0', deductions: '2000',
           pfDeduction: '1800', taxDeduction: '1200', paymentMethod: 'Bank Transfer',
           month: `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}` });
@@ -2780,20 +2828,38 @@ export function PayrollView({ showToast }) {
     return true;
   });
 
+  const isStaff = type === 'Staff';
+  const labelText = isStaff ? 'Staff' : 'Teacher';
+  const activeRoles = type === 'Teacher'
+    ? ['Teacher']
+    : (roles.length > 0 ? roles.map(r => r.name) : fallbackStaffRoles).filter(name => name !== 'Teacher');
+
+  const filteredPayTierStructures = salaryStructures.filter(s => {
+    const roleName = s.role || s.designation;
+    const isStaffRole = roles.some(r => r.name === roleName) || fallbackStaffRoles.includes(roleName);
+    if (type === 'Teacher') {
+      return !isStaffRole || roleName === 'Teacher';
+    } else {
+      return isStaffRole && roleName !== 'Teacher';
+    }
+  });
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
       <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
-        <button onClick={() => setShowForm(true)} style={{
-          padding: '10px 20px', background: 'linear-gradient(135deg, #8b5cf6, #7c3aed)', border: 'none',
-          borderRadius: '10px', color: '#fff', fontWeight: 700, cursor: 'pointer', display: 'flex',
-          alignItems: 'center', gap: '6px', fontSize: '0.85rem'
-        }}>
-          <Plus size={16} /> Process Staff Salary
-        </button>
+        {hasPermission(isStaff ? 'staff-payroll' : 'teacher-payroll', 'create') && (
+          <button onClick={() => setShowForm(true)} style={{
+            padding: '10px 20px', background: 'linear-gradient(135deg, #8b5cf6, #7c3aed)', border: 'none',
+            borderRadius: '10px', color: '#fff', fontWeight: 700, cursor: 'pointer', display: 'flex',
+            alignItems: 'center', gap: '6px', fontSize: '0.85rem'
+          }}>
+            <Plus size={16} /> Process {labelText} Salary
+          </button>
+        )}
         <div style={{ flex: 1 }} />
         <div style={{ position: 'relative' }}>
           <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search staff..."
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder={`Search ${labelText.toLowerCase()}...`}
             style={{ ...inputStyle, paddingLeft: '36px', width: '200px' }} />
         </div>
         <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} style={{ ...inputStyle, width: '120px', cursor: 'pointer' }}>
@@ -2813,15 +2879,15 @@ export function PayrollView({ showToast }) {
             <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <h3 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
-                  <Banknote size={18} style={{ color: '#8b5cf6' }} /> Process Staff Salary
+                  <Banknote size={18} style={{ color: '#8b5cf6' }} /> Process {labelText} Salary
                 </h3>
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '16px' }}>
                 <div style={{ position: 'relative' }}>
-                  <label style={labelStyle}>Select Staff</label>
+                  <label style={labelStyle}>Select {labelText}</label>
                   <input 
                     type="text" 
-                    placeholder="Type staff name to search..." 
+                    placeholder={`Type ${labelText.toLowerCase()} name to search...`} 
                     value={teacherSearchQuery} 
                     onChange={(e) => {
                       setTeacherSearchQuery(e.target.value);
@@ -2884,21 +2950,30 @@ export function PayrollView({ showToast }) {
                 </div>
                 <div>
                   <label style={labelStyle}>Role</label>
-                  <select
-                    value={form.role}
-                    onChange={e => {
-                      setForm({ ...form, role: e.target.value });
-                    }}
-                    required
-                    style={{ ...inputStyle, cursor: 'pointer' }}
-                  >
-                    <option value="" style={optionStyle}>Select role</option>
-                    {(roles.length > 0 ? roles.map(r => r.name) : fallbackStaffRoles).map(roleName => (
-                      <option key={roleName} value={roleName} style={optionStyle}>{roleName}</option>
-                    ))}
-                  </select>
+                  {type === 'Teacher' ? (
+                    <input 
+                      type="text" 
+                      value="Teacher" 
+                      readOnly 
+                      style={{ ...inputStyle, background: 'var(--bg-form-subtle)', cursor: 'not-allowed', color: 'var(--text-muted)' }} 
+                    />
+                  ) : (
+                    <select
+                      value={form.role}
+                      onChange={e => {
+                        setForm({ ...form, role: e.target.value });
+                      }}
+                      required
+                      style={{ ...inputStyle, cursor: 'pointer' }}
+                    >
+                      <option value="" style={optionStyle}>Select role</option>
+                      {activeRoles.map(roleName => (
+                        <option key={roleName} value={roleName} style={optionStyle}>{roleName}</option>
+                      ))}
+                    </select>
+                  )}
                 </div>
-                {form.role === 'Teacher' && (
+                {(form.role === 'Teacher' || type === 'Teacher') && (
                   <div>
                     <label style={labelStyle}>Grade Range Pay Tier</label>
                     <select
@@ -2906,7 +2981,7 @@ export function PayrollView({ showToast }) {
                       onChange={e => {
                         const id = e.target.value;
                         setSelectedStructureId(id);
-                        const selectedStr = salaryStructures.find(s => s.id === id);
+                        const selectedStr = filteredPayTierStructures.find(s => s.id === id);
                         if (selectedStr) {
                           setForm(prev => ({
                             ...prev,
@@ -2921,7 +2996,7 @@ export function PayrollView({ showToast }) {
                       style={{ ...inputStyle, cursor: 'pointer' }}
                     >
                       <option value="" style={optionStyle}>Select a configured grade/tier to pre-fill</option>
-                      {salaryStructures.map(s => (
+                      {filteredPayTierStructures.map(s => (
                         <option key={s.id} value={s.id} style={optionStyle}>
                           {s.role || s.designation} (Net: ₹{(s.netSalary || 0).toLocaleString()})
                         </option>
@@ -3016,18 +3091,20 @@ export function PayrollView({ showToast }) {
                     </td>
                     <td style={{ padding: '12px 16px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>{p.paymentDate}</td>
                     <td style={{ padding: '12px 16px' }}>
-                      <button
-                        onClick={() => handleDeletePayroll(p.payrollId)}
-                        style={{
-                          padding: '6px 12px', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)',
-                          borderRadius: '8px', color: '#ef4444', fontWeight: 600, cursor: 'pointer', fontSize: '0.75rem',
-                          display: 'flex', alignItems: 'center', gap: '4px', transition: 'all 0.2s'
-                        }}
-                        onMouseEnter={e => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.2)'}
-                        onMouseLeave={e => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.1)'}
-                      >
-                        <Trash2 size={13} /> Delete
-                      </button>
+                      {hasPermission(isStaff ? 'staff-payroll' : 'teacher-payroll', 'delete') && (
+                        <button
+                          onClick={() => handleDeletePayroll(p.payrollId)}
+                          style={{
+                            padding: '6px 12px', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)',
+                            borderRadius: '8px', color: '#ef4444', fontWeight: 600, cursor: 'pointer', fontSize: '0.75rem',
+                            display: 'flex', alignItems: 'center', gap: '4px', transition: 'all 0.2s'
+                          }}
+                          onMouseEnter={e => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.2)'}
+                          onMouseLeave={e => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.1)'}
+                        >
+                          <Trash2 size={13} /> Delete
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))
@@ -4307,10 +4384,9 @@ export function TeacherSalaryStructureView({ showToast }) {
   const [editingId, setEditingId] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(null);
   const [form, setForm] = useState({
-    role: '', basicSalary: '', allowances: '',
+    role: 'Teacher', basicSalary: '', allowances: '',
     deductions: '0', pfDeduction: '0', taxDeduction: '0'
   });
-  const [selectedRole, setSelectedRole] = useState('');
   const [gradeRange, setGradeRange] = useState('');
   const [roles, setRoles] = useState([]);
 
@@ -4344,11 +4420,7 @@ export function TeacherSalaryStructureView({ showToast }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const finalRole = selectedRole === 'Teacher' ? gradeRange : selectedRole;
-    if (!finalRole) {
-      showToast('Please specify a role or grade range.', 'error');
-      return;
-    }
+    const finalRole = gradeRange.trim() ? gradeRange.trim() : 'Teacher';
     const formData = {
       ...form,
       role: finalRole
@@ -4365,10 +4437,9 @@ export function TeacherSalaryStructureView({ showToast }) {
         showToast(`Salary structure for ${finalRole} saved!`);
         setEditingId(null);
         setForm({
-          role: '', basicSalary: '', allowances: '',
+          role: 'Teacher', basicSalary: '', allowances: '',
           deductions: '0', pfDeduction: '0', taxDeduction: '0'
         });
-        setSelectedRole('');
         setGradeRange('');
         setShowForm(false);
         fetchStructures();
@@ -4385,18 +4456,10 @@ export function TeacherSalaryStructureView({ showToast }) {
 
   const handleEdit = (s) => {
     const roleName = s.role || s.designation;
-    const isRole = roles.some(r => r.name === roleName) || fallbackStaffRoles.includes(roleName);
-
-    if (isRole) {
-      setSelectedRole(roleName);
-      setGradeRange('');
-    } else {
-      setSelectedRole('Teacher');
-      setGradeRange(roleName || '');
-    }
+    setGradeRange(roleName === 'Teacher' ? '' : (roleName || ''));
 
     setForm({
-      role: roleName || '',
+      role: 'Teacher',
       basicSalary: String(s.basicSalary || ''),
       allowances: String(s.allowances || ''),
       deductions: String(s.deductions || '0'),
@@ -4421,17 +4484,19 @@ export function TeacherSalaryStructureView({ showToast }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
       <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-        <button onClick={() => { setEditingId(null); setSelectedRole(''); setGradeRange(''); setShowForm(true); }} style={{
-          padding: '10px 20px', background: 'linear-gradient(135deg, #10b981, #059669)', border: 'none',
-          borderRadius: '10px', color: '#fff', fontWeight: 700, cursor: 'pointer', display: 'flex',
-          alignItems: 'center', gap: '6px', fontSize: '0.85rem'
-        }}>
-          <Plus size={16} /> Add Staff Pay Structure
-        </button>
+        {hasPermission('teacher-pay-structure', 'create') && (
+          <button onClick={() => { setEditingId(null); setGradeRange(''); setShowForm(true); }} style={{
+            padding: '10px 20px', background: 'linear-gradient(135deg, #10b981, #059669)', border: 'none',
+            borderRadius: '10px', color: '#fff', fontWeight: 700, cursor: 'pointer', display: 'flex',
+            alignItems: 'center', gap: '6px', fontSize: '0.85rem'
+          }}>
+            <Plus size={16} /> Add Teacher Pay Structure
+          </button>
+        )}
       </div>
 
       {showForm && createPortal(
-        <div className="modal-overlay" onClick={() => { setEditingId(null); setSelectedRole(''); setGradeRange(''); setShowForm(false); }}>
+        <div className="modal-overlay" onClick={() => { setEditingId(null); setGradeRange(''); setShowForm(false); }}>
           <div onClick={e => e.stopPropagation()} className="animate-scale-up" style={{
             width: '100%', maxWidth: '650px', background: 'var(--bg-elevated)', borderRadius: '20px',
             border: '1px solid var(--border-glass)', padding: '32px', boxShadow: 'var(--shadow-lg)',
@@ -4440,42 +4505,29 @@ export function TeacherSalaryStructureView({ showToast }) {
             <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <h3 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
-                  <Calculator size={18} style={{ color: '#10b981' }} /> Configure Staff Pay Structure
+                  <Calculator size={18} style={{ color: '#10b981' }} /> Configure Teacher Pay Structure
                 </h3>
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '16px' }}>
                 <div>
-                <label style={labelStyle}>Role</label>
-                  <select
-                    value={selectedRole}
-                    onChange={e => {
-                      setSelectedRole(e.target.value);
-                      if (e.target.value !== 'Teacher') {
-                        setGradeRange('');
-                      }
-                    }}
-                    required
-                    style={{ ...inputStyle, cursor: 'pointer' }}
-                  >
-                    <option value="" style={optionStyle}>Select role</option>
-                    {(roles.length > 0 ? roles.map(r => r.name) : fallbackStaffRoles).map(roleName => (
-                      <option key={roleName} value={roleName} style={optionStyle}>{roleName}</option>
-                    ))}
-                  </select>
+                  <label style={labelStyle}>Role</label>
+                  <input
+                    type="text"
+                    value="Teacher"
+                    readOnly
+                    style={{ ...inputStyle, background: 'var(--bg-form-subtle)', cursor: 'not-allowed', color: 'var(--text-muted)' }}
+                  />
                 </div>
-                {selectedRole === 'Teacher' && (
-                  <div>
-                    <label style={labelStyle}>Create Range / Grade Range</label>
-                    <input
-                      type="text"
-                      placeholder="e.g. Grades 11-12, Grades 1-5..."
-                      value={gradeRange}
-                      onChange={e => setGradeRange(e.target.value)}
-                      required
-                      style={inputStyle}
-                    />
-                  </div>
-                )}
+                <div>
+                  <label style={labelStyle}>Create Range / Grade Range</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Grades 11-12, Grades 1-5..."
+                    value={gradeRange}
+                    onChange={e => setGradeRange(e.target.value)}
+                    style={inputStyle}
+                  />
+                </div>
                 {[
                   ['Basic Salary', 'basicSalary'], ['Allowances', 'allowances'],
                   ['Deductions', 'deductions'], ['PF Deduction', 'pfDeduction'], ['Tax Deduction', 'taxDeduction']
@@ -4495,8 +4547,8 @@ export function TeacherSalaryStructureView({ showToast }) {
                   padding: '12px 24px', background: 'linear-gradient(135deg, #10b981, #059669)', border: 'none',
                   borderRadius: '10px', color: '#fff', fontWeight: 700, cursor: 'pointer',
                   display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem'
-                }}><CheckCircle size={16} /> Save Structure</button>
-                <button type="button" onClick={() => { setEditingId(null); setSelectedRole(''); setGradeRange(''); setShowForm(false); }} style={{
+                }}><CheckCircle size={16} /> Save Teacher Structure</button>
+                <button type="button" onClick={() => { setEditingId(null); setGradeRange(''); setShowForm(false); }} style={{
                   padding: '12px 24px', background: 'var(--bg-card-subtle)', border: '1px solid var(--border-subtle)',
                   borderRadius: '10px', color: 'var(--text-main)', fontWeight: 600, cursor: 'pointer', fontSize: '0.85rem', transition: 'background 0.2s',
                   display: 'flex', alignItems: 'center', gap: '6px'
@@ -4514,12 +4566,12 @@ export function TeacherSalaryStructureView({ showToast }) {
             <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
               <Loader2 className="animate-spin" size={24} />
             </div>
-          ) : structures.length === 0 ? (
+          ) : filteredTeacherStructures.length === 0 ? (
             <div className="glass-panel" style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '40px', color: 'var(--text-muted)', borderRadius: '16px' }}>
-              No staff salary structures configured yet.
+              No teacher salary structures configured yet.
             </div>
           ) : (
-            structures.map((s, i) => (
+            filteredTeacherStructures.map((s, i) => (
               <div key={i} className="glass-panel" style={{ 
                 padding: '24px', 
                 borderRadius: '16px', 
@@ -4534,7 +4586,7 @@ export function TeacherSalaryStructureView({ showToast }) {
               }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(0,0,0,0.06)', paddingBottom: '10px' }}>
                   <h4 style={{ fontSize: '1rem', fontWeight: 800, color: '#10b981' }}>
-                    {(() => { const roleName = s.role || s.designation; return (roles.some(r => r.name === roleName) || fallbackStaffRoles.includes(roleName)) ? roleName : `Teacher (${roleName})`; })()}
+                    {(() => { const roleName = s.role || s.designation; return roleName === 'Teacher' ? 'Teacher' : (roleName.toLowerCase().startsWith('teacher') ? roleName : `Teacher (${roleName})`); })()}
                   </h4>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
@@ -4560,24 +4612,28 @@ export function TeacherSalaryStructureView({ showToast }) {
                     <span style={{ fontWeight: 800, color: '#10b981', fontSize: '1.15rem' }}>₹{(s.netSalary || 0).toLocaleString()}</span>
                   </div>
                   <div style={{ display: 'flex', gap: '8px' }}>
-                    <button onClick={() => handleEdit(s)} style={{
-                      background: 'rgba(0,0,0,0.03)', border: '1px solid rgba(0,0,0,0.08)', color: '#3b82f6', cursor: 'pointer',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '6px', borderRadius: '6px',
-                      transition: 'all 0.2s'
-                    }} onMouseEnter={e => { e.currentTarget.style.background = 'rgba(59,130,246,0.12)'; }}
-                       onMouseLeave={e => { e.currentTarget.style.background = 'rgba(0,0,0,0.03)'; }}
-                       title="Edit Structure">
-                      <Pencil size={15} />
-                    </button>
-                    <button onClick={() => handleDelete(s.id, s.role || s.designation)} style={{
-                      background: 'rgba(0,0,0,0.03)', border: '1px solid rgba(0,0,0,0.08)', color: '#ef4444', cursor: 'pointer',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '6px', borderRadius: '6px',
-                      transition: 'all 0.2s'
-                    }} onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.12)'; }}
-                       onMouseLeave={e => { e.currentTarget.style.background = 'rgba(0,0,0,0.03)'; }}
-                       title="Delete Structure">
-                      <Trash2 size={15} />
-                    </button>
+                    {hasPermission('teacher-pay-structure', 'edit') && (
+                      <button onClick={() => handleEdit(s)} style={{
+                        background: 'rgba(0,0,0,0.03)', border: '1px solid rgba(0,0,0,0.08)', color: '#3b82f6', cursor: 'pointer',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '6px', borderRadius: '6px',
+                        transition: 'all 0.2s'
+                      }} onMouseEnter={e => { e.currentTarget.style.background = 'rgba(59,130,246,0.12)'; }}
+                         onMouseLeave={e => { e.currentTarget.style.background = 'rgba(0,0,0,0.03)'; }}
+                         title="Edit Structure">
+                        <Pencil size={15} />
+                      </button>
+                    )}
+                    {hasPermission('teacher-pay-structure', 'delete') && (
+                      <button onClick={() => handleDelete(s.id, s.role || s.designation)} style={{
+                        background: 'rgba(0,0,0,0.03)', border: '1px solid rgba(0,0,0,0.08)', color: '#ef4444', cursor: 'pointer',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '6px', borderRadius: '6px',
+                        transition: 'all 0.2s'
+                      }} onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.12)'; }}
+                         onMouseLeave={e => { e.currentTarget.style.background = 'rgba(0,0,0,0.03)'; }}
+                         title="Delete Structure">
+                        <Trash2 size={15} />
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
@@ -5343,7 +5399,7 @@ export function FeesHistoryView({ showToast }) {
    PAYROLL HISTORY VIEW
    ============================================================ */
 export function PayrollHistoryView({ showToast }) {
-  const [activeTab, setActiveTab] = useState('staff'); // 'staff' or 'employee'
+  const [activeTab, setActiveTab] = useState('staff'); // 'staff', 'teacher' or 'employee'
   const [staffHistory, setStaffHistory] = useState([]);
   const [employeeHistory, setEmployeeHistory] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -5403,15 +5459,34 @@ export function PayrollHistoryView({ showToast }) {
   };
   const optionStyle = { background: 'var(--bg-form)', color: 'var(--text-main)' };
 
-  // Filter staff history
+  // Filter staff history (STF- prefix or role !== 'Teacher')
   const filteredStaff = staffHistory.filter(p => {
+    const isStaffRecord = (p.employeeId || p.teacherId || '').startsWith('STF-') || (p.role !== 'Teacher');
+    if (!isStaffRecord) return false;
+
     if (monthFilter) {
       if (!p.month || !p.month.startsWith(monthFilter)) return false;
     }
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       const name = (p.teacherName || '').toLowerCase();
-      return name.startsWith(q);
+      return name.includes(q);
+    }
+    return true;
+  });
+
+  // Filter teacher history (TCH- prefix or role === 'Teacher')
+  const filteredTeacher = staffHistory.filter(p => {
+    const isTeacherRecord = (p.employeeId || p.teacherId || '').startsWith('TCH-') || (p.role === 'Teacher');
+    if (!isTeacherRecord) return false;
+
+    if (monthFilter) {
+      if (!p.month || !p.month.startsWith(monthFilter)) return false;
+    }
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      const name = (p.teacherName || '').toLowerCase();
+      return name.includes(q);
     }
     return true;
   });
@@ -5424,7 +5499,7 @@ export function PayrollHistoryView({ showToast }) {
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       const name = (p.staffName || '').toLowerCase();
-      return name.startsWith(q);
+      return name.includes(q);
     }
     return true;
   });
@@ -5444,6 +5519,18 @@ export function PayrollHistoryView({ showToast }) {
           }}
         >
           <Users size={16} /> Staff Payroll History
+        </button>
+        <button
+          onClick={() => { setActiveTab('teacher'); setSearchQuery(''); }}
+          style={{
+            background: 'none', border: 'none', padding: '8px 16px', cursor: 'pointer',
+            fontSize: '0.9rem', fontWeight: 700,
+            color: activeTab === 'teacher' ? '#3b82f6' : 'var(--text-muted)',
+            borderBottom: activeTab === 'teacher' ? '3px solid #3b82f6' : 'none',
+            display: 'flex', alignItems: 'center', gap: '8px', transition: 'all 0.2s'
+          }}
+        >
+          <Users size={16} /> Teacher Payroll History
         </button>
         <button
           onClick={() => { setActiveTab('employee'); setSearchQuery(''); }}
@@ -5467,7 +5554,7 @@ export function PayrollHistoryView({ showToast }) {
             <input
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
-              placeholder={activeTab === 'staff' ? "Search staff name, role..." : "Search employee name, designation..."}
+              placeholder={activeTab === 'staff' ? "Search staff name..." : activeTab === 'teacher' ? "Search teacher name..." : "Search employee name..."}
               style={{ ...inputStyle, paddingLeft: '38px' }}
             />
           </div>
@@ -5496,11 +5583,11 @@ export function PayrollHistoryView({ showToast }) {
         {/* Table list */}
         <div style={{ overflowX: 'auto', borderRadius: '12px', border: '1px solid var(--border-glass)' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-            {activeTab === 'staff' ? (
+            {activeTab === 'staff' || activeTab === 'teacher' ? (
               <>
                 <thead>
                   <tr style={{ background: 'rgba(255,255,255,0.02)' }}>
-                    {['Payroll ID', 'Staff', 'Role', 'Basic', 'Allowances', 'Deductions', 'Net Salary', 'Status', 'Date', 'Actions'].map(h => (
+                    {['Payroll ID', activeTab === 'staff' ? 'Staff' : 'Teacher', 'Role', 'Basic', 'Allowances', 'Deductions', 'Net Salary', 'Status', 'Date', 'Actions'].map(h => (
                       <th key={h} style={{ padding: '14px 16px', fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>{h}</th>
                     ))}
                   </tr>
@@ -5508,20 +5595,20 @@ export function PayrollHistoryView({ showToast }) {
                 <tbody>
                   {loading ? (
                     <tr><td colSpan={10} style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>Loading...</td></tr>
-                  ) : filteredStaff.length === 0 ? (
-                    <tr><td colSpan={10} style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)', fontSize: '0.85rem' }}>No staff payroll history records found.</td></tr>
+                  ) : (activeTab === 'staff' ? filteredStaff : filteredTeacher).length === 0 ? (
+                    <tr><td colSpan={10} style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)', fontSize: '0.85rem' }}>No {activeTab === 'staff' ? 'staff' : 'teacher'} payroll history records found.</td></tr>
                   ) : (
-                    filteredStaff.map((p, idx) => (
+                    (activeTab === 'staff' ? filteredStaff : filteredTeacher).map((p, idx) => (
                       <tr key={idx} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}
                         onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.02)'}
                         onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-                        <td style={{ padding: '12px 16px', fontSize: '0.8rem', fontWeight: 600, color: '#8b5cf6' }}>{p.payrollId}</td>
+                        <td style={{ padding: '12px 16px', fontSize: '0.8rem', fontWeight: 600, color: activeTab === 'staff' ? '#8b5cf6' : '#3b82f6' }}>{p.payrollId}</td>
                         <td style={{ padding: '12px 16px', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-main)' }}>{p.teacherName}</td>
                         <td style={{ padding: '12px 16px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>{p.role || p.designation}</td>
                         <td style={{ padding: '12px 16px', fontSize: '0.8rem', color: 'var(--text-main)' }}>₹{p.basicSalary?.toLocaleString()}</td>
                         <td style={{ padding: '12px 16px', fontSize: '0.8rem', color: '#10b981' }}>+₹{p.allowances?.toLocaleString()}</td>
                         <td style={{ padding: '12px 16px', fontSize: '0.8rem', color: '#ef4444' }}>-₹{((p.deductions || 0) + (p.pfDeduction || 0) + (p.taxDeduction || 0))?.toLocaleString()}</td>
-                        <td style={{ padding: '12px 16px', fontSize: '0.8rem', fontWeight: 700, color: '#8b5cf6' }}>₹{p.netSalary?.toLocaleString()}</td>
+                        <td style={{ padding: '12px 16px', fontSize: '0.8rem', fontWeight: 700, color: activeTab === 'staff' ? '#8b5cf6' : '#3b82f6' }}>₹{p.netSalary?.toLocaleString()}</td>
                         <td style={{ padding: '12px 16px' }}>
                           <span style={{
                             padding: '4px 10px', borderRadius: '20px', fontSize: '0.7rem', fontWeight: 700,
@@ -5531,18 +5618,20 @@ export function PayrollHistoryView({ showToast }) {
                         </td>
                         <td style={{ padding: '12px 16px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>{p.paymentDate}</td>
                         <td style={{ padding: '12px 16px' }}>
-                          <button
-                            onClick={() => handleDeletePayroll(p.payrollId)}
-                            style={{
-                              padding: '6px 12px', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)',
-                              borderRadius: '8px', color: '#ef4444', fontWeight: 600, cursor: 'pointer', fontSize: '0.75rem',
-                              display: 'flex', alignItems: 'center', gap: '4px', transition: 'all 0.2s'
-                            }}
-                            onMouseEnter={e => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.2)'}
-                            onMouseLeave={e => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.1)'}
-                          >
-                            <Trash2 size={13} /> Delete
-                          </button>
+                          {hasPermission('payroll-history', 'delete') && (
+                            <button
+                              onClick={() => handleDeletePayroll(p.payrollId)}
+                              style={{
+                                padding: '6px 12px', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)',
+                                borderRadius: '8px', color: '#ef4444', fontWeight: 600, cursor: 'pointer', fontSize: '0.75rem',
+                                display: 'flex', alignItems: 'center', gap: '4px', transition: 'all 0.2s'
+                              }}
+                              onMouseEnter={e => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.2)'}
+                              onMouseLeave={e => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.1)'}
+                            >
+                              <Trash2 size={13} /> Delete
+                            </button>
+                          )}
                         </td>
                       </tr>
                     ))
@@ -5584,18 +5673,20 @@ export function PayrollHistoryView({ showToast }) {
                         </td>
                         <td style={{ padding: '12px 16px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>{p.paymentDate}</td>
                         <td style={{ padding: '12px 16px' }}>
-                          <button
-                            onClick={() => handleDeleteEmployeePayment(p.paymentId)}
-                            style={{
-                              padding: '6px 12px', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)',
-                              borderRadius: '8px', color: '#ef4444', fontWeight: 600, cursor: 'pointer', fontSize: '0.75rem',
-                              display: 'flex', alignItems: 'center', gap: '4px', transition: 'all 0.2s'
-                            }}
-                            onMouseEnter={e => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.2)'}
-                            onMouseLeave={e => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.1)'}
-                          >
-                            <Trash2 size={13} /> Delete
-                          </button>
+                          {hasPermission('payroll-history', 'delete') && (
+                            <button
+                              onClick={() => handleDeleteEmployeePayment(p.paymentId)}
+                              style={{
+                                padding: '6px 12px', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)',
+                                borderRadius: '8px', color: '#ef4444', fontWeight: 600, cursor: 'pointer', fontSize: '0.75rem',
+                                display: 'flex', alignItems: 'center', gap: '4px', transition: 'all 0.2s'
+                              }}
+                              onMouseEnter={e => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.2)'}
+                              onMouseLeave={e => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.1)'}
+                            >
+                              <Trash2 size={13} /> Delete
+                            </button>
+                          )}
                         </td>
                       </tr>
                     ))

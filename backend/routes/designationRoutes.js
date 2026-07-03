@@ -1,5 +1,5 @@
 import express from 'express';
-import { readDb, writeDb, slugify, tenantStorage, restoreTenantContext } from '../utils/db.js';
+import { readDb, writeDb, slugify, tenantStorage, restoreTenantContext, ensureTenantSqlLoaded } from '../utils/db.js';
 import { auth } from '../middleware/auth.js';
 import { checkPermission } from '../middleware/permissionMiddleware.js';
 
@@ -92,6 +92,7 @@ const checkViewDesignationPermission = (req, res, next) => {
 
 router.use(auth);
 router.use(restoreTenantContext);
+router.use(ensureTenantSqlLoaded);
 
 // GET /api/designations
 router.get('/', checkViewDesignationPermission, (req, res) => {

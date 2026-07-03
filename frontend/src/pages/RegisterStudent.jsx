@@ -624,6 +624,25 @@ export default function RegisterStudent({ setActiveView, editData }) {
         errors.aadhaarNumber = 'Aadhaar number must be exactly 12 digits';
       }
     }
+    if (step === 2) {
+      if (!formData.academicYear) errors.academicYear = 'Academic Session is required';
+      if (!formData.admissionType) errors.admissionType = 'Admission Type is required';
+      if (!formData.studentClass) errors.studentClass = 'Class/Grade is required';
+    }
+    if (step === 3) {
+      if (!formData.fatherName.trim()) errors.fatherName = 'Father name is required';
+      if (!formData.fatherMobile.trim()) {
+        errors.fatherMobile = 'Father mobile number is required';
+      } else if (!/^\d{10}$/.test(formData.fatherMobile.replace(/\s/g, ''))) {
+        errors.fatherMobile = 'Mobile number must be exactly 10 digits';
+      }
+      if (!formData.motherName.trim()) errors.motherName = 'Mother name is required';
+      if (!formData.motherMobile.trim()) {
+        errors.motherMobile = 'Mother mobile number is required';
+      } else if (!/^\d{10}$/.test(formData.motherMobile.replace(/\s/g, ''))) {
+        errors.motherMobile = 'Mobile number must be exactly 10 digits';
+      }
+    }
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
   };
@@ -795,7 +814,8 @@ export default function RegisterStudent({ setActiveView, editData }) {
         }
       } else {
         const errData = await res.json();
-        alert(errData.error || 'Server error occurred during admission submit.');
+        const detailsMsg = errData.details ? `: ${errData.details}` : '';
+        alert(`${errData.error || 'Server error occurred during admission submit.'}${detailsMsg}`);
         setLoading(false);
         isSubmitting.current = false;
       }
@@ -1195,6 +1215,7 @@ export default function RegisterStudent({ setActiveView, editData }) {
                   value={formData.academicYear}
                   onChange={handleTextChange}
                   className="form-control"
+                  style={{ borderColor: formErrors.academicYear ? '#ef4444' : undefined }}
                 >
                   <option value="">Select Session</option>
                   {Array.from({ length: 2030 - 2026 + 1 }, (_, i) => {
@@ -1204,6 +1225,7 @@ export default function RegisterStudent({ setActiveView, editData }) {
                     <option key={sy} value={sy}>{sy}</option>
                   ))}
                 </select>
+                {formErrors.academicYear && <span style={{ color: '#ef4444', fontSize: '0.75rem', marginTop: '4px', display: 'block' }}>{formErrors.academicYear}</span>}
               </div>
 
               <div className="form-group">
@@ -1213,11 +1235,13 @@ export default function RegisterStudent({ setActiveView, editData }) {
                   value={formData.admissionType}
                   onChange={handleTextChange}
                   className="form-control"
+                  style={{ borderColor: formErrors.admissionType ? '#ef4444' : undefined }}
                 >
                   <option value="">Select Admission Type</option>
                   <option value="New Admission">New Admission</option>
                   <option value="Transfer">Transfer / Promotion</option>
                 </select>
+                {formErrors.admissionType && <span style={{ color: '#ef4444', fontSize: '0.75rem', marginTop: '4px', display: 'block' }}>{formErrors.admissionType}</span>}
               </div>
 
               <div className="form-group">

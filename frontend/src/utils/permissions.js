@@ -22,6 +22,7 @@ const LEGACY_MODULE_MAP = {
   'add-staff': 'registry-admissions',
   'add-employee': 'registry-admissions',
   'add-teacher': 'registry-admissions',
+  'register-teacher': 'registry-admissions',
 
   // Attendance
   'employee-attendance': 'attendance',
@@ -45,6 +46,15 @@ const LEGACY_MODULE_MAP = {
   'results': 'results-manager',
   'results-history': 'results-manager',
   'academic-history': 'results-manager',
+
+  // Payroll fallback
+  'staff-payroll': 'finance',
+  'staff-pay-structure': 'finance',
+  'teacher-payroll': 'finance',
+  'teacher-pay-structure': 'finance',
+  'employee-payroll': 'finance',
+  'employee-pay-structure': 'finance',
+  'payroll-history': 'finance',
 
   // Expenses
   'expense-dashboard': 'expenses',

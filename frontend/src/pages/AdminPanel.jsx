@@ -31,6 +31,8 @@ import { hasPermission } from '../utils/permissions';
 const StudentDirectory = lazy(() => import('./StudentDirectory'));
 const StaffDirectory = lazy(() => import('./StaffDirectory'));
 const EmployeeDirectory = lazy(() => import('./EmployeeDirectory'));
+const TeacherDirectory = lazy(() => import('./TeacherDirectory'));
+const RegisterTeacher = lazy(() => import('./RegisterTeacher'));
 const AcademicPanel = lazy(() => import('./AcademicPanel'));
 const RegisterStudent = lazy(() => import('./RegisterStudent'));
 const StudentManager = lazy(() => import('./StudentManager'));
@@ -40,10 +42,11 @@ const DesignationManager = lazy(() => import('./DesignationManager'));
 import ExpensePanel from './ExpensePanel';
 const AttendanceManager = lazy(() => import('./AttendanceManager'));
 const RolesPermissions = lazy(() => import('./RolesPermissions'));
-const AttendanceSettings = lazy(() => import('./AttendanceSettings'));
+const Settings = lazy(() => import('./Settings'));
 const GradeManagement = lazy(() => import('./GradeManagement'));
 const UserProfile = lazy(() => import('./UserProfile'));
 const AuxiliaryIncome = lazy(() => import('./AuxiliaryIncome'));
+const LeaveManagement = lazy(() => import('./LeaveManagement'));
 
 // Lazy load sub-components (Named Exports)
 const StudentReportsView = lazy(() => import('./StaffPanel').then(m => ({ default: m.StudentReportsView })));
@@ -206,11 +209,13 @@ const getViewPermissionModuleAndAction = (view) => {
   if (view === 'designation-manage') return { module: 'designation-manager', action: 'view' };
   if (view === 'students') return { module: 'student-directory', action: 'view' };
   if (view === 'staff') return { module: 'staff-directory', action: 'view' };
+  if (view === 'teachers') return { module: 'teacher-directory', action: 'view' };
   if (view === 'employees') return { module: 'employee-directory', action: 'view' };
   
   if (view === 'register-student') return { module: 'register-student', action: 'view' };
   if (view === 'add-staff') return { module: 'add-staff', action: 'view' };
   if (view === 'add-employee') return { module: 'add-employee', action: 'view' };
+  if (view === 'register-teacher') return { module: 'register-teacher', action: 'view' };
   
   if (view === 'employee-attendance') return { module: 'employee-attendance', action: 'view' };
   if (view === 'attendance') return { module: 'attendance', action: 'view' };
@@ -230,7 +235,10 @@ const getViewPermissionModuleAndAction = (view) => {
   if (view === 'results') return { module: 'results-manager', action: 'view' };
   if (view === 'results-history') return { module: 'results-history', action: 'view' };
   
-  if (['finance', 'collect-fees', 'fee-structure', 'fees-history', 'payroll', 'payroll-history', 'teacher-pay-structure', 'staff-pay', 'staff-pay-structure'].includes(view)) {
+  if (['staff-payroll', 'staff-pay-structure', 'teacher-payroll', 'teacher-pay-structure', 'employee-payroll', 'employee-pay-structure', 'payroll-history'].includes(view)) {
+    return { module: view, action: 'view' };
+  }
+  if (['finance', 'collect-fees', 'fee-structure', 'fees-history'].includes(view)) {
     return { module: 'finance', action: 'view' };
   }
   
@@ -285,6 +293,7 @@ export default function AdminPanel({ setActiveView, onLogout, adminView, setAdmi
   const [editingStudentForRegister, setEditingStudentForRegister] = useState(null);
   const [editingStaffForRegister, setEditingStaffForRegister] = useState(null);
   const [editingEmployeeForRegister, setEditingEmployeeForRegister] = useState(null);
+  const [editingTeacherForRegister, setEditingTeacherForRegister] = useState(null);
   const [directoryKey, setDirectoryKey] = useState(0);
   // Roster/Filter States for Admin Attendance Panel
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
@@ -297,6 +306,7 @@ export default function AdminPanel({ setActiveView, onLogout, adminView, setAdmi
   // Overview stats state
   const [overviewStats, setOverviewStats] = useState({
     students: { total: 0, male: 0, female: 0 },
+    teachers: { total: 0, male: 0, female: 0 },
     staff: { total: 0, male: 0, female: 0 },
     employees: { total: 0, male: 0, female: 0 }
   });
@@ -305,23 +315,37 @@ export default function AdminPanel({ setActiveView, onLogout, adminView, setAdmi
   const [notices, setNotices] = useState([]);
   const [holidays, setHolidays] = useState([]);
 
+  useEffect(() => {
+    if (userProfile && userProfile.role === 'Teacher') {
+      const assignedClass = userProfile.assignedGradeId || '';
+      const assignedSection = userProfile.assignedSectionId || '';
+      if (assignedClass) {
+        setSelectedClass(assignedClass);
+      }
+      if (assignedSection) {
+        setSelectedSection(assignedSection);
+      }
+    }
+  }, [userProfile]);
+
   const fetchOverviewStats = async () => {
     setStatsLoading(true);
     try {
-      // Fetch teachers (staff/faculty)
-      const [teachersRes, staffRes] = await Promise.all([
+      const [teachersRes, staffRes, employeesRes] = await Promise.all([
+        fetch('/api/teachers?limit=9999&status=All&purpose=overview'),
         fetch('/api/staff?limit=9999&status=All&purpose=overview'),
         fetch('/api/employees?purpose=overview')
       ]);
 
       let students = { total: 0, male: 0, female: 0 };
+      let teacherStats = { total: 0, male: 0, female: 0 };
       let staffStats = { total: 0, male: 0, female: 0 };
       let employeeStats = { total: 0, male: 0, female: 0 };
 
       if (teachersRes.ok) {
         const data = await teachersRes.json();
-        const list = data.teachers || [];
-        staffStats = {
+        const list = Array.isArray(data) ? data : (data.teachers || []);
+        teacherStats = {
           total: list.length,
           male: list.filter(t => (t.gender || '').toLowerCase() === 'male').length,
           female: list.filter(t => (t.gender || '').toLowerCase() === 'female').length
@@ -329,11 +353,22 @@ export default function AdminPanel({ setActiveView, onLogout, adminView, setAdmi
       }
 
       if (staffRes.ok) {
-        const list = await staffRes.json();
-        employeeStats = {
+        const data = await staffRes.json();
+        const list = Array.isArray(data) ? data : (data.staff || []);
+        staffStats = {
           total: list.length,
           male: list.filter(s => (s.gender || '').toLowerCase() === 'male').length,
           female: list.filter(s => (s.gender || '').toLowerCase() === 'female').length
+        };
+      }
+
+      if (employeesRes.ok) {
+        const data = await employeesRes.json();
+        const list = Array.isArray(data) ? data : (data.employees || []);
+        employeeStats = {
+          total: list.length,
+          male: list.filter(e => (e.gender || '').toLowerCase() === 'male').length,
+          female: list.filter(e => (e.gender || '').toLowerCase() === 'female').length
         };
       }
 
@@ -342,7 +377,7 @@ export default function AdminPanel({ setActiveView, onLogout, adminView, setAdmi
         const stuRes = await fetch('/api/students?limit=9999&status=All&class=All&purpose=overview');
         if (stuRes.ok) {
           const data = await stuRes.json();
-          const list = data.students || [];
+          const list = Array.isArray(data.students) ? data.students : (data || []);
           students = {
             total: data.totalCount || list.length,
             male: list.filter(s => (s.gender || '').toLowerCase() === 'male').length,
@@ -353,7 +388,7 @@ export default function AdminPanel({ setActiveView, onLogout, adminView, setAdmi
         // Students may have no class filter by default - use 0
       }
 
-      setOverviewStats({ students, staff: staffStats, employees: employeeStats });
+      setOverviewStats({ students, teachers: teacherStats, staff: staffStats, employees: employeeStats });
 
       // Fetch published events, notices, and holidays
       try {
@@ -510,7 +545,7 @@ export default function AdminPanel({ setActiveView, onLogout, adminView, setAdmi
             </div>
 
             {/* ── ROW 1: Simple Count Cards ───────────────────────── */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px' }}>
 
               {/* Total Students */}
               <div
@@ -542,10 +577,40 @@ export default function AdminPanel({ setActiveView, onLogout, adminView, setAdmi
                 </div>
               </div>
 
-              {/* Total Staff */}
+              {/* Total Teachers */}
               <div
                 className="glass-panel"
                 onClick={() => setAdminView('teachers')}
+                style={{
+                  cursor: 'pointer', borderRadius: '16px', padding: '24px 20px',
+                  border: '1px solid var(--border-glass)', background: 'var(--bg-card)',
+                  display: 'flex', alignItems: 'center', gap: '18px',
+                  transition: 'transform 0.18s ease, box-shadow 0.18s ease'
+                }}
+                onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = 'var(--shadow-md)'; }}
+                onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = ''; }}
+              >
+                <div style={{
+                  width: '52px', height: '52px', borderRadius: '14px', flexShrink: 0,
+                  background: 'rgba(59,130,246,0.1)', color: '#3b82f6',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  border: '1px solid rgba(59,130,246,0.2)'
+                }}>
+                  <UserCheck size={24} />
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '4px' }}>Total Teachers</div>
+                  {statsLoading
+                    ? <div style={{ height: '28px', width: '50px', borderRadius: '6px', background: 'var(--border-glass)' }} />
+                    : <div style={{ fontSize: '2rem', fontWeight: 800, color: '#3b82f6', lineHeight: 1 }}>{overviewStats.teachers?.total || 0}</div>
+                  }
+                </div>
+              </div>
+
+              {/* Total Staff */}
+              <div
+                className="glass-panel"
+                onClick={() => setAdminView('staff')}
                 style={{
                   cursor: 'pointer', borderRadius: '16px', padding: '24px 20px',
                   border: '1px solid var(--border-glass)', background: 'var(--bg-card)',
@@ -575,7 +640,7 @@ export default function AdminPanel({ setActiveView, onLogout, adminView, setAdmi
               {/* Total Employees */}
               <div
                 className="glass-panel"
-                onClick={() => setAdminView('staff')}
+                onClick={() => setAdminView('employees')}
                 style={{
                   cursor: 'pointer', borderRadius: '16px', padding: '24px 20px',
                   border: '1px solid var(--border-glass)', background: 'var(--bg-card)',
@@ -605,7 +670,7 @@ export default function AdminPanel({ setActiveView, onLogout, adminView, setAdmi
             </div>
 
             {/* ── ROW 2: Gender Ratio Cards ────────────────────────── */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px' }}>
 
               {/* Students Ratio */}
               <div className="glass-panel" style={{
@@ -633,6 +698,35 @@ export default function AdminPanel({ setActiveView, onLogout, adminView, setAdmi
                 {statsLoading
                   ? <div style={{ height: '7px', borderRadius: '99px', background: 'var(--border-glass)' }} />
                   : <GenderRatioBar maleCount={overviewStats.students.male} femaleCount={overviewStats.students.female} total={overviewStats.students.total} />
+                }
+              </div>
+
+              {/* Teachers Ratio */}
+              <div className="glass-panel" style={{
+                borderRadius: '16px', padding: '20px',
+                border: '1px solid var(--border-glass)', background: 'var(--bg-card)',
+                display: 'flex', flexDirection: 'column', gap: '14px'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div>
+                    <div style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Teachers</div>
+                    <div style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-main)', marginTop: '2px' }}>Gender Ratio</div>
+                  </div>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <div style={{ textAlign: 'center', padding: '6px 10px', borderRadius: '8px', background: 'rgba(59,130,246,0.08)', border: '1px solid rgba(59,130,246,0.15)' }}>
+                      <div style={{ fontSize: '1.1rem', fontWeight: 800, color: '#3b82f6', lineHeight: 1 }}>{statsLoading ? '–' : (overviewStats.teachers?.male || 0)}</div>
+                      <div style={{ fontSize: '0.6rem', color: 'var(--text-muted)', fontWeight: 600, marginTop: '2px' }}>Male</div>
+                    </div>
+                    <div style={{ textAlign: 'center', padding: '6px 10px', borderRadius: '8px', background: 'rgba(236,72,153,0.08)', border: '1px solid rgba(236,72,153,0.15)' }}>
+                      <div style={{ fontSize: '1.1rem', fontWeight: 800, color: '#ec4899', lineHeight: 1 }}>{statsLoading ? '–' : (overviewStats.teachers?.female || 0)}</div>
+                      <div style={{ fontSize: '0.6rem', color: 'var(--text-muted)', fontWeight: 600, marginTop: '2px' }}>Female</div>
+                    </div>
+                  </div>
+                </div>
+                <div style={{ height: '1px', background: 'var(--border-glass)' }} />
+                {statsLoading
+                  ? <div style={{ height: '7px', borderRadius: '99px', background: 'var(--border-glass)' }} />
+                  : <GenderRatioBar maleCount={overviewStats.teachers?.male || 0} femaleCount={overviewStats.teachers?.female || 0} total={overviewStats.teachers?.total || 0} />
                 }
               </div>
 
@@ -856,6 +950,7 @@ export default function AdminPanel({ setActiveView, onLogout, adminView, setAdmi
         <KeepAlive active={adminView === 'students' || (!adminView || adminView === 'default')} key={`students-${directoryKey}`}>
           <StudentDirectory 
             readOnly={false} 
+            userProfile={userProfile}
             onAddClick={() => {
               setEditingStudentForRegister(null);
               setAdminView('register-student');
@@ -867,7 +962,21 @@ export default function AdminPanel({ setActiveView, onLogout, adminView, setAdmi
           />
         </KeepAlive>
 
-        <KeepAlive active={adminView === 'staff'} key={`teachers-${directoryKey}`}>
+        <KeepAlive active={adminView === 'teachers'} key={`teacherdir-${directoryKey}`}>
+          <TeacherDirectory 
+            readOnly={false} 
+            onAddClick={() => {
+              setEditingTeacherForRegister(null);
+              setAdminView('register-teacher');
+            }} 
+            onEditClick={(teacher) => {
+              setEditingTeacherForRegister(teacher);
+              setAdminView('register-teacher');
+            }}
+          />
+        </KeepAlive>
+
+        <KeepAlive active={adminView === 'staff'} key={`staff-${directoryKey}`}>
           <StaffDirectory 
             setActiveView={setActiveView} 
             readOnly={false} 
@@ -912,24 +1021,32 @@ export default function AdminPanel({ setActiveView, onLogout, adminView, setAdmi
           <FeesHistoryView showToast={showToast} />
         </KeepAlive>
 
-        <KeepAlive active={adminView === 'payroll'}>
-          <PayrollView showToast={showToast} />
+        <KeepAlive active={adminView === 'staff-payroll'}>
+          <PayrollView showToast={showToast} type="Staff" />
         </KeepAlive>
 
-        <KeepAlive active={adminView === 'payroll-history'}>
-          <PayrollHistoryView showToast={showToast} />
+        <KeepAlive active={adminView === 'staff-pay-structure'}>
+          <StaffPaymentStructureView showToast={showToast} type="Staff" />
+        </KeepAlive>
+
+        <KeepAlive active={adminView === 'teacher-payroll'}>
+          <PayrollView showToast={showToast} type="Teacher" />
         </KeepAlive>
 
         <KeepAlive active={adminView === 'teacher-pay-structure'}>
           <TeacherSalaryStructureView showToast={showToast} />
         </KeepAlive>
 
-        <KeepAlive active={adminView === 'staff-pay'}>
+        <KeepAlive active={adminView === 'employee-payroll'}>
           <StaffPaymentsView showToast={showToast} />
         </KeepAlive>
 
-        <KeepAlive active={adminView === 'staff-pay-structure'}>
-          <StaffPaymentStructureView showToast={showToast} />
+        <KeepAlive active={adminView === 'employee-pay-structure'}>
+          <StaffPaymentStructureView showToast={showToast} type="Employee" />
+        </KeepAlive>
+
+        <KeepAlive active={adminView === 'payroll-history'}>
+          <PayrollHistoryView showToast={showToast} />
         </KeepAlive>
 
         <KeepAlive active={adminView === 'expenses'}>
@@ -973,6 +1090,20 @@ export default function AdminPanel({ setActiveView, onLogout, adminView, setAdmi
               if (view === 'staff' || view === 'staff-directory') { 
                 setDirectoryKey(k => k + 1); 
                 setAdminView('staff'); 
+              } else {
+                setActiveView(view); 
+              }
+            }} 
+          />
+        )}
+
+        {adminView === 'register-teacher' && (
+          <RegisterTeacher 
+            editData={editingTeacherForRegister} 
+            setActiveView={(view) => { 
+              if (view === 'teachers' || view === 'teacher-directory') { 
+                setDirectoryKey(k => k + 1); 
+                setAdminView('teachers'); 
               } else {
                 setActiveView(view); 
               }
@@ -1095,15 +1226,16 @@ export default function AdminPanel({ setActiveView, onLogout, adminView, setAdmi
                 search={studentSearch}
                 setSearch={setStudentSearch}
                 showToast={showToast}
+                userProfile={userProfile}
               />
             )}
 
             {attendanceTab === 'student-reports' && (
-              <StudentReportsView showToast={showToast} />
+              <StudentReportsView showToast={showToast} userProfile={userProfile} />
             )}
 
             {attendanceTab === 'monthly-calendar' && (
-              <MonthlyCalendarView showToast={showToast} />
+              <MonthlyCalendarView showToast={showToast} userProfile={userProfile} />
             )}
           </div>
         </KeepAlive>
@@ -1134,8 +1266,8 @@ export default function AdminPanel({ setActiveView, onLogout, adminView, setAdmi
           <RolesPermissions key="security-audit-ledger" initialTab="audit" hideTabs={true} onPermissionsSave={fetchUserProfile} />
         </KeepAlive>
 
-        <KeepAlive active={adminView === 'attendance-settings'}>
-          <AttendanceSettings showToast={showToast} />
+        <KeepAlive active={adminView === 'settings'}>
+          <Settings showToast={showToast} />
         </KeepAlive>
 
         <KeepAlive active={adminView === 'profile'}>
@@ -1144,6 +1276,10 @@ export default function AdminPanel({ setActiveView, onLogout, adminView, setAdmi
 
         <KeepAlive active={adminView === 'auxiliary-income'}>
           <AuxiliaryIncome showToast={showToast} />
+        </KeepAlive>
+
+        <KeepAlive active={adminView === 'leave-management'}>
+          <LeaveManagement showToast={showToast} />
         </KeepAlive>
       </>
     );

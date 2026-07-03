@@ -53,7 +53,18 @@ const getStatusBadge = (status) => {
 // ============================================================================
 // ADMIN VERSION OF ROSTER DAILY MARKING VIEW (Single Submit Button)
 // ============================================================================
-export function MarkAttendanceView({ date, setDate, studentClass, setClass, section, setSection, search, setSearch, showToast }) {
+export function MarkAttendanceView({ date, setDate, studentClass, setClass, section, setSection, search, setSearch, showToast, userProfile }) {
+  const isTeacher = userProfile?.role === 'Teacher';
+  const assignedClass = isTeacher ? userProfile?.assignedGradeId || '' : '';
+  const assignedSection = isTeacher ? userProfile?.assignedSectionId || '' : '';
+
+  useEffect(() => {
+    if (isTeacher) {
+      if (assignedClass) setClass(assignedClass);
+      if (assignedSection) setSection(assignedSection);
+    }
+  }, [userProfile, assignedClass, assignedSection, isTeacher]);
+
   const todayStr = new Date().toISOString().split('T')[0];
   const [roster, setRoster] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -71,12 +82,16 @@ export function MarkAttendanceView({ date, setDate, studentClass, setClass, sect
 
   // Compute allowed sections for the selected studentClass
   const allowedSections = React.useMemo(() => {
+    if (isTeacher) {
+      return assignedSection ? [assignedSection] : [];
+    }
     const matchedGrade = activeGrades.find(g => g.name === studentClass);
     return matchedGrade ? (matchedGrade.sections || []) : [];
-  }, [studentClass, activeGrades]);
+  }, [studentClass, activeGrades, isTeacher, assignedSection]);
 
   // Sync selected section when class selection shifts
   useEffect(() => {
+    if (isTeacher) return; // Skip automatic reset for teachers
     if (allowedSections.length > 0) {
       if (!allowedSections.includes(section)) {
         setSection(allowedSections[0]);
@@ -84,7 +99,7 @@ export function MarkAttendanceView({ date, setDate, studentClass, setClass, sect
     } else {
       setSection('');
     }
-  }, [allowedSections, section, setSection]);
+  }, [allowedSections, section, setSection, isTeacher]);
 
   // Compute unique base grades from activeGrades
   const baseGrades = [];
@@ -334,8 +349,9 @@ export function MarkAttendanceView({ date, setDate, studentClass, setClass, sect
                 value={baseClass} 
                 onChange={(e) => handleBaseClassChange(e.target.value)}
                 style={{ height: '38px', borderRadius: '8px' }}
+                disabled={isTeacher}
               >
-                {baseGrades.map(g => (
+                {baseGrades.filter(g => !isTeacher || g === baseClass).map(g => (
                   <option key={g} value={g}>
                     {g.startsWith('LKG') || g.startsWith('UKG') || g.startsWith('NURSERY') ? g : `Grade ${g}`}
                   </option>
@@ -352,8 +368,9 @@ export function MarkAttendanceView({ date, setDate, studentClass, setClass, sect
                   value={selectedDept} 
                   onChange={(e) => handleDeptChange(e.target.value)}
                   style={{ height: '38px', borderRadius: '8px' }}
+                  disabled={isTeacher}
                 >
-                  {departmentsForSelectedGrade.map(d => (
+                  {departmentsForSelectedGrade.filter(d => !isTeacher || d === selectedDept).map(d => (
                     <option key={d} value={d}>{d}</option>
                   ))}
                 </select>
@@ -368,6 +385,7 @@ export function MarkAttendanceView({ date, setDate, studentClass, setClass, sect
                 value={section} 
                 onChange={(e) => setSection(e.target.value)}
                 style={{ height: '38px', borderRadius: '8px' }}
+                disabled={isTeacher}
               >
                 {allowedSections.map(secName => (
                   <option key={secName} value={secName}>Section {secName}</option>

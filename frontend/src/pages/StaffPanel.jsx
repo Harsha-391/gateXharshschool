@@ -562,7 +562,7 @@ export function MarkAttendanceView({ date, setDate, studentClass, setClass, sect
                 className="select-custom" 
                 value={baseClass} 
                 onChange={(e) => handleBaseClassChange(e.target.value)}
-                style={{ height: '38px', borderRadius: '8px' }}
+                style={{ height: '38px', borderRadius: '8px', appearance: 'none', WebkitAppearance: 'none', MozAppearance: 'none' }}
               >
                 {baseGrades.map(g => (
                   <option key={g} value={g}>
@@ -596,7 +596,7 @@ export function MarkAttendanceView({ date, setDate, studentClass, setClass, sect
                 className="select-custom" 
                 value={section} 
                 onChange={(e) => setSection(e.target.value)}
-                style={{ height: '38px', borderRadius: '8px' }}
+                style={{ height: '38px', borderRadius: '8px', appearance: 'none', WebkitAppearance: 'none', MozAppearance: 'none' }}
               >
                 {allowedSections.map(secName => (
                   <option key={secName} value={secName}>Section {secName}</option>
@@ -1455,17 +1455,25 @@ export function AttendanceHistoryView({ date, showToast }) {
   );
 }
 
-// ============================================================================
-// TAB C: STUDENT REPORT VIEW WITH PDF/CSV EXPORTS
-// ============================================================================
-export function StudentReportsView({ showToast }) {
-  const [studentClass, setClass] = useState('All');
-  const [section, setSection] = useState('All');
+export function StudentReportsView({ showToast, userProfile }) {
+  const isTeacher = userProfile?.role === 'Teacher';
+  const assignedClass = isTeacher ? userProfile?.assignedGradeId || '' : '';
+  const assignedSection = isTeacher ? userProfile?.assignedSectionId || '' : '';
+
+  const [studentClass, setClass] = useState(isTeacher ? assignedClass : 'All');
+  const [section, setSection] = useState(isTeacher ? assignedSection : 'All');
   const [search, setSearch] = useState('');
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(false);
   const [activeGrades, setActiveGrades] = useState([]);
   const [selectedStudentId, setSelectedStudentId] = useState('All');
+
+  useEffect(() => {
+    if (isTeacher) {
+      if (assignedClass) setClass(assignedClass);
+      if (assignedSection) setSection(assignedSection);
+    }
+  }, [userProfile, assignedClass, assignedSection, isTeacher]);
 
   useEffect(() => {
     const loadGradesAndSections = async () => {
@@ -1477,6 +1485,7 @@ export function StudentReportsView({ showToast }) {
 
   // Sync selected section when class selection shifts
   useEffect(() => {
+    if (isTeacher) return; // Skip reset for teachers
     if (studentClass !== 'All' && activeGrades.length > 0) {
       const matchedGrade = activeGrades.find(g => g.name === studentClass);
       const allowedSections = matchedGrade ? (matchedGrade.sections || []) : [];
@@ -1484,7 +1493,7 @@ export function StudentReportsView({ showToast }) {
         setSection('All');
       }
     }
-  }, [studentClass, activeGrades, section]);
+  }, [studentClass, activeGrades, section, isTeacher]);
 
   useEffect(() => {
     setSelectedStudentId('All');
@@ -1562,9 +1571,9 @@ export function StudentReportsView({ showToast }) {
             
             <div className="form-group" style={{ margin: 0, minWidth: '130px' }}>
               <label style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)' }}>Class Filter</label>
-              <select className="select-custom" value={studentClass} onChange={(e) => setClass(e.target.value)} style={{ height: '38px', borderRadius: '8px' }}>
-                <option value="All">All Classes</option>
-                {activeGrades.map(g => g.name).map(g => (
+              <select className="select-custom" value={studentClass} onChange={(e) => setClass(e.target.value)} style={{ height: '38px', borderRadius: '8px' }} disabled={isTeacher}>
+                {!isTeacher && <option value="All">All Classes</option>}
+                {activeGrades.map(g => g.name).filter(g => !isTeacher || g === studentClass).map(g => (
                   <option key={g} value={g}>
                     {g.startsWith('LKG') || g.startsWith('UKG') || g.startsWith('NURSERY') ? g : `Grade ${g}`}
                   </option>
@@ -1574,8 +1583,8 @@ export function StudentReportsView({ showToast }) {
 
             <div className="form-group" style={{ margin: 0, minWidth: '120px' }}>
               <label style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)' }}>Section</label>
-              <select className="select-custom" value={section} onChange={(e) => setSection(e.target.value)} style={{ height: '38px', borderRadius: '8px' }}>
-                <option value="All">All Sections</option>
+              <select className="select-custom" value={section} onChange={(e) => setSection(e.target.value)} style={{ height: '38px', borderRadius: '8px' }} disabled={isTeacher}>
+                {!isTeacher && <option value="All">All Sections</option>}
                 {sections.map(s => (
                   <option key={s} value={s}>Section {s}</option>
                 ))}
@@ -1787,11 +1796,15 @@ export function ClassReportsView({ showToast }) {
 // ============================================================================
 // TAB E: MONTHLY INTERACTIVE CALENDAR VIEW
 // ============================================================================
-export function MonthlyCalendarView({ showToast }) {
+export function MonthlyCalendarView({ showToast, userProfile }) {
+  const isTeacher = userProfile?.role === 'Teacher';
+  const assignedClass = isTeacher ? userProfile?.assignedGradeId || '' : '';
+  const assignedSection = isTeacher ? userProfile?.assignedSectionId || '' : '';
+
   const [studentsList, setStudentsList] = useState([]);
   const [selectedStudent, setSelectedStudent] = useState('');
-  const [selectedGrade, setSelectedGrade] = useState('');
-  const [selectedSection, setSelectedSection] = useState('A');
+  const [selectedGrade, setSelectedGrade] = useState(isTeacher ? assignedClass : '');
+  const [selectedSection, setSelectedSection] = useState(isTeacher ? assignedSection : 'A');
   const [searchName, setSearchName] = useState('');
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1); // 1-12
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
@@ -1801,18 +1814,26 @@ export function MonthlyCalendarView({ showToast }) {
   const [activeGrades, setActiveGrades] = useState([]);
 
   useEffect(() => {
+    if (isTeacher) {
+      if (assignedClass) setSelectedGrade(assignedClass);
+      if (assignedSection) setSelectedSection(assignedSection);
+    }
+  }, [userProfile, assignedClass, assignedSection, isTeacher]);
+
+  useEffect(() => {
     const loadGradesAndSections = async () => {
       const grades = await fetchActiveGrades();
       setActiveGrades(grades);
-      if (grades.length > 0) {
+      if (grades.length > 0 && !isTeacher) {
         setSelectedGrade(grades[0].name);
       }
     };
     loadGradesAndSections();
-  }, []);
+  }, [isTeacher]);
 
   // Sync selected section when class selection shifts
   useEffect(() => {
+    if (isTeacher) return;
     if (selectedGrade && activeGrades.length > 0) {
       const matchedGrade = activeGrades.find(g => g.name === selectedGrade);
       const allowedSections = matchedGrade ? (matchedGrade.sections || []) : [];
@@ -1930,8 +1951,8 @@ export function MonthlyCalendarView({ showToast }) {
           {/* Grade Class Filter */}
           <div className="form-group" style={{ margin: 0, minWidth: '110px' }}>
             <label style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)' }}>Grade</label>
-            <select className="select-custom" value={selectedGrade} onChange={(e) => setSelectedGrade(e.target.value)} style={{ height: '38px', borderRadius: '8px' }}>
-              {grades.map(g => (
+            <select className="select-custom" value={selectedGrade} onChange={(e) => setSelectedGrade(e.target.value)} style={{ height: '38px', borderRadius: '8px' }} disabled={isTeacher}>
+              {grades.filter(g => !isTeacher || g === selectedGrade).map(g => (
                 <option key={g} value={g}>Grade {g}</option>
               ))}
             </select>
@@ -1940,7 +1961,7 @@ export function MonthlyCalendarView({ showToast }) {
           {/* Section Filter */}
           <div className="form-group" style={{ margin: 0, minWidth: '100px' }}>
             <label style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)' }}>Section</label>
-            <select className="select-custom" value={selectedSection} onChange={(e) => setSelectedSection(e.target.value)} style={{ height: '38px', borderRadius: '8px' }}>
+            <select className="select-custom" value={selectedSection} onChange={(e) => setSelectedSection(e.target.value)} style={{ height: '38px', borderRadius: '8px' }} disabled={isTeacher}>
               {sections.map(s => (
                 <option key={s} value={s}>Section {s}</option>
               ))}

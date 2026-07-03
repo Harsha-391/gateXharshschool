@@ -1,7 +1,7 @@
 import express from 'express';
 import multer from 'multer';
 import { auth } from '../middleware/auth.js';
-import { restoreTenantContext } from '../utils/db.js';
+import { restoreTenantContext, ensureTenantSqlLoaded } from '../utils/db.js';
 import {
   getTimetables,
   createTimetable,
@@ -78,6 +78,7 @@ const router = express.Router();
 // Apply auth and tenant context restore to all endpoints
 router.use(auth);
 router.use(restoreTenantContext);
+router.use(ensureTenantSqlLoaded);
 
 import { checkPermission } from '../middleware/permissionMiddleware.js';
 

@@ -286,6 +286,19 @@ const createTablesFromSchema = async () => {
 
     // Dynamic alters to align schema with memory data models
     const extraSchemaAlters = [
+      "ALTER TABLE students MODIFY COLUMN phone VARCHAR(255)",
+      "ALTER TABLE parents MODIFY COLUMN fatherMobile VARCHAR(255)",
+      "ALTER TABLE parents MODIFY COLUMN motherMobile VARCHAR(255)",
+      "ALTER TABLE parents MODIFY COLUMN guardianContact VARCHAR(255)",
+      "ALTER TABLE addresses MODIFY COLUMN emergencyContactNumber VARCHAR(255)",
+      "ALTER TABLE staff ADD COLUMN assignedGradeId VARCHAR(50) DEFAULT NULL",
+      "ALTER TABLE staff ADD COLUMN assignedSectionId VARCHAR(50) DEFAULT NULL",
+      "ALTER TABLE staff ADD COLUMN isClassTeacher TINYINT(1) DEFAULT 0",
+      "ALTER TABLE staff ADD COLUMN attendancePermission TINYINT(1) DEFAULT 0",
+      "ALTER TABLE teachers ADD COLUMN assignedGradeId VARCHAR(50) DEFAULT NULL",
+      "ALTER TABLE teachers ADD COLUMN assignedSectionId VARCHAR(50) DEFAULT NULL",
+      "ALTER TABLE teachers ADD COLUMN isClassTeacher TINYINT(1) DEFAULT 0",
+      "ALTER TABLE teachers ADD COLUMN attendancePermission TINYINT(1) DEFAULT 0",
       "ALTER TABLE employees ADD COLUMN designation VARCHAR(100)",
       "ALTER TABLE timetables ADD COLUMN sat JSON",
       "ALTER TABLE exam_timetables ADD COLUMN startTime VARCHAR(50)",
@@ -1006,7 +1019,8 @@ const applySchemaUpdates = async (pool, isMaster = false, tenantId = null) => {
       "ALTER TABLE schools ADD COLUMN holidayClassifications TEXT NULL",
       "ALTER TABLE student_accounts DROP FOREIGN KEY student_accounts_ibfk_1",
       "ALTER TABLE parent_accounts DROP FOREIGN KEY parent_accounts_ibfk_1",
-      "CREATE TABLE IF NOT EXISTS attendance_settings (id VARCHAR(50) PRIMARY KEY, checkInStart VARCHAR(50) DEFAULT '08:00 AM', lateTime VARCHAR(50) DEFAULT '09:00 AM', halfDayTime VARCHAR(50) DEFAULT '11:00 AM', checkOutTime VARCHAR(50) DEFAULT '05:00 PM', minWorkingHours DECIMAL(5,2) DEFAULT 8.00, gracePeriod INT DEFAULT 15, tenantId VARCHAR(100) NOT NULL, createdAt VARCHAR(100), updatedAt VARCHAR(100), INDEX idx_att_sett_tenant (tenantId))"
+      "CREATE TABLE IF NOT EXISTS attendance_settings (id VARCHAR(50) PRIMARY KEY, checkInStart VARCHAR(50) DEFAULT '08:00 AM', lateTime VARCHAR(50) DEFAULT '09:00 AM', halfDayTime VARCHAR(50) DEFAULT '11:00 AM', checkOutTime VARCHAR(50) DEFAULT '05:00 PM', minWorkingHours DECIMAL(5,2) DEFAULT 8.00, gracePeriod INT DEFAULT 15, tenantId VARCHAR(100) NOT NULL, createdAt VARCHAR(100), updatedAt VARCHAR(100), INDEX idx_att_sett_tenant (tenantId))",
+      "CREATE TABLE IF NOT EXISTS teachers (id VARCHAR(50) PRIMARY KEY, name VARCHAR(255) NOT NULL, email VARCHAR(255) NOT NULL, phone VARCHAR(50), username VARCHAR(255) UNIQUE, password VARCHAR(255), gender VARCHAR(50), qualification TEXT, experience TEXT, dateOfJoining VARCHAR(50), salaryGrade VARCHAR(100), address TEXT, city VARCHAR(100), state VARCHAR(100), pincode VARCHAR(50), emergencyContact VARCHAR(255), emergencyPhone VARCHAR(50), photo TEXT, aadharFile TEXT, certificateFile TEXT, status VARCHAR(50) DEFAULT 'Active', avatarBg TEXT, tenantId VARCHAR(100), firstName VARCHAR(100), middleName VARCHAR(100), lastName VARCHAR(100), fullName VARCHAR(255), dob VARCHAR(50), bloodGroup VARCHAR(20), nationality VARCHAR(100) DEFAULT 'Indian', maritalStatus VARCHAR(50), aadhaarNumber VARCHAR(100), panNumber VARCHAR(100), joiningDate VARCHAR(50), employmentType VARCHAR(50), designation VARCHAR(100), department VARCHAR(100), primarySubject VARCHAR(100), secondarySubject VARCHAR(100), alternateMobile VARCHAR(50), currentAddress TEXT, currentCity VARCHAR(100), currentState VARCHAR(100), currentCountry VARCHAR(100) DEFAULT 'India', currentPostalCode VARCHAR(50), permanentAddress TEXT, permanentCity VARCHAR(100), permanentState VARCHAR(100), permanentCountry VARCHAR(100) DEFAULT 'India', permanentPostalCode VARCHAR(50), sameAsPermanent VARCHAR(10) DEFAULT 'No', panFile TEXT, resumeFile TEXT, joiningLetterFile TEXT, otherFile TEXT, experiences TEXT)"
     ];
     for (const sql of masterAlters) {
       try {
@@ -1061,6 +1075,19 @@ const applySchemaUpdates = async (pool, isMaster = false, tenantId = null) => {
       "ALTER TABLE staff ADD COLUMN experiences TEXT",
       
       // Other alters
+      "ALTER TABLE staff ADD COLUMN assignedGradeId VARCHAR(50) DEFAULT NULL",
+      "ALTER TABLE staff ADD COLUMN assignedSectionId VARCHAR(50) DEFAULT NULL",
+      "ALTER TABLE staff ADD COLUMN isClassTeacher TINYINT(1) DEFAULT 0",
+      "ALTER TABLE staff ADD COLUMN attendancePermission TINYINT(1) DEFAULT 0",
+      "ALTER TABLE teachers ADD COLUMN assignedGradeId VARCHAR(50) DEFAULT NULL",
+      "ALTER TABLE teachers ADD COLUMN assignedSectionId VARCHAR(50) DEFAULT NULL",
+      "ALTER TABLE teachers ADD COLUMN isClassTeacher TINYINT(1) DEFAULT 0",
+      "ALTER TABLE teachers ADD COLUMN attendancePermission TINYINT(1) DEFAULT 0",
+      "ALTER TABLE students MODIFY COLUMN phone VARCHAR(255)",
+      "ALTER TABLE parents MODIFY COLUMN fatherMobile VARCHAR(255)",
+      "ALTER TABLE parents MODIFY COLUMN motherMobile VARCHAR(255)",
+      "ALTER TABLE parents MODIFY COLUMN guardianContact VARCHAR(255)",
+      "ALTER TABLE addresses MODIFY COLUMN emergencyContactNumber VARCHAR(255)",
       "ALTER TABLE employees ADD COLUMN designation VARCHAR(100)",
       "ALTER TABLE timetables ADD COLUMN sat JSON",
       "ALTER TABLE exam_timetables ADD COLUMN startTime VARCHAR(50)",
@@ -1245,7 +1272,7 @@ export const migrateTenantDataToDedicatedDb = async (subdomain) => {
 
     // Copy rows from master database tables to school-specific database tables if empty
     const tables = [
-      'sections', 'published_timetables', 'staff', 'employees', 'invoices', 'fees',
+      'sections', 'published_timetables', 'teachers', 'staff', 'employees', 'invoices', 'fees',
       'expenses', 'payroll', 'staff_payments', 'income', 'activities', 'exams',
       'exam_timetables', 'notices', 'holidays', 'events', 'academic_calendar_events',
       'academic_calendar_imports', 'published_calendar_events', 'results', 'subjects',
@@ -1309,6 +1336,16 @@ export const migrateTenantDataToDedicatedDb = async (subdomain) => {
       await pool.query("UPDATE attendance_logs SET employeeType = 'Staff' WHERE employeeType = 'Teacher'");
     } catch (err) {
       console.warn(`[SQL Migration WARNING] Tenant DB employeeType updates warning for ${subdomain}:`, err.message);
+    }
+
+    // Split teachers and staff tables in tenant database
+    try {
+      await pool.query("CREATE TABLE IF NOT EXISTS teachers LIKE staff");
+      await pool.query("INSERT IGNORE INTO teachers SELECT * FROM staff WHERE LOWER(designation) = 'teacher'");
+      await pool.query("DELETE FROM staff WHERE LOWER(designation) = 'teacher'");
+      console.log(`[SQL Migration] Cleanly split teachers and staff tables for tenant database: ${subdomain}`);
+    } catch (splitErr) {
+      console.warn(`[SQL Migration WARNING] Splitting teachers and staff tables failed for ${subdomain}:`, splitErr.message);
     }
 
   } catch (err) {
@@ -1540,10 +1577,12 @@ export const getDefaultRoles = () => {
   const modules = [
     'overview',
     'student-directory',
+    'teacher-directory',
     'staff-directory',
     'employee-directory',
     'grade-management',
     'register-student',
+    'register-teacher',
     'add-staff',
     'add-employee',
     'student-manager',
@@ -1558,6 +1597,13 @@ export const getDefaultRoles = () => {
     'results-manager',
     'results-history',
     'finance',
+    'staff-payroll',
+    'staff-pay-structure',
+    'teacher-payroll',
+    'teacher-pay-structure',
+    'employee-payroll',
+    'employee-pay-structure',
+    'payroll-history',
     'expense-dashboard',
     'expense-all-expenses',
     'expense-history',
@@ -1566,7 +1612,13 @@ export const getDefaultRoles = () => {
     'financial-reports',
     'roles-permissions',
     'auxiliary-income',
-    'designation-manager'
+    'designation-manager',
+    'teacher-leave',
+    'teacher-leave-management',
+    'staff-leave',
+    'staff-leave-management',
+    'settings',
+    'leave-settings'
   ];
   const actions = ['view', 'create', 'edit', 'delete', 'approve', 'publish', 'export', 'import', 'manage-settings'];
 
@@ -1753,6 +1805,7 @@ export const loadTenantSqlIntoMemory = async (tenantId) => {
       plans,
       dbTeachers,
       dbStaff,
+      dbEmployees,
       dbInvoices,
       rawFees,
       rawExpenses,
@@ -1804,6 +1857,7 @@ export const loadTenantSqlIntoMemory = async (tenantId) => {
       !isGlobal ? sqlDb.query('SELECT * FROM published_timetables WHERE tenantId = ?', [tId]) : Promise.resolve([]),
       sqlDb.query('SELECT * FROM schools'),
       sqlDb.query('SELECT * FROM subscription_plans'),
+      sqlDb.query('SELECT * FROM teachers WHERE tenantId = ?', [tId]),
       sqlDb.query('SELECT * FROM staff WHERE tenantId = ?', [tId]),
       sqlDb.query('SELECT * FROM employees WHERE tenantId = ?', [tId]),
       sqlDb.query('SELECT * FROM invoices WHERE tenantId = ?', [tId]),
@@ -1975,7 +2029,24 @@ export const loadTenantSqlIntoMemory = async (tenantId) => {
       };
     });
 
-    data.staff = dbStaff;
+    data.staff = dbStaff.map(s => {
+      let qual = s.qualification;
+      if (qual && (qual.startsWith('[') || qual.startsWith('{'))) {
+        try { qual = JSON.parse(qual); } catch (e) {}
+      }
+      let exp = s.experiences;
+      if (exp && (exp.startsWith('[') || exp.startsWith('{'))) {
+        try { exp = JSON.parse(exp); } catch (e) {}
+      }
+      return {
+        ...s,
+        qualification: qual,
+        experiences: exp,
+        sameAsPermanent: s.sameAsPermanent === 'Yes' ? true : (s.sameAsPermanent === 'No' ? false : s.sameAsPermanent)
+      };
+    });
+
+    data.employees = dbEmployees;
     data.invoices = dbInvoices;
     
     data.fees = rawFees.map(f => ({
@@ -2496,8 +2567,8 @@ export const ensureTenantSqlLoaded = async (req, res, next) => {
   const now = Date.now();
   const cachedData = dbCache[activeTenant];
   const lastCheck = lastCheckTimes[activeTenant];
-  const hasValidCache = cachedData && lastCheck && (now - lastCheck < 2000);
-  const hasValidPlatform = dbCache['platform'] && lastCheckTimes['platform'] && (now - lastCheckTimes['platform'] < 2000);
+  const hasValidCache = cachedData && lastCheck && (now - lastCheck < 30000);
+  const hasValidPlatform = dbCache['platform'] && lastCheckTimes['platform'] && (now - lastCheckTimes['platform'] < 30000);
 
   if (hasValidCache && (activeTenant === 'platform' || hasValidPlatform)) {
     return next();
@@ -2591,8 +2662,7 @@ export const ensureTenantSqlLoaded = async (req, res, next) => {
       term => err.message.toUpperCase().includes(term)
     );
     if (isConnectionError) {
-      console.warn('[SQL Cache] SQL connection lost or timed out. Gracefully disabling SQL mode and falling back to JSON.');
-      isSqlInitialized = false;
+      console.warn('[SQL Cache] SQL connection lost or timed out. Keeping SQL mode active and relying on existing in-memory database cache.');
     }
   }
   next();
@@ -2730,12 +2800,64 @@ export const saveMemoryDbToSql = async (tenantId, db, changedKeys, newUpdatedAt)
          ));
       }
 
-      // 3. Sync Teachers
+      // 3. Sync Teachers (pure teachers)
       if (db.teachers && Array.isArray(db.teachers) && hasTableChanged('teachers')) {
         tasks.push((async () => {
           const activeTeacherIds = db.teachers.map(t => t.id).filter(Boolean);
           if (activeTeacherIds.length > 0) {
-            await sqlDb.query(`DELETE FROM staff WHERE tenantId = ? AND id NOT IN (${activeTeacherIds.map(() => '?').join(',')})`, [tId, ...activeTeacherIds]);
+            await sqlDb.query(`DELETE FROM teachers WHERE tenantId = ? AND id NOT IN (${activeTeacherIds.map(() => '?').join(',')})`, [tId, ...activeTeacherIds]);
+          } else {
+            await sqlDb.query('DELETE FROM teachers WHERE tenantId = ?', [tId]);
+          }
+
+          const columns = [
+            'id', 'name', 'email', 'phone', 'username', 'password', 'gender', 'qualification', 'experience', 'dateOfJoining', 
+            'salaryGrade', 'address', 'city', 'state', 'pincode', 'emergencyContact', 'emergencyPhone', 'photo', 'aadharFile', 
+            'certificateFile', 'status', 'avatarBg', 'tenantId',
+            'firstName', 'middleName', 'lastName', 'fullName', 'dob', 'bloodGroup', 'nationality', 'maritalStatus',
+            'aadhaarNumber', 'panNumber', 'joiningDate', 'employmentType', 'designation', 'department', 'primarySubject',
+            'secondarySubject', 'alternateMobile', 'currentAddress', 'currentCity', 'currentState', 'currentCountry',
+            'currentPostalCode', 'permanentAddress', 'permanentCity', 'permanentState', 'permanentCountry',
+            'permanentPostalCode', 'sameAsPermanent', 'panFile', 'resumeFile', 'joiningLetterFile', 'otherFile', 'experiences',
+            'assignedGradeId', 'assignedSectionId', 'isClassTeacher', 'attendancePermission'
+          ];
+          const updateColumns = [
+            'name', 'email', 'phone', 'username', 'password', 'status', 'address', 'qualification', 'experience',
+            'firstName', 'middleName', 'lastName', 'fullName', 'dob', 'bloodGroup', 'nationality', 'maritalStatus',
+            'aadhaarNumber', 'panNumber', 'joiningDate', 'employmentType', 'designation', 'department', 'primarySubject',
+            'secondarySubject', 'alternateMobile', 'currentAddress', 'currentCity', 'currentState', 'currentCountry',
+            'currentPostalCode', 'permanentAddress', 'permanentCity', 'permanentState', 'permanentCountry',
+            'permanentPostalCode', 'sameAsPermanent', 'panFile', 'resumeFile', 'joiningLetterFile', 'otherFile', 'experiences',
+            'assignedGradeId', 'assignedSectionId', 'isClassTeacher', 'attendancePermission'
+          ];
+          const valueRows = db.teachers.map(t => [
+            t.id, t.fullName || t.name || '', t.email || '', t.mobile || t.phone || '', t.username || '', t.password || '', t.gender || '', 
+            typeof t.qualification === 'object' ? JSON.stringify(t.qualification) : (t.qualification || ''),
+            typeof t.experience === 'object' ? JSON.stringify(t.experience) : (t.experience || ''),
+            t.joiningDate || t.dateOfJoining || '', t.salaryGrade || '', 
+            t.currentAddress || t.address || '', t.currentCity || t.city || '', t.currentState || t.state || '', t.currentPostalCode || t.pincode || '', 
+            t.emergencyContact || '', t.emergencyContactNumber || t.emergencyPhone || '', t.photo || '', t.aadharFile || '', 
+            t.qualificationFile || t.certificateFile || '', t.status || 'Active', t.avatarBg || '', tId,
+            t.firstName || '', t.middleName || '', t.lastName || '', t.fullName || '', t.dob || '', t.bloodGroup || '', t.nationality || '', t.maritalStatus || '',
+            t.aadhaarNumber || '', t.panNumber || '', t.joiningDate || '', t.employmentType || '', t.designation || '', t.department || '', t.primarySubject || '',
+            t.secondarySubject || '', t.alternateMobile || '', t.currentAddress || '', t.currentCity || '', t.currentState || '', t.currentCountry || '',
+            t.currentPostalCode || '', t.permanentAddress || '', t.permanentCity || '', t.permanentState || '', t.permanentCountry || '',
+            t.permanentPostalCode || '', typeof t.sameAsPermanent === 'boolean' ? (t.sameAsPermanent ? 'Yes' : 'No') : (t.sameAsPermanent || 'No'),
+            t.panFile || '', t.resumeFile || '', t.joiningLetterFile || '', t.otherFile || '',
+            typeof t.experiences === 'object' ? JSON.stringify(t.experiences) : (t.experiences || ''),
+            t.assignedGradeId || null, t.assignedSectionId || null,
+            t.isClassTeacher ? 1 : 0, t.attendancePermission ? 1 : 0
+          ]);
+          await bulkInsertOrUpdate('teachers', columns, valueRows, updateColumns);
+        })());
+      }
+
+      // 4. Sync Staff (administrative staff)
+      if (db.staff && Array.isArray(db.staff) && hasTableChanged('staff')) {
+        tasks.push((async () => {
+          const activeStaffIds = db.staff.map(s => s.id).filter(Boolean);
+          if (activeStaffIds.length > 0) {
+            await sqlDb.query(`DELETE FROM staff WHERE tenantId = ? AND id NOT IN (${activeStaffIds.map(() => '?').join(',')})`, [tId, ...activeStaffIds]);
           } else {
             await sqlDb.query('DELETE FROM staff WHERE tenantId = ?', [tId]);
           }
@@ -2758,43 +2880,43 @@ export const saveMemoryDbToSql = async (tenantId, db, changedKeys, newUpdatedAt)
             'currentPostalCode', 'permanentAddress', 'permanentCity', 'permanentState', 'permanentCountry',
             'permanentPostalCode', 'sameAsPermanent', 'panFile', 'resumeFile', 'joiningLetterFile', 'otherFile', 'experiences'
           ];
-          const valueRows = db.teachers.map(t => [
-            t.id, t.fullName || t.name || '', t.email || '', t.mobile || t.phone || '', t.username || '', t.password || '', t.gender || '', 
-            typeof t.qualification === 'object' ? JSON.stringify(t.qualification) : (t.qualification || ''),
-            typeof t.experience === 'object' ? JSON.stringify(t.experience) : (t.experience || ''),
-            t.joiningDate || t.dateOfJoining || '', t.salaryGrade || '', 
-            t.currentAddress || t.address || '', t.currentCity || t.city || '', t.currentState || t.state || '', t.currentPostalCode || t.pincode || '', 
-            t.emergencyContact || '', t.emergencyContactNumber || t.emergencyPhone || '', t.photo || '', t.aadharFile || '', 
-            t.qualificationFile || t.certificateFile || '', t.status || 'Active', t.avatarBg || '', tId,
-            t.firstName || '', t.middleName || '', t.lastName || '', t.fullName || '', t.dob || '', t.bloodGroup || '', t.nationality || '', t.maritalStatus || '',
-            t.aadhaarNumber || '', t.panNumber || '', t.joiningDate || '', t.employmentType || '', t.designation || '', t.department || '', t.primarySubject || '',
-            t.secondarySubject || '', t.alternateMobile || '', t.currentAddress || '', t.currentCity || '', t.currentState || '', t.currentCountry || '',
-            t.currentPostalCode || '', t.permanentAddress || '', t.permanentCity || '', t.permanentState || '', t.permanentCountry || '',
-            t.permanentPostalCode || '', typeof t.sameAsPermanent === 'boolean' ? (t.sameAsPermanent ? 'Yes' : 'No') : (t.sameAsPermanent || 'No'),
-            t.panFile || '', t.resumeFile || '', t.joiningLetterFile || '', t.otherFile || '',
-            typeof t.experiences === 'object' ? JSON.stringify(t.experiences) : (t.experiences || '')
+          const valueRows = db.staff.map(s => [
+            s.id, s.fullName || s.name || '', s.email || '', s.mobile || s.phone || '', s.username || '', s.password || '', s.gender || '', 
+            typeof s.qualification === 'object' ? JSON.stringify(s.qualification) : (s.qualification || ''),
+            typeof s.experience === 'object' ? JSON.stringify(s.experience) : (s.experience || ''),
+            s.joiningDate || s.dateOfJoining || '', s.salaryGrade || '', 
+            s.currentAddress || s.address || '', s.currentCity || s.city || '', s.currentState || s.state || '', s.currentPostalCode || s.pincode || '', 
+            s.emergencyContact || '', s.emergencyContactNumber || s.emergencyPhone || '', s.photo || '', s.aadharFile || '', 
+            s.qualificationFile || s.certificateFile || '', s.status || 'Active', s.avatarBg || '', tId,
+            s.firstName || '', s.middleName || '', s.lastName || '', s.fullName || '', s.dob || '', s.bloodGroup || '', s.nationality || '', s.maritalStatus || '',
+            s.aadhaarNumber || '', s.panNumber || '', s.joiningDate || '', s.employmentType || '', s.designation || '', s.department || '', s.primarySubject || '',
+            s.secondarySubject || '', s.alternateMobile || '', s.currentAddress || '', s.currentCity || '', s.currentState || '', s.currentCountry || '',
+            s.currentPostalCode || '', s.permanentAddress || '', s.permanentCity || '', s.permanentState || '', s.permanentCountry || '',
+            s.permanentPostalCode || '', typeof s.sameAsPermanent === 'boolean' ? (s.sameAsPermanent ? 'Yes' : 'No') : (s.sameAsPermanent || 'No'),
+            s.panFile || '', s.resumeFile || '', s.joiningLetterFile || '', s.otherFile || '',
+            typeof s.experiences === 'object' ? JSON.stringify(s.experiences) : (s.experiences || '')
           ]);
           await bulkInsertOrUpdate('staff', columns, valueRows, updateColumns);
         })());
       }
 
-      // 4. Sync Staff
-      if (db.staff && Array.isArray(db.staff) && hasTableChanged('staff')) {
+      // 4B. Sync Employees (support staff)
+      if (db.employees && Array.isArray(db.employees) && hasTableChanged('employees')) {
         tasks.push((async () => {
-          const activeStaffIds = db.staff.map(s => s.id).filter(Boolean);
-          if (activeStaffIds.length > 0) {
-            await sqlDb.query(`DELETE FROM employees WHERE tenantId = ? AND id NOT IN (${activeStaffIds.map(() => '?').join(',')})`, [tId, ...activeStaffIds]);
+          const activeEmployeeIds = db.employees.map(e => e.id).filter(Boolean);
+          if (activeEmployeeIds.length > 0) {
+            await sqlDb.query(`DELETE FROM employees WHERE tenantId = ? AND id NOT IN (${activeEmployeeIds.map(() => '?').join(',')})`, [tId, ...activeEmployeeIds]);
           } else {
             await sqlDb.query('DELETE FROM employees WHERE tenantId = ?', [tId]);
           }
 
           const columns = ['id', 'name', 'fullName', 'role', 'department', 'email', 'phone', 'gender', 'qualification', 'experience', 'dateOfJoining', 'salaryGrade', 'reportingTo', 'address', 'city', 'state', 'pincode', 'emergencyContact', 'emergencyPhone', 'photo', 'aadharFile', 'certificateFile', 'status', 'avatarBg', 'password', 'tenantId', 'designation', 'designationLevel', 'employmentType'];
           const updateColumns = ['name', 'role', 'department', 'email', 'phone', 'status', 'password', 'designation', 'designationLevel', 'employmentType'];
-          const valueRows = db.staff.filter(s => s.id).map(s => [
-            s.id, s.name, s.fullName, s.role, s.department, s.email, s.phone, s.gender, s.qualification, 
-            s.experience, s.dateOfJoining, s.salaryGrade, s.reportingTo, s.address, s.city, s.state, s.pincode, 
-            s.emergencyContact, s.emergencyPhone, s.photo, s.aadharFile, s.certificateFile, s.status || 'Active', 
-            s.avatarBg, s.password, tId, s.designation || '', s.designationLevel || '', s.employmentType || ''
+          const valueRows = db.employees.filter(e => e.id).map(e => [
+            e.id, e.name, e.fullName, e.role, e.department, e.email, e.phone, e.gender, e.qualification, 
+            e.experience, e.dateOfJoining, e.salaryGrade, e.reportingTo, e.address, e.city, e.state, e.pincode, 
+            e.emergencyContact, e.emergencyPhone, e.photo, e.aadharFile, e.certificateFile, e.status || 'Active', 
+            e.avatarBg, e.password, tId, e.designation || '', e.designationLevel || '', e.employmentType || ''
           ].map(v => v === undefined ? null : v));
           await bulkInsertOrUpdate('employees', columns, valueRows, updateColumns);
         })());
@@ -3946,14 +4068,51 @@ export const saveMemoryDbToSql = async (tenantId, db, changedKeys, newUpdatedAt)
         term => err.message.toUpperCase().includes(term)
       );
       if (isConnectionError) {
-        console.warn('[SQL Sync] SQL connection lost or timed out. Gracefully disabling SQL mode and falling back to JSON.');
-        isSqlInitialized = false;
+        console.warn('[SQL Sync] SQL connection lost or timed out. Keeping SQL mode active.');
       }
     }
   });
 
   sqlSyncQueues[tId] = syncPromise;
   return syncPromise;
+};
+
+export const runThreeTableMigration = (db) => {
+  let changed = false;
+  if (db.teachers && Array.isArray(db.teachers)) {
+    const hasNonTeachers = db.teachers.some(t => {
+      const des = (t.designation || '').toLowerCase();
+      const rol = (t.role || '').toLowerCase();
+      return des !== 'teacher' && rol !== 'teacher';
+    });
+
+    if (hasNonTeachers) {
+      if (!db.employees) db.employees = db.staff || [];
+      const adminStaff = db.teachers.filter(t => {
+        const des = (t.designation || '').toLowerCase();
+        const rol = (t.role || '').toLowerCase();
+        return des !== 'teacher' && rol !== 'teacher';
+      });
+      const pureTeachers = db.teachers.filter(t => {
+        const des = (t.designation || '').toLowerCase();
+        const rol = (t.role || '').toLowerCase();
+        return des === 'teacher' || rol === 'teacher';
+      });
+
+      db.staff = adminStaff;
+      db.teachers = pureTeachers;
+      changed = true;
+      console.log(`[Migration] Split teachers collection: ${db.teachers.length} teachers, ${db.staff.length} admin staff`);
+    }
+  }
+
+  if (db.staff && Array.isArray(db.staff) && !db.employees) {
+    db.employees = db.staff;
+    db.staff = [];
+    changed = true;
+  }
+
+  return changed;
 };
 
 // Central Database Reader (Preserves synchronous signature)
@@ -3974,6 +4133,9 @@ export const readDb = () => {
   try {
     const data = fs.readFileSync(dbFile, 'utf8');
     const db = JSON.parse(data);
+    if (runThreeTableMigration(db)) {
+      fs.writeFileSync(dbFile, JSON.stringify(db, null, 2), 'utf8');
+    }
     
     // Ensure all standard collections exist defensively
     if (!db.schools) db.schools = [];
@@ -3987,6 +4149,7 @@ export const readDb = () => {
     if (!db.students) db.students = [];
     if (!db.teachers) db.teachers = [];
     if (!db.staff) db.staff = [];
+    if (!db.employees) db.employees = [];
     if (!db.timetables) db.timetables = [];
     if (!db.teacherTimetables) db.teacherTimetables = [];
     if (!db.invoices) db.invoices = [];
@@ -4205,3 +4368,11 @@ export const addActivity = (db, type, title, desc, color = 'hsl(var(--color-prim
 };
 
 export const closeAllPools = sqlDb.closeAllPools;
+
+export const invalidateTenantCache = (tenantId) => {
+  if (!tenantId) return;
+  const activeTenant = slugify(tenantId);
+  delete dbCache[activeTenant];
+  delete lastCheckTimes[activeTenant];
+  console.log(`[SQL Cache] Invalidated in-memory cache for tenant: ${activeTenant}`);
+};

@@ -7,6 +7,8 @@ import { CheckCircle, AlertCircle } from 'lucide-react';
 
 import './App.css';
 
+
+
 // Lazy load page components
 const StudentDirectory = lazy(() => import('./pages/StudentDirectory'));
 const AddStaff = lazy(() => import('./pages/AddStaff'));

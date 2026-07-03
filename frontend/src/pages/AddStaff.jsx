@@ -349,7 +349,7 @@ export default function AddStaff({ setActiveView, editData }) {
     fetch('/api/rbac/roles')
       .then(res => res.json())
       .then(data => {
-        const activeRoles = data.filter(r => r.active);
+        const activeRoles = data.filter(r => r.active && r.name !== 'Teacher');
         const mapped = activeRoles.map(r => ({ value: r.name, label: r.name }));
         setRoleOptions(mapped);
       })

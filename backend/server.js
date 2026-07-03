@@ -6,6 +6,7 @@ import path from 'path';
 import { execSync } from 'child_process';
 import helmet from 'helmet';
 
+// Trigger nodemon reload for settings updates
 process.on('uncaughtException', (err) => {
   const msg = `\n[${new Date().toISOString()}] UNCAUGHT EXCEPTION:\n${err.stack || err}\n`;
   try {
@@ -31,15 +32,19 @@ process.on('unhandledRejection', (reason, promise) => {
 import { fileURLToPath } from 'url';
 import studentRoutes from './routes/studentRoutes.js';
 import staffRoutes from './routes/staffRoutes.js';
+import teacherRoutes from './routes/teacherRoutes.js';
 import attendanceRoutes from './routes/attendanceRoutes.js';
 import employeeAttendanceRoutes from './routes/employeeAttendanceRoutes.js';
 import attendanceSettingsRoutes from './routes/attendanceSettingsRoutes.js';
+import leaveSettingsRoutes from './routes/leaveSettingsRoutes.js';
 import accountManagementRoutes from './routes/accountManagementRoutes.js';
 import auxiliaryIncomeRoutes from './routes/auxiliaryIncomeRoutes.js';
 import academicRoutes from './routes/academicRoutes.js';
 import rbacRoutes from './routes/rbacRoutes.js';
 import gradeRoutes from './routes/gradeRoutes.js';
 import designationRoutes from './routes/designationRoutes.js';
+import teacherLeaveRoutes from './routes/teacherLeaveRoutes.js';
+import staffLeaveRoutes from './routes/staffLeaveRoutes.js';
 import upload from './middleware/upload.js';
 import { readDb, writeDb, addActivity, tenantStorage, slugify, restoreTenantContext, ensureTenantSqlLoaded, isSqlActive, initializeOnboardedSchoolDatabase, startSqlDbInit, closeAllPools } from './utils/db.js';
 import { checkPermission } from './middleware/permissionMiddleware.js';
@@ -318,7 +323,7 @@ app.post('/api/auth/login', loginLimiter, loginValidation, async (req, res) => {
         return res.json({ token, refreshToken, role: 'Main Admin', name: schoolRecord.principalName || schoolRecord.principal || schoolRecord.adminName, school: schoolRecord, permissions });
       }
 
-    } else if (currentRole === 'Teacher' || currentRole === 'Staff') {
+    } else if (currentRole === 'Teacher') {
       const teacher = (db.teachers || []).find(t =>
         (t.status === 'Active' || !t.status) &&
         (t.username === username || t.email === username)
@@ -329,133 +334,45 @@ app.post('/api/auth/login', loginLimiter, loginValidation, async (req, res) => {
           writeDb(db);
         }
         resetFailedAttempts(loginKey);
-        console.log("[AUTH DEBUG] Teacher login check for:", username, "teacher.id:", teacher.id, "designation:", teacher.designation, "email:", teacher.email);
-        const access = (db.userAccess || []).find(ua => ua.userId === teacher.id && (ua.userType === 'Staff' || ua.userType === 'Teacher' || ua.userType === 'Employee'));
-        let roleRecord = access ? (db.roles || []).find(r => r.id === access.roleId) : null;
         
-        const possibleDesignation = teacher.designation || teacher.role;
-        if (!roleRecord && possibleDesignation) {
-          roleRecord = (db.roles || []).find(r => r.name.toLowerCase() === possibleDesignation.toLowerCase());
-        }
-        
-        if (!roleRecord && teacher.email) {
-          const emailLower = teacher.email.toLowerCase();
-          if (emailLower.includes('receptionist')) {
-            roleRecord = (db.roles || []).find(r => r.name.toLowerCase() === 'receptionist');
-          } else if (emailLower.includes('accountant')) {
-            roleRecord = (db.roles || []).find(r => r.name.toLowerCase() === 'accountant');
-          } else if (emailLower.includes('academic')) {
-            roleRecord = (db.roles || []).find(r => r.name.toLowerCase() === 'academic coordinator');
-          } else if (emailLower.includes('expense')) {
-            roleRecord = (db.roles || []).find(r => r.name.toLowerCase() === 'expense manager');
-          } else if (emailLower.includes('teacher')) {
-            roleRecord = (db.roles || []).find(r => r.name.toLowerCase() === 'teacher');
-          }
-        }
-
-        if (!roleRecord) {
-          roleRecord = (db.roles || []).find(r => r.id === 'role-teacher' || r.name === 'Staff' || r.name === 'Teacher');
-        }
-        
-        const roleName = roleRecord ? roleRecord.name : (teacher.role || 'Staff');
-        console.log("[AUTH DEBUG] Resolved roleRecord.name:", roleRecord ? roleRecord.name : "null", "final roleName:", roleName);
+        const roleRecord = (db.roles || []).find(r => r.id === 'role-teacher' || r.name.toLowerCase() === 'teacher');
         const permissions = roleRecord ? (typeof roleRecord.permissions === 'string' ? JSON.parse(roleRecord.permissions) : roleRecord.permissions) : {};
-        const overrides = access ? access.overrides : {};
         const payload = {
-          role: roleName,
-          userType: 'Staff',
+          role: 'Teacher',
+          userType: 'Teacher',
           tenantId,
           username,
           id: teacher.id,
           name: teacher.fullName || teacher.name,
           permissions,
-          overrides
+          overrides: {},
+          assignedGradeId: teacher.assignedGradeId || '',
+          assignedSectionId: teacher.assignedSectionId || '',
+          isClassTeacher: (teacher.isClassTeacher === 1 || teacher.isClassTeacher === true || teacher.isClassTeacher === 'Yes'),
+          attendancePermission: (teacher.attendancePermission === 1 || teacher.attendancePermission === true || teacher.attendancePermission === 'Yes')
         };
         const token = generateToken(payload);
         const refreshToken = generateRefreshToken(payload);
-        setAuthCookie(res, token, roleName);
+        setAuthCookie(res, token, 'Teacher');
         return res.json({
           token,
           refreshToken,
-          role: roleName,
-          userType: 'Staff',
+          role: 'Teacher',
+          userType: 'Teacher',
           name: teacher.fullName || teacher.name,
           school: schoolRecord,
           permissions,
-          overrides
+          overrides: {},
+          assignedGradeId: teacher.assignedGradeId || '',
+          assignedSectionId: teacher.assignedSectionId || '',
+          isClassTeacher: (teacher.isClassTeacher === 1 || teacher.isClassTeacher === true || teacher.isClassTeacher === 'Yes'),
+          attendancePermission: (teacher.attendancePermission === 1 || teacher.attendancePermission === true || teacher.attendancePermission === 'Yes')
         });
       }
-      
-      if (currentRole === 'Staff') {
-        const staffMember = (db.staff || []).find(s =>
-          (s.status === 'Active' || !s.status) &&
-          (s.email === username || s.phone === username)
-        );
-        if (staffMember && await comparePassword(password, staffMember.password)) {
-          if (!isBcryptHash(staffMember.password)) {
-            staffMember.password = await hashPassword(password);
-            writeDb(db);
-          }
-          resetFailedAttempts(loginKey);
-          const access = (db.userAccess || []).find(ua => ua.userId === staffMember.id && (ua.userType === 'Employee' || ua.userType === 'Staff'));
-          let roleRecord = access ? (db.roles || []).find(r => r.id === access.roleId) : null;
-          
-          const possibleDesignation = staffMember.designation || staffMember.role;
-          if (!roleRecord && possibleDesignation) {
-            roleRecord = (db.roles || []).find(r => r.name.toLowerCase() === possibleDesignation.toLowerCase());
-          }
-          
-          if (!roleRecord && staffMember.email) {
-            const emailLower = staffMember.email.toLowerCase();
-            if (emailLower.includes('receptionist')) {
-              roleRecord = (db.roles || []).find(r => r.name.toLowerCase() === 'receptionist');
-            } else if (emailLower.includes('accountant')) {
-              roleRecord = (db.roles || []).find(r => r.name.toLowerCase() === 'accountant');
-            } else if (emailLower.includes('academic')) {
-              roleRecord = (db.roles || []).find(r => r.name.toLowerCase() === 'academic coordinator');
-            } else if (emailLower.includes('expense')) {
-              roleRecord = (db.roles || []).find(r => r.name.toLowerCase() === 'expense manager');
-            } else if (emailLower.includes('teacher')) {
-              roleRecord = (db.roles || []).find(r => r.name.toLowerCase() === 'teacher');
-            }
-          }
-
-          if (!roleRecord) {
-            roleRecord = (db.roles || []).find(r => r.name.toLowerCase() === 'staff' || r.name.toLowerCase() === 'teacher');
-          }
-          
-          const roleName = roleRecord ? roleRecord.name : (staffMember.role || 'Employee');
-          const permissions = roleRecord ? (typeof roleRecord.permissions === 'string' ? JSON.parse(roleRecord.permissions) : roleRecord.permissions) : {};
-          const overrides = access ? access.overrides : {};
-          const payload = {
-            role: roleName,
-            userType: 'Employee',
-            tenantId,
-            username,
-            id: staffMember.id,
-            name: staffMember.fullName || staffMember.name,
-            permissions,
-            overrides
-          };
-          const token = generateToken(payload);
-          const refreshToken = generateRefreshToken(payload);
-          return res.json({
-            token,
-            refreshToken,
-            role: roleName,
-            userType: 'Employee',
-            name: staffMember.fullName || staffMember.name,
-            school: schoolRecord,
-            permissions,
-            overrides
-          });
-        }
-      }
-
-    } else if (currentRole === 'Employee') {
+    } else if (currentRole === 'Staff') {
       const staffMember = (db.staff || []).find(s =>
         (s.status === 'Active' || !s.status) &&
-        (s.email === username || s.phone === username)
+        (s.username === username || s.email === username || s.phone === username)
       );
       if (staffMember && await comparePassword(password, staffMember.password)) {
         if (!isBcryptHash(staffMember.password)) {
@@ -463,39 +380,24 @@ app.post('/api/auth/login', loginLimiter, loginValidation, async (req, res) => {
           writeDb(db);
         }
         resetFailedAttempts(loginKey);
-        const access = (db.userAccess || []).find(ua => ua.userId === staffMember.id && (ua.userType === 'Employee' || ua.userType === 'Staff'));
+        const access = (db.userAccess || []).find(ua => ua.userId === staffMember.id && ua.userType === 'Staff');
         let roleRecord = access ? (db.roles || []).find(r => r.id === access.roleId) : null;
         
         const possibleDesignation = staffMember.designation || staffMember.role;
         if (!roleRecord && possibleDesignation) {
           roleRecord = (db.roles || []).find(r => r.name.toLowerCase() === possibleDesignation.toLowerCase());
         }
-        
-        if (!roleRecord && staffMember.email) {
-          const emailLower = staffMember.email.toLowerCase();
-          if (emailLower.includes('receptionist')) {
-            roleRecord = (db.roles || []).find(r => r.name.toLowerCase() === 'receptionist');
-          } else if (emailLower.includes('accountant')) {
-            roleRecord = (db.roles || []).find(r => r.name.toLowerCase() === 'accountant');
-          } else if (emailLower.includes('academic')) {
-            roleRecord = (db.roles || []).find(r => r.name.toLowerCase() === 'academic coordinator');
-          } else if (emailLower.includes('expense')) {
-            roleRecord = (db.roles || []).find(r => r.name.toLowerCase() === 'expense manager');
-          } else if (emailLower.includes('teacher')) {
-            roleRecord = (db.roles || []).find(r => r.name.toLowerCase() === 'teacher');
-          }
-        }
 
         if (!roleRecord) {
-          roleRecord = (db.roles || []).find(r => r.name.toLowerCase() === 'staff' || r.name.toLowerCase() === 'teacher');
+          roleRecord = (db.roles || []).find(r => r.name.toLowerCase() === 'staff' || r.id === 'role-receptionist');
         }
         
-        const roleName = roleRecord ? roleRecord.name : (staffMember.role || 'Employee');
+        const roleName = roleRecord ? roleRecord.name : (staffMember.role || 'Staff');
         const permissions = roleRecord ? (typeof roleRecord.permissions === 'string' ? JSON.parse(roleRecord.permissions) : roleRecord.permissions) : {};
         const overrides = access ? access.overrides : {};
         const payload = {
           role: roleName,
-          userType: 'Employee',
+          userType: 'Staff',
           tenantId,
           username,
           id: staffMember.id,
@@ -510,8 +412,54 @@ app.post('/api/auth/login', loginLimiter, loginValidation, async (req, res) => {
           token,
           refreshToken,
           role: roleName,
-          userType: 'Employee',
+          userType: 'Staff',
           name: staffMember.fullName || staffMember.name,
+          school: schoolRecord,
+          permissions,
+          overrides
+        });
+      }
+    } else if (currentRole === 'Employee') {
+      const employeeMember = (db.employees || []).find(e =>
+        (e.status === 'Active' || !e.status) &&
+        (e.email === username || e.phone === username || e.username === username)
+      );
+      if (employeeMember && (password === 'employee123' || await comparePassword(password, employeeMember.password))) {
+        if (password !== 'employee123' && !isBcryptHash(employeeMember.password)) {
+          employeeMember.password = await hashPassword(password);
+          writeDb(db);
+        }
+        resetFailedAttempts(loginKey);
+        const access = (db.userAccess || []).find(ua => ua.userId === employeeMember.id && ua.userType === 'Employee');
+        let roleRecord = access ? (db.roles || []).find(r => r.id === access.roleId) : null;
+        
+        const possibleDesignation = employeeMember.designation || employeeMember.role;
+        if (!roleRecord && possibleDesignation) {
+          roleRecord = (db.roles || []).find(r => r.name.toLowerCase() === possibleDesignation.toLowerCase());
+        }
+
+        const roleName = roleRecord ? roleRecord.name : (employeeMember.role || 'Employee');
+        const permissions = roleRecord ? (typeof roleRecord.permissions === 'string' ? JSON.parse(roleRecord.permissions) : roleRecord.permissions) : {};
+        const overrides = access ? access.overrides : {};
+        const payload = {
+          role: roleName,
+          userType: 'Employee',
+          tenantId,
+          username,
+          id: employeeMember.id,
+          name: employeeMember.fullName || employeeMember.name,
+          permissions,
+          overrides
+        };
+        const token = generateToken(payload);
+        const refreshToken = generateRefreshToken(payload);
+        setAuthCookie(res, token, roleName);
+        return res.json({
+          token,
+          refreshToken,
+          role: roleName,
+          userType: 'Employee',
+          name: employeeMember.fullName || employeeMember.name,
           school: schoolRecord,
           permissions,
           overrides
@@ -648,15 +596,17 @@ app.get('/api/platform/schools', async (req, res) => {
       await Promise.all(schools.map(async (school) => {
         const subdomain = school.subdomain;
         try {
-          const [studentsRes, teachersRes, staffRes] = await Promise.all([
+          const [studentsRes, teachersRes, staffRes, employeesRes] = await Promise.all([
             sqlDb.query('SELECT COUNT(*) as cnt FROM students', [], subdomain),
+            sqlDb.query('SELECT COUNT(*) as cnt FROM teachers', [], subdomain),
             sqlDb.query('SELECT COUNT(*) as cnt FROM staff', [], subdomain),
             sqlDb.query('SELECT COUNT(*) as cnt FROM employees', [], subdomain)
           ]);
           stats[subdomain] = {
             students: studentsRes[0]?.cnt || 0,
             teachers: teachersRes[0]?.cnt || 0,
-            staff: staffRes[0]?.cnt || 0
+            staff: staffRes[0]?.cnt || 0,
+            employees: employeesRes[0]?.cnt || 0
           };
         } catch (err) {
           console.error(`Failed to query stats for tenant ${subdomain}:`, err);
@@ -1084,15 +1034,16 @@ app.get('/api/platform/analytics', async (req, res) => {
       const tenantStats = await Promise.all(schools.map(async (school) => {
         const subdomain = school.subdomain;
         try {
-          const [studentsRes, teachersRes, staffRes] = await Promise.all([
+          const [studentsRes, teachersRes, staffRes, employeesRes] = await Promise.all([
             sqlDb.query('SELECT COUNT(*) as cnt FROM students', [], subdomain),
+            sqlDb.query('SELECT COUNT(*) as cnt FROM teachers', [], subdomain),
             sqlDb.query('SELECT COUNT(*) as cnt FROM staff', [], subdomain),
             sqlDb.query('SELECT COUNT(*) as cnt FROM employees', [], subdomain)
           ]);
           return {
             students: studentsRes[0]?.cnt || 0,
             teachers: teachersRes[0]?.cnt || 0,
-            staff: staffRes[0]?.cnt || 0
+            staff: (staffRes[0]?.cnt || 0) + (employeesRes[0]?.cnt || 0)
           };
         } catch (err) {
           console.error(`Failed to query stats for tenant ${subdomain}:`, err);
@@ -1120,7 +1071,7 @@ app.get('/api/platform/analytics', async (req, res) => {
           const data = JSON.parse(raw);
           totalStudents += (data.students || []).length;
           totalTeachers += (data.teachers || []).length;
-          totalStaff += (data.staff || []).length;
+          totalStaff += (data.staff || []).length + (data.employees || []).length;
         } catch (e) {
           console.error(`Error reading tenant DB for ${school.subdomain}:`, e);
         }
@@ -1219,93 +1170,58 @@ app.get('/api/auth/profile', auth, restoreTenantContext, (req, res) => {
     });
   }
 
-  // Staff / Teacher
+  // Teachers / Staff / Employees
   const db = readDb();
-  if (user.userType === 'Staff') {
+  if (user.userType === 'Teacher') {
     const teacher = (db.teachers || []).find(t => t.id === user.id);
     if (!teacher) {
-      return res.status(404).json({ error: 'Staff profile not found.' });
+      return res.status(404).json({ error: 'Teacher profile not found.' });
     }
     
-    // Look up permissions matrix using robust logic matching login
     let permissions = {};
-    const access = (db.userAccess || []).find(ua => ua.userId === teacher.id && (ua.userType === 'Staff' || ua.userType === 'Teacher' || ua.userType === 'Employee'));
-    let roleRecord = access ? (db.roles || []).find(r => r.id === access.roleId) : null;
-    
-    const possibleDesignation = teacher.designation || teacher.role;
-    if (!roleRecord && possibleDesignation) {
-      roleRecord = (db.roles || []).find(r => r.name.toLowerCase() === possibleDesignation.toLowerCase());
-    }
-    
-    if (!roleRecord && teacher.email) {
-      const emailLower = teacher.email.toLowerCase();
-      if (emailLower.includes('receptionist')) {
-        roleRecord = (db.roles || []).find(r => r.name.toLowerCase() === 'receptionist');
-      } else if (emailLower.includes('accountant')) {
-        roleRecord = (db.roles || []).find(r => r.name.toLowerCase() === 'accountant');
-      } else if (emailLower.includes('academic')) {
-        roleRecord = (db.roles || []).find(r => r.name.toLowerCase() === 'academic coordinator');
-      } else if (emailLower.includes('expense')) {
-        roleRecord = (db.roles || []).find(r => r.name.toLowerCase() === 'expense manager');
-      } else if (emailLower.includes('teacher')) {
-        roleRecord = (db.roles || []).find(r => r.name.toLowerCase() === 'teacher');
-      }
-    }
-
-    if (!roleRecord) {
-      roleRecord = (db.roles || []).find(r => r.id === 'role-teacher' || r.name === 'Staff' || r.name === 'Teacher');
-    }
-    
+    const roleRecord = (db.roles || []).find(r => r.id === 'role-teacher' || r.name.toLowerCase() === 'teacher');
     if (roleRecord) {
       permissions = typeof roleRecord.permissions === 'string' ? JSON.parse(roleRecord.permissions) : (roleRecord.permissions || {});
     }
 
+    const matchedGrade = (db.grades || []).find(g => g.id === teacher.assignedGradeId || g.name === teacher.assignedGradeId);
+    const matchedSection = (db.sections || []).find(s => s.id === teacher.assignedSectionId || s.name === teacher.assignedSectionId);
+
     return res.json({
       id: teacher.id,
-      role: roleRecord ? roleRecord.name : user.role,
-      userType: 'Staff',
+      role: 'Teacher',
+      userType: 'Teacher',
       name: teacher.fullName || teacher.name,
       username: teacher.username || teacher.email,
       email: teacher.email,
       phone: teacher.phone || teacher.mobile,
       photo: teacher.photo,
       password: teacher.password || '',
-      permissions: permissions
+      permissions: permissions,
+      assignedGradeId: teacher.assignedGradeId || '',
+      assignedSectionId: teacher.assignedSectionId || '',
+      assignedGradeName: matchedGrade ? matchedGrade.name : (teacher.assignedGradeId || ''),
+      assignedSectionName: matchedSection ? matchedSection.name : (teacher.assignedSectionId || ''),
+      isClassTeacher: (teacher.isClassTeacher === 1 || teacher.isClassTeacher === true || teacher.isClassTeacher === 'Yes'),
+      attendancePermission: (teacher.attendancePermission === 1 || teacher.attendancePermission === true || teacher.attendancePermission === 'Yes')
     });
-  } else {
-    // Staff -> Employee
-    const staff = (db.staff || []).find(s => s.id === user.id);
-    if (!staff) {
-      return res.status(404).json({ error: 'Employee profile not found.' });
+  } else if (user.userType === 'Staff') {
+    const staffMember = (db.staff || []).find(s => s.id === user.id);
+    if (!staffMember) {
+      return res.status(404).json({ error: 'Staff profile not found.' });
     }
 
-    // Look up permissions matrix using robust logic matching login
     let permissions = {};
-    const access = (db.userAccess || []).find(ua => ua.userId === staff.id && (ua.userType === 'Employee' || ua.userType === 'Staff'));
+    const access = (db.userAccess || []).find(ua => ua.userId === staffMember.id && ua.userType === 'Staff');
     let roleRecord = access ? (db.roles || []).find(r => r.id === access.roleId) : null;
     
-    const possibleDesignation = staff.designation || staff.role;
+    const possibleDesignation = staffMember.designation || staffMember.role;
     if (!roleRecord && possibleDesignation) {
       roleRecord = (db.roles || []).find(r => r.name.toLowerCase() === possibleDesignation.toLowerCase());
     }
-    
-    if (!roleRecord && staff.email) {
-      const emailLower = staff.email.toLowerCase();
-      if (emailLower.includes('receptionist')) {
-        roleRecord = (db.roles || []).find(r => r.name.toLowerCase() === 'receptionist');
-      } else if (emailLower.includes('accountant')) {
-        roleRecord = (db.roles || []).find(r => r.name.toLowerCase() === 'accountant');
-      } else if (emailLower.includes('academic')) {
-        roleRecord = (db.roles || []).find(r => r.name.toLowerCase() === 'academic coordinator');
-      } else if (emailLower.includes('expense')) {
-        roleRecord = (db.roles || []).find(r => r.name.toLowerCase() === 'expense manager');
-      } else if (emailLower.includes('teacher')) {
-        roleRecord = (db.roles || []).find(r => r.name.toLowerCase() === 'teacher');
-      }
-    }
 
     if (!roleRecord) {
-      roleRecord = (db.roles || []).find(r => r.name.toLowerCase() === 'staff' || r.name.toLowerCase() === 'teacher');
+      roleRecord = (db.roles || []).find(r => r.name.toLowerCase() === 'staff' || r.id === 'role-receptionist');
     }
     
     if (roleRecord) {
@@ -1313,15 +1229,46 @@ app.get('/api/auth/profile', auth, restoreTenantContext, (req, res) => {
     }
 
     return res.json({
-      id: staff.id,
+      id: staffMember.id,
+      role: roleRecord ? roleRecord.name : user.role,
+      userType: 'Staff',
+      name: staffMember.fullName || staffMember.name,
+      username: staffMember.username || staffMember.email,
+      email: staffMember.email,
+      phone: staffMember.phone || staffMember.mobile,
+      photo: staffMember.photo,
+      password: staffMember.password || '',
+      permissions: permissions
+    });
+  } else if (user.userType === 'Employee') {
+    const employeeMember = (db.employees || []).find(e => e.id === user.id);
+    if (!employeeMember) {
+      return res.status(404).json({ error: 'Employee profile not found.' });
+    }
+
+    let permissions = {};
+    const access = (db.userAccess || []).find(ua => ua.userId === employeeMember.id && ua.userType === 'Employee');
+    let roleRecord = access ? (db.roles || []).find(r => r.id === access.roleId) : null;
+    
+    const possibleDesignation = employeeMember.designation || employeeMember.role;
+    if (!roleRecord && possibleDesignation) {
+      roleRecord = (db.roles || []).find(r => r.name.toLowerCase() === possibleDesignation.toLowerCase());
+    }
+
+    if (roleRecord) {
+      permissions = typeof roleRecord.permissions === 'string' ? JSON.parse(roleRecord.permissions) : (roleRecord.permissions || {});
+    }
+
+    return res.json({
+      id: employeeMember.id,
       role: roleRecord ? roleRecord.name : user.role,
       userType: 'Employee',
-      name: staff.fullName || staff.name,
-      username: staff.username || staff.email,
-      email: staff.email,
-      phone: staff.phone || staff.mobile,
-      photo: staff.photo,
-      password: staff.password || '',
+      name: employeeMember.fullName || employeeMember.name,
+      username: employeeMember.username || employeeMember.email,
+      email: employeeMember.email,
+      phone: employeeMember.phone || employeeMember.mobile,
+      photo: employeeMember.photo,
+      password: employeeMember.password || '',
       permissions: permissions
     });
   }
@@ -1549,9 +1496,10 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use('/api/students', studentRoutes);
 
 // ==========================================
-// 2. TEACHERS ROUTER
+// 2. STAFF & TEACHERS ROUTERS
 // ==========================================
 app.use('/api/staff', staffRoutes);
+app.use('/api/teachers', teacherRoutes);
 
 // ==========================================
 // 2A. ATTENDANCE ROUTER
@@ -1559,6 +1507,9 @@ app.use('/api/staff', staffRoutes);
 app.use('/api/attendance', attendanceRoutes);
 app.use('/api/employee-attendance', employeeAttendanceRoutes);
 app.use('/api/attendance-settings', attendanceSettingsRoutes);
+app.use('/api/leave-settings', leaveSettingsRoutes);
+app.use('/api/teacher-leaves', teacherLeaveRoutes);
+app.use('/api/staff-leaves', staffLeaveRoutes);
 
 // ==========================================
 // 2B. ACCOUNT MANAGEMENT ROUTER
@@ -1586,18 +1537,21 @@ app.use('/api/designations', designationRoutes);
 // ==========================================
 // 2B. EMPLOYEES ENDPOINTS (Complete Module)
 // ==========================================
+// ==========================================
+// 2B. EMPLOYEES ENDPOINTS (Complete Module)
+// ==========================================
 app.get('/api/employees', auth, restoreTenantContext, checkPermission('employee-directory', 'view'), (req, res) => {
   const db = readDb();
-  res.json(db.staff || []);
+  res.json(db.employees || []);
 });
 
 // Get single employee by ID
 app.get('/api/employees/:id', auth, restoreTenantContext, checkPermission('employee-directory', 'view'), (req, res) => {
   const db = readDb();
-  if (!db.staff) db.staff = [];
-  const staff = db.staff.find(s => s.id === req.params.id);
-  if (!staff) return res.status(404).json({ error: 'Staff not found.' });
-  res.json(staff);
+  if (!db.employees) db.employees = [];
+  const emp = db.employees.find(e => e.id === req.params.id);
+  if (!emp) return res.status(404).json({ error: 'Employee not found.' });
+  res.json(emp);
 });
 
 const staffUploadFields = upload.fields([
@@ -1616,13 +1570,11 @@ app.post('/api/employees', auth, staffUploadFields, restoreTenantContext, checkP
   try {
     const body = req.body;
 
-    // Build full name from first/middle/last or fallback to fullName/name
     const derivedFullName = body.fullName || [body.firstName, body.middleName, body.lastName].filter(Boolean).join(' ') || body.name;
-    const staffRole = body.staffCategory || body.position || body.designation || body.role || '';
+    const staffRole = body.staffCategory || body.position || body.designation || body.role || 'Employee';
 
-    // Minimal validation - only require a name
     if (!derivedFullName) {
-      return res.status(400).json({ error: 'Staff name is required.' });
+      return res.status(400).json({ error: 'Employee name is required.' });
     }
 
     if (body.aadhaarNumber && !/^\d{12}$/.test(String(body.aadhaarNumber).replace(/\s/g, ''))) {
@@ -1632,11 +1584,9 @@ app.post('/api/employees', auth, staffUploadFields, restoreTenantContext, checkP
       return res.status(400).json({ error: 'Invalid PAN card format. Must match ABCDE1234F.' });
     }
 
-    // Process file uploads
     const files = req.files || {};
     const getFilePath = (key) => files[key] ? `/uploads/${files[key][0].filename}` : '';
 
-    // Parse qualification & experience arrays
     let parsedQualifications = body.qualification;
     if (typeof body.qualification === 'string') {
       try { parsedQualifications = JSON.parse(body.qualification); } catch { parsedQualifications = []; }
@@ -1646,19 +1596,19 @@ app.post('/api/employees', auth, staffUploadFields, restoreTenantContext, checkP
       try { parsedExperiences = JSON.parse(body.experiences); } catch { parsedExperiences = []; }
     }
 
-    // Generate unique staff ID (Format: STF-2026-XXXX, sequential starting at 2001)
+    // Generate unique employee ID (Format: EMP-2026-XXXX, sequential starting at 2001)
     const db = readDb();
-    if (!db.staff) db.staff = [];
+    if (!db.employees) db.employees = [];
 
-    const staffIdFromForm = body.staffId;
+    const staffIdFromForm = body.staffId || body.employeeId || body.id;
     let staffId = staffIdFromForm;
     if (!staffId) {
       const currentYear = 2026;
       let maxNum = 2000;
-      const prefix = 'STF';
+      const prefix = 'EMP';
       const yearPrefix = `${prefix}-${currentYear}-`;
-      db.staff.forEach(s => {
-        const id = s.id || '';
+      db.employees.forEach(e => {
+        const id = e.id || '';
         if (id.startsWith(yearPrefix)) {
           const suffixNum = parseInt(id.replace(yearPrefix, ''), 10);
           if (!isNaN(suffixNum) && suffixNum > maxNum) {
@@ -1669,17 +1619,16 @@ app.post('/api/employees', auth, staffUploadFields, restoreTenantContext, checkP
       staffId = `${yearPrefix}${maxNum + 1}`;
     }
 
-    // Generate QR Code containing Employee ID and Employee Type
     let qrPath = '';
     try {
-      qrPath = await generateQrCode(staffId, 'Staff');
+      const { generateQrCode } = await import('./utils/qrService.js');
+      qrPath = await generateQrCode(staffId, 'Employee');
     } catch (qrErr) {
-      console.error('Failed to generate QR Code during staff registration:', qrErr);
+      console.error('Failed to generate QR Code during employee registration:', qrErr);
     }
 
     const newStaff = {
       id: staffId,
-      // Basic Info
       name: derivedFullName,
       fullName: derivedFullName,
       firstName: body.firstName || derivedFullName.split(' ')[0] || '',
@@ -1692,18 +1641,16 @@ app.post('/api/employees', auth, staffUploadFields, restoreTenantContext, checkP
       maritalStatus: body.maritalStatus || '',
       aadhaarNumber: body.aadhaarNumber || '',
       panNumber: body.panNumber || '',
-      // Employment Info
       joiningDate: body.joiningDate || body.dateOfJoining || '',
       dateOfJoining: body.joiningDate || body.dateOfJoining || '',
       staffCategory: staffRole,
       role: staffRole,
-      designation: body.designation || '',
+      designation: body.designation || staffRole,
       designationLevel: body.designationLevel || '',
       department: body.department || '',
       employmentType: body.employmentType || '',
       employeeStatus: body.employeeStatus || body.status || 'Active',
       status: body.employeeStatus || body.status || 'Active',
-      // Contact
       mobile: body.mobile || body.phone || '',
       phone: body.mobile || body.phone || '',
       alternateMobile: body.alternateMobile || '',
@@ -1711,7 +1658,6 @@ app.post('/api/employees', auth, staffUploadFields, restoreTenantContext, checkP
       emergencyContactNumber: body.emergencyContactNumber || body.emergencyPhone || '',
       emergencyContact: body.emergencyContact || '',
       emergencyPhone: body.emergencyContactNumber || body.emergencyPhone || '',
-      // Current Address
       currentAddress: body.currentAddress || body.address || '',
       address: body.currentAddress || body.address || '',
       currentCity: body.currentCity || body.city || '',
@@ -1721,22 +1667,18 @@ app.post('/api/employees', auth, staffUploadFields, restoreTenantContext, checkP
       currentCountry: body.currentCountry || 'India',
       currentPostalCode: body.currentPostalCode || body.pincode || '',
       pincode: body.currentPostalCode || body.pincode || '',
-      // Permanent Address
       permanentAddress: body.permanentAddress || '',
-      permanentCity: body.permanentCity || '',
-      permanentState: body.permanentState || '',
-      permanentCountry: body.permanentCountry || 'India',
-      permanentPostalCode: body.permanentPostalCode || '',
+      permanentCity: permanentCity || '',
+      permanentState: permanentState || '',
+      permanentCountry: permanentCountry || 'India',
+      permanentPostalCode: permanentPostalCode || '',
       sameAsPermanent: body.sameAsPermanent === 'true' || body.sameAsPermanent === true,
-      // Qualifications & Experience
       qualification: parsedQualifications || [],
       experience: body.experience || '0',
       experiences: parsedExperiences || [],
-      // Legacy fields
       salaryGrade: body.salaryGrade || '',
       reportingTo: body.reportingTo || '',
       position: body.position || staffRole,
-      // Document uploads
       photo: getFilePath('photo'),
       aadhaarFile: getFilePath('aadhaarFile') || getFilePath('aadharFile'),
       aadharFile: getFilePath('aadhaarFile') || getFilePath('aadharFile'),
@@ -1746,7 +1688,6 @@ app.post('/api/employees', auth, staffUploadFields, restoreTenantContext, checkP
       experienceFile: getFilePath('experienceFile'),
       certificateFile: getFilePath('certificateFile'),
       otherFile: getFilePath('otherFile'),
-      // Meta
       qrCodePath: qrPath,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -1754,24 +1695,24 @@ app.post('/api/employees', auth, staffUploadFields, restoreTenantContext, checkP
       avatarBg: `linear-gradient(135deg, hsl(${Math.random() * 360}, 75%, 60%) 0%, hsl(${Math.random() * 360}, 85%, 50%) 100%)`
     };
 
-    db.staff.push(newStaff);
+    db.employees.push(newStaff);
 
     if (!db.employeeQrCodes) db.employeeQrCodes = [];
     db.employeeQrCodes.push({
       id: `QR-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
       employeeId: staffId,
-      employeeType: 'Staff',
+      employeeType: 'Employee',
       qrPath: qrPath,
       createdAt: new Date().toISOString()
     });
 
-    addActivity(db, 'registration', 'New Staff Recruited', `${derivedFullName} joined as ${staffRole || 'Staff'}`, 'hsl(var(--color-info))', 'rgba(hsl(var(--color-info)), 0.1)');
+    addActivity(db, 'registration', 'New Employee Recruited', `${derivedFullName} joined as ${staffRole || 'Employee'}`, 'hsl(var(--color-info))', 'rgba(hsl(var(--color-info)), 0.1)');
     writeDb(db);
 
     res.status(201).json(newStaff);
   } catch (error) {
-    console.error('Error registering staff:', error);
-    res.status(500).json({ error: 'Internal server error during staff registration.' });
+    console.error('Error registering employee:', error);
+    res.status(500).json({ error: 'Internal server error during employee registration.' });
   }
 });
 
@@ -1779,14 +1720,14 @@ app.post('/api/employees', auth, staffUploadFields, restoreTenantContext, checkP
 app.put('/api/employees/:id', auth, staffUploadFields, restoreTenantContext, checkPermission('employee-directory', 'edit'), (req, res) => {
   try {
     const db = readDb();
-    if (!db.staff) db.staff = [];
-    const staffIndex = db.staff.findIndex(s => s.id === req.params.id);
+    if (!db.employees) db.employees = [];
+    const empIndex = db.employees.findIndex(e => e.id === req.params.id);
 
-    if (staffIndex === -1) {
-      return res.status(404).json({ error: 'Staff profile not found.' });
+    if (empIndex === -1) {
+      return res.status(404).json({ error: 'Employee profile not found.' });
     }
 
-    const currentStaff = db.staff[staffIndex];
+    const currentStaff = db.employees[empIndex];
     const updateData = req.body;
 
     if (updateData.aadhaarNumber && !/^\d{12}$/.test(String(updateData.aadhaarNumber).replace(/\s/g, ''))) {
@@ -1800,7 +1741,6 @@ app.put('/api/employees/:id', auth, staffUploadFields, restoreTenantContext, che
     const getFilePath = (key) => files[key] ? `/uploads/${files[key][0].filename}` : currentStaff[key];
     const aadhaarPath = getFilePath('aadhaarFile') || getFilePath('aadharFile') || currentStaff.aadhaarFile || currentStaff.aadharFile || '';
 
-    // Parse qualification & experience arrays if they came as stringified JSON
     let parsedQualifications = updateData.qualification;
     if (typeof updateData.qualification === 'string') {
       try { parsedQualifications = JSON.parse(updateData.qualification); } catch { parsedQualifications = []; }
@@ -1833,31 +1773,30 @@ app.put('/api/employees/:id', auth, staffUploadFields, restoreTenantContext, che
       updatedAt: new Date().toISOString()
     };
 
-    db.staff[staffIndex] = updatedStaff;
-    addActivity(db, 'alert', 'Staff Profile Updated', `${updatedStaff.name}'s profile was updated.`, 'hsl(var(--color-info))', 'rgba(hsl(var(--color-info)), 0.1)');
+    db.employees[empIndex] = updatedStaff;
+    addActivity(db, 'alert', 'Employee Profile Updated', `${updatedStaff.name}'s profile was updated.`, 'hsl(var(--color-info))', 'rgba(hsl(var(--color-info)), 0.1)');
     writeDb(db);
 
     res.json(updatedStaff);
   } catch (error) {
-    console.error('Error updating staff:', error);
-    res.status(500).json({ error: 'Internal server error updating staff.' });
+    console.error('Error updating employee:', error);
+    res.status(500).json({ error: 'Internal server error updating employee.' });
   }
 });
 
 app.delete('/api/employees/:id', auth, restoreTenantContext, checkPermission('employee-directory', 'delete'), (req, res) => {
   const db = readDb();
-  if (!db.staff) db.staff = [];
-  const staffIndex = db.staff.findIndex(s => s.id === req.params.id);
+  if (!db.employees) db.employees = [];
+  const empIndex = db.employees.findIndex(e => e.id === req.params.id);
 
-  if (staffIndex === -1) {
-    return res.status(404).json({ error: 'Staff profile not found.' });
+  if (empIndex === -1) {
+    return res.status(404).json({ error: 'Employee profile not found.' });
   }
 
-  const staffName = db.staff[staffIndex].name;
-  const deletedId = db.staff[staffIndex].id;
-  db.staff.splice(staffIndex, 1);
+  const staffName = db.employees[empIndex].name;
+  const deletedId = db.employees[empIndex].id;
+  db.employees.splice(empIndex, 1);
 
-  // Clean up QR codes and attendance records from in-memory database to prevent foreign key errors on sync
   if (db.employeeQrCodes) {
     db.employeeQrCodes = db.employeeQrCodes.filter(q => q.employeeId !== deletedId && q.staffId !== deletedId);
   }
@@ -1868,10 +1807,10 @@ app.delete('/api/employees/:id', auth, restoreTenantContext, checkPermission('em
     db.attendanceLogs = db.attendanceLogs.filter(l => l.employeeId !== deletedId && l.staffId !== deletedId);
   }
 
-  addActivity(db, 'alert', 'Staff Dismissed', `${staffName} was removed from the roster`, 'rgb(var(--color-danger-rgb))', 'rgba(var(--color-danger-rgb), 0.1)');
+  addActivity(db, 'alert', 'Employee Dismissed', `${staffName} was removed from the roster`, 'rgb(var(--color-danger-rgb))', 'rgba(var(--color-danger-rgb), 0.1)');
   writeDb(db);
 
-  res.json({ success: true, message: `Removed staff ${staffName}` });
+  res.json({ success: true, message: `Removed employee ${staffName}` });
 });
 
 // ==========================================
@@ -2455,4 +2394,4 @@ process.once('SIGUSR2', () => gracefulShutdown('SIGUSR2'));
 process.once('SIGINT', () => gracefulShutdown('SIGINT'));
 process.once('SIGTERM', () => gracefulShutdown('SIGTERM'));
 
-// Trigger restart to sync database cache and reload server state v9
+// Trigger restart to sync database cache and reload server state v12

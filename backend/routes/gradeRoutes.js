@@ -1,5 +1,5 @@
 import express from 'express';
-import { readDb, writeDb, slugify, convertToRoman, tenantStorage } from '../utils/db.js';
+import { readDb, writeDb, slugify, convertToRoman, tenantStorage, restoreTenantContext, ensureTenantSqlLoaded } from '../utils/db.js';
 import { auth } from '../middleware/auth.js';
 import { logAudit as fileLogAudit } from '../utils/logger.js';
 
@@ -83,6 +83,8 @@ const checkGradeUsage = (db, gradeName, deptName = null) => {
 
 // Apply auth to all endpoints
 router.use(auth);
+router.use(restoreTenantContext);
+router.use(ensureTenantSqlLoaded);
 
 // Apply grade-management permission check dynamically based on request method
 import { checkPermission } from '../middleware/permissionMiddleware.js';

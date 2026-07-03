@@ -522,17 +522,17 @@ export default function AttendanceManager() {
           ======================================================== */}
       {activeTab === 'dashboard' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-          {/* Staff (Teachers) Attendance Summary */}
+          {/* Staff Attendance Summary */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
             <h4 style={{ fontSize: '0.88rem', fontWeight: 700, margin: 0, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'hsl(var(--color-primary))' }}>Staff Attendance</h4>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '16px' }}>
               {[
-                { label: 'Total Staff', value: analytics?.teacherSummary?.total ?? '—', icon: Users, color: 'var(--text-main)', bg: 'rgba(255, 255, 255, 0.04)' },
-                { label: 'Present Today', value: analytics?.teacherSummary?.present ?? '—', icon: UserCheck, color: 'rgb(var(--color-success-rgb))', bg: 'rgba(var(--color-success-rgb), 0.1)' },
-                { label: 'Late Arrivals', value: analytics?.teacherSummary?.late ?? '—', icon: Clock, color: 'rgb(var(--color-warning-rgb))', bg: 'rgba(var(--color-warning-rgb), 0.1)' },
-                { label: 'Half Day Today', value: analytics?.teacherSummary?.halfDay ?? '—', icon: Coffee, color: 'hsl(var(--color-info))', bg: 'rgba(255, 255, 255, 0.04)' },
-                { label: 'Absent Today', value: analytics?.teacherSummary?.absent ?? '—', icon: UserMinus, color: 'rgb(var(--color-danger-rgb))', bg: 'rgba(var(--color-danger-rgb), 0.1)' },
-                { label: 'Checked Out', value: analytics?.teacherSummary?.checkOuts ?? '—', icon: QrCode, color: 'hsl(var(--color-primary))', bg: 'rgba(255, 255, 255, 0.04)' }
+                { label: 'Total Staff', value: analytics?.staffSummary?.total ?? '—', icon: Users, color: 'var(--text-main)', bg: 'rgba(255, 255, 255, 0.04)' },
+                { label: 'Present Today', value: analytics?.staffSummary?.present ?? '—', icon: UserCheck, color: 'rgb(var(--color-success-rgb))', bg: 'rgba(var(--color-success-rgb), 0.1)' },
+                { label: 'Late Arrivals', value: analytics?.staffSummary?.late ?? '—', icon: Clock, color: 'rgb(var(--color-warning-rgb))', bg: 'rgba(var(--color-warning-rgb), 0.1)' },
+                { label: 'Half Day Today', value: analytics?.staffSummary?.halfDay ?? '—', icon: Coffee, color: 'hsl(var(--color-info))', bg: 'rgba(255, 255, 255, 0.04)' },
+                { label: 'Absent Today', value: analytics?.staffSummary?.absent ?? '—', icon: UserMinus, color: 'rgb(var(--color-danger-rgb))', bg: 'rgba(var(--color-danger-rgb), 0.1)' },
+                { label: 'Checked Out', value: analytics?.staffSummary?.checkOuts ?? '—', icon: QrCode, color: 'hsl(var(--color-primary))', bg: 'rgba(255, 255, 255, 0.04)' }
               ].map((card, i) => (
                 <div key={i} className="glass-panel" style={{ padding: '20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderRadius: '16px' }}>
                   <div>
@@ -547,17 +547,42 @@ export default function AttendanceManager() {
             </div>
           </div>
 
-          {/* Employee (Non-Academic) Attendance Summary */}
+          {/* Teacher Attendance Summary */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            <h4 style={{ fontSize: '0.88rem', fontWeight: 700, margin: 0, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'hsl(var(--color-primary))' }}>Employee (Non-Academic) Attendance</h4>
+            <h4 style={{ fontSize: '0.88rem', fontWeight: 700, margin: 0, textTransform: 'uppercase', letterSpacing: '0.5px', color: '#3b82f6' }}>Teacher Attendance</h4>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '16px' }}>
               {[
-                { label: 'Total Employees', value: analytics?.staffSummary?.total ?? '—', icon: Users, color: 'var(--text-main)', bg: 'rgba(255, 255, 255, 0.04)' },
-                { label: 'Present Today', value: analytics?.staffSummary?.present ?? '—', icon: UserCheck, color: 'rgb(var(--color-success-rgb))', bg: 'rgba(var(--color-success-rgb), 0.1)' },
-                { label: 'Late Arrivals', value: analytics?.staffSummary?.late ?? '—', icon: Clock, color: 'rgb(var(--color-warning-rgb))', bg: 'rgba(var(--color-warning-rgb), 0.1)' },
-                { label: 'Half Day Today', value: analytics?.staffSummary?.halfDay ?? '—', icon: Coffee, color: 'hsl(var(--color-info))', bg: 'rgba(255, 255, 255, 0.04)' },
-                { label: 'Absent Today', value: analytics?.staffSummary?.absent ?? '—', icon: UserMinus, color: 'rgb(var(--color-danger-rgb))', bg: 'rgba(var(--color-danger-rgb), 0.1)' },
-                { label: 'Checked Out', value: analytics?.staffSummary?.checkOuts ?? '—', icon: QrCode, color: 'hsl(var(--color-primary))', bg: 'rgba(255, 255, 255, 0.04)' }
+                { label: 'Total Teachers', value: analytics?.teacherSummary?.total ?? '—', icon: Users, color: 'var(--text-main)', bg: 'rgba(255, 255, 255, 0.04)' },
+                { label: 'Present Today', value: analytics?.teacherSummary?.present ?? '—', icon: UserCheck, color: 'rgb(var(--color-success-rgb))', bg: 'rgba(var(--color-success-rgb), 0.1)' },
+                { label: 'Late Arrivals', value: analytics?.teacherSummary?.late ?? '—', icon: Clock, color: 'rgb(var(--color-warning-rgb))', bg: 'rgba(var(--color-warning-rgb), 0.1)' },
+                { label: 'Half Day Today', value: analytics?.teacherSummary?.halfDay ?? '—', icon: Coffee, color: 'hsl(var(--color-info))', bg: 'rgba(255, 255, 255, 0.04)' },
+                { label: 'Absent Today', value: analytics?.teacherSummary?.absent ?? '—', icon: UserMinus, color: 'rgb(var(--color-danger-rgb))', bg: 'rgba(var(--color-danger-rgb), 0.1)' },
+                { label: 'Checked Out', value: analytics?.teacherSummary?.checkOuts ?? '—', icon: QrCode, color: '#3b82f6', bg: 'rgba(59, 130, 246, 0.08)' }
+              ].map((card, i) => (
+                <div key={i} className="glass-panel" style={{ padding: '20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderRadius: '16px' }}>
+                  <div>
+                    <div style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)' }}>{card.label}</div>
+                    <div style={{ fontSize: '1.8rem', fontWeight: 800, marginTop: '8px', color: card.color }}>{card.value}</div>
+                  </div>
+                  <div style={{ padding: '12px', borderRadius: '12px', background: card.bg, color: card.color }}>
+                    <card.icon size={22} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Employee (Support) Attendance Summary */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            <h4 style={{ fontSize: '0.88rem', fontWeight: 700, margin: 0, textTransform: 'uppercase', letterSpacing: '0.5px', color: '#ec4899' }}>Employee Attendance</h4>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '16px' }}>
+              {[
+                { label: 'Total Employees', value: analytics?.employeeSummary?.total ?? '—', icon: Users, color: 'var(--text-main)', bg: 'rgba(255, 255, 255, 0.04)' },
+                { label: 'Present Today', value: analytics?.employeeSummary?.present ?? '—', icon: UserCheck, color: 'rgb(var(--color-success-rgb))', bg: 'rgba(var(--color-success-rgb), 0.1)' },
+                { label: 'Late Arrivals', value: analytics?.employeeSummary?.late ?? '—', icon: Clock, color: 'rgb(var(--color-warning-rgb))', bg: 'rgba(var(--color-warning-rgb), 0.1)' },
+                { label: 'Half Day Today', value: analytics?.employeeSummary?.halfDay ?? '—', icon: Coffee, color: 'hsl(var(--color-info))', bg: 'rgba(255, 255, 255, 0.04)' },
+                { label: 'Absent Today', value: analytics?.employeeSummary?.absent ?? '—', icon: UserMinus, color: 'rgb(var(--color-danger-rgb))', bg: 'rgba(var(--color-danger-rgb), 0.1)' },
+                { label: 'Checked Out', value: analytics?.employeeSummary?.checkOuts ?? '—', icon: QrCode, color: '#ec4899', bg: 'rgba(236, 72, 153, 0.08)' }
               ].map((card, i) => (
                 <div key={i} className="glass-panel" style={{ padding: '20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderRadius: '16px' }}>
                   <div>
@@ -615,10 +640,36 @@ export default function AttendanceManager() {
             <div className="glass-panel" style={{ padding: '24px', display: 'flex', flexDirection: 'column', justifyBetween: 'space-between', gap: '20px' }}>
               <h3 style={{ fontSize: '1.05rem', fontWeight: 700, margin: 0 }}>Roster Compliance Summaries</h3>
               
-              {/* Teacher Summary */}
+              {/* Staff Summary */}
               <div className="glass-panel" style={{ padding: '16px', borderRadius: '12px', background: 'rgba(255,255,255,0.01)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
                   <span style={{ fontWeight: 700, fontSize: '0.88rem' }}>Staff Summary</span>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Total: {analytics?.staffSummary?.total ?? 0}</span>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px', textAlign: 'center' }}>
+                  <div style={{ background: 'rgba(var(--color-success-rgb), 0.05)', padding: '8px', borderRadius: '8px' }}>
+                    <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Present</div>
+                    <div style={{ fontSize: '1.05rem', fontWeight: 800, color: 'rgb(var(--color-success-rgb))', marginTop: '2px' }}>{analytics?.staffSummary?.present ?? 0}</div>
+                  </div>
+                  <div style={{ background: 'rgba(var(--color-warning-rgb), 0.05)', padding: '8px', borderRadius: '8px' }}>
+                    <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Late</div>
+                    <div style={{ fontSize: '1.05rem', fontWeight: 800, color: 'rgb(var(--color-warning-rgb))', marginTop: '2px' }}>{analytics?.staffSummary?.late ?? 0}</div>
+                  </div>
+                  <div style={{ background: 'rgba(hsl(var(--color-info)), 0.05)', padding: '8px', borderRadius: '8px' }}>
+                    <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Half Day</div>
+                    <div style={{ fontSize: '1.05rem', fontWeight: 800, color: 'hsl(var(--color-info))', marginTop: '2px' }}>{analytics?.staffSummary?.halfDay ?? 0}</div>
+                  </div>
+                  <div style={{ background: 'rgba(var(--color-danger-rgb), 0.05)', padding: '8px', borderRadius: '8px' }}>
+                    <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Absent</div>
+                    <div style={{ fontSize: '1.05rem', fontWeight: 800, color: 'rgb(var(--color-danger-rgb))', marginTop: '2px' }}>{analytics?.staffSummary?.absent ?? 0}</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Teacher Summary */}
+              <div className="glass-panel" style={{ padding: '16px', borderRadius: '12px', background: 'rgba(255,255,255,0.01)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                  <span style={{ fontWeight: 700, fontSize: '0.88rem' }}>Teacher Summary</span>
                   <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Total: {analytics?.teacherSummary?.total ?? 0}</span>
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px', textAlign: 'center' }}>
@@ -641,28 +692,28 @@ export default function AttendanceManager() {
                 </div>
               </div>
 
-              {/* Staff Summary */}
+              {/* Employee Summary */}
               <div className="glass-panel" style={{ padding: '16px', borderRadius: '12px', background: 'rgba(255,255,255,0.01)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                  <span style={{ fontWeight: 700, fontSize: '0.88rem' }}>Non-Academic Employee Summary</span>
-                  <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Total: {analytics?.staffSummary?.total ?? 0}</span>
+                  <span style={{ fontWeight: 700, fontSize: '0.88rem' }}>Employee Summary</span>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Total: {analytics?.employeeSummary?.total ?? 0}</span>
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px', textAlign: 'center' }}>
                   <div style={{ background: 'rgba(var(--color-success-rgb), 0.05)', padding: '8px', borderRadius: '8px' }}>
                     <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Present</div>
-                    <div style={{ fontSize: '1.05rem', fontWeight: 800, color: 'rgb(var(--color-success-rgb))', marginTop: '2px' }}>{analytics?.staffSummary?.present ?? 0}</div>
+                    <div style={{ fontSize: '1.05rem', fontWeight: 800, color: 'rgb(var(--color-success-rgb))', marginTop: '2px' }}>{analytics?.employeeSummary?.present ?? 0}</div>
                   </div>
                   <div style={{ background: 'rgba(var(--color-warning-rgb), 0.05)', padding: '8px', borderRadius: '8px' }}>
                     <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Late</div>
-                    <div style={{ fontSize: '1.05rem', fontWeight: 800, color: 'rgb(var(--color-warning-rgb))', marginTop: '2px' }}>{analytics?.staffSummary?.late ?? 0}</div>
+                    <div style={{ fontSize: '1.05rem', fontWeight: 800, color: 'rgb(var(--color-warning-rgb))', marginTop: '2px' }}>{analytics?.employeeSummary?.late ?? 0}</div>
                   </div>
                   <div style={{ background: 'rgba(hsl(var(--color-info)), 0.05)', padding: '8px', borderRadius: '8px' }}>
                     <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Half Day</div>
-                    <div style={{ fontSize: '1.05rem', fontWeight: 800, color: 'hsl(var(--color-info))', marginTop: '2px' }}>{analytics?.staffSummary?.halfDay ?? 0}</div>
+                    <div style={{ fontSize: '1.05rem', fontWeight: 800, color: 'hsl(var(--color-info))', marginTop: '2px' }}>{analytics?.employeeSummary?.halfDay ?? 0}</div>
                   </div>
                   <div style={{ background: 'rgba(var(--color-danger-rgb), 0.05)', padding: '8px', borderRadius: '8px' }}>
                     <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Absent</div>
-                    <div style={{ fontSize: '1.05rem', fontWeight: 800, color: 'rgb(var(--color-danger-rgb))', marginTop: '2px' }}>{analytics?.staffSummary?.absent ?? 0}</div>
+                    <div style={{ fontSize: '1.05rem', fontWeight: 800, color: 'rgb(var(--color-danger-rgb))', marginTop: '2px' }}>{analytics?.employeeSummary?.absent ?? 0}</div>
                   </div>
                 </div>
               </div>
@@ -834,9 +885,11 @@ export default function AttendanceManager() {
       {activeTab === 'today' && (() => {
         const filteredTodayRecords = todayRecords.filter(r => {
           if (todaySubTab === 'Staff') {
+            return r.employeeType === 'Staff';
+          } else if (todaySubTab === 'Teacher') {
             return r.employeeType === 'Teacher';
           } else {
-            return r.employeeType === 'Staff';
+            return r.employeeType === 'Employee';
           }
         });
 
@@ -860,17 +913,27 @@ export default function AttendanceManager() {
                     color: todaySubTab === 'Staff' ? '#ffffff' : 'var(--text-muted)'
                   }}
                 >
-                  Staff Attendance
+                  Staff
+                </button>
+                <button
+                  onClick={() => setTodaySubTab('Teacher')}
+                  style={{
+                    padding: '6px 14px', borderRadius: '6px', border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: '0.78rem', transition: 'all 0.2s',
+                    background: todaySubTab === 'Teacher' ? '#3b82f6' : 'transparent',
+                    color: todaySubTab === 'Teacher' ? '#ffffff' : 'var(--text-muted)'
+                  }}
+                >
+                  Teacher
                 </button>
                 <button
                   onClick={() => setTodaySubTab('Employee')}
                   style={{
                     padding: '6px 14px', borderRadius: '6px', border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: '0.78rem', transition: 'all 0.2s',
-                    background: todaySubTab === 'Employee' ? 'hsl(var(--color-primary))' : 'transparent',
+                    background: todaySubTab === 'Employee' ? '#ec4899' : 'transparent',
                     color: todaySubTab === 'Employee' ? '#ffffff' : 'var(--text-muted)'
                   }}
                 >
-                  Employee Attendance
+                  Employee
                 </button>
               </div>
             </div>
@@ -968,9 +1031,10 @@ export default function AttendanceManager() {
 
               {/* Type */}
               <select className="select-custom" value={filterType} onChange={(e) => setFilterType(e.target.value)}>
-                <option value="All">All Roster Types</option>
-<option value="Teacher">Staff Only</option>
-<option value="Staff">Employee Only</option>
+                <option value="All">All Types</option>
+<option value="Staff">Staff Only</option>
+<option value="Teacher">Teacher Only</option>
+<option value="Employee">Employee Only</option>
               </select>
 
               {/* Month */}

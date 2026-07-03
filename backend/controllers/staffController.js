@@ -3,9 +3,8 @@ import { hashPassword } from '../utils/authHelper.js';
 import { encrypt, decrypt } from '../utils/encryptionHelper.js';
 import { logAudit } from '../utils/logger.js';
 
-
 const mapDesignationToRoleId = (designation, dbRoles = []) => {
-  if (!designation) return 'role-teacher';
+  if (!designation) return 'role-receptionist';
   
   // Try to find matching role name in dbRoles (case insensitive)
   const matchedRole = dbRoles.find(r => r.name.toLowerCase() === designation.toLowerCase());
@@ -18,11 +17,11 @@ const mapDesignationToRoleId = (designation, dbRoles = []) => {
   }
   
   switch (designation) {
-    case 'Super Admin':
-    case 'role-super-admin':
+    case 'Principal':
+    case 'role-principal':
       return 'role-principal';
-    case 'Academic':
-    case 'role-academic':
+    case 'Academic Coordinator':
+    case 'role-academic-coordinator':
       return 'role-academic-coordinator';
     case 'Accountant':
     case 'role-accountant':
@@ -30,74 +29,35 @@ const mapDesignationToRoleId = (designation, dbRoles = []) => {
     case 'Receptionist':
     case 'role-receptionist':
       return 'role-receptionist';
-    case 'Teacher':
-    case 'role-teacher':
-      return 'role-teacher';
-    case 'Expense Manager':
-    case 'role-expense-manager':
-      return 'role-expense-manager';
+    case 'HR':
+    case 'role-hr':
+      return 'role-hr';
+    case 'Librarian':
+    case 'role-librarian':
+      return 'role-librarian';
     default:
-      return 'role-teacher';
+      return 'role-receptionist';
   }
 };
 
 // ========================================================
-// TEACHER CRUD CONTROLLERS
+// STAFF CRUD CONTROLLERS
 // ========================================================
 
-// 1. REGISTER NEW TEACHER
-export const registerTeacher = async (req, res) => {
+// 1. REGISTER NEW STAFF
+export const registerTeacher = async (req, res) => { // Keep export name registerTeacher for compatibility, but internally registers Staff
   try {
-    const db = readDb();
-    
-    // Parse form parameters
     const {
-      firstName,
-      middleName,
-      lastName,
-      fullName,
-      gender,
-      dob,
-      bloodGroup,
-      nationality,
-      maritalStatus,
-      aadhaarNumber,
-      panNumber,
-      joiningDate,
-      employmentType,
-      designation,
-      department,
-      primarySubject,
-      secondarySubject,
-      mobile,
-      alternateMobile,
-      email,
-      emergencyContactNumber,
-      currentAddress,
-      currentCity,
-      currentState,
-      currentCountry,
-      currentPostalCode,
-      permanentAddress,
-      permanentCity,
-      permanentState,
-      permanentCountry,
-      permanentPostalCode,
-      sameAsPermanent,
-      qualification,
-      experience,
-      experiences,
-      salary,
-      username,
-      password
+      firstName, middleName, lastName, email, phone, gender, dob, bloodGroup, nationality, maritalStatus,
+      aadhaarNumber, panNumber, joiningDate, employmentType, designation, department, primarySubject, secondarySubject,
+      alternateMobile, currentAddress, currentCity, currentState, currentCountry, currentPostalCode, permanentAddress,
+      permanentCity, permanentState, permanentCountry, permanentPostalCode, sameAsPermanent, qualification, experience,
+      experiences, salary, username, password
     } = req.body;
 
-    // Fallback to construct full name if missing
-    const derivedFullName = fullName || [firstName, middleName, lastName].filter(Boolean).join(' ');
-
-    // Validate required fields (bare minimums)
+    const derivedFullName = [firstName, middleName, lastName].filter(Boolean).join(' ');
     if (!derivedFullName) {
-      return res.status(400).json({ error: 'Missing required teacher registration details (Full Name).' });
+      return res.status(400).json({ error: 'First name and last name are required.' });
     }
 
     if (aadhaarNumber && !/^\d{12}$/.test(String(aadhaarNumber).replace(/\s/g, ''))) {
@@ -107,44 +67,43 @@ export const registerTeacher = async (req, res) => {
       return res.status(400).json({ error: 'Invalid PAN card format. Must match ABCDE1234F.' });
     }
 
-    // Generate unique employee ID (Format: EMP-2026-XXXX, sequential starting at 1001)
+    const db = readDb();
+    if (!db.staff) db.staff = [];
+
+    // Generate unique employee ID for Staff: STF-2026-XXXX
     const currentYear = 2026;
     let maxNum = 1000;
-    const prefix = 'EMP';
+    const prefix = 'STF';
     const yearPrefix = `${prefix}-${currentYear}-`;
-    if (db.teachers && db.teachers.length > 0) {
-      db.teachers.forEach(t => {
-        const id = t.employeeId || t.id || '';
-        if (id.startsWith(yearPrefix)) {
-          const suffixNum = parseInt(id.replace(yearPrefix, ''), 10);
-          if (!isNaN(suffixNum) && suffixNum > maxNum) {
-            maxNum = suffixNum;
-          }
+    db.staff.forEach(s => {
+      const id = s.employeeId || s.id || '';
+      if (id.startsWith(yearPrefix)) {
+        const suffixNum = parseInt(id.replace(yearPrefix, ''), 10);
+        if (!isNaN(suffixNum) && suffixNum > maxNum) {
+          maxNum = suffixNum;
         }
-      });
-    }
+      }
+    });
     const employeeId = `${yearPrefix}${maxNum + 1}`;
 
-    // Generate QR Code containing Employee ID and Employee Type
+    // Generate QR Code
     let qrPath = '';
     try {
       const { generateQrCode } = await import('../utils/qrService.js');
-      qrPath = await generateQrCode(employeeId, 'Teacher');
+      qrPath = await generateQrCode(employeeId, 'Staff');
     } catch (qrErr) {
-      console.error('Failed to generate QR Code during teacher registration:', qrErr);
+      console.error('Failed to generate QR Code during staff registration:', qrErr);
     }
 
-    // Auto-generate username and password if not provided
-    const generatedUsername = username || `teacher_${employeeId.toLowerCase().replace(/-/g, '_')}`;
-    const generatedPassword = await hashPassword(password || 'teacher123');
+    const generatedUsername = username || `staff_${employeeId.toLowerCase().replace(/-/g, '_')}`;
+    const generatedPassword = await hashPassword(password || 'staff123');
 
     // Check username uniqueness
-    const usernameExists = db.teachers.some(t => t.username === generatedUsername);
+    const usernameExists = db.staff.some(s => s.username === generatedUsername);
     if (usernameExists) {
-      return res.status(400).json({ error: 'Generated username already exists. Please try again or specify a username.' });
+      return res.status(400).json({ error: 'Username already exists.' });
     }
 
-    // Map uploaded file routes
     const files = req.files || {};
     const photoPath = files.photo ? `/uploads/${files.photo[0].filename}` : '';
     const aadhaarPath = files.aadhaarFile ? `/uploads/${files.aadhaarFile[0].filename}` : '';
@@ -155,51 +114,43 @@ export const registerTeacher = async (req, res) => {
     const joiningLetterPath = files.joiningLetterFile ? `/uploads/${files.joiningLetterFile[0].filename}` : '';
     const otherPath = files.otherFile ? `/uploads/${files.otherFile[0].filename}` : '';
 
-    // Parse qualification & experience arrays if they came as stringified JSON
     let parsedQualifications = qualification;
     if (typeof qualification === 'string') {
-      try {
-        parsedQualifications = JSON.parse(qualification);
-      } catch (e) {
-        parsedQualifications = [];
-      }
+      try { parsedQualifications = JSON.parse(qualification); } catch (e) { parsedQualifications = []; }
     }
     let parsedExperiences = experiences;
     if (typeof experiences === 'string') {
-      try {
-        parsedExperiences = JSON.parse(experiences);
-      } catch (e) {
-        parsedExperiences = [];
-      }
+      try { parsedExperiences = JSON.parse(experiences); } catch (e) { parsedExperiences = []; }
     }
 
-    const newTeacher = {
-      id: employeeId, // Direct backward compatibility index
+    const targetRoleId = mapDesignationToRoleId(designation, db.roles || getDefaultRoles());
+
+    const newStaff = {
+      id: employeeId,
       employeeId,
       qrCodePath: qrPath,
-      name: derivedFullName, // Legacy compatibility
+      name: derivedFullName,
       fullName: derivedFullName,
-      firstName: firstName || derivedFullName.split(' ')[0],
+      firstName: firstName || '',
       middleName: middleName || '',
-      lastName: lastName || derivedFullName.split(' ').slice(1).join(' '),
-      gender: gender || '',
+      lastName: lastName || '',
+      email: email || '',
+      phone: phone || '',
+      gender: gender || 'Male',
       dob: dob || '',
       bloodGroup: bloodGroup || '',
       nationality: nationality || 'Indian',
-      maritalStatus: maritalStatus || '',
-      aadhaarNumber: encrypt(aadhaarNumber || ''),
-      panNumber: encrypt(panNumber || ''),
-      joiningDate: joiningDate || '',
-      employmentType: employmentType || '',
-      designation: designation || '',
-      department: department || '',
+      maritalStatus: maritalStatus || 'Single',
+      aadhaarNumber: aadhaarNumber ? encrypt(aadhaarNumber) : '',
+      panNumber: panNumber ? encrypt(panNumber) : '',
+      joiningDate: joiningDate || new Date().toISOString().split('T')[0],
+      employmentType: employmentType || 'Full-Time',
+      designation: designation || 'Receptionist',
+      role: designation || 'Receptionist',
+      department: department || 'Administration',
       primarySubject: primarySubject || '',
       secondarySubject: secondarySubject || '',
-      mobile: mobile || '',
-      phone: mobile || '', // Legacy compatibility
       alternateMobile: alternateMobile || '',
-      email: email || '',
-      emergencyContactNumber: emergencyContactNumber || '',
       currentAddress: currentAddress || '',
       currentCity: currentCity || '',
       currentState: currentState || '',
@@ -211,7 +162,6 @@ export const registerTeacher = async (req, res) => {
       permanentCountry: permanentCountry || 'India',
       permanentPostalCode: permanentPostalCode || '',
       sameAsPermanent: sameAsPermanent === 'true' || sameAsPermanent === true || sameAsPermanent === 'Yes',
-      
       qualification: parsedQualifications,
       experience: experience || '0',
       experiences: parsedExperiences,
@@ -221,11 +171,9 @@ export const registerTeacher = async (req, res) => {
       ifscCode: encrypt(req.body.ifscCode || ''),
       accountHolder: encrypt(req.body.accountHolder || ''),
       upiId: encrypt(req.body.upiId || ''),
-      status: 'Active', // Default status: "Active", "Inactive", "On Leave"
+      status: 'Active',
       username: generatedUsername,
-      password: generatedPassword, // Plain text or hash depending on system architecture
-      
-      // Uploaded documents
+      password: generatedPassword,
       photo: photoPath,
       aadhaarFile: aadhaarPath,
       panFile: panPath,
@@ -234,220 +182,127 @@ export const registerTeacher = async (req, res) => {
       experienceFile: experiencePath,
       joiningLetterFile: joiningLetterPath,
       otherFile: otherPath,
-      
-      // Timestamps
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
-      
-      // Legacy compatibility mappings
-      subject: primarySubject || req.body.subjectSpecialization || '',
-      subjectSpecialization: primarySubject || req.body.subjectSpecialization || '',
+      subject: primarySubject || '',
+      subjectSpecialization: primarySubject || '',
       classes: 0,
       hours: 0,
-      badge: 'Faculty',
+      badge: 'Staff',
       avatarBg: `linear-gradient(135deg, hsl(${Math.random() * 360}, 75%, 60%) 0%, hsl(${Math.random() * 360}, 85%, 50%) 100%)`
     };
 
-    db.teachers.push(newTeacher);
+    db.staff.push(newStaff);
 
     if (!db.employeeQrCodes) db.employeeQrCodes = [];
     db.employeeQrCodes.push({
       id: `QR-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
       employeeId: employeeId,
-      employeeType: 'Teacher',
+      employeeType: 'Staff',
       qrPath: qrPath,
       createdAt: new Date().toISOString()
     });
 
-    // Automatically create userAccess entry matching the teacher's designation
     if (!db.userAccess) db.userAccess = [];
-    
-    // Ensure roles array is initialized defensively if missing
-    if (!db.roles) {
-      db.roles = [];
-    }
-    
-    const roleId = mapDesignationToRoleId(designation, db.roles);
-    
-    const accessEntry = {
+    db.userAccess.push({
       id: `access-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
       userId: employeeId,
       userName: derivedFullName,
-      userType: 'Teacher',
-      roleId: roleId,
+      userType: 'Staff',
+      roleId: targetRoleId,
       status: 'Active',
       overrides: {},
       updatedAt: new Date().toISOString()
-    };
-    db.userAccess.push(accessEntry);
+    });
 
-    addActivity(db, 'registration', 'New Faculty Registered', `${fullName} joined ${department || 'School'} Department as ${employmentType || 'Faculty'}`, 'hsl(var(--color-secondary))', 'rgba(hsl(var(--color-secondary)), 0.1)');
+    addActivity(db, 'registration', 'New Staff Registered', `${derivedFullName} joined the school as ${designation}.`, 'hsl(var(--color-primary))', 'rgba(hsl(var(--color-primary)), 0.1)');
     writeDb(db);
-    logAudit('Create Staff', `Staff: ${newTeacher.fullName} (Emp: ${newTeacher.employeeId})`, `Registered teacher/staff ID: ${newTeacher.id}`, req);
+    logAudit('Register Staff', `Staff: ${derivedFullName} (ID: ${employeeId})`, `Registered new staff member.`, req);
 
-    res.status(201).json(newTeacher);
+    res.status(201).json({
+      success: true,
+      message: 'Staff registered successfully',
+      teacher: { // Kept name for compatibility
+        employeeId,
+        fullName: derivedFullName,
+        username: generatedUsername,
+        password: password || 'staff123',
+        role: designation
+      }
+    });
   } catch (error) {
-    console.error('Error registering teacher:', error);
-    res.status(500).json({ error: 'Internal API Server error during teacher registration.' });
+    console.error('Error registering staff:', error);
+    res.status(500).json({ error: 'Internal server error while registering staff.' });
   }
 };
 
-// 2. GET ALL TEACHERS (With Search, Filters, Sorting & Pagination)
-export const getTeachers = async (req, res) => {
+// 2. GET ALL STAFF
+export const getTeachers = (req, res) => { // Keep getTeachers naming for compatibility
   try {
     const db = readDb();
-    let result = [...(db.teachers || [])];
-
-    // 1. Search Query (always searches by name startsWith OR employeeId/id includes, avoiding prefix collision)
-    const search = req.query.search || '';
-    if (search.trim() !== '') {
-      const q = search.toLowerCase();
-      const cleanQ = q.replace(/^(emp-?|tch-?|staff-?)/i, '');
-      result = result.filter(t => {
-        const nameMatch = (t.fullName && t.fullName.toLowerCase().startsWith(q)) || 
-                          (t.name && t.name.toLowerCase().startsWith(q));
-        
-        const cleanEmpId = (t.employeeId || '').replace(/^emp-?/i, '').toLowerCase();
-        const cleanId = (t.id || '').replace(/^(emp-?|tch-?|staff-?)/i, '').toLowerCase();
-        const idMatch = cleanQ !== '' && (cleanEmpId.includes(cleanQ) || cleanId.includes(cleanQ));
-                        
-        return nameMatch || idMatch;
-      });
-    }
-
-    // 2. Department Filter
-    const deptFilter = req.query.department || 'All';
-    if (deptFilter !== 'All') {
-      result = result.filter(t => t.department === deptFilter);
-    }
-
-    // 3. Employment Type Filter
-    const typeFilter = req.query.employmentType || 'All';
-    if (typeFilter !== 'All') {
-      result = result.filter(t => t.employmentType === typeFilter);
-    }
-
-    // 4. Status Filter (Active, Inactive, On Leave)
-    const statusFilter = req.query.status || 'All';
-    if (statusFilter !== 'All') {
-      result = result.filter(t => t.status === statusFilter);
-    }
-
-    // 4.5. Designation (Role) Filter
-    const designationFilter = req.query.designation || 'All';
-    if (designationFilter !== 'All') {
-      result = result.filter(t => t.designation === designationFilter);
-    }
-
-    // Map each teacher to include their actual roleName from userAccess/roles tables
-    const userAccess = db.userAccess || [];
-    const roles = db.roles || [];
-    const mapped = result.map(t => {
-      const access = userAccess.find(ua => 
-        (ua.userId && t.id && ua.userId.toLowerCase().trim() === t.id.toLowerCase().trim()) ||
-        (ua.userId && t.employeeId && ua.userId.toLowerCase().trim() === t.employeeId.toLowerCase().trim())
-      );
-      const role = access ? roles.find(r => r.id === access.roleId) : null;
-      return {
-        ...t,
-        roleName: role ? role.name : (t.designation || 'Teacher')
-      };
-    });
-
-    // 5. Sorting
-    const sortBy = req.query.sortBy || 'name';
-    const sortOrder = req.query.sortOrder || 'asc';
-    mapped.sort((a, b) => {
-      let valA = '';
-      let valB = '';
-      if (sortBy === 'name') {
-        valA = (a.fullName || a.name || '').toString().toLowerCase();
-        valB = (b.fullName || b.name || '').toString().toLowerCase();
-      } else {
-        valA = a[sortBy] ? a[sortBy].toString().toLowerCase() : '';
-        valB = b[sortBy] ? b[sortBy].toString().toLowerCase() : '';
-      }
-      
-      if (sortOrder === 'asc') {
-        return valA.localeCompare(valB, undefined, { numeric: true });
-      } else {
-        return valB.localeCompare(valA, undefined, { numeric: true });
-      }
-    });
-
-    // 6. Pagination
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 10;
-    const startIndex = (page - 1) * limit;
-    const endIndex = page * limit;
+    const list = db.staff || [];
     
-    const paginatedItems = mapped.slice(startIndex, endIndex);
-
-    const decryptedTeachers = paginatedItems.map(t => ({
-      ...t,
-      aadhaarNumber: decrypt(t.aadhaarNumber),
-      panNumber: decrypt(t.panNumber),
-      salary: decrypt(t.salary),
-      bankAccount: decrypt(t.bankAccount),
-      bankName: decrypt(t.bankName),
-      ifscCode: decrypt(t.ifscCode),
-      accountHolder: decrypt(t.accountHolder),
-      upiId: decrypt(t.upiId)
-    }));
-
-    res.json({
-      totalCount: result.length,
-      page,
-      limit,
-      totalPages: Math.ceil(result.length / limit),
-      teachers: decryptedTeachers
+    // Decrypt sensitive info
+    const decryptedList = list.map(s => {
+      const copy = { ...s };
+      try { if (copy.aadhaarNumber) copy.aadhaarNumber = decrypt(copy.aadhaarNumber); } catch (e) { copy.aadhaarNumber = ''; }
+      try { if (copy.panNumber) copy.panNumber = decrypt(copy.panNumber); } catch (e) { copy.panNumber = ''; }
+      try { if (copy.salary) copy.salary = decrypt(copy.salary); } catch (e) { copy.salary = '0'; }
+      try { if (copy.bankAccount) copy.bankAccount = decrypt(copy.bankAccount); } catch (e) { copy.bankAccount = ''; }
+      try { if (copy.bankName) copy.bankName = decrypt(copy.bankName); } catch (e) { copy.bankName = ''; }
+      try { if (copy.ifscCode) copy.ifscCode = decrypt(copy.ifscCode); } catch (e) { copy.ifscCode = ''; }
+      try { if (copy.accountHolder) copy.accountHolder = decrypt(copy.accountHolder); } catch (e) { copy.accountHolder = ''; }
+      try { if (copy.upiId) copy.upiId = decrypt(copy.upiId); } catch (e) { copy.upiId = ''; }
+      return copy;
     });
+
+    res.json(decryptedList);
   } catch (error) {
-    console.error('Error fetching teachers registry:', error);
-    res.status(500).json({ error: 'Internal Server Error fetching teachers roster.' });
+    console.error('Error fetching staff:', error);
+    res.status(500).json({ error: 'Internal server error fetching staff.' });
   }
 };
 
-// 3. GET SINGLE TEACHER BY ID
-export const getTeacherById = async (req, res) => {
+// 3. GET SINGLE STAFF BY ID
+export const getTeacherById = (req, res) => { // Keep getTeacherById naming for compatibility
   try {
     const db = readDb();
-    const teacher = db.teachers.find(t => t.employeeId === req.params.id || t.id === req.params.id);
+    const staffId = req.params.id;
+    const staff = (db.staff || []).find(s => s.employeeId === staffId || s.id === staffId);
 
-    if (!teacher) {
-      return res.status(404).json({ error: 'Teacher profile not found.' });
+    if (!staff) {
+      return res.status(404).json({ error: 'Staff profile not found.' });
     }
 
-    const decryptedTeacher = {
-      ...teacher,
-      aadhaarNumber: decrypt(teacher.aadhaarNumber),
-      panNumber: decrypt(teacher.panNumber),
-      salary: decrypt(teacher.salary),
-      bankAccount: decrypt(teacher.bankAccount),
-      bankName: decrypt(teacher.bankName),
-      ifscCode: decrypt(teacher.ifscCode),
-      accountHolder: decrypt(teacher.accountHolder),
-      upiId: decrypt(teacher.upiId)
-    };
-    res.json(decryptedTeacher);
+    const decryptedStaff = { ...staff };
+    try { if (decryptedStaff.aadhaarNumber) decryptedStaff.aadhaarNumber = decrypt(decryptedStaff.aadhaarNumber); } catch (e) { decryptedStaff.aadhaarNumber = ''; }
+    try { if (decryptedStaff.panNumber) decryptedStaff.panNumber = decrypt(decryptedStaff.panNumber); } catch (e) { decryptedStaff.panNumber = ''; }
+    try { if (decryptedStaff.salary) decryptedStaff.salary = decrypt(decryptedStaff.salary); } catch (e) { decryptedStaff.salary = '0'; }
+    try { if (decryptedStaff.bankAccount) decryptedStaff.bankAccount = decrypt(decryptedStaff.bankAccount); } catch (e) { decryptedStaff.bankAccount = ''; }
+    try { if (decryptedStaff.bankName) decryptedStaff.bankName = decrypt(decryptedStaff.bankName); } catch (e) { decryptedStaff.bankName = ''; }
+    try { if (decryptedStaff.ifscCode) decryptedStaff.ifscCode = decrypt(decryptedStaff.ifscCode); } catch (e) { decryptedStaff.ifscCode = ''; }
+    try { if (decryptedStaff.accountHolder) decryptedStaff.accountHolder = decrypt(decryptedStaff.accountHolder); } catch (e) { decryptedStaff.accountHolder = ''; }
+    try { if (decryptedStaff.upiId) decryptedStaff.upiId = decrypt(decryptedStaff.upiId); } catch (e) { decryptedStaff.upiId = ''; }
+
+    res.json(decryptedStaff);
   } catch (error) {
-    console.error('Error fetching single teacher profile:', error);
-    res.status(500).json({ error: 'Internal server error fetching teacher profile.' });
+    console.error('Error loading staff profile:', error);
+    res.status(500).json({ error: 'Internal server error loading profile.' });
   }
 };
 
-// 4. UPDATE TEACHER
-export const updateTeacher = async (req, res) => {
+// 4. UPDATE STAFF PROFILE
+export const updateTeacher = async (req, res) => { // Keep updateTeacher naming for compatibility
   try {
     const db = readDb();
-    const teacherId = req.params.id;
-    const teacherIndex = db.teachers.findIndex(t => t.employeeId === teacherId || t.id === teacherId);
+    const staffId = req.params.id;
+    const staffIndex = db.staff.findIndex(s => s.employeeId === staffId || s.id === staffId);
 
-    if (teacherIndex === -1) {
-      return res.status(404).json({ error: 'Teacher profile not found.' });
+    if (staffIndex === -1) {
+      return res.status(404).json({ error: 'Staff profile not found.' });
     }
 
-    const currentTeacher = db.teachers[teacherIndex];
+    const currentStaff = db.staff[staffIndex];
     const updateData = req.body;
 
     if (updateData.aadhaarNumber && !/^\d{12}$/.test(String(updateData.aadhaarNumber).replace(/\s/g, ''))) {
@@ -457,41 +312,34 @@ export const updateTeacher = async (req, res) => {
       return res.status(400).json({ error: 'Invalid PAN card format. Must match ABCDE1234F.' });
     }
 
-    // Check username uniqueness if modified
-    if (updateData.username && updateData.username !== currentTeacher.username) {
-      const usernameExists = db.teachers.some(t => t.username === updateData.username);
+    if (updateData.username && updateData.username !== currentStaff.username) {
+      const usernameExists = db.staff.some(s => s.username === updateData.username);
       if (usernameExists) {
         return res.status(400).json({ error: 'Username already exists.' });
       }
     }
 
-    // Process files
     const files = req.files || {};
-    const photoPath = files.photo ? `/uploads/${files.photo[0].filename}` : currentTeacher.photo;
-    const aadhaarPath = files.aadhaarFile ? `/uploads/${files.aadhaarFile[0].filename}` : currentTeacher.aadhaarFile;
-    const panPath = files.panFile ? `/uploads/${files.panFile[0].filename}` : currentTeacher.panFile;
-    const resumePath = files.resumeFile ? `/uploads/${files.resumeFile[0].filename}` : currentTeacher.resumeFile;
-    const qualificationPath = files.qualificationFile ? `/uploads/${files.qualificationFile[0].filename}` : currentTeacher.qualificationFile;
-    const experiencePath = files.experienceFile ? `/uploads/${files.experienceFile[0].filename}` : currentTeacher.experienceFile;
-    const joiningLetterPath = files.joiningLetterFile ? `/uploads/${files.joiningLetterFile[0].filename}` : currentTeacher.joiningLetterFile;
-    const otherPath = files.otherFile ? `/uploads/${files.otherFile[0].filename}` : currentTeacher.otherFile;
+    const photoPath = files.photo ? `/uploads/${files.photo[0].filename}` : currentStaff.photo;
+    const aadhaarPath = files.aadhaarFile ? `/uploads/${files.aadhaarFile[0].filename}` : currentStaff.aadhaarFile;
+    const panPath = files.panFile ? `/uploads/${files.panFile[0].filename}` : currentStaff.panFile;
+    const resumePath = files.resumeFile ? `/uploads/${files.resumeFile[0].filename}` : currentStaff.resumeFile;
+    const qualificationPath = files.qualificationFile ? `/uploads/${files.qualificationFile[0].filename}` : currentStaff.qualificationFile;
+    const experiencePath = files.experienceFile ? `/uploads/${files.experienceFile[0].filename}` : currentStaff.experienceFile;
+    const joiningLetterPath = files.joiningLetterFile ? `/uploads/${files.joiningLetterFile[0].filename}` : currentStaff.joiningLetterFile;
+    const otherPath = files.otherFile ? `/uploads/${files.otherFile[0].filename}` : currentStaff.otherFile;
 
-    // Parse qualification & experience arrays if they came as stringified JSON
-    let parsedQualifications = updateData.qualification || currentTeacher.qualification;
+    let parsedQualifications = updateData.qualification || currentStaff.qualification;
     if (typeof updateData.qualification === 'string') {
-      try {
-        parsedQualifications = JSON.parse(updateData.qualification);
-      } catch (e) {}
+      try { parsedQualifications = JSON.parse(updateData.qualification); } catch (e) {}
     }
-    let parsedExperiences = updateData.experiences || currentTeacher.experiences;
+    let parsedExperiences = updateData.experiences || currentStaff.experiences;
     if (typeof updateData.experiences === 'string') {
-      try {
-        parsedExperiences = JSON.parse(updateData.experiences);
-      } catch (e) {}
+      try { parsedExperiences = JSON.parse(updateData.experiences); } catch (e) {}
     }
 
-    const updatedTeacher = {
-      ...currentTeacher,
+    const updatedStaff = {
+      ...currentStaff,
       ...updateData,
       photo: photoPath,
       aadhaarFile: aadhaarPath,
@@ -503,79 +351,74 @@ export const updateTeacher = async (req, res) => {
       otherFile: otherPath,
       qualification: parsedQualifications,
       experiences: parsedExperiences,
-      name: updateData.fullName || currentTeacher.fullName || currentTeacher.name, // Compatibility
-      phone: updateData.mobile || currentTeacher.phone, // Compatibility
-      subject: updateData.primarySubject || updateData.subjectSpecialization || currentTeacher.subject, // Compatibility
-      aadhaarNumber: updateData.aadhaarNumber !== undefined ? encrypt(updateData.aadhaarNumber) : currentTeacher.aadhaarNumber,
-      panNumber: updateData.panNumber !== undefined ? encrypt(updateData.panNumber) : currentTeacher.panNumber,
-      salary: updateData.salary !== undefined ? encrypt(updateData.salary) : currentTeacher.salary,
-      bankAccount: updateData.bankAccount !== undefined ? encrypt(updateData.bankAccount) : currentTeacher.bankAccount,
-      bankName: updateData.bankName !== undefined ? encrypt(updateData.bankName) : currentTeacher.bankName,
-      ifscCode: updateData.ifscCode !== undefined ? encrypt(updateData.ifscCode) : currentTeacher.ifscCode,
-      accountHolder: updateData.accountHolder !== undefined ? encrypt(updateData.accountHolder) : currentTeacher.accountHolder,
-      upiId: updateData.upiId !== undefined ? encrypt(updateData.upiId) : currentTeacher.upiId,
+      name: updateData.fullName || currentStaff.fullName || currentStaff.name,
+      phone: updateData.mobile || currentStaff.phone,
+      subject: updateData.primarySubject || updateData.subjectSpecialization || currentStaff.subject,
+      aadhaarNumber: updateData.aadhaarNumber !== undefined ? encrypt(updateData.aadhaarNumber) : currentStaff.aadhaarNumber,
+      panNumber: updateData.panNumber !== undefined ? encrypt(updateData.panNumber) : currentStaff.panNumber,
+      salary: updateData.salary !== undefined ? encrypt(updateData.salary) : currentStaff.salary,
+      bankAccount: updateData.bankAccount !== undefined ? encrypt(updateData.bankAccount) : currentStaff.bankAccount,
+      bankName: updateData.bankName !== undefined ? encrypt(updateData.bankName) : currentStaff.bankName,
+      ifscCode: updateData.ifscCode !== undefined ? encrypt(updateData.ifscCode) : currentStaff.ifscCode,
+      accountHolder: updateData.accountHolder !== undefined ? encrypt(updateData.accountHolder) : currentStaff.accountHolder,
+      upiId: updateData.upiId !== undefined ? encrypt(updateData.upiId) : currentStaff.upiId,
+      designation: updateData.designation || currentStaff.designation,
+      role: updateData.designation || currentStaff.role,
       updatedAt: new Date().toISOString()
     };
 
-    db.teachers[teacherIndex] = updatedTeacher;
+    db.staff[staffIndex] = updatedStaff;
 
-    // Synchronize userAccess record matching the teacher's designation and name
     if (!db.userAccess) db.userAccess = [];
-    if (!db.roles) {
-      db.roles = [];
-    }
-    const accessIndex = db.userAccess.findIndex(ua => ua.userId === teacherId && ua.userType === 'Teacher');
-    const targetRoleId = mapDesignationToRoleId(updatedTeacher.designation, db.roles);
+    const accessIndex = db.userAccess.findIndex(ua => ua.userId === staffId && ua.userType === 'Staff');
+    const targetRoleId = mapDesignationToRoleId(updatedStaff.designation, db.roles || getDefaultRoles());
     
     if (accessIndex === -1) {
       db.userAccess.push({
         id: `access-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
-        userId: teacherId,
-        userName: updatedTeacher.fullName || updatedTeacher.name,
-        userType: 'Teacher',
+        userId: staffId,
+        userName: updatedStaff.fullName || updatedStaff.name,
+        userType: 'Staff',
         roleId: targetRoleId,
-        status: updatedTeacher.status || 'Active',
+        status: updatedStaff.status || 'Active',
         overrides: {},
         updatedAt: new Date().toISOString()
       });
     } else {
-      db.userAccess[accessIndex].userName = updatedTeacher.fullName || updatedTeacher.name;
-      if (updateData.designation && updateData.designation !== currentTeacher.designation) {
-        db.userAccess[accessIndex].roleId = targetRoleId;
-      }
+      db.userAccess[accessIndex].userName = updatedStaff.fullName || updatedStaff.name;
+      db.userAccess[accessIndex].roleId = targetRoleId;
       if (updateData.status) {
         db.userAccess[accessIndex].status = updateData.status;
       }
       db.userAccess[accessIndex].updatedAt = new Date().toISOString();
     }
 
-    addActivity(db, 'alert', 'Teacher Profile Modified', `${updatedTeacher.name || updatedTeacher.fullName}'s professional records were updated.`, 'hsl(var(--color-secondary))', 'rgba(hsl(var(--color-secondary)), 0.1)');
+    addActivity(db, 'alert', 'Staff Profile Modified', `${updatedStaff.fullName}'s professional records were updated.`, 'hsl(var(--color-secondary))', 'rgba(hsl(var(--color-secondary)), 0.1)');
     writeDb(db);
-    logAudit('Update Staff', `Staff: ${updatedTeacher.fullName} (Emp: ${updatedTeacher.employeeId})`, `Updated teacher/staff profile professional records`, req);
+    logAudit('Update Staff', `Staff: ${updatedStaff.fullName} (Emp: ${updatedStaff.employeeId})`, `Updated staff profile professional records`, req);
 
-    res.json(updatedTeacher);
+    res.json(updatedStaff);
   } catch (error) {
-    console.error('Error updating teacher profile:', error);
-    res.status(500).json({ error: 'Internal server error while updating teacher details.' });
+    console.error('Error updating staff profile:', error);
+    res.status(500).json({ error: 'Internal server error while updating staff details.' });
   }
 };
 
-// 5. DELETE / DISMISS TEACHER
-export const deleteTeacher = async (req, res) => {
+// 5. DELETE / DISMISS STAFF
+export const deleteTeacher = async (req, res) => { // Keep deleteTeacher naming for compatibility
   try {
     const db = readDb();
-    const teacherId = req.params.id;
-    const teacherIndex = db.teachers.findIndex(t => t.employeeId === teacherId || t.id === teacherId);
+    const staffId = req.params.id;
+    const staffIndex = db.staff.findIndex(s => s.employeeId === staffId || s.id === staffId);
 
-    if (teacherIndex === -1) {
-      return res.status(404).json({ error: 'Teacher profile not found.' });
+    if (staffIndex === -1) {
+      return res.status(404).json({ error: 'Staff profile not found.' });
     }
 
-    const teacherName = db.teachers[teacherIndex].name;
-    const deletedId = db.teachers[teacherIndex].id || db.teachers[teacherIndex].employeeId;
-    db.teachers.splice(teacherIndex, 1);
+    const staffName = db.staff[staffIndex].name;
+    const deletedId = db.staff[staffIndex].id || db.staff[staffIndex].employeeId;
+    db.staff.splice(staffIndex, 1);
 
-    // Clean up QR codes and attendance records from in-memory database to prevent foreign key errors on sync
     if (db.employeeQrCodes) {
       db.employeeQrCodes = db.employeeQrCodes.filter(q => q.employeeId !== deletedId && q.teacherId !== deletedId);
     }
@@ -586,13 +429,18 @@ export const deleteTeacher = async (req, res) => {
       db.attendanceLogs = db.attendanceLogs.filter(l => l.employeeId !== deletedId && l.teacherId !== deletedId);
     }
 
-    addActivity(db, 'alert', 'Faculty Dismissed', `${teacherName} was removed from the roster`, 'rgb(var(--color-danger-rgb))', 'rgba(var(--color-danger-rgb), 0.1)');
-    writeDb(db);
-    logAudit('Delete Staff', `Staff: ${teacherName} (ID: ${deletedId})`, `Dismissed teacher/staff roster record`, req);
+    // Remove user access record
+    if (db.userAccess) {
+      db.userAccess = db.userAccess.filter(ua => ua.userId !== deletedId);
+    }
 
-    res.json({ success: true, message: `Successfully dismissed teacher ${teacherName}` });
+    addActivity(db, 'alert', 'Staff Dismissed', `${staffName} was removed from the roster`, 'rgb(var(--color-danger-rgb))', 'rgba(var(--color-danger-rgb), 0.1)');
+    writeDb(db);
+    logAudit('Delete Staff', `Staff: ${staffName} (ID: ${deletedId})`, `Dismissed staff roster record`, req);
+
+    res.json({ success: true, message: `Successfully dismissed staff member ${staffName}` });
   } catch (error) {
-    console.error('Error removing teacher record:', error);
-    res.status(500).json({ error: 'Internal server error dismissing teacher.' });
+    console.error('Error removing staff record:', error);
+    res.status(500).json({ error: 'Internal server error dismissing staff.' });
   }
 };

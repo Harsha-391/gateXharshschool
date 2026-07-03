@@ -63,8 +63,19 @@ const getPermissionParams = (req) => {
   if (path.startsWith('/fees')) {
     return { module: 'income', action };
   }
-  if (path.startsWith('/salary-structures') || path.startsWith('/payroll') || path.startsWith('/staff-salary-structures') || path.startsWith('/staff-payments')) {
-    return { module: 'salaries', action };
+  if (path.startsWith('/salary-structures')) {
+    return { module: 'teacher-pay-structure', action };
+  }
+  if (path.startsWith('/payroll')) {
+    const isTeacher = req.query.type === 'Teacher' || (req.body && (req.body.employeeId?.startsWith('TCH-') || req.body.role === 'Teacher'));
+    return { module: isTeacher ? 'teacher-payroll' : 'staff-payroll', action };
+  }
+  if (path.startsWith('/staff-salary-structures')) {
+    const isEmployee = req.query.type === 'Employee' || (req.body && req.body.type === 'Employee');
+    return { module: isEmployee ? 'employee-pay-structure' : 'staff-pay-structure', action };
+  }
+  if (path.startsWith('/staff-payments')) {
+    return { module: 'employee-payroll', action };
   }
   if (path.startsWith('/expenses') || path.startsWith('/expense-history')) {
     return { module: 'expenses', action };

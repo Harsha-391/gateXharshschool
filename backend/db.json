@@ -159,7 +159,7 @@
       "adminPassword": "$2b$10$JxUIs2TeKnkhDx5LFyIGaeJ75Rnu9Sxf.MyEfZlg5EgKEDP5kSz4.",
       "ratePerStudent": "250.00",
       "createdAt": "2026-06-30T12:05:25.964Z",
-      "updatedAt": "2026-06-30T12:29:27.394Z",
+      "updatedAt": "2026-07-01T12:27:05.231Z",
       "dbName": "school_culpa",
       "examTypes": "[]",
       "eventTypes": "[]",
@@ -1786,6 +1786,15 @@
   "publishedClassTimetables": [],
   "publishedTeacherTimetables": [],
   "teacherTimetables": [],
+  "platformOwner": {
+    "name": "Platform Owner",
+    "username": "dev@admin.com",
+    "password": "$2b$10$ul2QsAowTHWkJypRGZBBNOi4OT9Y019Yi6f5LV4flc3lXtQF.mCwm",
+    "email": "dev@admin.com",
+    "phone": "",
+    "photo": ""
+  },
+  "employees": [],
   "academicCalendarEvents": [],
   "academicCalendarImports": [],
   "publishedCalendarEvents": [],
@@ -1807,5 +1816,5 @@
       "updatedAt": "2026-06-29T10:01:55.628Z"
     }
   ],
-  "_signature": "SCH-1782814903135-aliquam-Active-Knox Bray-SCH-213|SCH-1782821125653-culpa-Active-Thane Puckett-SCH-596"
+  "_signature": "SCH-1782821125653-culpa-Active-Thane Puckett-SCH-596"
 }

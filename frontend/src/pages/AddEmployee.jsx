@@ -254,7 +254,7 @@ export default function AddEmployee({ setActiveView, editData }) {
     fetch('/api/rbac/roles')
       .then(res => res.json())
       .then(data => {
-        setRoles(data.filter(r => r.active));
+        setRoles(data.filter(r => r.active && r.name !== 'Teacher'));
       })
       .catch(err => console.error('Error fetching roles in AddStaff:', err));
 

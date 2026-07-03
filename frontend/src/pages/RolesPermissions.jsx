@@ -106,10 +106,12 @@ export default function RolesPermissions({ initialTab = 'dashboard', hideTabs = 
   const modules = [
     { id: 'overview', label: 'Panel' },
     { id: 'student-directory', label: 'Student Directory' },
+    { id: 'teacher-directory', label: 'Teacher Directory' },
     { id: 'staff-directory', label: 'Staff Directory' },
     { id: 'employee-directory', label: 'Employee Directory' },
     { id: 'grade-management', label: 'Grade Management' },
     { id: 'register-student', label: 'Register Student' },
+    { id: 'register-teacher', label: 'Register Teacher' },
     { id: 'add-staff', label: 'Add Staff' },
     { id: 'add-employee', label: 'Add Employee' },
     { id: 'designation-manager', label: 'Designation Manage' },
@@ -125,6 +127,13 @@ export default function RolesPermissions({ initialTab = 'dashboard', hideTabs = 
     { id: 'results-manager', label: 'Results Manager' },
     { id: 'results-history', label: 'Academic History' },
     { id: 'finance', label: 'Finance' },
+    { id: 'staff-payroll', label: 'Staff Payroll' },
+    { id: 'staff-pay-structure', label: 'Staff Pay Structure' },
+    { id: 'teacher-payroll', label: 'Teacher Payroll' },
+    { id: 'teacher-pay-structure', label: 'Teacher Pay Structure' },
+    { id: 'employee-payroll', label: 'Employee Payroll' },
+    { id: 'employee-pay-structure', label: 'Employee Pay Structure' },
+    { id: 'payroll-history', label: 'Payroll History' },
     { id: 'expense-dashboard', label: 'Expense Panel' },
     { id: 'expense-all-expenses', label: 'Expenses' },
     { id: 'expense-history', label: 'Expense History' },
@@ -132,7 +141,13 @@ export default function RolesPermissions({ initialTab = 'dashboard', hideTabs = 
     { id: 'expense-tracker', label: 'Expense Tracker' },
     { id: 'financial-reports', label: 'Financial Reports' },
     { id: 'auxiliary-income', label: 'Auxiliary & Other Income' },
-    { id: 'roles-permissions', label: 'Roles & Permissions' }
+    { id: 'roles-permissions', label: 'Roles & Permissions' },
+    { id: 'teacher-leave', label: 'Teacher Leave' },
+    { id: 'teacher-leave-management', label: 'Teacher Leave Management' },
+    { id: 'staff-leave', label: 'Staff Leave' },
+    { id: 'staff-leave-management', label: 'Staff Leave Management' },
+    { id: 'settings', label: 'Settings' },
+    { id: 'leave-settings', label: 'Leave Settings' }
   ];
 
   const actions = [

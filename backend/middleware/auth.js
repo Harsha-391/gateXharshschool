@@ -43,29 +43,11 @@ export const isTokenBlacklisted = (token) => {
 export const auth = (req, res, next) => {
   let token = null;
 
-  // 1. Try to read token from cookies first
-  const cookieHeader = req.headers.cookie;
-  if (cookieHeader) {
-    const cookies = {};
-    cookieHeader.split(';').forEach(cookie => {
-      const parts = cookie.split('=');
-      if (parts.length >= 2) {
-        const name = parts[0].trim();
-        const val = parts.slice(1).join('=');
-        cookies[name] = decodeURIComponent(val);
-      }
-    });
-    if (cookies.token) {
-      token = cookies.token;
-    }
-  }
-
-  // 2. Fallback to Authorization header
-  if (!token) {
-    const authHeader = req.headers.authorization;
-    if (authHeader && authHeader.startsWith('Bearer ')) {
-      token = authHeader.split(' ')[1];
-    }
+  // Read token from Authorization header ONLY (disable cookie-based auth fallback
+  // to ensure token is isolated to sessionStorage per tab on the frontend)
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    token = authHeader.split(' ')[1];
   }
 
   if (!token || token === 'null' || token === 'undefined') {
@@ -92,6 +74,32 @@ export const auth = (req, res, next) => {
         }
       } catch (dbErr) {
         console.error('[Auth Middleware] Failed to check database password for token invalidation:', dbErr.message);
+      }
+    }
+
+    // Immediate Session Invalidation on Assignment Change for Teacher
+    if (verified.userType === 'Teacher') {
+      try {
+        const db = readDb();
+        const teacher = (db.teachers || []).find(t => t.id === verified.id);
+        if (!teacher) {
+          return res.status(401).json({ error: 'Session invalidated. Teacher profile not found.' });
+        }
+        const tokenGrade = verified.assignedGradeId || null;
+        const dbGrade = teacher.assignedGradeId || null;
+        const tokenSec = verified.assignedSectionId || null;
+        const dbSec = teacher.assignedSectionId || null;
+        const tokenIsClass = !!verified.isClassTeacher;
+        const dbIsClass = (teacher.isClassTeacher === 1 || teacher.isClassTeacher === true || teacher.isClassTeacher === 'Yes');
+        const tokenAttPerm = !!verified.attendancePermission;
+        const dbAttPerm = (teacher.attendancePermission === 1 || teacher.attendancePermission === true || teacher.attendancePermission === 'Yes');
+
+        if (tokenGrade !== dbGrade || tokenSec !== dbSec || tokenIsClass !== dbIsClass || tokenAttPerm !== dbAttPerm) {
+          logSecurity('SESSION_INVALIDATED_ASSIGNMENT_CHANGE', `Teacher '${verified.id}' session invalidated due to assignment change.`, req);
+          return res.status(401).json({ error: 'Session invalidated. Your class assignment or permissions have been updated. Please log in again.' });
+        }
+      } catch (dbErr) {
+        console.error('[Auth Middleware] Failed to check teacher assignment for invalidation:', dbErr.message);
       }
     }
 

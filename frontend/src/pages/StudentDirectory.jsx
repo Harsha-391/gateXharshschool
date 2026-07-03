@@ -27,7 +27,11 @@ import {
 import { hasPermission } from '../utils/permissions';
 import { fetchActiveGrades, fetchActiveSections } from '../utils/grades';
 
-export default function StudentDirectory({ readOnly = true, onAddClick, onEditClick }) {
+export default function StudentDirectory({ readOnly = true, onAddClick, onEditClick, userProfile }) {
+  const isTeacher = userProfile?.role === 'Teacher';
+  const assignedClass = isTeacher ? userProfile?.assignedGradeId || '' : '';
+  const assignedSection = isTeacher ? userProfile?.assignedSectionId || '' : '';
+
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeGrades, setActiveGrades] = useState([]);
@@ -53,11 +57,18 @@ export default function StudentDirectory({ readOnly = true, onAddClick, onEditCl
   
   // Search, Filters & Sorting States
   const [searchQuery, setSearchQuery] = useState('');
-  const [classFilter, setClassFilter] = useState('All');
-  const [sectionFilter, setSectionFilter] = useState('All');
+  const [classFilter, setClassFilter] = useState(isTeacher ? assignedClass : 'All');
+  const [sectionFilter, setSectionFilter] = useState(isTeacher ? assignedSection : 'All');
   const [yearFilter, setYearFilter] = useState('All');
   const [sortBy, setSortBy] = useState('name');
   const [sortOrder, setSortOrder] = useState('asc');
+
+  useEffect(() => {
+    if (isTeacher) {
+      if (assignedClass) setClassFilter(assignedClass);
+      if (assignedSection) setSectionFilter(assignedSection);
+    }
+  }, [userProfile, assignedClass, assignedSection, isTeacher]);
   
   // Pagination States
   const [page, setPage] = useState(1);
@@ -466,13 +477,14 @@ export default function StudentDirectory({ readOnly = true, onAddClick, onEditCl
               <Filter size={14} /> Section:
             </span>
             
-            <select 
+             <select 
               className="select-custom"
               value={sectionFilter}
               onChange={(e) => setSectionFilter(e.target.value)}
               style={{ padding: '8px 12px', borderRadius: '8px', fontSize: '0.85rem' }}
+              disabled={isTeacher}
             >
-              <option value="All">All Sections</option>
+              {!isTeacher && <option value="All">All Sections</option>}
               {(() => {
                 const allowedSections = classFilter !== 'All'
                   ? (activeGrades.find(g => g.name === classFilter)?.sections || [])
@@ -490,12 +502,12 @@ export default function StudentDirectory({ readOnly = true, onAddClick, onEditCl
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', borderTop: '1px solid var(--border-glass)', paddingTop: '14px' }}>
           <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 600 }}>Grades:</span>
           <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-            {activeGrades.map(g => g.name).map(grade => {
+            {activeGrades.map(g => g.name).filter(grade => !isTeacher || grade === assignedClass).map(grade => {
               const isSelected = classFilter === grade;
               return (
                 <button
                   key={grade}
-                  onClick={() => setClassFilter(classFilter === grade ? 'All' : grade)}
+                  onClick={() => !isTeacher && setClassFilter(classFilter === grade ? 'All' : grade)}
                   className={isSelected ? "btn-primary" : "btn-secondary"}
                   style={{
                     padding: '6px 14px',

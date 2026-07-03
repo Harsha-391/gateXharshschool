@@ -3,6 +3,54 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.jsx'
 
+// Auth Session tab isolation: redirect authentication keys from localStorage to sessionStorage
+const SESSION_KEYS = [
+  'token',
+  'role',
+  'portal_role',
+  'username',
+  'name',
+  'permissions',
+  'overrides',
+  'from_dev_admin',
+  'dev_token',
+  'school_name',
+  'school_subdomain',
+  'tenant_subdomain',
+  'photo',
+  'admin_view',
+  'teacher_dashboard_isClassTeacher',
+  'teacher_dashboard_grade',
+  'teacher_dashboard_section',
+  'teacher_dashboard_attPerm'
+];
+
+
+const originalGetItem = localStorage.getItem.bind(localStorage);
+const originalSetItem = localStorage.setItem.bind(localStorage);
+const originalRemoveItem = localStorage.removeItem.bind(localStorage);
+
+localStorage.getItem = function(key) {
+  if (SESSION_KEYS.includes(key)) {
+    return sessionStorage.getItem(key);
+  }
+  return originalGetItem(key);
+};
+
+localStorage.setItem = function(key, value) {
+  if (SESSION_KEYS.includes(key)) {
+    return sessionStorage.setItem(key, value);
+  }
+  return originalSetItem(key, value);
+};
+
+localStorage.removeItem = function(key) {
+  if (SESSION_KEYS.includes(key)) {
+    return sessionStorage.removeItem(key);
+  }
+  return originalRemoveItem(key);
+};
+
 // Intercept, cache, deduplicate, and redirect all relative /api and /uploads fetch requests
 const getCache = new Map();
 const activeRequests = new Map();

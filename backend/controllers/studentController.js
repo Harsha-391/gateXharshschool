@@ -238,6 +238,17 @@ export const registerStudent = async (req, res) => {
 export const getStudents = async (req, res) => {
   try {
     const db = readDb();
+    
+    // If teacher is logged in, restrict query options to their assigned class and section
+    const user = req.admin;
+    if (user && user.role === 'Teacher') {
+      const teacher = (db.teachers || []).find(t => t.id === user.id);
+      if (teacher) {
+        req.query.class = teacher.assignedGradeId || 'NONE';
+        req.query.section = teacher.assignedSectionId || 'NONE';
+      }
+    }
+
     let result = [...db.students];
 
     // 0. Status Filter (Default to 'Active')

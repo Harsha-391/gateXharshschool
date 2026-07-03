@@ -69,7 +69,9 @@ export const scanEmployeeQr = async (req, res) => {
     if (employeeType === 'Teacher') {
       employee = db.teachers.find(t => t.employeeId === employeeId || t.id === employeeId);
     } else if (employeeType === 'Staff') {
-      employee = db.staff.find(s => s.id === employeeId);
+      employee = db.staff.find(s => s.employeeId === employeeId || s.id === employeeId);
+    } else if (employeeType === 'Employee') {
+      employee = (db.employees || []).find(e => e.employeeId === employeeId || e.id === employeeId);
     }
 
     if (!employee) {
@@ -279,7 +281,8 @@ export const getAttendanceAnalytics = (req, res) => {
     const records = db.attendanceRecords || [];
     const teachersList = db.teachers || [];
     const staffList = db.staff || [];
-    const totalEmployeesCount = teachersList.length + staffList.length;
+    const employeesList = db.employees || [];
+    const totalEmployeesCount = teachersList.length + staffList.length + employeesList.length;
 
     // Filter for today's records
     const todayRecords = records.filter(r => r.date === todayStr);
@@ -320,6 +323,11 @@ export const getAttendanceAnalytics = (req, res) => {
       if (!deptStats[dept]) deptStats[dept] = { present: 0, late: 0, halfDay: 0, absent: 0, total: 0 };
       deptStats[dept].total++;
     });
+    employeesList.forEach(e => {
+      const dept = e.department || 'Other';
+      if (!deptStats[dept]) deptStats[dept] = { present: 0, late: 0, halfDay: 0, absent: 0, total: 0 };
+      deptStats[dept].total++;
+    });
 
     // Calculate absent counts for departments
     Object.keys(deptStats).forEach(dept => {
@@ -330,6 +338,7 @@ export const getAttendanceAnalytics = (req, res) => {
     // Teacher vs Staff summaries
     const teacherRecords = todayRecords.filter(r => r.employeeType === 'Teacher');
     const staffRecords = todayRecords.filter(r => r.employeeType === 'Staff');
+    const employeeRecords = todayRecords.filter(r => r.employeeType === 'Employee');
 
     const teacherSummary = {
       total: teachersList.length,
@@ -347,6 +356,15 @@ export const getAttendanceAnalytics = (req, res) => {
       halfDay: staffRecords.filter(r => r.status === 'Half Day').length,
       absent: Math.max(0, staffList.length - staffRecords.length),
       checkOuts: staffRecords.filter(r => r.checkOut !== null && r.checkOut !== '').length
+    };
+
+    const employeeSummary = {
+      total: employeesList.length,
+      present: employeeRecords.filter(r => r.status === 'Present').length,
+      late: employeeRecords.filter(r => r.status === 'Late').length,
+      halfDay: employeeRecords.filter(r => r.status === 'Half Day').length,
+      absent: Math.max(0, employeesList.length - employeeRecords.length),
+      checkOuts: employeeRecords.filter(r => r.checkOut !== null && r.checkOut !== '').length
     };
 
     // Calculate last 7 days trends
@@ -378,6 +396,7 @@ export const getAttendanceAnalytics = (req, res) => {
       departmentStats: deptStats,
       teacherSummary,
       staffSummary,
+      employeeSummary,
       trends: trendData
     });
   } catch (error) {
@@ -463,7 +482,9 @@ export const regenerateEmployeeQr = async (req, res) => {
     if (employeeType === 'Teacher') {
       employee = db.teachers.find(t => t.employeeId === employeeId || t.id === employeeId);
     } else if (employeeType === 'Staff') {
-      employee = db.staff.find(s => s.id === employeeId);
+      employee = db.staff.find(s => s.employeeId === employeeId || s.id === employeeId);
+    } else if (employeeType === 'Employee') {
+      employee = (db.employees || []).find(e => e.employeeId === employeeId || e.id === employeeId);
     }
 
     if (!employee) {
@@ -494,9 +515,12 @@ export const regenerateEmployeeQr = async (req, res) => {
     if (employeeType === 'Teacher') {
       const idx = db.teachers.findIndex(t => t.employeeId === employeeId || t.id === employeeId);
       if (idx > -1) db.teachers[idx].qrCodePath = qrPath;
-    } else {
-      const idx = db.staff.findIndex(s => s.id === employeeId);
+    } else if (employeeType === 'Staff') {
+      const idx = db.staff.findIndex(s => s.employeeId === employeeId || s.id === employeeId);
       if (idx > -1) db.staff[idx].qrCodePath = qrPath;
+    } else if (employeeType === 'Employee') {
+      const idx = (db.employees || []).findIndex(e => e.employeeId === employeeId || e.id === employeeId);
+      if (idx > -1) db.employees[idx].qrCodePath = qrPath;
     }
 
     writeDb(db);

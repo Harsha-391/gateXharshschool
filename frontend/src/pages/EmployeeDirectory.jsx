@@ -111,7 +111,7 @@ export default function EmployeeDirectory({ readOnly = true, onAddClick, onEditC
       const res = await fetch('/api/employee-attendance/regenerate-qr', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ employeeId: empId, employeeType: 'Staff' })
+        body: JSON.stringify({ employeeId: empId, employeeType: 'Employee' })
       });
       if (res.ok) {
         const data = await res.json();
@@ -355,8 +355,7 @@ export default function EmployeeDirectory({ readOnly = true, onAddClick, onEditC
     }
   });
 
-  const isSearchOrFilterActive = searchQuery !== '' || designationFilter !== 'All' || statusFilter !== 'All';
-  const displayStaff = isSearchOrFilterActive ? filteredStaff : [];
+  const displayStaff = filteredStaff;
 
   // Safe JSON parse for qualifications/experiences
   const parseJSON = (val) => {
@@ -642,29 +641,7 @@ export default function EmployeeDirectory({ readOnly = true, onAddClick, onEditC
 
       {/* Directory Table */}
       <div className="glass-panel" style={{ padding: '24px' }}>
-        {!isSearchOrFilterActive ? (
-          <div style={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: '100px 24px',
-            textAlign: 'center',
-            gap: '12px'
-          }}>
-            <span style={{
-              fontSize: '1.5rem',
-              fontWeight: 600,
-              color: 'var(--text-muted)',
-              opacity: 0.5,
-              filter: 'blur(0.8px)',
-              letterSpacing: '0.05em'
-            }}>
-              Please search or select a filter to view employee records
-            </span>
-          </div>
-        ) : (
-          <div className="custom-table-container">
+        <div className="custom-table-container">
             <table className="custom-table">
               <thead>
                 <tr>
@@ -745,7 +722,6 @@ export default function EmployeeDirectory({ readOnly = true, onAddClick, onEditC
               </tbody>
             </table>
           </div>
-        )}
       </div>
 
       {/* Inspect Drawer */}

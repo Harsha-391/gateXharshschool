@@ -27,10 +27,20 @@ const LEGACY_MODULE_MAP = {
   'results': 'results-manager',
   'results-history': 'results-manager',
   'academic-history': 'results-manager',
+  'register-teacher': 'registry-admissions',
+  'staff-payroll': 'finance',
+  'staff-pay-structure': 'finance',
+  'teacher-payroll': 'finance',
+  'teacher-pay-structure': 'finance',
+  'employee-payroll': 'finance',
+  'employee-pay-structure': 'finance',
+  'payroll-history': 'finance',
   'expense-dashboard': 'expenses',
   'expense-all-expenses': 'expenses',
   'expense-tracker': 'expenses',
-  'expense-history': 'expenses'
+  'expense-history': 'expenses',
+  'settings': 'employee-attendance',
+  'leave-settings': 'teacher-leave-management'
 };
 
 export const checkPermission = (module, action) => {
@@ -64,20 +74,26 @@ export const checkPermission = (module, action) => {
     }
 
     if (!roleRecord) {
-      // Find role from teacher or staff record directly
+      // Find role from teacher, staff, or employee record directly
       let userRoleName = '';
       let userEmail = '';
-      if (user.userType === 'Staff') {
+      if (user.userType === 'Teacher') {
         const teacher = (db.teachers || []).find(t => t.id === user.id);
         if (teacher) {
-          userRoleName = teacher.designation || teacher.role;
+          userRoleName = 'Teacher';
           userEmail = teacher.email;
         }
-      } else {
+      } else if (user.userType === 'Staff') {
         const staff = (db.staff || []).find(s => s.id === user.id);
         if (staff) {
           userRoleName = staff.designation || staff.role;
           userEmail = staff.email;
+        }
+      } else if (user.userType === 'Employee') {
+        const employee = (db.employees || []).find(e => e.id === user.id);
+        if (employee) {
+          userRoleName = employee.designation || employee.role;
+          userEmail = employee.email;
         }
       }
 
@@ -102,11 +118,10 @@ export const checkPermission = (module, action) => {
     }
 
     if (!roleRecord) {
-      const defaultRoleName = user.userType === 'Staff' ? 'Staff' : 'Employee';
+      const defaultRoleName = user.userType === 'Teacher' ? 'Teacher' : (user.userType === 'Staff' ? 'Staff' : 'Employee');
       roleRecord = (db.roles || []).find(r => 
         r.id === `role-${defaultRoleName.toLowerCase()}` || 
-        r.name.toLowerCase() === defaultRoleName.toLowerCase() ||
-        (defaultRoleName === 'Staff' && r.id === 'role-teacher')
+        r.name.toLowerCase() === defaultRoleName.toLowerCase()
       );
     }
 

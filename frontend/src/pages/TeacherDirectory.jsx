@@ -30,7 +30,7 @@ import {
 } from 'lucide-react';
 import { hasPermission } from '../utils/permissions';
 
-export default function StaffDirectory({ setActiveView, readOnly = true, onAddClick, onEditClick }) {
+export default function TeacherDirectory({ readOnly = true, onAddClick, onEditClick }) {
   const getQrImageUrl = (qrCodePath, employeeId, employeeType) => {
     if (qrCodePath && qrCodePath.startsWith('data:')) {
       return qrCodePath;
@@ -56,7 +56,6 @@ export default function StaffDirectory({ setActiveView, readOnly = true, onAddCl
   const [departmentFilter, setDepartmentFilter] = useState('All');
   const [typeFilter, setTypeFilter] = useState('All');
   const [statusFilter, setStatusFilter] = useState('All');
-  const [roleFilter, setRoleFilter] = useState('All');
   const [sortBy, setSortBy] = useState('name');
   const [sortOrder, setSortOrder] = useState('asc');
   
@@ -68,17 +67,9 @@ export default function StaffDirectory({ setActiveView, readOnly = true, onAddCl
   // Inspector Drawer
   const [selectedTeacher, setSelectedTeacher] = useState(null);
   const [qrLoading, setQrLoading] = useState(false);
-  const [roles, setRoles] = useState([]);
   const [departments, setDepartments] = useState([]);
 
   useEffect(() => {
-    fetch('/api/rbac/roles')
-      .then(res => res.json())
-      .then(data => {
-        setRoles(data.filter(r => r.active && r.name !== 'Teacher'));
-      })
-      .catch(err => console.error('Error fetching roles:', err));
-
     fetch('/api/grades/departments')
       .then(res => res.json())
       .then(data => {
@@ -93,7 +84,7 @@ export default function StaffDirectory({ setActiveView, readOnly = true, onAddCl
       const res = await fetch('/api/employee-attendance/regenerate-qr', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ employeeId: empId, employeeType: 'Staff' })
+        body: JSON.stringify({ employeeId: empId, employeeType: 'Teacher' })
       });
       if (res.ok) {
         const data = await res.json();
@@ -117,64 +108,14 @@ export default function StaffDirectory({ setActiveView, readOnly = true, onAddCl
         <head>
           <title>Print ID Badge - ${teacher.fullName || teacher.name}</title>
           <style>
-            body {
-              font-family: 'Inter', system-ui, sans-serif;
-              text-align: center;
-              padding: 40px;
-              color: #1e1b4b;
-              background: #ffffff;
-            }
-            .badge-card {
-              border: 2px solid #e2e8f0;
-              border-radius: 20px;
-              padding: 30px;
-              display: inline-block;
-              box-shadow: 0 10px 15px -3px rgba(0,0,0,0.05);
-              max-width: 350px;
-            }
-            .avatar {
-              width: 100px;
-              height: 100px;
-              border-radius: 50%;
-              object-fit: cover;
-              margin-bottom: 15px;
-              border: 3px solid #6366f1;
-            }
-            .avatar-placeholder {
-              width: 100px;
-              height: 100px;
-              border-radius: 50%;
-              margin: 0 auto 15px;
-              display: flex;
-              align-items: center;
-              justify-content: center;
-              color: #ffffff;
-              font-size: 2rem;
-              font-weight: bold;
-              background: ${teacher.avatarBg || 'linear-gradient(135deg, #6366f1, #a855f7)'};
-            }
-            .name {
-              font-size: 1.5rem;
-              font-weight: 800;
-              margin: 0 0 5px 0;
-            }
-            .id {
-              font-size: 1rem;
-              font-weight: 700;
-              color: #6366f1;
-              margin: 0 0 20px 0;
-            }
-            .qr-image {
-              width: 200px;
-              height: 200px;
-              margin-bottom: 20px;
-            }
-            .footer {
-              font-size: 0.8rem;
-              color: #64748b;
-              font-weight: 500;
-              margin-top: 15px;
-            }
+            body { font-family: 'Inter', system-ui, sans-serif; text-align: center; padding: 40px; color: #1e1b4b; background: #ffffff; }
+            .badge-card { border: 2px solid #e2e8f0; border-radius: 20px; padding: 30px; display: inline-block; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.05); max-width: 350px; }
+            .avatar { width: 100px; height: 100px; border-radius: 50%; object-fit: cover; margin-bottom: 15px; border: 3px solid #3b82f6; }
+            .avatar-placeholder { width: 100px; height: 100px; border-radius: 50%; margin: 0 auto 15px; display: flex; align-items: center; justify-content: center; color: #ffffff; font-size: 2rem; font-weight: bold; background: ${teacher.avatarBg || 'linear-gradient(135deg, #3b82f6, #6366f1)'}; }
+            .name { font-size: 1.5rem; font-weight: 800; margin: 0 0 5px 0; }
+            .id { font-size: 1rem; font-weight: 700; color: #3b82f6; margin: 0 0 20px 0; }
+            .qr-image { width: 200px; height: 200px; margin-bottom: 20px; }
+            .footer { font-size: 0.8rem; color: #64748b; font-weight: 500; margin-top: 15px; }
           </style>
         </head>
         <body>
@@ -187,15 +128,12 @@ export default function StaffDirectory({ setActiveView, readOnly = true, onAddCl
             <div class="name">${teacher.fullName || teacher.name}</div>
             <div class="id">${teacher.employeeId || teacher.id}</div>
             <div><img class="qr-image" src="${qrUrl}" /></div>
-            <div style="font-weight: 600; font-size: 0.9rem;">${teacher.designation || 'Faculty'}</div>
-            <div style="font-size: 0.85rem; color: #475569; margin-top: 2px;">${teacher.department || 'Aether Academy'}</div>
+            <div style="font-weight: 600; font-size: 0.9rem;">${teacher.designation || 'Teacher'}</div>
+            <div style="font-size: 0.85rem; color: #475569; margin-top: 2px;">${teacher.department || ''}</div>
             <div class="footer">Scan to record Attendance</div>
           </div>
           <script>
-            window.onload = function() {
-              window.print();
-              setTimeout(function() { window.close(); }, 500);
-            };
+            window.onload = function() { window.print(); setTimeout(function() { window.close(); }, 500); };
           </script>
         </body>
       </html>
@@ -214,51 +152,65 @@ export default function StaffDirectory({ setActiveView, readOnly = true, onAddCl
   const fetchTeachers = async () => {
     try {
       setLoading(true);
-      const queryParams = new URLSearchParams({
-        search: searchQuery,
-        department: departmentFilter,
-        employmentType: typeFilter,
-        status: statusFilter,
-        designation: roleFilter,
-        sortBy,
-        sortOrder,
-        page,
-        limit
-      }).toString();
-      
-      const res = await fetch(`/api/staff?${queryParams}`);
+      const res = await fetch('/api/teachers');
       if (res.ok) {
-        const data = await res.json();
-        setTeachers(data.teachers || []);
-        setTotalCount(data.totalCount || 0);
-        setTotalPages(data.totalPages || 1);
+        let list = await res.json();
+        if (!Array.isArray(list)) list = list.teachers || [];
+
+        // Client-side filtering
+        if (searchQuery) {
+          const q = searchQuery.toLowerCase();
+          list = list.filter(t => 
+            (t.fullName || t.name || '').toLowerCase().includes(q) ||
+            (t.employeeId || t.id || '').toLowerCase().includes(q)
+          );
+        }
+        if (departmentFilter !== 'All') {
+          list = list.filter(t => t.department === departmentFilter);
+        }
+        if (typeFilter !== 'All') {
+          list = list.filter(t => t.employmentType === typeFilter);
+        }
+        if (statusFilter !== 'All') {
+          list = list.filter(t => (t.status || 'Active') === statusFilter);
+        }
+
+        // Sorting
+        list.sort((a, b) => {
+          let aVal = '', bVal = '';
+          if (sortBy === 'name') { aVal = (a.fullName || a.name || '').toLowerCase(); bVal = (b.fullName || b.name || '').toLowerCase(); }
+          else if (sortBy === 'employeeId') { aVal = a.employeeId || a.id || ''; bVal = b.employeeId || b.id || ''; }
+          else if (sortBy === 'department') { aVal = (a.department || '').toLowerCase(); bVal = (b.department || '').toLowerCase(); }
+          else if (sortBy === 'joiningDate') { aVal = a.joiningDate || ''; bVal = b.joiningDate || ''; }
+          else if (sortBy === 'experience') { aVal = parseInt(a.experience) || 0; bVal = parseInt(b.experience) || 0; return sortOrder === 'asc' ? aVal - bVal : bVal - aVal; }
+          return sortOrder === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
+        });
+
+        setTotalCount(list.length);
+        setTotalPages(Math.max(1, Math.ceil(list.length / limit)));
+
+        // Paginate
+        const start = (page - 1) * limit;
+        setTeachers(list.slice(start, start + limit));
       }
     } catch (err) {
-      console.error('Error loading teachers registry:', err);
+      console.error('Error loading teacher registry:', err);
     } finally {
       setLoading(false);
     }
   };
 
-  // Reload on dependency changes
-  useEffect(() => {
-    fetchTeachers();
-  }, [searchQuery, departmentFilter, typeFilter, statusFilter, roleFilter, sortBy, sortOrder, page]);
-
-  // Reset page on filter change
-  useEffect(() => {
-    setPage(1);
-  }, [searchQuery, departmentFilter, typeFilter, statusFilter, roleFilter]);
+  useEffect(() => { fetchTeachers(); }, [searchQuery, departmentFilter, typeFilter, statusFilter, sortBy, sortOrder, page]);
+  useEffect(() => { setPage(1); }, [searchQuery, departmentFilter, typeFilter, statusFilter]);
 
   // ==========================================
   // DELETE TEACHER
   // ==========================================
   const handleDeleteTeacher = async (teacherId, teacherName) => {
-    if (window.confirm(`Are you sure you want to dismiss ${teacherName} (${teacherId}) from the faculty roster?`)) {
+    if (window.confirm(`Are you sure you want to remove ${teacherName} (${teacherId}) from the teacher roster?`)) {
       const originalTeachers = [...teachers];
       const originalTotalCount = totalCount;
 
-      // Optimistically update local state
       setTeachers(prev => prev.filter(t => (t.employeeId !== teacherId && t.id !== teacherId)));
       setTotalCount(prev => Math.max(0, prev - 1));
       if (selectedTeacher && (selectedTeacher.employeeId === teacherId || selectedTeacher.id === teacherId)) {
@@ -266,23 +218,20 @@ export default function StaffDirectory({ setActiveView, readOnly = true, onAddCl
       }
 
       try {
-        const res = await fetch(`/api/staff/${teacherId}`, { method: 'DELETE' });
+        const res = await fetch(`/api/teachers/${teacherId}`, { method: 'DELETE' });
         if (!res.ok) {
-          // Rollback on server failure
           setTeachers(originalTeachers);
           setTotalCount(originalTotalCount);
           const errData = await res.json();
-          alert(errData.error || 'Server error occurred while dismissing teacher.');
+          alert(errData.error || 'Server error occurred while removing teacher.');
         } else {
-          // Sync with database
           fetchTeachers();
         }
       } catch (err) {
         console.error('Error removing teacher record:', err);
-        // Rollback on network failure
         setTeachers(originalTeachers);
         setTotalCount(originalTotalCount);
-        alert('Network error dismissing teacher.');
+        alert('Network error removing teacher.');
       }
     }
   };
@@ -292,7 +241,7 @@ export default function StaffDirectory({ setActiveView, readOnly = true, onAddCl
   // ==========================================
   const handleStatusChange = async (teacherId, newStatus) => {
     try {
-      const res = await fetch(`/api/staff/${teacherId}`, {
+      const res = await fetch(`/api/teachers/${teacherId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: newStatus })
@@ -317,9 +266,9 @@ export default function StaffDirectory({ setActiveView, readOnly = true, onAddCl
       fullName: teacher.fullName || teacher.name || '',
       mobile: teacher.mobile || teacher.phone || '',
       email: teacher.email || '',
-      designation: teacher.designation || '',
       department: teacher.department || '',
-      subjectSpecialization: teacher.subjectSpecialization || teacher.subject || '',
+      primarySubject: teacher.primarySubject || teacher.subjectSpecialization || teacher.subject || '',
+      secondarySubject: teacher.secondarySubject || '',
       qualification: Array.isArray(teacher.qualification) ? teacher.qualification.map(q => q.degree).filter(Boolean).join(', ') : (teacher.qualification || ''),
       experience: teacher.experience || '',
       salary: teacher.salary || '',
@@ -333,7 +282,7 @@ export default function StaffDirectory({ setActiveView, readOnly = true, onAddCl
     setEditLoading(true);
     try {
       const teacherId = editingTeacher.employeeId || editingTeacher.id;
-      const res = await fetch(`/api/staff/${teacherId}`, {
+      const res = await fetch(`/api/teachers/${teacherId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(editFormData)
@@ -350,9 +299,7 @@ export default function StaffDirectory({ setActiveView, readOnly = true, onAddCl
     }
   };
 
-  const toggleSortOrder = () => {
-    setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc');
-  };
+  const toggleSortOrder = () => { setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc'); };
 
   // ==========================================
   // STATUS BADGE RENDERER
@@ -385,14 +332,13 @@ export default function StaffDirectory({ setActiveView, readOnly = true, onAddCl
       {/* Search & Filter Control Bar */}
       <div className="glass-panel" style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
         
-        {/* Row 1: Search & Filters */}
         <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between' }}>
           
           <div className="search-bar-container" style={{ width: '100%', maxWidth: '380px' }}>
             <Search size={18} className="search-bar-icon" />
             <input 
               type="text" 
-              placeholder="Search by name or Employee ID..."
+              placeholder="Search by name or Teacher ID..."
               className="search-bar-input"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -404,32 +350,15 @@ export default function StaffDirectory({ setActiveView, readOnly = true, onAddCl
             <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
               <Filter size={14} /> Filters:
             </span>
-            
-            {/* Role filter */}
-            <select className="select-custom" value={roleFilter} onChange={(e) => {
-              const selectedRole = e.target.value;
-              setRoleFilter(selectedRole);
-              if (selectedRole !== 'Staff') {
-                setDepartmentFilter('All');
-              }
-            }}
+
+            {/* Department filter */}
+            <select className="select-custom" value={departmentFilter} onChange={(e) => setDepartmentFilter(e.target.value)}
               style={{ padding: '8px 12px', borderRadius: '8px', fontSize: '0.85rem' }}>
-              <option value="All">All Roles</option>
-              {roles.map(r => (
-                <option key={r.id || r.name} value={r.name}>{r.name}</option>
+              <option value="All">All Departments</option>
+              {departments.map(d => (
+                <option key={d.id || d.name} value={d.name}>{d.name}</option>
               ))}
             </select>
-
-            {/* Department filter (Only shown when Role is 'Staff') */}
-            {roleFilter === 'Staff' && (
-              <select className="select-custom" value={departmentFilter} onChange={(e) => setDepartmentFilter(e.target.value)}
-                style={{ padding: '8px 12px', borderRadius: '8px', fontSize: '0.85rem' }}>
-                <option value="All">All Departments</option>
-                {departments.map(d => (
-                  <option key={d.id || d.name} value={d.name}>{d.name}</option>
-                ))}
-              </select>
-            )}
 
             {/* Employment Type filter */}
             <select className="select-custom" value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}
@@ -459,8 +388,8 @@ export default function StaffDirectory({ setActiveView, readOnly = true, onAddCl
             
             <select className="select-custom" value={sortBy} onChange={(e) => setSortBy(e.target.value)}
               style={{ padding: '6px 12px', borderRadius: '8px', fontSize: '0.8rem' }}>
-              <option value="name">Staff Name</option>
-              <option value="employeeId">Employee ID</option>
+              <option value="name">Teacher Name</option>
+              <option value="employeeId">Teacher ID</option>
               <option value="department">Department</option>
               <option value="joiningDate">Joining Date</option>
               <option value="experience">Experience</option>
@@ -473,19 +402,17 @@ export default function StaffDirectory({ setActiveView, readOnly = true, onAddCl
           </div>
 
           <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 500 }}>
-            Total Faculty: <strong style={{ color: 'var(--text-main)' }}>{totalCount}</strong>
+            Total Teachers: <strong style={{ color: 'var(--text-main)' }}>{totalCount}</strong>
           </span>
         </div>
       </div>
 
-      {/* ==========================================
-          TEACHER ROSTER TABLE
-          ========================================== */}
+      {/* TEACHER ROSTER TABLE */}
       <div className="glass-panel" style={{ padding: '24px', position: 'relative' }}>
         
         {loading ? (
           <div style={{ textAlign: 'center', padding: '60px', color: 'var(--text-muted)', fontSize: '0.9rem' }}>
-            Loading faculty directory...
+            Loading teacher directory...
           </div>
         ) : (
           <>
@@ -494,10 +421,10 @@ export default function StaffDirectory({ setActiveView, readOnly = true, onAddCl
                 <thead>
                   <tr>
                     <th>Photo</th>
-                    <th>Employee ID</th>
-                    <th>Staff Name</th>
+                    <th>Teacher ID</th>
+                    <th>Teacher Name</th>
                     <th>Department</th>
-                    <th>Subject</th>
+                    <th>Primary Subject</th>
                     <th>Mobile</th>
                     <th>Qualification</th>
                     <th>Experience</th>
@@ -527,14 +454,12 @@ export default function StaffDirectory({ setActiveView, readOnly = true, onAddCl
                         <td style={{ fontWeight: 700, color: 'hsl(var(--color-primary))' }}>{t.employeeId || t.id}</td>
                         <td style={{ fontWeight: 600 }}>{t.fullName || t.name}</td>
                         <td style={{ fontWeight: 500 }}>{t.department || 'N/A'}</td>
-                        <td style={{ fontWeight: 500 }}>{t.subjectSpecialization || t.subject || 'N/A'}</td>
+                        <td style={{ fontWeight: 500 }}>{t.primarySubject || t.subjectSpecialization || t.subject || 'N/A'}</td>
                         <td style={{ fontWeight: 500 }}>{t.mobile || t.phone || 'N/A'}</td>
                         <td style={{ fontWeight: 500, maxWidth: '120px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{renderQualificationText(t.qualification)}</td>
                         <td style={{ fontWeight: 500 }}>{t.experience ? `${t.experience}` : 'N/A'}</td>
                         <td style={{ fontWeight: 500 }}>{t.joiningDate || 'N/A'}</td>
-                        <td>
-                          {getStatusBadge(t.status || 'Active')}
-                        </td>
+                        <td>{getStatusBadge(t.status || 'Active')}</td>
                         <td>
                           <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
                             <button onClick={() => setSelectedTeacher(t)} className="btn-secondary" 
@@ -565,7 +490,7 @@ export default function StaffDirectory({ setActiveView, readOnly = true, onAddCl
                   ) : (
                     <tr>
                       <td colSpan="11" style={{ textAlign: 'center', padding: '50px', color: 'var(--text-muted)' }}>
-                        No staff found matching your filters. Click "Add Staff" in the sidebar to register new staff.
+                        No teachers found matching your filters. Click "Register Teacher" in the sidebar to register new teachers.
                       </td>
                     </tr>
                   )}
@@ -579,7 +504,6 @@ export default function StaffDirectory({ setActiveView, readOnly = true, onAddCl
                 <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
                   Showing Page <strong style={{ color: 'var(--text-main)' }}>{page}</strong> of <strong style={{ color: 'var(--text-main)' }}>{totalPages}</strong>
                 </span>
-                
                 <div style={{ display: 'flex', gap: '8px' }}>
                   <button disabled={page === 1} onClick={() => setPage(prev => Math.max(prev - 1, 1))}
                     className="btn-secondary" style={{ padding: '6px 12px', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.8rem' }}>
@@ -596,9 +520,7 @@ export default function StaffDirectory({ setActiveView, readOnly = true, onAddCl
         )}
       </div>
 
-      {/* ==========================================
-          INSPECT TEACHER PROFILE DRAWER
-          ========================================== */}
+      {/* INSPECT TEACHER PROFILE DRAWER */}
       {selectedTeacher && createPortal(
         <div onClick={() => setSelectedTeacher(null)}
           style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', isolation: 'isolate', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10000, padding: '20px' }}>
@@ -609,9 +531,8 @@ export default function StaffDirectory({ setActiveView, readOnly = true, onAddCl
               gap: '20px', overflowY: 'auto', borderRadius: '16px', minHeight: 0
             }}>
             
-            {/* Drawer Header */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-glass)', paddingBottom: '16px' }}>
-              <h3 style={{ fontSize: '1.2rem', fontWeight: 800, margin: 0 }}>Staff Profile Inspector</h3>
+              <h3 style={{ fontSize: '1.2rem', fontWeight: 800, margin: 0 }}>Teacher Profile Inspector</h3>
               <button onClick={() => setSelectedTeacher(null)}
                 style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '4px' }}>
                 <X size={20} />
@@ -648,9 +569,8 @@ export default function StaffDirectory({ setActiveView, readOnly = true, onAddCl
             {/* Profile Details */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               {[
-                { label: 'Employee ID', value: selectedTeacher.employeeId || selectedTeacher.id },
+                { label: 'Teacher ID', value: selectedTeacher.employeeId || selectedTeacher.id },
                 { label: 'Department', value: selectedTeacher.department || 'N/A' },
-                { label: 'Role', value: selectedTeacher.designation || 'N/A' },
                 { label: 'Primary Subject', value: selectedTeacher.primarySubject || selectedTeacher.subjectSpecialization || selectedTeacher.subject || 'N/A' },
                 { label: 'Secondary Subject', value: selectedTeacher.secondarySubject || 'N/A' },
                 { label: 'Total Experience', value: selectedTeacher.experience ? `${selectedTeacher.experience}` : 'N/A' },
@@ -658,7 +578,6 @@ export default function StaffDirectory({ setActiveView, readOnly = true, onAddCl
                 { label: 'Email', value: selectedTeacher.email || 'N/A' },
                 { label: 'Mobile', value: selectedTeacher.mobile || selectedTeacher.phone || 'N/A' },
                 { label: 'Alternate Mobile', value: selectedTeacher.alternateMobile || 'N/A' },
-                { label: 'Emergency Contact', value: selectedTeacher.emergencyContactNumber || selectedTeacher.emergencyPhone || 'N/A' },
                 { label: 'Gender / DOB', value: `${selectedTeacher.gender || 'N/A'} / ${selectedTeacher.dob || 'N/A'}` },
                 { label: 'Blood Group', value: selectedTeacher.bloodGroup || 'N/A' },
                 { label: 'Marital Status', value: selectedTeacher.maritalStatus || 'N/A' },
@@ -714,10 +633,9 @@ export default function StaffDirectory({ setActiveView, readOnly = true, onAddCl
               )}
             </div>
 
-            {/* Verified Documents */}
+            {/* Uploaded Documents */}
             <div style={{ borderTop: '1px solid var(--border-glass)', paddingTop: '16px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
               <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase' }}>Uploaded Documents</span>
-              
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 {[
                   { label: 'Aadhaar Card', field: 'aadhaarFile', icon: 'hsl(var(--color-primary))' },
@@ -747,7 +665,7 @@ export default function StaffDirectory({ setActiveView, readOnly = true, onAddCl
 
             {/* QR Code Section */}
             <div style={{ borderTop: '1px solid var(--border-glass)', paddingTop: '16px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase' }}>Employee QR Code</span>
+              <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase' }}>Teacher QR Code</span>
               <div className="glass-panel" style={{ padding: '16px', borderRadius: '12px', background: 'rgba(255,255,255,0.02)', display: 'flex', alignItems: 'center', gap: '20px', flexWrap: 'wrap' }}>
                 <div style={{ background: '#ffffff', padding: '8px', borderRadius: '12px', display: 'flex', justifyContent: 'center', alignItems: 'center', border: '1px solid rgba(255,255,255,0.1)', width: '120px', height: '120px', flexShrink: 0 }}>
                   <img src={getQrImageUrl(selectedTeacher.qrCodePath, selectedTeacher.employeeId || selectedTeacher.id, 'Teacher')} alt="QR Code" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
@@ -755,13 +673,7 @@ export default function StaffDirectory({ setActiveView, readOnly = true, onAddCl
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', flex: 1, minWidth: '180px' }}>
                   <div style={{ fontSize: '0.82rem', fontWeight: 600 }}>ID Badge Access QR</div>
                   <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', lineHeight: '1.4' }}>
-                    Contains unique Employee ID & Type. Use the camera scanner in the Staff/Employee Attendance to record daily check-ins and check-outs.
-                    <br/><br/>
-                    <strong>Dynamic Department Update:</strong>
-                    <ul>
-                      <li>Department options now fetch dynamically from the system registry.</li>
-                      <li>Ensures alignment with active Grade Management settings.</li>
-                    </ul>
+                    Contains unique Teacher ID & Type. Use the camera scanner in the Staff/Employee Attendance to record daily check-ins.
                   </div>
                   <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '4px' }}>
                     <a href={getQrImageUrl(selectedTeacher.qrCodePath, selectedTeacher.employeeId || selectedTeacher.id, 'Teacher')} download={`QR_${selectedTeacher.employeeId || selectedTeacher.id}.png`} className="btn-secondary"
@@ -780,12 +692,9 @@ export default function StaffDirectory({ setActiveView, readOnly = true, onAddCl
           </div>
         </div>, document.body)}
 
-      {/* ==========================================
-          EDIT TEACHER MODAL
-          ========================================== */}
+      {/* EDIT TEACHER MODAL */}
       {editingTeacher && (
-        <div onClick={() => setEditingTeacher(null)}
-          className="modal-overlay">
+        <div onClick={() => setEditingTeacher(null)} className="modal-overlay">
           <div onClick={(e) => e.stopPropagation()} className="glass-panel animate-scale-up"
             style={{
               width: '100%', maxWidth: '600px', maxHeight: '85vh', overflowY: 'auto',
@@ -795,7 +704,7 @@ export default function StaffDirectory({ setActiveView, readOnly = true, onAddCl
             
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-glass)', paddingBottom: '14px' }}>
               <h3 style={{ fontSize: '1.15rem', fontWeight: 800, margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Edit3 size={18} style={{ color: 'hsl(var(--color-primary))' }} /> Edit Staff Profile
+                <Edit3 size={18} style={{ color: 'hsl(var(--color-primary))' }} /> Edit Teacher Profile
               </h3>
               <button onClick={() => setEditingTeacher(null)}
                 style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
@@ -824,49 +733,28 @@ export default function StaffDirectory({ setActiveView, readOnly = true, onAddCl
                     className="form-control" style={{ padding: '10px 14px', borderRadius: '10px' }} />
                 </div>
 
-                 <div className="form-group">
-                  <label>Role</label>
-                  <select 
-                    value={editFormData.designation || ''} 
-                    onChange={(e) => {
-                      const newDesignation = e.target.value;
-                      setEditFormData({ 
-                        ...editFormData, 
-                        designation: newDesignation,
-                        department: (newDesignation === 'Teacher' || newDesignation === 'Staff') ? editFormData.department : '',
-                        subjectSpecialization: (newDesignation === 'Teacher' || newDesignation === 'Staff') ? editFormData.subjectSpecialization : ''
-                      });
-                    }}
-                    className="form-control" 
-                    style={{ padding: '10px 14px', borderRadius: '10px' }}
-                  >
-                    <option value="">Select Role</option>
-                    {roles.map(r => (
-                      <option key={r.id || r.name} value={r.name}>{r.name}</option>
+                <div className="form-group">
+                  <label>Department</label>
+                  <select value={editFormData.department || ''} onChange={(e) => setEditFormData({ ...editFormData, department: e.target.value })}
+                    className="form-control" style={{ padding: '10px 14px', borderRadius: '10px' }}>
+                    <option value="">Select</option>
+                    {departments.map(d => (
+                      <option key={d.id || d.name} value={d.name}>{d.name}</option>
                     ))}
                   </select>
                 </div>
 
-                {(editFormData.designation === 'Teacher' || editFormData.designation === 'Staff') && (
-                  <>
-                    <div className="form-group animate-slide-down">
-                      <label>Department</label>
-                      <select value={editFormData.department || ''} onChange={(e) => setEditFormData({ ...editFormData, department: e.target.value })}
-                        className="form-control" style={{ padding: '10px 14px', borderRadius: '10px' }}>
-                        <option value="">Select</option>
-                        {departments.map(d => (
-                          <option key={d.id || d.name} value={d.name}>{d.name}</option>
-                        ))}
-                      </select>
-                    </div>
+                <div className="form-group">
+                  <label>Primary Subject</label>
+                  <input type="text" value={editFormData.primarySubject || ''} onChange={(e) => setEditFormData({ ...editFormData, primarySubject: e.target.value })}
+                    className="form-control" style={{ padding: '10px 14px', borderRadius: '10px' }} />
+                </div>
 
-                    <div className="form-group animate-slide-down">
-                      <label>Subject</label>
-                      <input type="text" value={editFormData.subjectSpecialization || ''} onChange={(e) => setEditFormData({ ...editFormData, subjectSpecialization: e.target.value })}
-                        className="form-control" style={{ padding: '10px 14px', borderRadius: '10px' }} />
-                    </div>
-                  </>
-                )}
+                <div className="form-group">
+                  <label>Secondary Subject</label>
+                  <input type="text" value={editFormData.secondarySubject || ''} onChange={(e) => setEditFormData({ ...editFormData, secondarySubject: e.target.value })}
+                    className="form-control" style={{ padding: '10px 14px', borderRadius: '10px' }} />
+                </div>
 
                 <div className="form-group">
                   <label>Qualification</label>
