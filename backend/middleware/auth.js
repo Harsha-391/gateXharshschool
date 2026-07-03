@@ -1,6 +1,7 @@
 import jwt from 'jsonwebtoken';
 import { tenantStorage, readDb, slugify } from '../utils/db.js';
 import { logSecurity } from '../utils/logger.js';
+import { query } from '../utils/sqlDb.js';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'aether-erp-dashboard-super-secure-key-2026';
 const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || 'aether-erp-dashboard-refresh-secure-key-2026';
@@ -40,7 +41,7 @@ export const isTokenBlacklisted = (token) => {
   return false;
 };
 
-export const auth = (req, res, next) => {
+export const auth = async (req, res, next) => {
   let token = null;
 
   // Read token from Authorization header ONLY (disable cookie-based auth fallback
@@ -80,8 +81,8 @@ export const auth = (req, res, next) => {
     // Immediate Session Invalidation on Assignment Change for Teacher
     if (verified.userType === 'Teacher') {
       try {
-        const db = readDb();
-        const teacher = (db.teachers || []).find(t => t.id === verified.id);
+        const results = await query('SELECT * FROM teachers WHERE id = ?', [verified.id], verified.tenantId);
+        const teacher = results ? results[0] : null;
         if (!teacher) {
           return res.status(401).json({ error: 'Session invalidated. Teacher profile not found.' });
         }
@@ -146,22 +147,10 @@ export const verifyRefreshToken = (token) => {
 
 // Helper: Sets httpOnly secure session cookie on response
 export const setAuthCookie = (res, token, role) => {
-  const isDevAdmin = role === 'Developer Admin';
-  const maxAge = isDevAdmin ? 365 * 24 * 60 * 60 * 1000 : 60 * 60 * 1000; // 1 year vs 1 hour
-  
-  res.cookie('token', token, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'Strict',
-    maxAge: maxAge
-  });
+  // Cookies disabled for local/development configuration
 };
 
 // Helper: Clears the session cookie on response
 export const clearAuthCookie = (res) => {
-  res.clearCookie('token', {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'Strict'
-  });
+  // Cookies disabled for local/development configuration
 };

@@ -24,6 +24,13 @@ import {
 } from 'lucide-react';
 import { hasPermission, isSuperAdmin } from '../utils/permissions';
 
+const getTenantHeader = () => {
+  const hostname = window.location.hostname;
+  const parts = hostname.split('.');
+  if (parts.length > 2 && parts[0] !== 'www') return parts[0];
+  return '';
+};
+
 const TEACHER_ROLES = ['Principal', 'Vice Principal', 'Academic Coordinator', 'Staff', 'Receptionist', 'Accountant', 'Expense Manager'];
 
 const LEGACY_MODULE_MAP = {
@@ -46,7 +53,14 @@ const LEGACY_MODULE_MAP = {
   'expense-dashboard': 'expenses',
   'expense-all-expenses': 'expenses',
   'expense-tracker': 'expenses',
-  'expense-history': 'expenses'
+  'expense-history': 'expenses',
+  'staff-payroll': 'finance',
+  'staff-pay-structure': 'finance',
+  'teacher-payroll': 'finance',
+  'teacher-pay-structure': 'finance',
+  'employee-payroll': 'finance',
+  'employee-pay-structure': 'finance',
+  'payroll-history': 'finance'
 };
 
 const COMPATIBILITY_MAP = {
@@ -127,13 +141,6 @@ export default function RolesPermissions({ initialTab = 'dashboard', hideTabs = 
     { id: 'results-manager', label: 'Results Manager' },
     { id: 'results-history', label: 'Academic History' },
     { id: 'finance', label: 'Finance' },
-    { id: 'staff-payroll', label: 'Staff Payroll' },
-    { id: 'staff-pay-structure', label: 'Staff Pay Structure' },
-    { id: 'teacher-payroll', label: 'Teacher Payroll' },
-    { id: 'teacher-pay-structure', label: 'Teacher Pay Structure' },
-    { id: 'employee-payroll', label: 'Employee Payroll' },
-    { id: 'employee-pay-structure', label: 'Employee Pay Structure' },
-    { id: 'payroll-history', label: 'Payroll History' },
     { id: 'expense-dashboard', label: 'Expense Panel' },
     { id: 'expense-all-expenses', label: 'Expenses' },
     { id: 'expense-history', label: 'Expense History' },
@@ -141,13 +148,9 @@ export default function RolesPermissions({ initialTab = 'dashboard', hideTabs = 
     { id: 'expense-tracker', label: 'Expense Tracker' },
     { id: 'financial-reports', label: 'Financial Reports' },
     { id: 'auxiliary-income', label: 'Auxiliary & Other Income' },
+    { id: 'security-audit', label: 'Security Audit Ledger' },
     { id: 'roles-permissions', label: 'Roles & Permissions' },
-    { id: 'teacher-leave', label: 'Teacher Leave' },
-    { id: 'teacher-leave-management', label: 'Teacher Leave Management' },
-    { id: 'staff-leave', label: 'Staff Leave' },
-    { id: 'staff-leave-management', label: 'Staff Leave Management' },
-    { id: 'settings', label: 'Settings' },
-    { id: 'leave-settings', label: 'Leave Settings' }
+    { id: 'settings', label: 'Settings' }
   ];
 
   const actions = [
@@ -172,10 +175,14 @@ export default function RolesPermissions({ initialTab = 'dashboard', hideTabs = 
   const fetchAllData = async () => {
     setLoading(true);
     try {
+      const token = localStorage.getItem('token');
+      const tenant = getTenantHeader();
+      const headers = { 'Authorization': `Bearer ${token}`, 'x-tenant-id': tenant };
+
       const [rolesRes, usersRes, auditRes] = await Promise.all([
-        fetch('/api/rbac/roles'),
-        fetch('/api/rbac/users'),
-        fetch('/api/rbac/audit-logs')
+        fetch('/api/rbac/roles', { headers }),
+        fetch('/api/rbac/users', { headers }),
+        fetch('/api/rbac/audit-logs', { headers })
       ]);
 
       if (!rolesRes.ok || !usersRes.ok || !auditRes.ok) {
@@ -233,9 +240,15 @@ export default function RolesPermissions({ initialTab = 'dashboard', hideTabs = 
         payload.permissions = initialMatrix;
       }
 
+      const token = localStorage.getItem('token');
+      const tenant = getTenantHeader();
       const res = await fetch(url, {
         method,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+          'x-tenant-id': tenant
+        },
         body: JSON.stringify(payload)
       });
 
@@ -263,8 +276,11 @@ export default function RolesPermissions({ initialTab = 'dashboard', hideTabs = 
 
     setSubmitting(true);
     try {
+      const token = localStorage.getItem('token');
+      const tenant = getTenantHeader();
       const res = await fetch(`/api/rbac/roles/${role.id}`, {
-        method: 'DELETE'
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}`, 'x-tenant-id': tenant }
       });
 
       const data = await res.json();
@@ -402,10 +418,16 @@ export default function RolesPermissions({ initialTab = 'dashboard', hideTabs = 
         return;
       }
 
+      const token = localStorage.getItem('token');
+      const tenant = getTenantHeader();
       const promises = changedRoles.map(role => 
         fetch(`/api/rbac/roles/${role.id}`, {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+            'x-tenant-id': tenant
+          },
           body: JSON.stringify({ permissions: role.permissions })
         }).then(async res => {
           if (!res.ok) {
@@ -842,29 +864,29 @@ export default function RolesPermissions({ initialTab = 'dashboard', hideTabs = 
               )}
 
               {/* Matrix Table */}
-              <div style={{ overflowX: 'auto', border: '1px solid var(--border-glass)', borderRadius: '12px' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem', textAlign: 'left' }}>
+              <div style={{ overflowX: 'auto', border: '1px solid var(--border-glass, #cbd5e1)', borderRadius: '16px', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem', textAlign: 'left' }}>
                   <thead>
-                    <tr style={{ background: 'rgba(255,255,255,0.015)', borderBottom: '1px solid var(--border-glass)' }}>
-                      <th style={{ padding: '16px 20px', fontWeight: 700, color: 'var(--text-main)', width: '250px' }}>ERP Module Section</th>
+                    <tr style={{ background: 'var(--bg-secondary, #f8fafc)', borderBottom: '1px solid var(--border-glass, #e2e8f0)' }}>
+                      <th style={{ padding: '12px 18px', fontWeight: 800, color: 'var(--text-main, #0f172a)', width: '250px', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>ERP Module Section</th>
                       {actions.map(act => (
-                        <th key={act.id} style={{ padding: '16px 12px', fontWeight: 700, color: 'var(--text-main)', textAlign: 'center' }}>
+                        <th key={act.id} style={{ padding: '12px 8px', fontWeight: 800, color: 'var(--text-main, #0f172a)', textAlign: 'center', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                           {act.label}
                         </th>
                       ))}
-                      <th style={{ padding: '16px 12px', fontWeight: 700, color: 'var(--text-main)', textAlign: 'center', width: '100px' }}>Select All</th>
+                      <th style={{ padding: '12px 8px', fontWeight: 800, color: 'var(--text-main, #0f172a)', textAlign: 'center', width: '100px', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Select All</th>
                     </tr>
                   </thead>
                   <tbody>
                     {modules.map((mod, modIdx) => (
                       <tr key={mod.id} style={{
-                        borderBottom: modIdx === modules.length - 1 ? 'none' : '1px solid rgba(255,255,255,0.03)',
-                        background: modIdx % 2 === 0 ? 'rgba(255,255,255,0.005)' : 'none',
+                        borderBottom: modIdx === modules.length - 1 ? 'none' : '1px solid var(--border-glass, #e2e8f0)',
+                        background: modIdx % 2 === 0 ? 'rgba(99, 102, 241, 0.01)' : '#ffffff',
                         transition: 'background 0.2s ease'
                       }} className="matrix-row-hover">
-                        <td style={{ padding: '16px 20px', fontWeight: 600, color: 'var(--text-main)' }}>
-                          {mod.label}
-                          <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 400, marginTop: '2px' }}>
+                        <td style={{ padding: '8px 18px', paddingLeft: mod.isSub ? '36px' : '18px', fontWeight: 700, color: 'var(--text-main, #0f172a)' }}>
+                          <span style={{ display: 'block', fontSize: '0.84rem', color: mod.isSub ? '#6366f1' : 'var(--text-main, #0f172a)', fontWeight: mod.isSub ? 600 : 700 }}>{mod.label}</span>
+                          <div style={{ fontSize: '0.68rem', color: 'var(--text-muted, #64748b)', fontWeight: 500, marginTop: '1px', fontFamily: 'monospace' }}>
                             code: {mod.id}
                           </div>
                         </td>
@@ -887,14 +909,14 @@ export default function RolesPermissions({ initialTab = 'dashboard', hideTabs = 
                             }
                           }
                           return (
-                            <td key={act.id} style={{ padding: '12px', textAlign: 'center' }}>
+                            <td key={act.id} style={{ padding: '8px', textAlign: 'center' }}>
                               <input
                                 type="checkbox"
                                 checked={checked}
                                 onChange={() => handleToggleMatrixCheckbox(mod.id, act.id)}
                                 style={{
                                   cursor: 'pointer', width: '16px', height: '16px', accentColor: 'hsl(var(--color-primary))',
-                                  border: '1px solid var(--border-glass)', borderRadius: '4px'
+                                  borderRadius: '4px', verticalAlign: 'middle'
                                 }}
                               />
                             </td>
@@ -925,13 +947,14 @@ export default function RolesPermissions({ initialTab = 'dashboard', hideTabs = 
                           });
 
                           return (
-                            <td style={{ padding: '12px', textAlign: 'center', borderLeft: '1px dashed rgba(255,255,255,0.08)' }}>
+                            <td style={{ padding: '8px', textAlign: 'center', borderLeft: '1px dashed var(--border-glass, #e2e8f0)' }}>
                               <input
                                 type="checkbox"
                                 checked={allChecked}
                                 onChange={() => handleToggleRowAllCheckboxes(mod.id, !allChecked)}
                                 style={{
-                                  cursor: 'pointer', width: '16px', height: '16px', accentColor: 'hsl(var(--color-primary))'
+                                  cursor: 'pointer', width: '16px', height: '16px', accentColor: 'hsl(var(--color-primary))',
+                                  verticalAlign: 'middle'
                                 }}
                                 title="Toggle all permissions for this row"
                               />

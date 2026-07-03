@@ -755,8 +755,8 @@ CREATE TABLE IF NOT EXISTS employee_qr_codes (
   tenantId VARCHAR(100),
   teacherId VARCHAR(50) NULL,
   staffId VARCHAR(50) NULL,
-  FOREIGN KEY (teacherId) REFERENCES staff(id) ON DELETE CASCADE,
-  FOREIGN KEY (staffId) REFERENCES employees(id) ON DELETE CASCADE,
+  FOREIGN KEY (teacherId) REFERENCES teachers(id) ON DELETE CASCADE,
+  FOREIGN KEY (staffId) REFERENCES staff(id) ON DELETE CASCADE,
   UNIQUE KEY unique_employee_qr (employeeId, tenantId)
 );
 
@@ -777,8 +777,8 @@ CREATE TABLE IF NOT EXISTS attendance_records (
   tenantId VARCHAR(100),
   teacherId VARCHAR(50) NULL,
   staffId VARCHAR(50) NULL,
-  FOREIGN KEY (teacherId) REFERENCES staff(id) ON DELETE CASCADE,
-  FOREIGN KEY (staffId) REFERENCES employees(id) ON DELETE CASCADE,
+  FOREIGN KEY (teacherId) REFERENCES teachers(id) ON DELETE CASCADE,
+  FOREIGN KEY (staffId) REFERENCES staff(id) ON DELETE CASCADE,
   INDEX idx_att_emp (employeeId),
   INDEX idx_att_date (date),
   INDEX idx_att_tenant (tenantId),
@@ -1013,6 +1013,59 @@ CREATE TABLE IF NOT EXISTS leave_settings (
   tenantId VARCHAR(100) NOT NULL,
   INDEX idx_l_set_tenant (tenantId),
   INDEX idx_l_set_emp_type (employeeType)
+);
+
+-- 56. Teacher Reports Table
+CREATE TABLE IF NOT EXISTS teacher_reports (
+  id VARCHAR(50) PRIMARY KEY,
+  teacherId VARCHAR(50) NOT NULL,
+  reportType VARCHAR(50) NOT NULL,
+  reportDate VARCHAR(50) NOT NULL,
+  subject VARCHAR(100),
+  className VARCHAR(100),
+  title VARCHAR(255) NOT NULL,
+  summary TEXT NOT NULL,
+  tasksCompleted TEXT,
+  hoursWorked DECIMAL(4,1) DEFAULT 0.0,
+  chapterTopic VARCHAR(255),
+  syllabusPercentage DECIMAL(5,1) DEFAULT 0.0,
+  attachment TEXT,
+  status VARCHAR(50) DEFAULT 'Pending',
+  reviewRemarks TEXT,
+  reviewedAt VARCHAR(100),
+  createdAt VARCHAR(100),
+  updatedAt VARCHAR(100),
+  tenantId VARCHAR(100) NOT NULL,
+  FOREIGN KEY (teacherId) REFERENCES teachers(id) ON DELETE CASCADE,
+  INDEX idx_tr_teacher (teacherId),
+  INDEX idx_tr_date (reportDate),
+  INDEX idx_tr_tenant (tenantId),
+  INDEX idx_tr_status (status)
+);
+
+-- 57. Staff Reports Table
+CREATE TABLE IF NOT EXISTS staff_reports (
+  id VARCHAR(50) PRIMARY KEY,
+  staffId VARCHAR(50) NOT NULL,
+  reportType VARCHAR(50) NOT NULL,
+  reportDate VARCHAR(50) NOT NULL,
+  department VARCHAR(100),
+  title VARCHAR(255) NOT NULL,
+  summary TEXT NOT NULL,
+  tasksCompleted TEXT,
+  hoursWorked DECIMAL(4,1) DEFAULT 0.0,
+  attachment TEXT,
+  status VARCHAR(50) DEFAULT 'Pending',
+  reviewRemarks TEXT,
+  reviewedAt VARCHAR(100),
+  createdAt VARCHAR(100),
+  updatedAt VARCHAR(100),
+  tenantId VARCHAR(100) NOT NULL,
+  FOREIGN KEY (staffId) REFERENCES staff(id) ON DELETE CASCADE,
+  INDEX idx_sr_staff (staffId),
+  INDEX idx_sr_date (reportDate),
+  INDEX idx_sr_tenant (tenantId),
+  INDEX idx_sr_status (status)
 );
 
 -- Re-enable foreign key checks

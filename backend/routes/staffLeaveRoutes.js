@@ -12,6 +12,7 @@ import {
 import { auth } from '../middleware/auth.js';
 import { checkPermission } from '../middleware/permissionMiddleware.js';
 import { restoreTenantContext } from '../utils/db.js';
+import * as sqlDb from '../utils/sqlDb.js';
 
 const router = express.Router();
 
@@ -19,11 +20,26 @@ const router = express.Router();
 router.use(auth);
 router.use(restoreTenantContext);
 
+// Public: Get active Staff leave policies (no admin permission needed)
+router.get('/policies', async (req, res) => {
+  try {
+    const tenantId = req.headers['x-tenant-id'] || req.query.tenantId;
+    const policies = await sqlDb.query(
+      "SELECT * FROM leave_settings WHERE tenantId = ? AND employeeType = 'Staff' AND status = 'Active'",
+      [tenantId]
+    );
+    res.json(policies || []);
+  } catch (err) {
+    console.error('[Staff Leave Policies Error]', err);
+    res.status(500).json({ error: 'Failed to load leave policies.' });
+  }
+});
+
 // Staff-scoped routes
-router.get('/', checkPermission('staff-leave', 'view'), getMyLeaves);
-router.post('/', checkPermission('staff-leave', 'create'), applyLeave);
-router.put('/:id', checkPermission('staff-leave', 'edit'), editLeave);
-router.delete('/:id', checkPermission('staff-leave', 'delete'), cancelLeave);
+router.get('/', getMyLeaves);
+router.post('/', applyLeave);
+router.put('/:id', editLeave);
+router.delete('/:id', cancelLeave);
 
 // Admin-scoped routes
 router.get('/admin', checkPermission('staff-leave-management', 'view'), adminGetLeaves);

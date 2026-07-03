@@ -33,7 +33,7 @@ async function seed() {
       password: dbConfig.password,
       ssl: dbConfig.ssl
     });
-    
+
     // Create database if not exists
     await connection.query(`CREATE DATABASE IF NOT EXISTS \`${dbConfig.database}\``);
     console.log(`[Seeder] Verified/Created database: ${dbConfig.database}`);
@@ -66,7 +66,7 @@ async function seed() {
       .split('\n')
       .map(line => line.trim())
       .filter(line => line.length > 0 && !line.startsWith('--') && !line.startsWith('#'));
-    
+
     const queries = cleanLines
       .join(' ')
       .split(';')
@@ -144,7 +144,7 @@ async function seed() {
 
     for (const s of studentData) {
       const fullname = [s.first, s.middle, s.last].filter(Boolean).join(' ');
-      
+
       // 1. Insert Student core profile
       await connection.query(
         `INSERT INTO students (
@@ -314,8 +314,8 @@ async function seed() {
     // 15. Seed Activities Log
     console.log(`[Seeder] Seeding activities ledger...`);
     const activities = [
-      { id: 'ACT-001', type: 'registration', title: 'Admissions Opened', description: 'Academic year 2026-27 admission registrations opened.', time: '1 week ago', timestamp: new Date(Date.now() - 7*24*3600*1000).toISOString(), color: 'hsl(var(--color-primary))', bg: 'rgba(99, 102, 241, 0.1)', tenantId },
-      { id: 'ACT-002', type: 'account_management', title: 'Fee Schedule Configured', description: 'Assigned Yearly fee schedules for Classes I-X.', time: '5 days ago', timestamp: new Date(Date.now() - 5*24*3600*1000).toISOString(), color: 'rgb(245, 158, 11)', bg: 'rgba(245, 158, 11, 0.1)', tenantId }
+      { id: 'ACT-001', type: 'registration', title: 'Admissions Opened', description: 'Academic year 2026-27 admission registrations opened.', time: '1 week ago', timestamp: new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString(), color: 'hsl(var(--color-primary))', bg: 'rgba(99, 102, 241, 0.1)', tenantId },
+      { id: 'ACT-002', type: 'account_management', title: 'Fee Schedule Configured', description: 'Assigned Yearly fee schedules for Classes I-X.', time: '5 days ago', timestamp: new Date(Date.now() - 5 * 24 * 3600 * 1000).toISOString(), color: 'rgb(245, 158, 11)', bg: 'rgba(245, 158, 11, 0.1)', tenantId }
     ];
     for (const act of activities) {
       await connection.query(

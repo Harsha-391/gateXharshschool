@@ -11,6 +11,16 @@
   "staffPayments": [],
   "activities": [
     {
+      "id": "ACT-1783079270900",
+      "type": "alert",
+      "title": "New School Onboarded",
+      "desc": "School \"Fatima Tate\" registered on the platform.",
+      "time": "Just now",
+      "timestamp": "2026-07-03T11:47:50.900Z",
+      "color": "hsl(var(--color-primary))",
+      "bg": "rgba(hsl(var(--color-primary)), 0.1)"
+    },
+    {
       "id": "ACT-1782299769157",
       "type": "alert",
       "title": "New School Onboarded",
@@ -86,6 +96,28 @@
       "color": "hsl(var(--color-primary))",
       "bg": "rgba(hsl(var(--color-primary)), 0.1)",
       "tenantId": "platform"
+    },
+    {
+      "id": "ACT-1783054320739",
+      "type": "alert",
+      "title": "New School Onboarded",
+      "description": "School \"Clare Cannon\" registered on the platform.",
+      "time": "Just now",
+      "timestamp": "2026-07-03T04:52:00.739Z",
+      "color": "hsl(var(--color-primary))",
+      "bg": "rgba(hsl(var(--color-primary)), 0.1)",
+      "tenantId": "platform"
+    },
+    {
+      "id": "ACT-1783055982230",
+      "type": "alert",
+      "title": "New School Onboarded",
+      "description": "School \"Christen Powers\" registered on the platform.",
+      "time": "Just now",
+      "timestamp": "2026-07-03T05:19:42.230Z",
+      "color": "hsl(var(--color-primary))",
+      "bg": "rgba(hsl(var(--color-primary)), 0.1)",
+      "tenantId": "platform"
     }
   ],
   "exams": [],
@@ -137,77 +169,39 @@
   ],
   "schools": [
     {
-      "id": "SCH-1782821125653",
-      "name": "Thane Puckett",
-      "code": "SCH-596",
-      "subdomain": "culpa",
+      "id": "SCH-1783079270840",
+      "name": "Fatima Tate",
+      "code": "SCH-533",
+      "subdomain": "minima",
       "logo": "",
-      "principalName": "Brendan Cherry",
-      "email": "mavo@mailinator.com",
-      "phone": "1234567654",
-      "address": "Fuga Voluptatum des",
-      "city": "Quia rerum blanditii",
-      "state": "Fugit in molestiae",
+      "principalName": "Hu Brooks",
+      "email": "malujuwu@mailinator.com",
+      "phone": "2345654321",
+      "address": "Consequatur volupta",
+      "city": "Cupiditate repellend",
+      "state": "Beatae aliqua Id pr",
       "country": "India",
-      "academicSession": "Mollit in veniam se",
+      "academicSession": "Corporis ea rerum so",
       "subscriptionPlan": "Growth",
-      "url": "https://culpa.myschoolerp.com",
+      "url": "https://minima.myschoolerp.com",
       "status": "Active",
-      "adminName": "Vivien Calderon",
-      "adminEmail": "keri@mailinator.com",
+      "adminName": "Zahir Guerrero",
+      "adminEmail": "cosep@mailinator.com",
       "adminUsername": "school_admin",
-      "adminPassword": "$2b$10$JxUIs2TeKnkhDx5LFyIGaeJ75Rnu9Sxf.MyEfZlg5EgKEDP5kSz4.",
-      "ratePerStudent": "250.00",
-      "createdAt": "2026-06-30T12:05:25.964Z",
-      "updatedAt": "2026-07-01T12:27:05.231Z",
-      "dbName": "school_culpa",
-      "examTypes": "[]",
-      "eventTypes": "[]",
-      "noticeCategories": [],
-      "holidayClassifications": []
+      "adminPassword": "$2b$10$pWoeqrThz9xkpVuB15G3WuphS/8/3FrotD79sqmYpZo3ZINNFvDSu",
+      "dbName": "school_minima",
+      "createdAt": "2026-07-03T11:47:50.900Z",
+      "updatedAt": "2026-07-03T11:47:50.900Z"
     }
   ],
   "roles": [
     {
-      "id": "role-academic",
-      "name": "Academic",
-      "description": "Academic administrator. Manages timetables, class subjects, exams, and results registries.",
+      "id": "role-academic-coordinator",
+      "name": "Academic Coordinator",
+      "description": "Coordinates academic programs, timetables, exam schedules, and curriculum planning.",
       "active": true,
       "isSystem": true,
       "permissions": {
-        "exams": {
-          "edit": true,
-          "view": true,
-          "create": true,
-          "delete": true,
-          "export": true,
-          "import": false,
-          "approve": true,
-          "publish": true,
-          "manage-settings": false
-        },
-        "staff": {
-          "edit": false,
-          "view": false,
-          "create": false,
-          "delete": false,
-          "export": false,
-          "import": false,
-          "approve": false,
-          "publish": false,
-          "manage-settings": false
-        },
-        "events": {
-          "edit": true,
-          "view": true,
-          "create": true,
-          "delete": true,
-          "export": false,
-          "import": false,
-          "approve": false,
-          "publish": false,
-          "manage-settings": false
-        },
         "income": {
           "edit": false,
           "view": false,
@@ -219,40 +213,7 @@
           "publish": false,
           "manage-settings": false
         },
-        "notices": {
-          "edit": true,
-          "view": true,
-          "create": true,
-          "delete": true,
-          "export": false,
-          "import": false,
-          "approve": false,
-          "publish": false,
-          "manage-settings": false
-        },
-        "results": {
-          "edit": true,
-          "view": true,
-          "create": true,
-          "delete": true,
-          "export": true,
-          "import": false,
-          "approve": true,
-          "publish": true,
-          "manage-settings": false
-        },
-        "calendar": {
-          "edit": true,
-          "view": true,
-          "create": true,
-          "delete": true,
-          "export": false,
-          "import": false,
-          "approve": false,
-          "publish": false,
-          "manage-settings": false
-        },
-        "expenses": {
+        "finance": {
           "edit": false,
           "view": false,
           "create": false,
@@ -263,18 +224,7 @@
           "publish": false,
           "manage-settings": false
         },
-        "holidays": {
-          "edit": true,
-          "view": true,
-          "create": true,
-          "delete": true,
-          "export": false,
-          "import": false,
-          "approve": false,
-          "publish": false,
-          "manage-settings": false
-        },
-        "salaries": {
+        "overview": {
           "edit": false,
           "view": false,
           "create": false,
@@ -285,9 +235,9 @@
           "publish": false,
           "manage-settings": false
         },
-        "students": {
+        "settings": {
           "edit": false,
-          "view": true,
+          "view": false,
           "create": false,
           "delete": false,
           "export": false,
@@ -296,29 +246,7 @@
           "publish": false,
           "manage-settings": false
         },
-        "teachers": {
-          "edit": false,
-          "view": true,
-          "create": false,
-          "delete": false,
-          "export": false,
-          "import": false,
-          "approve": false,
-          "publish": false,
-          "manage-settings": false
-        },
-        "academics": {
-          "edit": true,
-          "view": true,
-          "create": true,
-          "delete": true,
-          "export": true,
-          "import": true,
-          "approve": false,
-          "publish": false,
-          "manage-settings": true
-        },
-        "dashboard": {
+        "add-staff": {
           "edit": false,
           "view": false,
           "create": false,
@@ -330,17 +258,237 @@
           "manage-settings": false
         },
         "attendance": {
-          "edit": true,
-          "view": true,
-          "create": true,
+          "edit": false,
+          "view": false,
+          "create": false,
           "delete": false,
-          "export": true,
+          "export": false,
           "import": false,
           "approve": false,
           "publish": false,
           "manage-settings": false
         },
-        "fee-structures": {
+        "add-employee": {
+          "edit": false,
+          "view": false,
+          "create": false,
+          "delete": false,
+          "export": false,
+          "import": false,
+          "approve": false,
+          "publish": false,
+          "manage-settings": false
+        },
+        "staff-payroll": {
+          "edit": false,
+          "view": false,
+          "create": false,
+          "delete": false,
+          "export": false,
+          "import": false,
+          "approve": false,
+          "publish": false,
+          "manage-settings": false
+        },
+        "leave-settings": {
+          "edit": false,
+          "view": false,
+          "create": false,
+          "delete": false,
+          "export": false,
+          "import": false,
+          "approve": false,
+          "publish": false,
+          "manage-settings": false
+        },
+        "published-exam": {
+          "edit": false,
+          "view": false,
+          "create": false,
+          "delete": false,
+          "export": false,
+          "import": false,
+          "approve": false,
+          "publish": false,
+          "manage-settings": false
+        },
+        "expense-history": {
+          "edit": false,
+          "view": false,
+          "create": false,
+          "delete": false,
+          "export": false,
+          "import": false,
+          "approve": false,
+          "publish": false,
+          "manage-settings": false
+        },
+        "expense-tracker": {
+          "edit": false,
+          "view": false,
+          "create": false,
+          "delete": false,
+          "export": false,
+          "import": false,
+          "approve": false,
+          "publish": false,
+          "manage-settings": false
+        },
+        "payroll-history": {
+          "edit": false,
+          "view": false,
+          "create": false,
+          "delete": false,
+          "export": false,
+          "import": false,
+          "approve": false,
+          "publish": false,
+          "manage-settings": false
+        },
+        "results-history": {
+          "edit": false,
+          "view": false,
+          "create": false,
+          "delete": false,
+          "export": false,
+          "import": false,
+          "approve": false,
+          "publish": false,
+          "manage-settings": false
+        },
+        "results-manager": {
+          "edit": false,
+          "view": false,
+          "create": false,
+          "delete": false,
+          "export": false,
+          "import": false,
+          "approve": false,
+          "publish": false,
+          "manage-settings": false
+        },
+        "staff-directory": {
+          "edit": false,
+          "view": false,
+          "create": false,
+          "delete": false,
+          "export": false,
+          "import": false,
+          "approve": false,
+          "publish": false,
+          "manage-settings": false
+        },
+        "student-manager": {
+          "edit": false,
+          "view": false,
+          "create": false,
+          "delete": false,
+          "export": false,
+          "import": false,
+          "approve": false,
+          "publish": false,
+          "manage-settings": false
+        },
+        "teacher-payroll": {
+          "edit": false,
+          "view": false,
+          "create": false,
+          "delete": false,
+          "export": false,
+          "import": false,
+          "approve": false,
+          "publish": false,
+          "manage-settings": false
+        },
+        "academic-manager": {
+          "edit": false,
+          "view": false,
+          "create": false,
+          "delete": false,
+          "export": false,
+          "import": false,
+          "approve": false,
+          "publish": false,
+          "manage-settings": false
+        },
+        "auxiliary-income": {
+          "edit": false,
+          "view": false,
+          "create": false,
+          "delete": false,
+          "export": false,
+          "import": false,
+          "approve": false,
+          "publish": false,
+          "manage-settings": false
+        },
+        "employee-payroll": {
+          "edit": false,
+          "view": false,
+          "create": false,
+          "delete": false,
+          "export": false,
+          "import": false,
+          "approve": false,
+          "publish": false,
+          "manage-settings": false
+        },
+        "grade-management": {
+          "edit": false,
+          "view": false,
+          "create": false,
+          "delete": false,
+          "export": false,
+          "import": false,
+          "approve": false,
+          "publish": false,
+          "manage-settings": false
+        },
+        "register-student": {
+          "edit": false,
+          "view": false,
+          "create": false,
+          "delete": false,
+          "export": false,
+          "import": false,
+          "approve": false,
+          "publish": false,
+          "manage-settings": false
+        },
+        "register-teacher": {
+          "edit": false,
+          "view": false,
+          "create": false,
+          "delete": false,
+          "export": false,
+          "import": false,
+          "approve": false,
+          "publish": false,
+          "manage-settings": false
+        },
+        "academic-calendar": {
+          "edit": false,
+          "view": false,
+          "create": false,
+          "delete": false,
+          "export": false,
+          "import": false,
+          "approve": false,
+          "publish": false,
+          "manage-settings": false
+        },
+        "expense-dashboard": {
+          "edit": false,
+          "view": false,
+          "create": false,
+          "delete": false,
+          "export": false,
+          "import": false,
+          "approve": false,
+          "publish": false,
+          "manage-settings": false
+        },
+        "financial-reports": {
           "edit": false,
           "view": false,
           "create": false,
@@ -361,9 +509,141 @@
           "approve": false,
           "publish": false,
           "manage-settings": false
+        },
+        "student-directory": {
+          "edit": false,
+          "view": false,
+          "create": false,
+          "delete": false,
+          "export": false,
+          "import": false,
+          "approve": false,
+          "publish": false,
+          "manage-settings": false
+        },
+        "teacher-directory": {
+          "edit": false,
+          "view": false,
+          "create": false,
+          "delete": false,
+          "export": false,
+          "import": false,
+          "approve": false,
+          "publish": false,
+          "manage-settings": false
+        },
+        "attendance-history": {
+          "edit": false,
+          "view": false,
+          "create": false,
+          "delete": false,
+          "export": false,
+          "import": false,
+          "approve": false,
+          "publish": false,
+          "manage-settings": false
+        },
+        "employee-directory": {
+          "edit": false,
+          "view": false,
+          "create": false,
+          "delete": false,
+          "export": false,
+          "import": false,
+          "approve": false,
+          "publish": false,
+          "manage-settings": false
+        },
+        "academic-activities": {
+          "edit": false,
+          "view": false,
+          "create": false,
+          "delete": false,
+          "export": false,
+          "import": false,
+          "approve": false,
+          "publish": false,
+          "manage-settings": false
+        },
+        "designation-manager": {
+          "edit": false,
+          "view": false,
+          "create": false,
+          "delete": false,
+          "export": false,
+          "import": false,
+          "approve": false,
+          "publish": false,
+          "manage-settings": false
+        },
+        "employee-attendance": {
+          "edit": false,
+          "view": false,
+          "create": false,
+          "delete": false,
+          "export": false,
+          "import": false,
+          "approve": false,
+          "publish": false,
+          "manage-settings": false
+        },
+        "published-timetable": {
+          "edit": false,
+          "view": false,
+          "create": false,
+          "delete": false,
+          "export": false,
+          "import": false,
+          "approve": false,
+          "publish": false,
+          "manage-settings": false
+        },
+        "staff-pay-structure": {
+          "edit": false,
+          "view": false,
+          "create": false,
+          "delete": false,
+          "export": false,
+          "import": false,
+          "approve": false,
+          "publish": false,
+          "manage-settings": false
+        },
+        "expense-all-expenses": {
+          "edit": false,
+          "view": false,
+          "create": false,
+          "delete": false,
+          "export": false,
+          "import": false,
+          "approve": false,
+          "publish": false,
+          "manage-settings": false
+        },
+        "teacher-pay-structure": {
+          "edit": false,
+          "view": false,
+          "create": false,
+          "delete": false,
+          "export": false,
+          "import": false,
+          "approve": false,
+          "publish": false,
+          "manage-settings": false
+        },
+        "employee-pay-structure": {
+          "edit": false,
+          "view": false,
+          "create": false,
+          "delete": false,
+          "export": false,
+          "import": false,
+          "approve": false,
+          "publish": false,
+          "manage-settings": false
         }
       },
-      "createdAt": "2026-06-09T11:22:26.046Z",
+      "createdAt": "2026-07-03T05:19:42.241Z",
       "tenantId": "platform"
     },
     {
@@ -406,6 +686,17 @@
           "publish": false,
           "manage-settings": false
         },
+        "settings": {
+          "edit": false,
+          "view": false,
+          "create": false,
+          "delete": false,
+          "export": false,
+          "import": false,
+          "approve": false,
+          "publish": false,
+          "manage-settings": false
+        },
         "add-staff": {
           "edit": false,
           "view": false,
@@ -439,6 +730,28 @@
           "publish": false,
           "manage-settings": false
         },
+        "staff-payroll": {
+          "edit": false,
+          "view": false,
+          "create": false,
+          "delete": false,
+          "export": false,
+          "import": false,
+          "approve": false,
+          "publish": false,
+          "manage-settings": false
+        },
+        "leave-settings": {
+          "edit": false,
+          "view": false,
+          "create": false,
+          "delete": false,
+          "export": false,
+          "import": false,
+          "approve": false,
+          "publish": false,
+          "manage-settings": false
+        },
         "published-exam": {
           "edit": false,
           "view": false,
@@ -462,6 +775,17 @@
           "manage-settings": false
         },
         "expense-tracker": {
+          "edit": false,
+          "view": false,
+          "create": false,
+          "delete": false,
+          "export": false,
+          "import": false,
+          "approve": false,
+          "publish": false,
+          "manage-settings": false
+        },
+        "payroll-history": {
           "edit": false,
           "view": false,
           "create": false,
@@ -516,6 +840,17 @@
           "publish": false,
           "manage-settings": false
         },
+        "teacher-payroll": {
+          "edit": false,
+          "view": false,
+          "create": false,
+          "delete": false,
+          "export": false,
+          "import": false,
+          "approve": false,
+          "publish": false,
+          "manage-settings": false
+        },
         "academic-manager": {
           "edit": false,
           "view": false,
@@ -538,6 +873,17 @@
           "publish": false,
           "manage-settings": false
         },
+        "employee-payroll": {
+          "edit": false,
+          "view": false,
+          "create": false,
+          "delete": false,
+          "export": false,
+          "import": false,
+          "approve": false,
+          "publish": false,
+          "manage-settings": false
+        },
         "grade-management": {
           "edit": false,
           "view": false,
@@ -550,6 +896,17 @@
           "manage-settings": false
         },
         "register-student": {
+          "edit": false,
+          "view": false,
+          "create": false,
+          "delete": false,
+          "export": false,
+          "import": false,
+          "approve": false,
+          "publish": false,
+          "manage-settings": false
+        },
+        "register-teacher": {
           "edit": false,
           "view": false,
           "create": false,
@@ -605,6 +962,17 @@
           "manage-settings": false
         },
         "student-directory": {
+          "edit": false,
+          "view": false,
+          "create": false,
+          "delete": false,
+          "export": false,
+          "import": false,
+          "approve": false,
+          "publish": false,
+          "manage-settings": false
+        },
+        "teacher-directory": {
           "edit": false,
           "view": false,
           "create": false,
@@ -681,7 +1049,40 @@
           "publish": false,
           "manage-settings": false
         },
+        "staff-pay-structure": {
+          "edit": false,
+          "view": false,
+          "create": false,
+          "delete": false,
+          "export": false,
+          "import": false,
+          "approve": false,
+          "publish": false,
+          "manage-settings": false
+        },
         "expense-all-expenses": {
+          "edit": false,
+          "view": false,
+          "create": false,
+          "delete": false,
+          "export": false,
+          "import": false,
+          "approve": false,
+          "publish": false,
+          "manage-settings": false
+        },
+        "teacher-pay-structure": {
+          "edit": false,
+          "view": false,
+          "create": false,
+          "delete": false,
+          "export": false,
+          "import": false,
+          "approve": false,
+          "publish": false,
+          "manage-settings": false
+        },
+        "employee-pay-structure": {
           "edit": false,
           "view": false,
           "create": false,
@@ -693,61 +1094,17 @@
           "manage-settings": false
         }
       },
-      "createdAt": "2026-06-09T11:22:26.056Z",
+      "createdAt": "2026-07-03T05:19:42.241Z",
       "tenantId": "platform"
     },
     {
-      "id": "role-expense",
-      "name": "Expense",
-      "description": "Expense controller. Manages school expenditures, recorded budget files, and Category Analytics.",
+      "id": "role-expense-manager",
+      "name": "Expense Manager",
+      "description": "Expense manager. Oversees school expenses, financial reporting, and budgeting.",
       "active": true,
       "isSystem": true,
       "permissions": {
-        "exams": {
-          "edit": false,
-          "view": false,
-          "create": false,
-          "delete": false,
-          "export": false,
-          "import": false,
-          "approve": false,
-          "publish": false,
-          "manage-settings": false
-        },
-        "staff": {
-          "edit": false,
-          "view": true,
-          "create": false,
-          "delete": false,
-          "export": false,
-          "import": false,
-          "approve": false,
-          "publish": false,
-          "manage-settings": false
-        },
-        "events": {
-          "edit": false,
-          "view": false,
-          "create": false,
-          "delete": false,
-          "export": false,
-          "import": false,
-          "approve": false,
-          "publish": false,
-          "manage-settings": false
-        },
         "income": {
-          "edit": true,
-          "view": true,
-          "create": true,
-          "delete": true,
-          "export": true,
-          "import": false,
-          "approve": false,
-          "publish": false,
-          "manage-settings": true
-        },
-        "notices": {
           "edit": false,
           "view": false,
           "create": false,
@@ -758,7 +1115,7 @@
           "publish": false,
           "manage-settings": false
         },
-        "results": {
+        "finance": {
           "edit": false,
           "view": false,
           "create": false,
@@ -769,7 +1126,7 @@
           "publish": false,
           "manage-settings": false
         },
-        "calendar": {
+        "overview": {
           "edit": false,
           "view": false,
           "create": false,
@@ -780,18 +1137,7 @@
           "publish": false,
           "manage-settings": false
         },
-        "expenses": {
-          "edit": true,
-          "view": true,
-          "create": true,
-          "delete": true,
-          "export": true,
-          "import": false,
-          "approve": true,
-          "publish": false,
-          "manage-settings": true
-        },
-        "holidays": {
+        "settings": {
           "edit": false,
           "view": false,
           "create": false,
@@ -802,51 +1148,7 @@
           "publish": false,
           "manage-settings": false
         },
-        "salaries": {
-          "edit": false,
-          "view": false,
-          "create": false,
-          "delete": false,
-          "export": false,
-          "import": false,
-          "approve": false,
-          "publish": false,
-          "manage-settings": false
-        },
-        "students": {
-          "edit": false,
-          "view": false,
-          "create": false,
-          "delete": false,
-          "export": false,
-          "import": false,
-          "approve": false,
-          "publish": false,
-          "manage-settings": false
-        },
-        "teachers": {
-          "edit": false,
-          "view": true,
-          "create": false,
-          "delete": false,
-          "export": false,
-          "import": false,
-          "approve": false,
-          "publish": false,
-          "manage-settings": false
-        },
-        "academics": {
-          "edit": false,
-          "view": false,
-          "create": false,
-          "delete": false,
-          "export": false,
-          "import": false,
-          "approve": false,
-          "publish": false,
-          "manage-settings": false
-        },
-        "dashboard": {
+        "add-staff": {
           "edit": false,
           "view": false,
           "create": false,
@@ -868,7 +1170,227 @@
           "publish": false,
           "manage-settings": false
         },
-        "fee-structures": {
+        "add-employee": {
+          "edit": false,
+          "view": false,
+          "create": false,
+          "delete": false,
+          "export": false,
+          "import": false,
+          "approve": false,
+          "publish": false,
+          "manage-settings": false
+        },
+        "staff-payroll": {
+          "edit": false,
+          "view": false,
+          "create": false,
+          "delete": false,
+          "export": false,
+          "import": false,
+          "approve": false,
+          "publish": false,
+          "manage-settings": false
+        },
+        "leave-settings": {
+          "edit": false,
+          "view": false,
+          "create": false,
+          "delete": false,
+          "export": false,
+          "import": false,
+          "approve": false,
+          "publish": false,
+          "manage-settings": false
+        },
+        "published-exam": {
+          "edit": false,
+          "view": false,
+          "create": false,
+          "delete": false,
+          "export": false,
+          "import": false,
+          "approve": false,
+          "publish": false,
+          "manage-settings": false
+        },
+        "expense-history": {
+          "edit": false,
+          "view": false,
+          "create": false,
+          "delete": false,
+          "export": false,
+          "import": false,
+          "approve": false,
+          "publish": false,
+          "manage-settings": false
+        },
+        "expense-tracker": {
+          "edit": false,
+          "view": false,
+          "create": false,
+          "delete": false,
+          "export": false,
+          "import": false,
+          "approve": false,
+          "publish": false,
+          "manage-settings": false
+        },
+        "payroll-history": {
+          "edit": false,
+          "view": false,
+          "create": false,
+          "delete": false,
+          "export": false,
+          "import": false,
+          "approve": false,
+          "publish": false,
+          "manage-settings": false
+        },
+        "results-history": {
+          "edit": false,
+          "view": false,
+          "create": false,
+          "delete": false,
+          "export": false,
+          "import": false,
+          "approve": false,
+          "publish": false,
+          "manage-settings": false
+        },
+        "results-manager": {
+          "edit": false,
+          "view": false,
+          "create": false,
+          "delete": false,
+          "export": false,
+          "import": false,
+          "approve": false,
+          "publish": false,
+          "manage-settings": false
+        },
+        "staff-directory": {
+          "edit": false,
+          "view": false,
+          "create": false,
+          "delete": false,
+          "export": false,
+          "import": false,
+          "approve": false,
+          "publish": false,
+          "manage-settings": false
+        },
+        "student-manager": {
+          "edit": false,
+          "view": false,
+          "create": false,
+          "delete": false,
+          "export": false,
+          "import": false,
+          "approve": false,
+          "publish": false,
+          "manage-settings": false
+        },
+        "teacher-payroll": {
+          "edit": false,
+          "view": false,
+          "create": false,
+          "delete": false,
+          "export": false,
+          "import": false,
+          "approve": false,
+          "publish": false,
+          "manage-settings": false
+        },
+        "academic-manager": {
+          "edit": false,
+          "view": false,
+          "create": false,
+          "delete": false,
+          "export": false,
+          "import": false,
+          "approve": false,
+          "publish": false,
+          "manage-settings": false
+        },
+        "auxiliary-income": {
+          "edit": false,
+          "view": false,
+          "create": false,
+          "delete": false,
+          "export": false,
+          "import": false,
+          "approve": false,
+          "publish": false,
+          "manage-settings": false
+        },
+        "employee-payroll": {
+          "edit": false,
+          "view": false,
+          "create": false,
+          "delete": false,
+          "export": false,
+          "import": false,
+          "approve": false,
+          "publish": false,
+          "manage-settings": false
+        },
+        "grade-management": {
+          "edit": false,
+          "view": false,
+          "create": false,
+          "delete": false,
+          "export": false,
+          "import": false,
+          "approve": false,
+          "publish": false,
+          "manage-settings": false
+        },
+        "register-student": {
+          "edit": false,
+          "view": false,
+          "create": false,
+          "delete": false,
+          "export": false,
+          "import": false,
+          "approve": false,
+          "publish": false,
+          "manage-settings": false
+        },
+        "register-teacher": {
+          "edit": false,
+          "view": false,
+          "create": false,
+          "delete": false,
+          "export": false,
+          "import": false,
+          "approve": false,
+          "publish": false,
+          "manage-settings": false
+        },
+        "academic-calendar": {
+          "edit": false,
+          "view": false,
+          "create": false,
+          "delete": false,
+          "export": false,
+          "import": false,
+          "approve": false,
+          "publish": false,
+          "manage-settings": false
+        },
+        "expense-dashboard": {
+          "edit": false,
+          "view": false,
+          "create": false,
+          "delete": false,
+          "export": false,
+          "import": false,
+          "approve": false,
+          "publish": false,
+          "manage-settings": false
+        },
+        "financial-reports": {
           "edit": false,
           "view": false,
           "create": false,
@@ -889,9 +1411,141 @@
           "approve": false,
           "publish": false,
           "manage-settings": false
+        },
+        "student-directory": {
+          "edit": false,
+          "view": false,
+          "create": false,
+          "delete": false,
+          "export": false,
+          "import": false,
+          "approve": false,
+          "publish": false,
+          "manage-settings": false
+        },
+        "teacher-directory": {
+          "edit": false,
+          "view": false,
+          "create": false,
+          "delete": false,
+          "export": false,
+          "import": false,
+          "approve": false,
+          "publish": false,
+          "manage-settings": false
+        },
+        "attendance-history": {
+          "edit": false,
+          "view": false,
+          "create": false,
+          "delete": false,
+          "export": false,
+          "import": false,
+          "approve": false,
+          "publish": false,
+          "manage-settings": false
+        },
+        "employee-directory": {
+          "edit": false,
+          "view": false,
+          "create": false,
+          "delete": false,
+          "export": false,
+          "import": false,
+          "approve": false,
+          "publish": false,
+          "manage-settings": false
+        },
+        "academic-activities": {
+          "edit": false,
+          "view": false,
+          "create": false,
+          "delete": false,
+          "export": false,
+          "import": false,
+          "approve": false,
+          "publish": false,
+          "manage-settings": false
+        },
+        "designation-manager": {
+          "edit": false,
+          "view": false,
+          "create": false,
+          "delete": false,
+          "export": false,
+          "import": false,
+          "approve": false,
+          "publish": false,
+          "manage-settings": false
+        },
+        "employee-attendance": {
+          "edit": false,
+          "view": false,
+          "create": false,
+          "delete": false,
+          "export": false,
+          "import": false,
+          "approve": false,
+          "publish": false,
+          "manage-settings": false
+        },
+        "published-timetable": {
+          "edit": false,
+          "view": false,
+          "create": false,
+          "delete": false,
+          "export": false,
+          "import": false,
+          "approve": false,
+          "publish": false,
+          "manage-settings": false
+        },
+        "staff-pay-structure": {
+          "edit": false,
+          "view": false,
+          "create": false,
+          "delete": false,
+          "export": false,
+          "import": false,
+          "approve": false,
+          "publish": false,
+          "manage-settings": false
+        },
+        "expense-all-expenses": {
+          "edit": false,
+          "view": false,
+          "create": false,
+          "delete": false,
+          "export": false,
+          "import": false,
+          "approve": false,
+          "publish": false,
+          "manage-settings": false
+        },
+        "teacher-pay-structure": {
+          "edit": false,
+          "view": false,
+          "create": false,
+          "delete": false,
+          "export": false,
+          "import": false,
+          "approve": false,
+          "publish": false,
+          "manage-settings": false
+        },
+        "employee-pay-structure": {
+          "edit": false,
+          "view": false,
+          "create": false,
+          "delete": false,
+          "export": false,
+          "import": false,
+          "approve": false,
+          "publish": false,
+          "manage-settings": false
         }
       },
-      "createdAt": "2026-06-09T11:22:26.060Z",
+      "createdAt": "2026-07-03T05:19:42.241Z",
       "tenantId": "platform"
     },
     {
@@ -934,6 +1588,17 @@
           "publish": false,
           "manage-settings": false
         },
+        "settings": {
+          "edit": false,
+          "view": false,
+          "create": false,
+          "delete": false,
+          "export": false,
+          "import": false,
+          "approve": false,
+          "publish": false,
+          "manage-settings": false
+        },
         "add-staff": {
           "edit": false,
           "view": false,
@@ -967,6 +1632,28 @@
           "publish": false,
           "manage-settings": false
         },
+        "staff-payroll": {
+          "edit": false,
+          "view": false,
+          "create": false,
+          "delete": false,
+          "export": false,
+          "import": false,
+          "approve": false,
+          "publish": false,
+          "manage-settings": false
+        },
+        "leave-settings": {
+          "edit": false,
+          "view": false,
+          "create": false,
+          "delete": false,
+          "export": false,
+          "import": false,
+          "approve": false,
+          "publish": false,
+          "manage-settings": false
+        },
         "published-exam": {
           "edit": false,
           "view": false,
@@ -990,6 +1677,17 @@
           "manage-settings": false
         },
         "expense-tracker": {
+          "edit": false,
+          "view": false,
+          "create": false,
+          "delete": false,
+          "export": false,
+          "import": false,
+          "approve": false,
+          "publish": false,
+          "manage-settings": false
+        },
+        "payroll-history": {
           "edit": false,
           "view": false,
           "create": false,
@@ -1044,6 +1742,17 @@
           "publish": false,
           "manage-settings": false
         },
+        "teacher-payroll": {
+          "edit": false,
+          "view": false,
+          "create": false,
+          "delete": false,
+          "export": false,
+          "import": false,
+          "approve": false,
+          "publish": false,
+          "manage-settings": false
+        },
         "academic-manager": {
           "edit": false,
           "view": false,
@@ -1066,6 +1775,17 @@
           "publish": false,
           "manage-settings": false
         },
+        "employee-payroll": {
+          "edit": false,
+          "view": false,
+          "create": false,
+          "delete": false,
+          "export": false,
+          "import": false,
+          "approve": false,
+          "publish": false,
+          "manage-settings": false
+        },
         "grade-management": {
           "edit": false,
           "view": false,
@@ -1078,6 +1798,17 @@
           "manage-settings": false
         },
         "register-student": {
+          "edit": false,
+          "view": false,
+          "create": false,
+          "delete": false,
+          "export": false,
+          "import": false,
+          "approve": false,
+          "publish": false,
+          "manage-settings": false
+        },
+        "register-teacher": {
           "edit": false,
           "view": false,
           "create": false,
@@ -1133,6 +1864,17 @@
           "manage-settings": false
         },
         "student-directory": {
+          "edit": false,
+          "view": false,
+          "create": false,
+          "delete": false,
+          "export": false,
+          "import": false,
+          "approve": false,
+          "publish": false,
+          "manage-settings": false
+        },
+        "teacher-directory": {
           "edit": false,
           "view": false,
           "create": false,
@@ -1209,7 +1951,40 @@
           "publish": false,
           "manage-settings": false
         },
+        "staff-pay-structure": {
+          "edit": false,
+          "view": false,
+          "create": false,
+          "delete": false,
+          "export": false,
+          "import": false,
+          "approve": false,
+          "publish": false,
+          "manage-settings": false
+        },
         "expense-all-expenses": {
+          "edit": false,
+          "view": false,
+          "create": false,
+          "delete": false,
+          "export": false,
+          "import": false,
+          "approve": false,
+          "publish": false,
+          "manage-settings": false
+        },
+        "teacher-pay-structure": {
+          "edit": false,
+          "view": false,
+          "create": false,
+          "delete": false,
+          "export": false,
+          "import": false,
+          "approve": false,
+          "publish": false,
+          "manage-settings": false
+        },
+        "employee-pay-structure": {
           "edit": false,
           "view": false,
           "create": false,
@@ -1221,205 +1996,7 @@
           "manage-settings": false
         }
       },
-      "createdAt": "2026-06-09T11:22:26.065Z",
-      "tenantId": "platform"
-    },
-    {
-      "id": "role-super-admin",
-      "name": "Super Admin",
-      "description": "System administrator with full access permissions to all modules.",
-      "active": true,
-      "isSystem": true,
-      "permissions": {
-        "exams": {
-          "edit": true,
-          "view": true,
-          "create": true,
-          "delete": true,
-          "export": true,
-          "import": true,
-          "approve": true,
-          "publish": true,
-          "manage-settings": true
-        },
-        "staff": {
-          "edit": true,
-          "view": true,
-          "create": true,
-          "delete": true,
-          "export": true,
-          "import": true,
-          "approve": true,
-          "publish": true,
-          "manage-settings": true
-        },
-        "events": {
-          "edit": true,
-          "view": true,
-          "create": true,
-          "delete": true,
-          "export": true,
-          "import": true,
-          "approve": true,
-          "publish": true,
-          "manage-settings": true
-        },
-        "income": {
-          "edit": true,
-          "view": true,
-          "create": true,
-          "delete": true,
-          "export": true,
-          "import": true,
-          "approve": true,
-          "publish": true,
-          "manage-settings": true
-        },
-        "notices": {
-          "edit": true,
-          "view": true,
-          "create": true,
-          "delete": true,
-          "export": true,
-          "import": true,
-          "approve": true,
-          "publish": true,
-          "manage-settings": true
-        },
-        "results": {
-          "edit": true,
-          "view": true,
-          "create": true,
-          "delete": true,
-          "export": true,
-          "import": true,
-          "approve": true,
-          "publish": true,
-          "manage-settings": true
-        },
-        "calendar": {
-          "edit": true,
-          "view": true,
-          "create": true,
-          "delete": true,
-          "export": true,
-          "import": true,
-          "approve": true,
-          "publish": true,
-          "manage-settings": true
-        },
-        "expenses": {
-          "edit": true,
-          "view": true,
-          "create": true,
-          "delete": true,
-          "export": true,
-          "import": true,
-          "approve": true,
-          "publish": true,
-          "manage-settings": true
-        },
-        "holidays": {
-          "edit": true,
-          "view": true,
-          "create": true,
-          "delete": true,
-          "export": true,
-          "import": true,
-          "approve": true,
-          "publish": true,
-          "manage-settings": true
-        },
-        "salaries": {
-          "edit": true,
-          "view": true,
-          "create": true,
-          "delete": true,
-          "export": true,
-          "import": true,
-          "approve": true,
-          "publish": true,
-          "manage-settings": true
-        },
-        "students": {
-          "edit": true,
-          "view": true,
-          "create": true,
-          "delete": true,
-          "export": true,
-          "import": true,
-          "approve": true,
-          "publish": true,
-          "manage-settings": true
-        },
-        "teachers": {
-          "edit": true,
-          "view": true,
-          "create": true,
-          "delete": true,
-          "export": true,
-          "import": true,
-          "approve": true,
-          "publish": true,
-          "manage-settings": true
-        },
-        "academics": {
-          "edit": true,
-          "view": true,
-          "create": true,
-          "delete": true,
-          "export": true,
-          "import": true,
-          "approve": true,
-          "publish": true,
-          "manage-settings": true
-        },
-        "dashboard": {
-          "edit": true,
-          "view": true,
-          "create": true,
-          "delete": true,
-          "export": true,
-          "import": true,
-          "approve": true,
-          "publish": true,
-          "manage-settings": true
-        },
-        "attendance": {
-          "edit": true,
-          "view": true,
-          "create": true,
-          "delete": true,
-          "export": true,
-          "import": true,
-          "approve": true,
-          "publish": true,
-          "manage-settings": true
-        },
-        "fee-structures": {
-          "edit": true,
-          "view": true,
-          "create": true,
-          "delete": true,
-          "export": true,
-          "import": true,
-          "approve": true,
-          "publish": true,
-          "manage-settings": true
-        },
-        "roles-permissions": {
-          "edit": true,
-          "view": true,
-          "create": true,
-          "delete": true,
-          "export": true,
-          "import": true,
-          "approve": true,
-          "publish": true,
-          "manage-settings": true
-        }
-      },
-      "createdAt": "2026-06-09T11:22:26.039Z",
+      "createdAt": "2026-07-03T05:19:42.241Z",
       "tenantId": "platform"
     },
     {
@@ -1453,6 +2030,17 @@
         },
         "overview": {
           "edit": false,
+          "view": true,
+          "create": false,
+          "delete": false,
+          "export": false,
+          "import": false,
+          "approve": false,
+          "publish": false,
+          "manage-settings": false
+        },
+        "settings": {
+          "edit": false,
           "view": false,
           "create": false,
           "delete": false,
@@ -1474,6 +2062,17 @@
           "manage-settings": false
         },
         "attendance": {
+          "edit": true,
+          "view": true,
+          "create": true,
+          "delete": true,
+          "export": false,
+          "import": false,
+          "approve": false,
+          "publish": false,
+          "manage-settings": false
+        },
+        "add-employee": {
           "edit": false,
           "view": false,
           "create": false,
@@ -1484,7 +2083,18 @@
           "publish": false,
           "manage-settings": false
         },
-        "add-employee": {
+        "staff-payroll": {
+          "edit": false,
+          "view": false,
+          "create": false,
+          "delete": false,
+          "export": false,
+          "import": false,
+          "approve": false,
+          "publish": false,
+          "manage-settings": false
+        },
+        "leave-settings": {
           "edit": false,
           "view": false,
           "create": false,
@@ -1518,6 +2128,17 @@
           "manage-settings": false
         },
         "expense-tracker": {
+          "edit": false,
+          "view": false,
+          "create": false,
+          "delete": false,
+          "export": false,
+          "import": false,
+          "approve": false,
+          "publish": false,
+          "manage-settings": false
+        },
+        "payroll-history": {
           "edit": false,
           "view": false,
           "create": false,
@@ -1572,6 +2193,17 @@
           "publish": false,
           "manage-settings": false
         },
+        "teacher-payroll": {
+          "edit": false,
+          "view": false,
+          "create": false,
+          "delete": false,
+          "export": false,
+          "import": false,
+          "approve": false,
+          "publish": false,
+          "manage-settings": false
+        },
         "academic-manager": {
           "edit": false,
           "view": false,
@@ -1594,6 +2226,17 @@
           "publish": false,
           "manage-settings": false
         },
+        "employee-payroll": {
+          "edit": false,
+          "view": false,
+          "create": false,
+          "delete": false,
+          "export": false,
+          "import": false,
+          "approve": false,
+          "publish": false,
+          "manage-settings": false
+        },
         "grade-management": {
           "edit": false,
           "view": false,
@@ -1606,6 +2249,17 @@
           "manage-settings": false
         },
         "register-student": {
+          "edit": false,
+          "view": false,
+          "create": false,
+          "delete": false,
+          "export": false,
+          "import": false,
+          "approve": false,
+          "publish": false,
+          "manage-settings": false
+        },
+        "register-teacher": {
           "edit": false,
           "view": false,
           "create": false,
@@ -1661,6 +2315,17 @@
           "manage-settings": false
         },
         "student-directory": {
+          "edit": false,
+          "view": false,
+          "create": false,
+          "delete": false,
+          "export": false,
+          "import": false,
+          "approve": false,
+          "publish": false,
+          "manage-settings": false
+        },
+        "teacher-directory": {
           "edit": false,
           "view": false,
           "create": false,
@@ -1737,7 +2402,40 @@
           "publish": false,
           "manage-settings": false
         },
+        "staff-pay-structure": {
+          "edit": false,
+          "view": false,
+          "create": false,
+          "delete": false,
+          "export": false,
+          "import": false,
+          "approve": false,
+          "publish": false,
+          "manage-settings": false
+        },
         "expense-all-expenses": {
+          "edit": false,
+          "view": false,
+          "create": false,
+          "delete": false,
+          "export": false,
+          "import": false,
+          "approve": false,
+          "publish": false,
+          "manage-settings": false
+        },
+        "teacher-pay-structure": {
+          "edit": false,
+          "view": false,
+          "create": false,
+          "delete": false,
+          "export": false,
+          "import": false,
+          "approve": false,
+          "publish": false,
+          "manage-settings": false
+        },
+        "employee-pay-structure": {
           "edit": false,
           "view": false,
           "create": false,
@@ -1749,33 +2447,31 @@
           "manage-settings": false
         }
       },
-      "createdAt": "2026-06-09T11:22:26.051Z",
+      "createdAt": "2026-07-03T05:19:42.241Z",
       "tenantId": "platform"
     }
   ],
   "userAccess": [],
   "auditLogs": [
     {
-      "id": "LOG-1782818268975",
-      "userId": "dev_admin",
-      "userName": "dev@admin.com",
-      "userRole": "Developer Admin",
-      "action": "SCHOOL_CREDENTIALS_UPDATE",
-      "details": "Updated credentials for school: Knox Bray (Subdomain: aliquam). Admin username changed from school_admin to school_admin.",
-      "ipAddress": "::1",
-      "timestamp": "2026-06-30T11:17:48.975Z",
-      "tenantId": "platform"
+      "id": "log-1783079237082-513",
+      "userId": "school_admin",
+      "userName": "school_admin",
+      "userRole": "Main Admin",
+      "action": "Delete Grade",
+      "details": "Deleted grade: II",
+      "ipAddress": "::ffff:127.0.0.1",
+      "timestamp": "2026-07-03T11:47:17.082Z"
     },
     {
-      "id": "LOG-1782818751461",
-      "userId": "dev_admin",
-      "userName": "dev@admin.com",
-      "userRole": "Developer Admin",
-      "action": "SCHOOL_CREDENTIALS_UPDATE",
-      "details": "Updated credentials for school: Knox Bray (Subdomain: aliquam). Admin username changed from school_admin to school_admin.",
-      "ipAddress": "::1",
-      "timestamp": "2026-06-30T11:25:51.461Z",
-      "tenantId": "platform"
+      "id": "log-1783079234307-429",
+      "userId": "school_admin",
+      "userName": "school_admin",
+      "userRole": "Main Admin",
+      "action": "Create Grade",
+      "details": "Created grade: II",
+      "ipAddress": "::ffff:127.0.0.1",
+      "timestamp": "2026-07-03T11:47:14.307Z"
     }
   ],
   "grades": [],
@@ -1804,7 +2500,7 @@
   "attendanceReports": [],
   "attendanceSettings": [
     {
-      "id": "sett-platform-1782727315627",
+      "id": "sett-platform-1783055957238",
       "checkInStart": "08:00 AM",
       "lateTime": "09:00 AM",
       "halfDayTime": "11:00 AM",
@@ -1812,9 +2508,9 @@
       "minWorkingHours": 8,
       "gracePeriod": 15,
       "tenantId": "platform",
-      "createdAt": "2026-06-29T10:01:55.627Z",
-      "updatedAt": "2026-06-29T10:01:55.628Z"
+      "createdAt": "2026-07-03T05:19:17.238Z",
+      "updatedAt": "2026-07-03T05:19:17.238Z"
     }
   ],
-  "_signature": "SCH-1782821125653-culpa-Active-Thane Puckett-SCH-596"
+  "_signature": ""
 }

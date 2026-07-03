@@ -592,3 +592,11 @@ textarea.form-control[readonly] {
     opacity: 0.4;
   }
 }
+
+/* Global light placeholder text */
+input::placeholder,
+textarea::placeholder,
+select::placeholder {
+  color: #b0b8c9 !important;
+  opacity: 1 !important;
+}

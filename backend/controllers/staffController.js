@@ -240,10 +240,10 @@ export const registerTeacher = async (req, res) => { // Keep export name registe
 export const getTeachers = (req, res) => { // Keep getTeachers naming for compatibility
   try {
     const db = readDb();
-    const list = db.staff || [];
+    let list = db.staff || [];
     
     // Decrypt sensitive info
-    const decryptedList = list.map(s => {
+    let decryptedList = list.map(s => {
       const copy = { ...s };
       try { if (copy.aadhaarNumber) copy.aadhaarNumber = decrypt(copy.aadhaarNumber); } catch (e) { copy.aadhaarNumber = ''; }
       try { if (copy.panNumber) copy.panNumber = decrypt(copy.panNumber); } catch (e) { copy.panNumber = ''; }
@@ -256,7 +256,73 @@ export const getTeachers = (req, res) => { // Keep getTeachers naming for compat
       return copy;
     });
 
-    res.json(decryptedList);
+    const {
+      search = '',
+      department = 'All',
+      employmentType = 'All',
+      status = 'All',
+      designation = 'All',
+      sortBy = 'name',
+      sortOrder = 'asc',
+      page = 1,
+      limit = 8
+    } = req.query;
+
+    // Apply filtering
+    if (search && search.trim() !== '') {
+      const query = search.toLowerCase().trim();
+      decryptedList = decryptedList.filter(s => 
+        (s.name || '').toLowerCase().includes(query) ||
+        (s.employeeId || '').toLowerCase().includes(query) ||
+        (s.email || '').toLowerCase().includes(query) ||
+        (s.phone || '').toLowerCase().includes(query)
+      );
+    }
+
+    if (department && department !== 'All') {
+      decryptedList = decryptedList.filter(s => s.department === department);
+    }
+
+    if (employmentType && employmentType !== 'All') {
+      decryptedList = decryptedList.filter(s => s.employmentType === employmentType);
+    }
+
+    if (status && status !== 'All') {
+      decryptedList = decryptedList.filter(s => s.status === status);
+    }
+
+    if (designation && designation !== 'All') {
+      decryptedList = decryptedList.filter(s => s.role === designation || s.designation === designation);
+    }
+
+    // Apply sorting
+    decryptedList.sort((a, b) => {
+      let valA = a[sortBy] || '';
+      let valB = b[sortBy] || '';
+
+      if (typeof valA === 'string') valA = valA.toLowerCase();
+      if (typeof valB === 'string') valB = valB.toLowerCase();
+
+      if (valA < valB) return sortOrder === 'asc' ? -1 : 1;
+      if (valA > valB) return sortOrder === 'asc' ? 1 : -1;
+      return 0;
+    });
+
+    // Pagination
+    const totalCount = decryptedList.length;
+    const pageNum = parseInt(page, 10) || 1;
+    const limitNum = parseInt(limit, 10) || 8;
+    const totalPages = Math.ceil(totalCount / limitNum);
+    const startIdx = (pageNum - 1) * limitNum;
+    const paginatedList = decryptedList.slice(startIdx, startIdx + limitNum);
+
+    res.json({
+      teachers: paginatedList, // Kept name teachers for compatibility in frontend
+      totalCount,
+      totalPages,
+      page: pageNum,
+      limit: limitNum
+    });
   } catch (error) {
     console.error('Error fetching staff:', error);
     res.status(500).json({ error: 'Internal server error fetching staff.' });

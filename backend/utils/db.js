@@ -1146,7 +1146,17 @@ const applySchemaUpdates = async (pool, isMaster = false, tenantId = null) => {
       "ALTER TABLE holidays ADD COLUMN status VARCHAR(50) DEFAULT 'Published'",
       "ALTER TABLE holidays ADD COLUMN isDeleted TINYINT(1) DEFAULT 0",
       "ALTER TABLE holidays ADD COLUMN name VARCHAR(255)",
-      "ALTER TABLE staff_payments ADD COLUMN month VARCHAR(50)"
+      "ALTER TABLE staff_payments ADD COLUMN month VARCHAR(50)",
+
+      // Fix attendance_records FK constraints: teacherId should reference teachers, staffId should reference staff
+      "ALTER TABLE attendance_records DROP FOREIGN KEY attendance_records_ibfk_1",
+      "ALTER TABLE attendance_records DROP FOREIGN KEY attendance_records_ibfk_2",
+      "ALTER TABLE attendance_records ADD CONSTRAINT fk_att_rec_teacher FOREIGN KEY (teacherId) REFERENCES teachers(id) ON DELETE CASCADE",
+      "ALTER TABLE attendance_records ADD CONSTRAINT fk_att_rec_staff FOREIGN KEY (staffId) REFERENCES staff(id) ON DELETE CASCADE",
+
+      // Work Reports tables
+      "CREATE TABLE IF NOT EXISTS teacher_reports (id VARCHAR(50) PRIMARY KEY, teacherId VARCHAR(50) NOT NULL, reportType VARCHAR(50) NOT NULL, reportDate VARCHAR(50) NOT NULL, subject VARCHAR(100), className VARCHAR(100), title VARCHAR(255) NOT NULL, summary TEXT NOT NULL, tasksCompleted TEXT, hoursWorked DECIMAL(4,1) DEFAULT 0.0, chapterTopic VARCHAR(255), syllabusPercentage DECIMAL(5,1) DEFAULT 0.0, attachment TEXT, status VARCHAR(50) DEFAULT 'Pending', reviewRemarks TEXT, reviewedAt VARCHAR(100), createdAt VARCHAR(100), updatedAt VARCHAR(100), tenantId VARCHAR(100) NOT NULL, INDEX idx_tr_teacher (teacherId), INDEX idx_tr_date (reportDate), INDEX idx_tr_tenant (tenantId), INDEX idx_tr_status (status))",
+      "CREATE TABLE IF NOT EXISTS staff_reports (id VARCHAR(50) PRIMARY KEY, staffId VARCHAR(50) NOT NULL, reportType VARCHAR(50) NOT NULL, reportDate VARCHAR(50) NOT NULL, department VARCHAR(100), title VARCHAR(255) NOT NULL, summary TEXT NOT NULL, tasksCompleted TEXT, hoursWorked DECIMAL(4,1) DEFAULT 0.0, attachment TEXT, status VARCHAR(50) DEFAULT 'Pending', reviewRemarks TEXT, reviewedAt VARCHAR(100), createdAt VARCHAR(100), updatedAt VARCHAR(100), tenantId VARCHAR(100) NOT NULL, INDEX idx_sr_staff (staffId), INDEX idx_sr_date (reportDate), INDEX idx_sr_tenant (tenantId), INDEX idx_sr_status (status))"
     ];
     for (const sql of schoolAlters) {
       try {
@@ -1346,6 +1356,40 @@ export const migrateTenantDataToDedicatedDb = async (subdomain) => {
       console.log(`[SQL Migration] Cleanly split teachers and staff tables for tenant database: ${subdomain}`);
     } catch (splitErr) {
       console.warn(`[SQL Migration WARNING] Splitting teachers and staff tables failed for ${subdomain}:`, splitErr.message);
+    }
+
+    // Seed default leave settings/policies if empty in tenant database
+    try {
+      const [lsRows] = await pool.query('SELECT COUNT(*) as cnt FROM leave_settings');
+      if (lsRows[0] && lsRows[0].cnt === 0) {
+        console.log(`[SQL Migration] Seeding default leave policies for tenant database: ${subdomain}`);
+        const defaultPolicies = [
+          // Teacher policies
+          { employeeType: 'Teacher', leaveCode: 'CL', leaveType: 'Casual Leave', maxDays: 12.0, maxCarryForward: 0.0, isPaid: 1, carryForward: 0, encashment: 0, status: 'Active', description: 'Casual Leave for short-term personal needs.' },
+          { employeeType: 'Teacher', leaveCode: 'SL', leaveType: 'Sick Leave', maxDays: 10.0, maxCarryForward: 0.0, isPaid: 1, carryForward: 0, encashment: 0, status: 'Active', description: 'Sick Leave for medical recuperation.' },
+          { employeeType: 'Teacher', leaveCode: 'EL', leaveType: 'Earned Leave', maxDays: 15.0, maxCarryForward: 0.0, isPaid: 1, carryForward: 0, encashment: 0, status: 'Active', description: 'Earned Leave accrued based on tenure.' },
+          // Staff policies
+          { employeeType: 'Staff', leaveCode: 'CL', leaveType: 'Casual Leave', maxDays: 12.0, maxCarryForward: 0.0, isPaid: 1, carryForward: 0, encashment: 0, status: 'Active', description: 'Casual Leave for short-term personal needs.' },
+          { employeeType: 'Staff', leaveCode: 'SL', leaveType: 'Sick Leave', maxDays: 10.0, maxCarryForward: 0.0, isPaid: 1, carryForward: 0, encashment: 0, status: 'Active', description: 'Sick Leave for medical recuperation.' },
+          { employeeType: 'Staff', leaveCode: 'EL', leaveType: 'Earned Leave', maxDays: 15.0, maxCarryForward: 0.0, isPaid: 1, carryForward: 0, encashment: 0, status: 'Active', description: 'Earned Leave accrued based on tenure.' }
+        ];
+
+        const now = new Date().toISOString();
+        for (const p of defaultPolicies) {
+          const id = `ls-${subdomain}-${p.employeeType.toLowerCase()}-${p.leaveCode.toLowerCase()}`;
+          await pool.query(
+            `INSERT INTO leave_settings 
+             (id, employeeType, leaveCode, leaveType, maxDays, maxCarryForward, carryForward, isPaid, encashment, status, description, extraConfig, createdAt, updatedAt, tenantId) 
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [
+              id, p.employeeType, p.leaveCode, p.leaveType, p.maxDays, p.maxCarryForward, p.carryForward, p.isPaid, p.encashment, p.status, p.description,
+              JSON.stringify({}), now, now, subdomain
+            ]
+          );
+        }
+      }
+    } catch (lsErr) {
+      console.error(`[SQL Migration Error] Failed to seed default leave policies for ${subdomain}:`, lsErr.message);
     }
 
   } catch (err) {
@@ -1553,11 +1597,19 @@ export const initSqlDb = async () => {
     // 4. Run recovery migrations on master database
     try {
       await sqlDb.query("UPDATE schools SET adminUsername = 'school_admin' WHERE adminUsername IS NULL OR adminUsername = ''", [], 'platform');
-    } catch (err) {}
-
-    // 5. Trigger first database backup on boot
-    setTimeout(backupAllDatabases, 60000); // 60 seconds after startup to prevent port/connection blocking on boot
-    startBackupInterval();
+      
+      // Update default roles permissions in DB to include defaults
+      const defaultRoles = getDefaultRoles();
+      for (const role of defaultRoles) {
+        await sqlDb.query("UPDATE roles SET permissions = ? WHERE id = ?", [
+          JSON.stringify(role.permissions),
+          role.id
+        ], 'platform');
+      }
+      console.log('[SQL Migration] Seeded default system roles permissions in master DB.');
+    } catch (err) {
+      console.warn('[SQL Migration WARNING] Master DB recovery migrations warning:', err.message);
+    }
 
     isSqlInitialized = true;
     console.log('[SQL Init] MySQL Database-Per-School Multi-Tenant Adapter is active and running.');
@@ -1613,10 +1665,6 @@ export const getDefaultRoles = () => {
     'roles-permissions',
     'auxiliary-income',
     'designation-manager',
-    'teacher-leave',
-    'teacher-leave-management',
-    'staff-leave',
-    'staff-leave-management',
     'settings',
     'leave-settings'
   ];
@@ -4118,7 +4166,10 @@ export const runThreeTableMigration = (db) => {
 // Central Database Reader (Preserves synchronous signature)
 export const readDb = () => {
   const tenantId = tenantStorage.getStore();
-  const activeTenant = tenantId ? slugify(tenantId) : 'platform';
+  let activeTenant = tenantId ? slugify(tenantId) : 'platform';
+  if (activeTenant === 'default') {
+    activeTenant = 'platform';
+  }
   
   if (isSqlActive() && dbCache[activeTenant]) {
     return JSON.parse(JSON.stringify(dbCache[activeTenant]));
@@ -4126,7 +4177,25 @@ export const readDb = () => {
 
   // Fallback to synchronous local file read
   if (activeTenant !== 'platform') {
-    throw new Error(`[CRITICAL] MySQL Database is offline or connection limit exceeded. Local JSON fallbacks are disabled for tenant '${activeTenant}'.`);
+    // Instead of crashing the entire server, return a safe empty database object.
+    // The ensureTenantSqlLoaded middleware should have loaded the cache, but if it
+    // failed (e.g. race condition, missing DB, connection timeout), we gracefully
+    // degrade rather than killing the process with an unhandled exception.
+    console.warn(`[readDb] WARNING: SQL cache miss for tenant '${activeTenant}'. Returning empty safe database. The cache will be populated on the next request.`);
+    return {
+      school: {}, schools: [], roles: [], activities: [], students: [], teachers: [],
+      staff: [], employees: [], timetables: [], teacherTimetables: [], invoices: [],
+      fees: [], expenses: [], payroll: [], staffPayments: [], exams: [],
+      examTimetables: [], notices: [], holidays: [], events: [], results: [],
+      overallResults: [], subjects: [], timeslots: [], feeStructures: [],
+      feePeriods: [], salaryStructures: [], staffSalaryStructures: [], income: [],
+      attendance: [], userAccess: [], auditLogs: [], employeeQrCodes: [],
+      attendanceRecords: [], attendanceLogs: [], attendanceReports: [],
+      academicCalendarEvents: [], academicCalendarImports: [], publishedCalendarEvents: [],
+      grades: [], departments: [], designations: [], gradeDepartments: [],
+      sections: [], publishedClassTimetables: [], publishedTeacherTimetables: [],
+      attendanceSettings: []
+    };
   }
 
   const dbFile = getDbPath();
@@ -4260,7 +4329,10 @@ export const readDb = () => {
 // Central Database Writer (Preserves synchronous signature)
 export const writeDb = (data) => {
   const tenantId = tenantStorage.getStore();
-  const activeTenant = tenantId ? slugify(tenantId) : 'platform';
+  let activeTenant = tenantId ? slugify(tenantId) : 'platform';
+  if (activeTenant === 'default') {
+    activeTenant = 'platform';
+  }
 
   // Invalidate cache timing checks on database modifications
   delete lastCheckTimes[activeTenant];

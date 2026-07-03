@@ -9,6 +9,20 @@ import './App.css';
 
 
 
+const isTokenExpired = (token) => {
+  if (!token || token === 'null' || token === 'undefined') return true;
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) return true;
+    const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
+    if (!payload.exp) return false;
+    const nowSec = Math.floor(Date.now() / 1000);
+    return payload.exp < nowSec;
+  } catch (e) {
+    return true;
+  }
+};
+
 // Lazy load page components
 const StudentDirectory = lazy(() => import('./pages/StudentDirectory'));
 const AddStaff = lazy(() => import('./pages/AddStaff'));
@@ -68,7 +82,7 @@ window.fetch = function (url, options = {}) {
   if (pathname.startsWith('/') || pathname.includes('/api/')) {
     if (pathname.startsWith('/api/platform/')) {
       delete options.headers['x-tenant-id'];
-    } else if (!options.headers['x-tenant-id']) {
+    } else if (!options.headers['x-tenant-id'] || options.headers['x-tenant-id'] === 'default') {
       const host = window.location.hostname;
       const isIp = /^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$/.test(host);
       let tenant = null;
@@ -248,18 +262,22 @@ export default function App() {
   const [userProfile, setUserProfile] = useState({
     name: localStorage.getItem('name') || 'User',
     role: localStorage.getItem('role') || localStorage.getItem('portal_role') || 'Guest',
+    userType: localStorage.getItem('userType') || '',
     photo: localStorage.getItem('photo') || '',
     username: localStorage.getItem('username') || ''
   });
 
   const fetchUserProfile = async () => {
+    const token = localStorage.getItem('token');
+    if (!token || token === 'null' || token === 'undefined') {
+      return;
+    }
+    if (isTokenExpired(token)) {
+      handleLogout();
+      return;
+    }
     try {
-      const token = localStorage.getItem('token');
-      const headers = {};
-      if (token && token !== 'null' && token !== 'undefined') {
-        headers['Authorization'] = `Bearer ${token}`;
-      }
-      
+      const headers = { 'Authorization': `Bearer ${token}` };
       const res = await fetch('/api/auth/profile', { headers });
       if (res.ok) {
         const data = await res.json();
@@ -267,6 +285,11 @@ export default function App() {
         localStorage.setItem('name', data.name);
         localStorage.setItem('role', data.role);
         localStorage.setItem('portal_role', data.role);
+        if (data.userType) {
+          localStorage.setItem('userType', data.userType);
+        } else {
+          localStorage.removeItem('userType');
+        }
         if (data.username) {
           localStorage.setItem('username', data.username);
         }
@@ -400,6 +423,10 @@ export default function App() {
       const isInput = target.tagName === 'INPUT';
       const isTextarea = target.tagName === 'TEXTAREA';
       if (!isInput && !isTextarea) return;
+
+      if (target.getAttribute('data-bypass') === 'true' || target.getAttribute('data-type') === 'bypass') {
+        return;
+      }
 
       const typeAttr = (target.getAttribute('type') || '').toLowerCase();
       if (typeAttr === 'file') return;
@@ -804,7 +831,7 @@ export default function App() {
     const authKeys = [
       'token', 'role', 'portal_role', 'username', 'name', 
       'permissions', 'overrides', 'school_name', 'school_subdomain', 
-      'from_dev_admin', 'dev_token', 'admin_view'
+      'from_dev_admin', 'dev_token', 'admin_view', 'userType'
     ];
     authKeys.forEach(k => localStorage.removeItem(k));
     localStorage.removeItem('tenant_subdomain');

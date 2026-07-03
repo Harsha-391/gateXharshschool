@@ -56,7 +56,7 @@ export const checkPermission = (module, action) => {
     }
 
     // Allow reading directory list counts for overview dashboard if authenticated
-    if (action === 'view' && (module === 'student-directory' || module === 'staff-directory' || module === 'employee-directory')) {
+    if (action === 'view' && (module === 'student-directory' || module === 'teacher-directory' || module === 'staff-directory' || module === 'employee-directory')) {
       if (req.query.purpose === 'overview') {
         return next();
       }
@@ -234,6 +234,7 @@ export const checkPermission = (module, action) => {
       }
     }
 
+    console.log('[Permission Check Failed]', { userId: user.id, role: user.role, module, action, query: req.query });
     return res.status(403).json({ error: `Access denied. Insufficient permissions for module '${module}' and action '${action}'.` });
   };
 };

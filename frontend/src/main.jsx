@@ -2,7 +2,6 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.jsx'
-
 // Auth Session tab isolation: redirect authentication keys from localStorage to sessionStorage
 const SESSION_KEYS = [
   'token',
@@ -12,19 +11,9 @@ const SESSION_KEYS = [
   'name',
   'permissions',
   'overrides',
-  'from_dev_admin',
   'dev_token',
-  'school_name',
-  'school_subdomain',
-  'tenant_subdomain',
-  'photo',
-  'admin_view',
-  'teacher_dashboard_isClassTeacher',
-  'teacher_dashboard_grade',
-  'teacher_dashboard_section',
-  'teacher_dashboard_attPerm'
+  'from_dev_admin'
 ];
-
 
 const originalGetItem = localStorage.getItem.bind(localStorage);
 const originalSetItem = localStorage.setItem.bind(localStorage);

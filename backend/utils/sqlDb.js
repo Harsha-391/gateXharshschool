@@ -125,10 +125,10 @@ export const getPool = () => masterPool;
 
 export const closeAllPools = async () => {
   if (masterPool) {
-    try { await masterPool.end(); } catch (e) {}
+    try { await masterPool.end(); } catch (e) { }
   }
   for (const dbName in tenantPools) {
-    try { await tenantPools[dbName].end(); } catch (e) {}
+    try { await tenantPools[dbName].end(); } catch (e) { }
   }
 };
 
@@ -184,7 +184,7 @@ export const testConnection = async () => {
 
         // Close current master pool
         if (masterPool) {
-          try { await masterPool.end(); } catch (e) {}
+          try { await masterPool.end(); } catch (e) { }
         }
 
         // Dynamically override masterConfig properties in-place
@@ -212,7 +212,7 @@ export const removePoolForTenant = async (tenantId) => {
   const subdomain = slugify(tenantId);
   const dbName = dbMappings[subdomain] || `school_${subdomain}`;
   delete dbMappings[subdomain];
-  
+
   if (tenantPools[dbName]) {
     try {
       await tenantPools[dbName].end();

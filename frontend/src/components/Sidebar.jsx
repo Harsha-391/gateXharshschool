@@ -363,7 +363,7 @@ export default function Sidebar({
 
             {(() => {
               const hasEmpAtt = hasPermission('employee-attendance', 'view');
-              const hasStuAtt = userProfile?.role === 'Teacher' ? (userProfile.attendancePermission === true || userProfile.attendancePermission === 'Yes' || userProfile.attendancePermission === 1) : hasPermission('attendance', 'view');
+              const hasStuAtt = hasPermission('attendance', 'view') && (userProfile?.role === 'Teacher' ? (userProfile.attendancePermission === true || userProfile.attendancePermission === 'Yes' || userProfile.attendancePermission === 1) : true);
               const hasAttHist = hasPermission('attendance-history', 'view');
               if (!hasEmpAtt && !hasStuAtt && !hasAttHist) return null;
 
@@ -420,23 +420,73 @@ export default function Sidebar({
             })()}
 
             {(() => {
-              const hasTLeave = hasPermission('teacher-leave', 'view');
-              const hasTLeaveMgmt = hasPermission('teacher-leave-management', 'view');
-              const hasSLeave = hasPermission('staff-leave', 'view');
-              const hasSLeaveMgmt = hasPermission('staff-leave-management', 'view');
-              if (!hasTLeave && !hasTLeaveMgmt && !hasSLeave && !hasSLeaveMgmt) return null;
+              const userRole = userProfile?.role || localStorage.getItem('role') || localStorage.getItem('portal_role');
+              const isUserAdmin = userRole === 'Main Admin' || userRole === 'Principal' || userRole === 'Admin Dashboard';
+              
+              if (isUserAdmin) {
+                const hasTLeaveMgmt = hasPermission('teacher-leave-management', 'view');
+                const hasSLeaveMgmt = hasPermission('staff-leave-management', 'view');
+                if (!hasTLeaveMgmt && !hasSLeaveMgmt) return null;
 
-              return (
-                <button
-                  type="button"
-                  onClick={() => { setAdminView('leave-management'); setMobileOpen(false); }}
-                  className={`nav-item ${adminView === 'leave-management' ? 'active' : ''}`}
-                  style={{ display: 'flex', alignItems: 'center', gap: '16px', width: '100%', cursor: 'pointer' }}
-                >
-                  <Calendar size={20} className="flex-shrink-0" />
-                  <span className="nav-label" style={{ fontWeight: 600 }}>Leave Management</span>
-                </button>
-              );
+                return (
+                  <button
+                    type="button"
+                    onClick={() => { setAdminView('leave-management'); setMobileOpen(false); }}
+                    className={`nav-item ${adminView === 'leave-management' ? 'active' : ''}`}
+                    style={{ display: 'flex', alignItems: 'center', gap: '16px', width: '100%', cursor: 'pointer' }}
+                  >
+                    <Calendar size={20} className="flex-shrink-0" />
+                    <span className="nav-label" style={{ fontWeight: 600 }}>Leave Management</span>
+                  </button>
+                );
+              } else {
+                return (
+                  <button
+                    type="button"
+                    onClick={() => { setAdminView('my-leave'); setMobileOpen(false); }}
+                    className={`nav-item ${adminView === 'my-leave' ? 'active' : ''}`}
+                    style={{ display: 'flex', alignItems: 'center', gap: '16px', width: '100%', cursor: 'pointer' }}
+                  >
+                    <Calendar size={20} className="flex-shrink-0" />
+                    <span className="nav-label" style={{ fontWeight: 600 }}>Leave Management</span>
+                  </button>
+                );
+              }
+            })()}
+
+            {(() => {
+              const userRole = userProfile?.role || localStorage.getItem('role') || localStorage.getItem('portal_role');
+              const isUserAdmin = userRole === 'Main Admin' || userRole === 'Principal' || userRole === 'Admin Dashboard';
+              
+              if (isUserAdmin) {
+                return (
+                  <button
+                    type="button"
+                    onClick={() => { setAdminView('report-management'); setMobileOpen(false); }}
+                    className={`nav-item ${adminView === 'report-management' ? 'active' : ''}`}
+                    style={{ display: 'flex', alignItems: 'center', gap: '16px', width: '100%', cursor: 'pointer' }}
+                  >
+                    <ClipboardList size={20} className="flex-shrink-0" />
+                    <span className="nav-label" style={{ fontWeight: 600 }}>Work Reports</span>
+                  </button>
+                );
+              } else {
+                const userType = userProfile?.userType || localStorage.getItem('userType') || '';
+                const isTeacher = userType === 'Teacher' || userRole === 'Teacher';
+                if (!isTeacher) return null;
+
+                return (
+                  <button
+                    type="button"
+                    onClick={() => { setAdminView('my-reports'); setMobileOpen(false); }}
+                    className={`nav-item ${adminView === 'my-reports' ? 'active' : ''}`}
+                    style={{ display: 'flex', alignItems: 'center', gap: '16px', width: '100%', cursor: 'pointer' }}
+                  >
+                    <ClipboardList size={20} className="flex-shrink-0" />
+                    <span className="nav-label" style={{ fontWeight: 600 }}>Work Reports</span>
+                  </button>
+                );
+              }
             })()}
 
             {(hasPermission('academic-manager', 'view') || hasPermission('published-timetable', 'view') || hasPermission('published-exam', 'view')) && (
@@ -809,43 +859,49 @@ export default function Sidebar({
               </div>
             )}
 
-            {(isSuperAdmin() || hasPermission('roles-permissions', 'view') || hasPermission('settings', 'view')) && (
+            {(isSuperAdmin() || hasPermission('security-audit', 'view') || hasPermission('roles-permissions', 'view') || hasPermission('settings', 'view')) && (
               <div className="sidebar-section-group" style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                 <span style={{ fontWeight: 700, fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-muted)', padding: '4px 4px 0' }}>
                   Security & Privacy
                 </span>
-                <button
-                  onClick={() => { setAdminView('security-audit'); setMobileOpen(false); }}
-                  onMouseEnter={() => {
-                    prefetchApi('/api/rbac/audit-logs');
-                  }}
-                  className={`nav-item ${adminView === 'security-audit' ? 'active' : ''}`}
-                  style={{ fontWeight: 500 }}
-                >
-                  <ClipboardList size={20} className="flex-shrink-0" />
-                  <span className="nav-label">Security Audit Ledger</span>
-                </button>
-                <button
-                  onClick={() => { setAdminView('roles-permissions'); setMobileOpen(false); }}
-                  onMouseEnter={() => {
-                    prefetchApi('/api/rbac/roles');
-                    prefetchApi('/api/rbac/users');
-                    prefetchApi('/api/rbac/audit-logs');
-                  }}
-                  className={`nav-item ${adminView === 'roles-permissions' ? 'active' : ''}`}
-                  style={{ fontWeight: 500 }}
-                >
-                  <Shield size={20} className="flex-shrink-0" />
-                  <span className="nav-label">Roles & Permissions</span>
-                </button>
-                <button
-                  onClick={() => { setAdminView('settings'); setMobileOpen(false); }}
-                  className={`nav-item ${adminView === 'settings' ? 'active' : ''}`}
-                  style={{ fontWeight: 500 }}
-                >
-                  <Settings size={20} className="flex-shrink-0" />
-                  <span className="nav-label">Settings</span>
-                </button>
+                {(isSuperAdmin() || hasPermission('security-audit', 'view')) && (
+                  <button
+                    onClick={() => { setAdminView('security-audit'); setMobileOpen(false); }}
+                    onMouseEnter={() => {
+                      prefetchApi('/api/rbac/audit-logs');
+                    }}
+                    className={`nav-item ${adminView === 'security-audit' ? 'active' : ''}`}
+                    style={{ fontWeight: 500 }}
+                  >
+                    <ClipboardList size={20} className="flex-shrink-0" />
+                    <span className="nav-label">Security Audit Ledger</span>
+                  </button>
+                )}
+                {(isSuperAdmin() || hasPermission('roles-permissions', 'view')) && (
+                  <button
+                    onClick={() => { setAdminView('roles-permissions'); setMobileOpen(false); }}
+                    onMouseEnter={() => {
+                      prefetchApi('/api/rbac/roles');
+                      prefetchApi('/api/rbac/users');
+                      prefetchApi('/api/rbac/audit-logs');
+                    }}
+                    className={`nav-item ${adminView === 'roles-permissions' ? 'active' : ''}`}
+                    style={{ fontWeight: 500 }}
+                  >
+                    <Shield size={20} className="flex-shrink-0" />
+                    <span className="nav-label">Roles & Permissions</span>
+                  </button>
+                )}
+                {(isSuperAdmin() || hasPermission('settings', 'view')) && (
+                  <button
+                    onClick={() => { setAdminView('settings'); setMobileOpen(false); }}
+                    className={`nav-item ${adminView === 'settings' ? 'active' : ''}`}
+                    style={{ fontWeight: 500 }}
+                  >
+                    <Settings size={20} className="flex-shrink-0" />
+                    <span className="nav-label">Settings</span>
+                  </button>
+                )}
               </div>
             )}
 

@@ -47,6 +47,12 @@ const GradeManagement = lazy(() => import('./GradeManagement'));
 const UserProfile = lazy(() => import('./UserProfile'));
 const AuxiliaryIncome = lazy(() => import('./AuxiliaryIncome'));
 const LeaveManagement = lazy(() => import('./LeaveManagement'));
+const TeacherLeave = lazy(() => import('./TeacherLeave'));
+const StaffLeave = lazy(() => import('./StaffLeave'));
+const ReportManagement = lazy(() => import('./ReportManagement'));
+const TeacherWorkReport = lazy(() => import('./TeacherWorkReport.jsx?v=2'));
+const StaffWorkReport = lazy(() => import('./StaffWorkReport'));
+
 
 // Lazy load sub-components (Named Exports)
 const StudentReportsView = lazy(() => import('./StaffPanel').then(m => ({ default: m.StudentReportsView })));
@@ -251,8 +257,14 @@ const getViewPermissionModuleAndAction = (view) => {
   if (view === 'income') return { module: 'income', action: 'view' };
   if (view === 'financial-reports') return { module: 'financial-reports', action: 'view' };
   
-  if (view === 'roles-permissions' || view === 'security-audit') {
+  if (view === 'security-audit') {
+    return { module: 'security-audit', action: 'view' };
+  }
+  if (view === 'roles-permissions') {
     return { module: 'roles-permissions', action: 'view' };
+  }
+  if (view === 'settings') {
+    return { module: 'settings', action: 'view' };
   }
   
   return null;
@@ -314,6 +326,42 @@ export default function AdminPanel({ setActiveView, onLogout, adminView, setAdmi
   const [events, setEvents] = useState([]);
   const [notices, setNotices] = useState([]);
   const [holidays, setHolidays] = useState([]);
+
+  // Redirect non-admin users away from admin-only views, and redirect admins to admin view on load/profile change
+  useEffect(() => {
+    if (!userProfile) return;
+    const userRole = userProfile.role || '';
+    const isUserAdmin = userRole === 'Main Admin' || userRole === 'Principal' || userRole === 'Admin Dashboard';
+    
+    // If not an admin and viewing an admin-only section, redirect to appropriate view
+    if (!isUserAdmin && adminView === 'leave-management') {
+      setAdminView('my-leave');
+    }
+    
+    const isTeacher = userProfile?.userType === 'Teacher' || userProfile?.role === 'Teacher';
+    if (!isUserAdmin) {
+      if (adminView === 'report-management') {
+        setAdminView(isTeacher ? 'my-reports' : 'overview');
+      }
+      if (adminView === 'my-reports' && !isTeacher) {
+        setAdminView('overview');
+      }
+    }
+    
+    // If an admin and viewing a teacher/staff personal page, redirect to admin centralized view
+    if (isUserAdmin && adminView === 'my-leave') {
+      setAdminView('leave-management');
+    }
+    if (isUserAdmin && adminView === 'my-reports') {
+      setAdminView('report-management');
+    }
+
+    // Granular Permissions Redirect: if they try to access a view they don't have permission for, redirect to overview!
+    const viewPerm = getViewPermissionModuleAndAction(adminView);
+    if (viewPerm && !hasPermission(viewPerm.module, viewPerm.action)) {
+      setAdminView('overview');
+    }
+  }, [userProfile, adminView]);
 
   useEffect(() => {
     if (userProfile && userProfile.role === 'Teacher') {
@@ -488,7 +536,6 @@ export default function AdminPanel({ setActiveView, onLogout, adminView, setAdmi
 
   // Toast Notification helper
   const showToast = (message, type = 'success') => {
-    if (type === 'success' || type === 'info') return;
     setNotification({ message, type });
     setTimeout(() => setNotification(null), 3500);
   };
@@ -497,7 +544,7 @@ export default function AdminPanel({ setActiveView, onLogout, adminView, setAdmi
     const viewPerm = getViewPermissionModuleAndAction(adminView);
     const isAllowed = !viewPerm || hasPermission(viewPerm.module, viewPerm.action);
     if (!isAllowed) {
-      return <AccessDeniedView />;
+      return null;
     }
 
     const isAcademicView = [
@@ -1280,6 +1327,26 @@ export default function AdminPanel({ setActiveView, onLogout, adminView, setAdmi
 
         <KeepAlive active={adminView === 'leave-management'}>
           <LeaveManagement showToast={showToast} />
+        </KeepAlive>
+
+        <KeepAlive active={adminView === 'my-leave'}>
+          {userProfile?.userType === 'Teacher' || userProfile?.role === 'Teacher' ? (
+            <TeacherLeave showToast={showToast} userProfile={userProfile} />
+          ) : (
+            <StaffLeave showToast={showToast} userProfile={userProfile} />
+          )}
+        </KeepAlive>
+
+        <KeepAlive active={adminView === 'report-management'}>
+          <ReportManagement showToast={showToast} />
+        </KeepAlive>
+
+        <KeepAlive active={adminView === 'my-reports'}>
+          {userProfile?.userType === 'Teacher' || userProfile?.role === 'Teacher' ? (
+            <TeacherWorkReport showToast={showToast} userProfile={userProfile} />
+          ) : (
+            <StaffWorkReport showToast={showToast} userProfile={userProfile} />
+          )}
         </KeepAlive>
       </>
     );

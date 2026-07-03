@@ -111,12 +111,15 @@ const getPermissionParams = (req) => {
     return { module: 'exam-timetable', action };
   }
   if (path.startsWith('/events') || path.startsWith('/event-types')) {
+    if (action === 'view') return null;
     return { module: 'events', action };
   }
   if (path.startsWith('/notices') || path.startsWith('/notice-categories')) {
+    if (action === 'view') return null;
     return { module: 'notices', action };
   }
   if (path.startsWith('/holidays') || path.startsWith('/holiday-classifications')) {
+    if (action === 'view') return null;
     return { module: 'holidays', action };
   }
   if (path.startsWith('/results') || path.startsWith('/overall-results') || path.startsWith('/cohort-results')) {

@@ -45,6 +45,8 @@ import gradeRoutes from './routes/gradeRoutes.js';
 import designationRoutes from './routes/designationRoutes.js';
 import teacherLeaveRoutes from './routes/teacherLeaveRoutes.js';
 import staffLeaveRoutes from './routes/staffLeaveRoutes.js';
+import teacherReportRoutes from './routes/teacherReportRoutes.js';
+import staffReportRoutes from './routes/staffReportRoutes.js';
 import upload from './middleware/upload.js';
 import { readDb, writeDb, addActivity, tenantStorage, slugify, restoreTenantContext, ensureTenantSqlLoaded, isSqlActive, initializeOnboardedSchoolDatabase, startSqlDbInit, closeAllPools } from './utils/db.js';
 import { checkPermission } from './middleware/permissionMiddleware.js';
@@ -1510,6 +1512,8 @@ app.use('/api/attendance-settings', attendanceSettingsRoutes);
 app.use('/api/leave-settings', leaveSettingsRoutes);
 app.use('/api/teacher-leaves', teacherLeaveRoutes);
 app.use('/api/staff-leaves', staffLeaveRoutes);
+app.use('/api/teacher-reports', teacherReportRoutes);
+app.use('/api/staff-reports', staffReportRoutes);
 
 // ==========================================
 // 2B. ACCOUNT MANAGEMENT ROUTER

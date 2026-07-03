@@ -409,7 +409,7 @@ export default function LeaveManagement({ showToast }) {
               </button>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 1.5fr', gap: '14px', alignItems: 'end' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1.5fr', gap: '14px', alignItems: 'end' }}>
               
               {/* Search */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
@@ -437,21 +437,6 @@ export default function LeaveManagement({ showToast }) {
                   <option value="All">All Leave Types</option>
                   {[...new Set(leaves.map(l => l.leaveType))].filter(Boolean).map(type => (
                     <option key={type} value={type}>{type}</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Department */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                <label style={{ fontSize: '0.75rem', fontWeight: 700, color: '#475569', textTransform: 'uppercase' }}>Department</label>
-                <select
-                  value={selectedDept}
-                  onChange={e => setSelectedDept(e.target.value)}
-                  style={{ padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#f8fafc', fontSize: '0.86rem', color: '#000000', cursor: 'pointer' }}
-                >
-                  <option value="All">All Departments</option>
-                  {departments.map(d => (
-                    <option key={d} value={d}>{d}</option>
                   ))}
                 </select>
               </div>
