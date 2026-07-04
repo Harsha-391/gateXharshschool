@@ -1006,8 +1006,36 @@ const executeSchemaOnPool = async (pool, isMaster = false) => {
   }
 };
 
+const dropGradeIdForeignKey = async (pool) => {
+  try {
+    const [dbRows] = await pool.query('SELECT DATABASE() as dbName');
+    const dbName = dbRows[0]?.dbName;
+    if (!dbName) return;
+
+    const [rows] = await pool.query(`
+      SELECT CONSTRAINT_NAME 
+      FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE 
+      WHERE TABLE_SCHEMA = ? 
+        AND TABLE_NAME = 'grade_departments' 
+        AND COLUMN_NAME = 'gradeId' 
+        AND REFERENCED_TABLE_NAME = 'grades'
+    `, [dbName]);
+    
+    for (const r of rows) {
+      const constraintName = r.CONSTRAINT_NAME;
+      console.log(`[SQL Migration] Dropping foreign key constraint \${constraintName} from database \${dbName}...`);
+      await pool.query('SET FOREIGN_KEY_CHECKS = 0');
+      await pool.query(`ALTER TABLE \`grade_departments\` DROP FOREIGN KEY \`\${constraintName}\``);
+      await pool.query('SET FOREIGN_KEY_CHECKS = 1');
+    }
+  } catch (err) {
+    console.warn('[SQL Migration WARNING] Failed to drop foreign key constraint on grade_departments:', err.message);
+  }
+};
+
 // Helper to apply database structural updates (ALTER TABLE columns)
 const applySchemaUpdates = async (pool, isMaster = false, tenantId = null) => {
+  await dropGradeIdForeignKey(pool);
   if (isMaster) {
     const masterAlters = [
       "ALTER TABLE schools ADD COLUMN ratePerStudent VARCHAR(50) DEFAULT '250.00'",
@@ -1728,6 +1756,9 @@ export const getDefaultRoles = () => {
 
 const repairGradesAndMappings = async (tId) => {
   try {
+    // Permanently remove XI and XII from grades table in MySQL (they should only exist in grade_departments)
+    await sqlDb.query("DELETE FROM grades WHERE tenantId = ? AND (name LIKE '%11%' OR name LIKE '%12%' OR name LIKE '%XI%' OR name LIKE '%XII%')", [tId]);
+
     const dbGrades = await sqlDb.query('SELECT * FROM grades WHERE tenantId = ?', [tId]);
     for (const g of dbGrades) {
       const correctId = `grade-${tId}-${slugify(convertToRoman(g.name))}`;
