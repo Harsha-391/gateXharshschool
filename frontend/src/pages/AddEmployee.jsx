@@ -79,10 +79,10 @@ const DEPARTMENTS = [
   'Store & Inventory', 'Campus Operations'
 ];
 
-const EMPLOYMENT_TYPES = ['Full-Time', 'Part-Time', 'Contract', 'Temporary'];
-const EMPLOYEE_STATUSES = ['Active', 'Inactive'];
-const BLOOD_GROUPS = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
-const DESIGNATION_LEVELS = ['Trainee', 'Junior', 'Associate', 'Senior', 'Lead', 'Supervisor', 'Coordinator', 'Manager', 'Head', 'Director'];
+const EMPLOYMENT_TYPES = ['None', 'Full-Time', 'Part-Time', 'Contract', 'Temporary'];
+const EMPLOYEE_STATUSES = ['None', 'Active', 'Inactive'];
+const BLOOD_GROUPS = ['None', 'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
+const DESIGNATION_LEVELS = ['None', 'Trainee', 'Junior', 'Associate', 'Senior', 'Lead', 'Supervisor', 'Coordinator', 'Manager', 'Head', 'Director'];
 
 const DESIGNATIONS = [
   'Administrative Officer',
@@ -291,8 +291,7 @@ export default function AddEmployee({ setActiveView, editData }) {
     currentAddress: '', currentCity: '', currentState: '', currentCountry: 'India', currentPostalCode: '',
     permanentAddress: '', permanentCity: '', permanentState: '', permanentCountry: 'India', permanentPostalCode: '',
     sameAsPermanent: false,
-    // Step 5: Qualifications (dynamic array)
-    // Step 6: Experiences (dynamic array)
+    experience: ''
   });
 
   const [qualifications, setQualifications] = useState([
@@ -306,6 +305,43 @@ export default function AddEmployee({ setActiveView, editData }) {
   // File uploads
   const [files, setFiles] = useState(staffFilesCache);
   const [filePreviews, setFilePreviews] = useState(staffPreviewsCache);
+
+  const tenantSubdomain = localStorage.getItem('tenant_subdomain') || 'default';
+  const draftKey = `employee_add_draft_${tenantSubdomain}`;
+
+  const clearDraft = () => {
+    localStorage.removeItem(draftKey);
+  };
+
+  useEffect(() => {
+    if (editData) return;
+    const savedDraft = localStorage.getItem(draftKey);
+    if (savedDraft) {
+      try {
+        const parsed = JSON.parse(savedDraft);
+        if (parsed.formData) setFormData(parsed.formData);
+        if (parsed.qualifications) setQualifications(parsed.qualifications);
+        if (parsed.experiences) setExperiences(parsed.experiences);
+        if (parsed.staffId) setStaffId(parsed.staffId);
+      } catch (err) {
+        console.error('Failed to restore employee draft:', err);
+      }
+    }
+  }, [editData]);
+
+  useEffect(() => {
+    if (editData) return;
+    const isFormEmpty = !formData.firstName && !formData.lastName && !formData.mobile && !formData.email && !formData.experience;
+    if (!isFormEmpty) {
+      const draftPayload = {
+        formData,
+        qualifications,
+        experiences,
+        staffId
+      };
+      localStorage.setItem(draftKey, JSON.stringify(draftPayload));
+    }
+  }, [formData, qualifications, experiences, staffId, editData]);
 
   useEffect(() => {
     Object.assign(staffFilesCache, files);
@@ -404,7 +440,8 @@ export default function AddEmployee({ setActiveView, editData }) {
         permanentState: editData.permanentState || '',
         permanentCountry: editData.permanentCountry || 'India',
         permanentPostalCode: editData.permanentPostalCode || '',
-        sameAsPermanent: editData.sameAsPermanent === true || editData.sameAsPermanent === 'true' || editData.sameAsPermanent === 'Yes'
+        sameAsPermanent: editData.sameAsPermanent === true || editData.sameAsPermanent === 'true' || editData.sameAsPermanent === 'Yes',
+        experience: editData.experience || ''
       });
 
       setQualifications(parsedQualifications);
@@ -563,7 +600,8 @@ export default function AddEmployee({ setActiveView, editData }) {
       mobile: '', alternateMobile: '', email: '', emergencyContactNumber: '',
       currentAddress: '', currentCity: '', currentState: '', currentCountry: 'India', currentPostalCode: '',
       permanentAddress: '', permanentCity: '', permanentState: '', permanentCountry: 'India', permanentPostalCode: '',
-      sameAsPermanent: false
+      sameAsPermanent: false,
+      experience: ''
     });
     setQualifications([{ degree: '', institution: '', boardUniversity: '', year: '', percentage: '' }]);
     setExperiences([{ organization: '', designation: '', fromDate: '', toDate: '', responsibilities: '' }]);
@@ -572,6 +610,7 @@ export default function AddEmployee({ setActiveView, editData }) {
     setCurrentStep(1);
     const rand = Math.floor(1000 + Math.random() * 9000);
     setStaffId(`STF-${new Date().getFullYear()}-${rand}`);
+    clearDraft();
   };
 
   // ============================================================
@@ -728,7 +767,7 @@ export default function AddEmployee({ setActiveView, editData }) {
         </div>
         <div className="form-group">
           <label>Gender</label>
-          <CustomSelect name="gender" value={formData.gender} onChange={handleChange} options={['Male', 'Female', 'Other']} placeholder="Select Gender" className="form-control" style={inputStyle} />
+          <CustomSelect name="gender" value={formData.gender} onChange={handleChange} options={['None', 'Male', 'Female', 'Other']} placeholder="Select Gender" className="form-control" style={inputStyle} />
         </div>
         <div className="form-group">
           <label>Blood Group</label>
@@ -740,7 +779,7 @@ export default function AddEmployee({ setActiveView, editData }) {
         </div>
         <div className="form-group">
           <label>Marital Status</label>
-          <CustomSelect name="maritalStatus" value={formData.maritalStatus} onChange={handleChange} options={['Single', 'Married', 'Divorced', 'Widowed']} placeholder="Select Status" className="form-control" style={inputStyle} />
+          <CustomSelect name="maritalStatus" value={formData.maritalStatus} onChange={handleChange} options={['None', 'Single', 'Married', 'Divorced', 'Widowed']} placeholder="Select Status" className="form-control" style={inputStyle} />
         </div>
         <div className="form-group">
           <label>Aadhaar Number <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>(Optional)</span></label>
@@ -957,6 +996,24 @@ export default function AddEmployee({ setActiveView, editData }) {
         Step 6: Experience Information
       </h3>
       <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', margin: 0 }}>Add previous work experience. All fields are optional.</p>
+
+      <div className="form-group" style={{ maxWidth: '300px' }}>
+        <label style={{ fontWeight: 600, color: 'var(--text-main)' }}>Total Experience (in Years)</label>
+        <input 
+          type="text"
+          name="experience"
+          value={formData.experience || ''}
+          onChange={(e) => {
+            const v = e.target.value.replace(/[^0-9]/g, '').slice(0, 10);
+            setFormData(prev => ({ ...prev, experience: v }));
+          }}
+          className="form-control"
+          placeholder="e.g. 5"
+          maxLength={10}
+          inputMode="numeric"
+          style={inputStyle}
+        />
+      </div>
 
       {experiences.map((exp, i) => (
         <div key={i} className="glass-panel" style={{ padding: '20px', borderRadius: '12px', display: 'flex', flexDirection: 'column', gap: '14px', background: 'rgba(255,255,255,0.01)' }}>

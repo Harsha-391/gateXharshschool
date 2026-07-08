@@ -39,47 +39,17 @@ export const validatePasswordStrength = (password) => {
   return minLength && hasUppercase && hasLowercase && hasDigit && hasSpecial;
 };
 
-// Lock check helper (5 failed attempts -> 15 min lock)
+// Lock check helper (Disabled - security lock removed)
 export const checkLoginLock = (key) => {
-  const record = failedAttempts.get(key);
-  if (!record) return { locked: false };
-  
-  const now = Date.now();
-  if (record.lockUntil && now < record.lockUntil) {
-    const remainingMinutes = Math.ceil((record.lockUntil - now) / (60 * 1000));
-    return { locked: true, remainingMinutes };
-  }
-  
-  if (record.lockUntil && now >= record.lockUntil) {
-    failedAttempts.delete(key);
-  }
-  
   return { locked: false };
 };
 
-// Record a failed login attempt
+// Record a failed login attempt (Disabled - security lock removed)
 export const recordFailedAttempt = (key) => {
-  const now = Date.now();
-  let record = failedAttempts.get(key);
-  if (!record) {
-    record = { count: 0, lockUntil: null };
-  }
-  
-  // If count is reset because lock period expired but record was not deleted
-  if (record.lockUntil && now >= record.lockUntil) {
-    record.count = 0;
-    record.lockUntil = null;
-  }
-
-  record.count += 1;
-  if (record.count >= 5) {
-    record.lockUntil = now + 15 * 60 * 1000; // 15-minute lock
-  }
-  failedAttempts.set(key, record);
-  return record;
+  return { count: 0, lockUntil: null };
 };
 
-// Reset failed login attempt counter upon successful login
+// Reset failed login attempt counter (Disabled - security lock removed)
 export const resetFailedAttempts = (key) => {
-  failedAttempts.delete(key);
+  // Lock disabled
 };

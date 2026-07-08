@@ -30,7 +30,7 @@ export default function ExpensePanel({ setActiveView, onLogout, expenseView, set
   };
 
   const fetchExpenses = () => {
-    if (expenses.length === 0 && income.length === 0) {
+    if (expenses.length === 0) {
       setLoading(true);
     }
     setError(null);
@@ -39,18 +39,14 @@ export default function ExpensePanel({ setActiveView, onLogout, expenseView, set
         if (!res.ok) throw new Error('Failed to retrieve expenses database records.');
         return res.json();
       }),
-      fetch('/api/account-management/income').then(res => {
-        if (!res.ok) throw new Error('Failed to retrieve income database records.');
-        return res.json();
-      }),
       fetch('/api/account-management/expense-history').then(res => {
         if (!res.ok) throw new Error('Failed to retrieve expense history database records.');
         return res.json();
       })
     ])
-      .then(([expenseData, incomeData, historyData]) => {
+      .then(([expenseData, historyData]) => {
         setExpenses(expenseData || []);
-        setIncome(incomeData || []);
+        setIncome([]);
         setExpenseHistory(historyData || []);
         setLoading(false);
       })
@@ -90,7 +86,7 @@ export default function ExpensePanel({ setActiveView, onLogout, expenseView, set
 
     switch (expenseView) {
       case 'dashboard':
-        return <DashboardView expenses={expenses} setExpenseView={setExpenseView} budgetLimit={budgetLimit} />;
+        return <TrackerView expenses={expenses} income={income} fetchExpenses={fetchExpenses} showToast={showToast} budgetLimit={budgetLimit} />;
       case 'add-expense':
         return <AllExpensesView expenses={expenses} showToast={showToast} fetchExpenses={fetchExpenses} autoOpenAddForm={true} setExpenseView={setExpenseView} />;
       case 'all-expenses':
@@ -133,12 +129,12 @@ export default function ExpensePanel({ setActiveView, onLogout, expenseView, set
               <Wallet size={24} />
             </div>
             <div>
-              <h2 style={{ fontSize: '1.25rem', fontWeight: 700 }}>{expenseView === 'dashboard' ? 'Expense Dashboard' :
+              <h2 style={{ fontSize: '1.25rem', fontWeight: 700 }}>{expenseView === 'dashboard' ? 'Expense Panel' :
                expenseView === 'add-expense' ? 'Expenses' :
                expenseView === 'all-expenses' ? 'Expenses' :
                expenseView === 'tracker' ? 'Time-Period Expense Tracker' : 'New Expense Application'}</h2>
               <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                {expenseView === 'dashboard' ? 'Monitor expense totals, approval queues, budget usage, and recent ledger activity.' :
+                {expenseView === 'dashboard' ? 'Analyze expenditures per day, month, or year with custom comparative filters.' :
                  expenseView === 'add-expense' ? 'Search, filter, paginate, sort, and export the complete academy expense history.' :
                  expenseView === 'categories' ? 'Detailed records segmented across specific school operations and utilities.' :
                  expenseView === 'all-expenses' ? 'Search, filter, paginate, sort, and export the complete academy expense history.' :

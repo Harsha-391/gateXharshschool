@@ -24,10 +24,10 @@ export const getAttendanceRoster = (req, res) => {
     if (search && search.trim() !== '') {
       const query = search.toLowerCase();
       filteredStudents = filteredStudents.filter(stu => 
-        stu.name.toLowerCase().includes(query) || 
-        stu.fullName.toLowerCase().includes(query) ||
-        stu.admissionNumber.toLowerCase().includes(query) ||
-        (stu.rollNumber && stu.rollNumber.toString().includes(query))
+        (stu.name || '').toLowerCase().startsWith(query) || 
+        (stu.fullName || '').toLowerCase().startsWith(query) ||
+        (stu.admissionNumber || '').toLowerCase().startsWith(query) ||
+        (stu.rollNumber && stu.rollNumber.toString().startsWith(query))
       );
     }
 

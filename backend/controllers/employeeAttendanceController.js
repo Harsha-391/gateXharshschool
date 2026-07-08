@@ -558,3 +558,181 @@ export const deleteAttendanceRecord = async (req, res) => {
     res.status(500).json({ error: 'Server error deleting attendance record.' });
   }
 };
+
+/**
+ * 7. MANUAL PUNCH IN/OUT
+ * POST /api/employee-attendance/manual-punch
+ */
+export const manualPunchEmployee = async (req, res) => {
+  try {
+    const { employeeId, employeeType, punchType, punchTime, date } = req.body;
+    if (!employeeId || !employeeType || !punchType) {
+      return res.status(400).json({ error: 'Employee ID, Type, and Punch Type are required.' });
+    }
+
+    const db = readDb();
+    
+    // Find employee
+    let employee = null;
+    if (employeeType === 'Teacher') {
+      employee = db.teachers.find(t => t.employeeId === employeeId || t.id === employeeId);
+    } else if (employeeType === 'Staff') {
+      employee = db.staff.find(s => s.employeeId === employeeId || s.id === employeeId);
+    } else if (employeeType === 'Employee') {
+      employee = (db.employees || []).find(e => e.employeeId === employeeId || e.id === employeeId);
+    }
+
+    if (!employee) {
+      return res.status(404).json({ error: 'Employee profile not found.' });
+    }
+
+    const nowServer = new Date();
+    const todayStr = date || nowServer.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+    const timeStr = punchTime || getCurrentFormattedTime(nowServer);
+    const timestamp = nowServer.toISOString();
+
+    if (!db.attendanceRecords) db.attendanceRecords = [];
+    if (!db.attendanceLogs) db.attendanceLogs = [];
+
+    const settings = (db.attendanceSettings && db.attendanceSettings[0]) || {
+      checkInStart: '08:00 AM',
+      lateTime: '09:00 AM',
+      halfDayTime: '11:00 AM',
+      gracePeriod: 15
+    };
+
+    const recordIndex = db.attendanceRecords.findIndex(r => r.employeeId === employeeId && r.date === todayStr);
+    let record = null;
+    let statusMsg = '';
+
+    if (punchType === 'checkIn') {
+      if (recordIndex > -1) {
+        return res.status(400).json({ error: 'Attendance record (Check-In) already exists for today.' });
+      }
+
+      const checkInMinutes = parseTimeToMinutes(timeStr);
+      const lateTimeMinutes = parseTimeToMinutes(settings.lateTime) + (settings.gracePeriod || 0);
+      const halfDayTimeMinutes = parseTimeToMinutes(settings.halfDayTime);
+
+      let attendanceStatus = 'Present';
+      if (checkInMinutes > halfDayTimeMinutes) {
+        attendanceStatus = 'Half Day';
+      } else if (checkInMinutes > lateTimeMinutes) {
+        attendanceStatus = 'Late';
+      }
+
+      record = {
+        id: `REC-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`,
+        employeeId,
+        employeeType,
+        name: employee.fullName || employee.name,
+        department: employee.department || 'N/A',
+        designation: employee.designation || employee.role || 'N/A',
+        date: todayStr,
+        checkIn: timeStr,
+        checkOut: null,
+        workingHours: 0.00,
+        status: attendanceStatus,
+        createdAt: timestamp,
+        updatedAt: timestamp,
+        method: 'Manual'
+      };
+
+      db.attendanceRecords.push(record);
+      db.attendanceLogs.push({
+        id: `LOG-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`,
+        employeeId,
+        employeeType,
+        scanTime: timeStr,
+        scanType: 'Manual Check-In',
+        status: attendanceStatus
+      });
+      statusMsg = `Manually Checked In as ${attendanceStatus}`;
+    } else if (punchType === 'checkOut') {
+      if (recordIndex === -1) {
+        return res.status(400).json({ error: 'No active Check-In record found for today. Please punch in first.' });
+      }
+
+      const existingRecord = db.attendanceRecords[recordIndex];
+      const checkInMin = parseTimeToMinutes(existingRecord.checkIn);
+      const checkOutMin = parseTimeToMinutes(timeStr);
+      let diffMin = checkOutMin - checkInMin;
+      if (diffMin < 0) diffMin = 0;
+      const hoursDecimal = parseFloat((diffMin / 60).toFixed(2));
+
+      existingRecord.checkOut = timeStr;
+      existingRecord.workingHours = hoursDecimal;
+      existingRecord.updatedAt = timestamp;
+      existingRecord.method = 'Manual';
+
+      db.attendanceLogs.push({
+        id: `LOG-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`,
+        employeeId,
+        employeeType,
+        scanTime: timeStr,
+        scanType: 'Manual Check-Out',
+        status: existingRecord.status
+      });
+
+      record = existingRecord;
+      statusMsg = `Manually Checked Out. Working Hours: ${hoursDecimal} hrs`;
+    } else {
+      return res.status(400).json({ error: 'Invalid punch type.' });
+    }
+
+    writeDb(db);
+    res.json({
+      success: true,
+      message: statusMsg,
+      punchType,
+      record
+    });
+  } catch (error) {
+    console.error('Error manual punch:', error);
+    res.status(500).json({ error: 'Server error processing manual punch.' });
+  }
+};
+
+/**
+ * 8. UPDATE ATTENDANCE RECORD
+ * PUT /api/employee-attendance/record/:id
+ */
+export const updateAttendanceRecord = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { checkIn, checkOut, status, date } = req.body;
+
+    const db = readDb();
+    if (!db.attendanceRecords) db.attendanceRecords = [];
+
+    const recordIndex = db.attendanceRecords.findIndex(r => r.id === id);
+    if (recordIndex === -1) {
+      return res.status(404).json({ error: 'Attendance record not found.' });
+    }
+
+    const record = db.attendanceRecords[recordIndex];
+
+    if (date) record.date = date;
+    if (checkIn) record.checkIn = checkIn;
+    if (checkOut !== undefined) record.checkOut = checkOut;
+    if (status) record.status = status;
+
+    if (record.checkIn && record.checkOut) {
+      const checkInMin = parseTimeToMinutes(record.checkIn);
+      const checkOutMin = parseTimeToMinutes(record.checkOut);
+      let diffMin = checkOutMin - checkInMin;
+      if (diffMin < 0) diffMin = 0;
+      record.workingHours = parseFloat((diffMin / 60).toFixed(2));
+    } else {
+      record.workingHours = 0;
+    }
+
+    record.updatedAt = new Date().toISOString();
+
+    writeDb(db);
+    res.json({ success: true, message: 'Attendance record updated successfully.', record });
+  } catch (error) {
+    console.error('Error updating attendance record:', error);
+    res.status(500).json({ error: 'Server error updating attendance record.' });
+  }
+};

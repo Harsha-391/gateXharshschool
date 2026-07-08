@@ -539,10 +539,79 @@ app.post('/api/auth/refresh', (req, res) => {
   }
   try {
     const verified = verifyRefreshToken(refreshToken);
-    const payload = { ...verified };
-    delete payload.iat;
-    delete payload.exp;
-    const token = generateToken(payload);
+    const tenantId = verified.tenantId;
+
+    let freshPayload = {
+      id: verified.id,
+      tenantId: verified.tenantId,
+      role: verified.role,
+      userType: verified.userType,
+      username: verified.username,
+      permissions: {},
+      overrides: {}
+    };
+
+    if (verified.role === 'Main Admin') {
+      const globalDb = tenantStorage.run(null, () => readDb());
+      const schoolRecord = (globalDb.schools || []).find(s => slugify(s.subdomain) === slugify(tenantId));
+      if (schoolRecord) {
+        freshPayload.passwordHash = schoolRecord.adminPassword;
+      }
+      
+      const db = tenantStorage.run(tenantId, () => readDb());
+      const adminRole = (db.roles || []).find(r => r.id === 'role-principal' || r.name === 'Principal' || r.id === 'role-super-admin' || r.name === 'Super Admin');
+      if (adminRole) {
+        freshPayload.permissions = adminRole.permissions;
+      } else {
+        const modules = [
+          'dashboard', 'students', 'teachers', 'staff', 'academics', 'calendar', 'exams',
+          'results', 'notices', 'events', 'holidays', 'attendance', 'fee-structures',
+          'salaries', 'expenses', 'income', 'roles-permissions'
+        ];
+        const actions = ['view', 'create', 'edit', 'delete', 'approve', 'publish', 'export', 'import', 'manage-settings'];
+        const matrix = {};
+        modules.forEach(m => {
+          matrix[m] = {};
+          actions.forEach(a => {
+            matrix[m][a] = true;
+          });
+        });
+        freshPayload.permissions = matrix;
+      }
+    } else {
+      const db = tenantStorage.run(tenantId, () => readDb());
+      let roleRecord = null;
+      if (verified.userType === 'Teacher') {
+        const teacher = (db.teachers || []).find(t => t.id === verified.id);
+        if (teacher) {
+          freshPayload.assignedGradeId = teacher.assignedGradeId || '';
+          freshPayload.assignedSectionId = teacher.assignedSectionId || '';
+          freshPayload.isClassTeacher = (teacher.isClassTeacher === 1 || teacher.isClassTeacher === true || teacher.isClassTeacher === 'Yes');
+          freshPayload.attendancePermission = (teacher.attendancePermission === 1 || teacher.attendancePermission === true || teacher.attendancePermission === 'Yes');
+        }
+        roleRecord = (db.roles || []).find(r => r.id === 'role-teacher' || r.name.toLowerCase() === 'teacher');
+      } else if (verified.userType === 'Staff') {
+        const access = (db.userAccess || []).find(ua => ua.userId === verified.id && ua.userType === 'Staff');
+        if (access) {
+          freshPayload.overrides = access.overrides || {};
+        }
+        roleRecord = access ? (db.roles || []).find(r => r.id === access.roleId) : null;
+        if (!roleRecord) {
+          const staffMember = (db.staff || []).find(s => s.id === verified.id);
+          const possibleDesignation = staffMember ? (staffMember.designation || staffMember.role) : null;
+          if (possibleDesignation) {
+            roleRecord = (db.roles || []).find(r => r.name.toLowerCase() === possibleDesignation.toLowerCase());
+          }
+        }
+        if (!roleRecord) {
+          roleRecord = (db.roles || []).find(r => r.name.toLowerCase() === 'staff' || r.id === 'role-receptionist');
+        }
+      }
+      
+      freshPayload.permissions = roleRecord ? (typeof roleRecord.permissions === 'string' ? JSON.parse(roleRecord.permissions) : roleRecord.permissions) : {};
+    }
+
+    const token = generateToken(freshPayload);
     res.json({ token });
   } catch (err) {
     res.status(401).json({ error: 'Invalid or expired refresh token.' });
@@ -1672,10 +1741,10 @@ app.post('/api/employees', auth, staffUploadFields, restoreTenantContext, checkP
       currentPostalCode: body.currentPostalCode || body.pincode || '',
       pincode: body.currentPostalCode || body.pincode || '',
       permanentAddress: body.permanentAddress || '',
-      permanentCity: permanentCity || '',
-      permanentState: permanentState || '',
-      permanentCountry: permanentCountry || 'India',
-      permanentPostalCode: permanentPostalCode || '',
+      permanentCity: body.permanentCity || '',
+      permanentState: body.permanentState || '',
+      permanentCountry: body.permanentCountry || 'India',
+      permanentPostalCode: body.permanentPostalCode || '',
       sameAsPermanent: body.sameAsPermanent === 'true' || body.sameAsPermanent === true,
       qualification: parsedQualifications || [],
       experience: body.experience || '0',

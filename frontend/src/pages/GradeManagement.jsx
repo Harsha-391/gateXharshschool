@@ -547,7 +547,15 @@ export default function GradeManagement({ currentSubView, setAdminView, showToas
   };
 
   const filteredGrades = grades
-    .filter(g => g.name.toLowerCase().includes(gradeSearch.toLowerCase()))
+    .filter(g => {
+      if (!gradeSearch) return true;
+      const num = parseInt(gradeSearch, 10);
+      const lookup = {
+        1: 'I', 2: 'II', 3: 'III', 4: 'IV', 5: 'V', 6: 'VI', 7: 'VII', 8: 'VIII', 9: 'IX', 10: 'X', 11: 'XI', 12: 'XII'
+      };
+      const roman = lookup[num] || gradeSearch;
+      return g.name.toLowerCase().startsWith(roman.toLowerCase());
+    })
     .sort(sortGradesHelper);
 
   const displayGrades = [];
@@ -718,10 +726,10 @@ export default function GradeManagement({ currentSubView, setAdminView, showToas
                     <Search size={16} className="search-bar-icon" />
                     <input 
                       type="text" 
-                      placeholder="Search grade name..." 
+                      placeholder="Search grade (e.g. 1, 2)..." 
                       className="search-bar-input"
                       value={gradeSearch}
-                      onChange={(e) => { setGradeSearch(e.target.value); setGradePage(1); }}
+                      onChange={(e) => { setGradeSearch(e.target.value.replace(/[^0-9]/g, '')); setGradePage(1); }}
                       style={{ width: '100%' }}
                     />
                   </div>

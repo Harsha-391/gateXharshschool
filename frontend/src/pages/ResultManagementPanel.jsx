@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import './ResultManagementPanel.css';
 import { createPortal } from 'react-dom';
 import { fetchActiveGrades } from '../utils/grades';
+import { DEFAULT_TEMPLATES, compileTemplate } from '../utils/reportTemplates';
 import {
   Award,
   Search,
@@ -26,7 +27,10 @@ import {
   Clock,
   Share2,
   Trash2,
-  RotateCcw
+  RotateCcw,
+  Upload,
+  Code,
+  SlidersHorizontal
 } from 'lucide-react';
 
 const parseStudentClass = (studentClass) => {
@@ -38,7 +42,7 @@ const parseStudentClass = (studentClass) => {
   return { grade: studentClass, department: '-' };
 };
 
-export default function ResultManagementPanel({ activeTab: propActiveTab = 'analytics', setAdminView }) {
+export default function ResultManagementPanel({ activeTab: propActiveTab = 'analytics', setAdminView, userProfile }) {
   const [activeTab, setActiveTab] = useState(propActiveTab);
 
   useEffect(() => {
@@ -87,6 +91,12 @@ export default function ResultManagementPanel({ activeTab: propActiveTab = 'anal
   // Department selection state (for XI & XII)
   const [selectedDepartment, setSelectedDepartment] = useState('');
 
+  // Analytics Dashboard Filter States
+  const [analyticsSession, setAnalyticsSession] = useState('2026-2027');
+  const [analyticsClass, setAnalyticsClass] = useState('');
+  const [analyticsSection, setAnalyticsSection] = useState('All');
+  const [analyticsExam, setAnalyticsExam] = useState('All');
+
   // Exam student attendance status: key format: `${selectedExam}_${studentId}` -> 'Present' | 'Absent'
   const [examAttendance, setExamAttendance] = useState(() => {
     try {
@@ -117,6 +127,22 @@ export default function ResultManagementPanel({ activeTab: propActiveTab = 'anal
     localStorage.setItem('published_student_exams', JSON.stringify(publishedExams));
   }, [publishedExams]);
 
+  const teacherGradeName = useMemo(() => {
+    if (!userProfile) return '';
+    const matched = activeGrades.find(g => 
+      g.id === userProfile.assignedGradeId || 
+      g.gradeId === userProfile.assignedGradeId ||
+      g.name === userProfile.assignedGradeId ||
+      g.gradeName === userProfile.assignedGradeId
+    );
+    return matched ? matched.gradeName : (userProfile.assignedGradeName || userProfile.assignedGradeId || '');
+  }, [userProfile, activeGrades]);
+
+  const teacherSectionName = useMemo(() => {
+    if (!userProfile) return '';
+    return userProfile.assignedSectionName || userProfile.assignedSectionId || '';
+  }, [userProfile]);
+
   // Handle department resetting on class change
   useEffect(() => {
     if (selectedClass) {
@@ -146,10 +172,13 @@ export default function ResultManagementPanel({ activeTab: propActiveTab = 'anal
   }, [selectedClass, selectedDepartment, activeGrades]);
 
   const allowedSections = useMemo(() => {
+    if (userProfile?.role === 'Teacher') {
+      return teacherSectionName ? [teacherSectionName] : [];
+    }
     if (!targetClass) return [];
     const matchedGrade = activeGrades.find(g => g.name === targetClass);
     return matchedGrade ? (matchedGrade.sections || []) : [];
-  }, [targetClass, activeGrades]);
+  }, [targetClass, activeGrades, userProfile, teacherSectionName]);
 
   useEffect(() => {
     if (allowedSections.length > 0) {
@@ -160,6 +189,25 @@ export default function ResultManagementPanel({ activeTab: propActiveTab = 'anal
       setSelectedSection('');
     }
   }, [allowedSections, selectedSection]);
+
+  const analyticsAllowedSections = useMemo(() => {
+    if (userProfile?.role === 'Teacher') {
+      return teacherSectionName ? [teacherSectionName] : [];
+    }
+    if (!analyticsClass) return [];
+    const matchedGrade = activeGrades.find(g => g.gradeName === analyticsClass || g.name === analyticsClass);
+    return matchedGrade ? (matchedGrade.sections || []) : [];
+  }, [analyticsClass, activeGrades, userProfile, teacherSectionName]);
+
+  useEffect(() => {
+    if (analyticsAllowedSections.length > 0) {
+      if (!analyticsAllowedSections.includes(analyticsSection)) {
+        setAnalyticsSection(analyticsAllowedSections[0]);
+      }
+    } else {
+      setAnalyticsSection('All');
+    }
+  }, [analyticsAllowedSections, analyticsSection]);
 
   const hasDepartments = useMemo(() => {
     if (!selectedClass) return false;
@@ -175,6 +223,9 @@ export default function ResultManagementPanel({ activeTab: propActiveTab = 'anal
   }, [selectedClass, activeGrades]);
 
   const uniqueGradeNames = useMemo(() => {
+    if (userProfile?.role === 'Teacher') {
+      return teacherGradeName ? [teacherGradeName] : [];
+    }
     const names = new Set();
     activeGrades.forEach(g => {
       if (g.gradeName) {
@@ -185,7 +236,7 @@ export default function ResultManagementPanel({ activeTab: propActiveTab = 'anal
       }
     });
     return Array.from(names);
-  }, [activeGrades]);
+  }, [activeGrades, userProfile]);
 
   // Per-student Result Modal States
   const [studentExamSelections, setStudentExamSelections] = useState({}); // studentId -> examId
@@ -228,23 +279,73 @@ export default function ResultManagementPanel({ activeTab: propActiveTab = 'anal
   const [reportSearchQuery, setReportSearchQuery] = useState('');
   const [showReportSearchResults, setShowReportSearchResults] = useState(false);
 
-  // Memoized search filtered students across all classes with published results
+  // New States for Dynamic Template System
+  const [reportSession, setReportSession] = useState('2026-2027');
+  const [reportExamId, setReportExamId] = useState('All');
+  const [reportSection, setReportSection] = useState('All');
+  const [reportTemplateId, setReportTemplateId] = useState(() => {
+    return localStorage.getItem(`report_card_template_id_${localStorage.getItem('tenant_subdomain') || 'default'}`) || 'classic';
+  });
+  const [customTemplateHtml, setCustomTemplateHtml] = useState(() => {
+    return localStorage.getItem(`report_card_custom_html_${localStorage.getItem('tenant_subdomain') || 'default'}`) || '';
+  });
+  const [pdfTemplateBase64, setPdfTemplateBase64] = useState(() => {
+    return localStorage.getItem(`report_card_pdf_template_${localStorage.getItem('tenant_subdomain') || 'default'}`) || '';
+  });
+  const [pdfFields, setPdfFields] = useState(() => {
+    try {
+      const stored = localStorage.getItem(`report_card_pdf_fields_${localStorage.getItem('tenant_subdomain') || 'default'}`);
+      return stored ? JSON.parse(stored) : [];
+    } catch (e) {
+      return [];
+    }
+  });
+  const [filledPdfUrl, setFilledPdfUrl] = useState('');
+  const [pdfEngineLoaded, setPdfEngineLoaded] = useState(false);
+  const [isBulkExporting, setIsBulkExporting] = useState(false);
+  const [bulkExportProgress, setBulkExportProgress] = useState(0);
+
+  useEffect(() => {
+    if (window.PDFLib) {
+      setPdfEngineLoaded(true);
+      return;
+    }
+    const script = document.createElement('script');
+    script.src = 'https://cdn.jsdelivr.net/npm/pdf-lib/dist/pdf-lib.min.js';
+    script.async = true;
+    script.onload = () => {
+      setPdfEngineLoaded(true);
+    };
+    document.body.appendChild(script);
+  }, []);
+
+  const [isEditingTemplate, setIsEditingTemplate] = useState(false);
+  const [showPlaceholderCheatSheet, setShowPlaceholderCheatSheet] = useState(false);
+  const [showHtmlCodeEditor, setShowHtmlCodeEditor] = useState(false);
+
+  // School profile & staff list states for dynamic data populating
+  const [schoolInfo, setSchoolInfo] = useState({ name: 'Green Valley Public School', address: 'Khimel Rani Station Road, Bali, Rajasthan', email: 'contact@gmail.com', phone: '', logo: '' });
+  const [staffList, setStaffList] = useState([]);
+
+  // Memoized search filtered students across all classes with results
   const reportSearchFilteredStudents = useMemo(() => {
     const query = reportSearchQuery.trim().toLowerCase();
     if (!query) return [];
     return students.filter(s => {
-      // Check if student has at least one published exam
-      const studentPubs = publishedExams[s.id];
-      if (!studentPubs) return false;
-      const hasPublished = Object.values(studentPubs).some(val => val === true);
-      if (!hasPublished) return false;
+      // Find if student has any result in overallResults
+      const hasResult = overallResults.some(o => {
+        if (o.studentId !== s.id) return false;
+        const exam = exams.find(e => e.id === o.examId);
+        return exam && exam.academicSession === reportSession;
+      });
+      if (!hasResult) return false;
 
       return (
         s.name.toLowerCase().includes(query) ||
         (s.rollNumber || s.roll || '').toString().toLowerCase().includes(query)
       );
     });
-  }, [students, reportSearchQuery, publishedExams]);
+  }, [students, reportSearchQuery, overallResults, exams, reportSession]);
 
   // Handle department resetting on report class change
   useEffect(() => {
@@ -289,22 +390,102 @@ export default function ResultManagementPanel({ activeTab: propActiveTab = 'anal
 
 
 
+  const reportAllowedSections = useMemo(() => {
+    if (userProfile?.role === 'Teacher') {
+      return teacherSectionName ? [teacherSectionName] : [];
+    }
+    if (!targetReportClass) return [];
+    const matchedGrade = activeGrades.find(g => g.name === targetReportClass);
+    return matchedGrade ? (matchedGrade.sections || []) : [];
+  }, [targetReportClass, activeGrades, userProfile, teacherSectionName]);
+
+  useEffect(() => {
+    if (reportAllowedSections.length > 0) {
+      if (reportSection !== 'All' && !reportAllowedSections.includes(reportSection)) {
+        setReportSection('All');
+      }
+    } else {
+      setReportSection('All');
+    }
+  }, [reportAllowedSections, reportSection]);
+
   const reportFilteredStudents = useMemo(() => {
     if (!reportClass) return [];
     return students.filter(s => {
+      // 1. Class filter
       if (s.studentClass !== targetReportClass) return false;
-      const studentPubs = publishedExams[s.id];
-      if (!studentPubs) return false;
-      // Show if they have at least one exam published
-      return Object.values(studentPubs).some(val => val === true);
+      
+      // 2. Section filter
+      if (reportSection !== 'All' && (s.section || 'A') !== reportSection) return false;
+
+      // 3. Check if student has overall results for the selected session and exam (without needing published status!)
+      if (reportExamId !== 'All') {
+        return overallResults.some(o => o.studentId === s.id && o.examId === reportExamId);
+      } else {
+        return overallResults.some(o => {
+          if (o.studentId !== s.id) return false;
+          const exam = exams.find(e => e.id === o.examId);
+          return exam && exam.academicSession === reportSession;
+        });
+      }
     });
-  }, [students, reportClass, targetReportClass, publishedExams]);
+  }, [students, reportClass, targetReportClass, reportSection, reportExamId, reportSession, exams, overallResults]);
+
+  const reportClassTeacherName = useMemo(() => {
+    if (!targetReportClass || !reportStudentId) return 'N/A';
+    const student = students.find(s => s.id === reportStudentId);
+    if (!student) return 'N/A';
+    const studentSection = student.section || 'A';
+    
+    // Safely wrap staffList to ensure it's always an array
+    const staffArr = Array.isArray(staffList) ? staffList : [];
+    if (staffArr.length === 0) return 'N/A';
+    
+    // Find teacher assigned to this grade and section who isClassTeacher === true
+    const teacher = staffArr.find(s => 
+      s.assignedGradeId === targetReportClass && 
+      s.assignedSectionId === studentSection &&
+      (s.isClassTeacher === true || s.isClassTeacher === 'true' || s.isClassTeacher === 1 || s.isClassTeacher === 'Yes')
+    );
+    if (teacher) return teacher.name;
+    
+    // Fallback: find any teacher assigned to this grade and section
+    const fallbackTeacher = staffArr.find(s => 
+      s.assignedGradeId === targetReportClass && 
+      s.assignedSectionId === studentSection
+    );
+    if (fallbackTeacher) return fallbackTeacher.name;
+
+    // Second fallback: find any class teacher for this grade
+    const secondFallback = staffArr.find(s => 
+      s.assignedGradeId === targetReportClass && 
+      (s.isClassTeacher === true || s.isClassTeacher === 'true' || s.isClassTeacher === 1 || s.isClassTeacher === 'Yes')
+    );
+    return secondFallback ? secondFallback.name : 'N/A';
+  }, [staffList, targetReportClass, reportStudentId, students]);
+
 
   // Sub-Tab: Academic Records / Search State
   const [historySearch, setHistorySearch] = useState('');
   const [historyClassFilter, setHistoryClassFilter] = useState('');
   const [historySectionFilter, setHistorySectionFilter] = useState('');
   const [historyDepartmentFilter, setHistoryDepartmentFilter] = useState('');
+
+  // Handle pre-populating teacher class and section filters
+  useEffect(() => {
+    if (userProfile?.role === 'Teacher') {
+      if (teacherGradeName) {
+        setSelectedClass(teacherGradeName);
+        setReportClass(teacherGradeName);
+        setHistoryClassFilter(teacherGradeName);
+      }
+      if (teacherSectionName) {
+        setSelectedSection(teacherSectionName);
+        setReportSection(teacherSectionName);
+        setHistorySectionFilter(teacherSectionName);
+      }
+    }
+  }, [userProfile, teacherGradeName, teacherSectionName]);
 
   // Handle department resetting on history class change
   useEffect(() => {
@@ -348,10 +529,13 @@ export default function ResultManagementPanel({ activeTab: propActiveTab = 'anal
   }, [historyClassFilter, activeGrades]);
 
   const historyAllowedSections = useMemo(() => {
+    if (userProfile?.role === 'Teacher') {
+      return teacherSectionName ? [teacherSectionName] : [];
+    }
     if (!targetHistoryClass) return [];
     const matchedGrade = activeGrades.find(g => g.name === targetHistoryClass);
     return matchedGrade ? (matchedGrade.sections || []) : [];
-  }, [targetHistoryClass, activeGrades]);
+  }, [targetHistoryClass, activeGrades, userProfile, teacherSectionName]);
 
   useEffect(() => {
     if (historyAllowedSections.length > 0) {
@@ -408,6 +592,20 @@ export default function ResultManagementPanel({ activeTab: propActiveTab = 'anal
       if (resultsRes.ok) setResults(await resultsRes.json());
       if (overallRes.ok) setOverallResults(await overallRes.json());
       if (timetablesRes.ok) setExamTimetables(await timetablesRes.json());
+
+      // Fetch School Profile and Staff list
+      try {
+        const schoolRes = await fetch('/api/school');
+        if (schoolRes.ok) setSchoolInfo(await schoolRes.json());
+      } catch (e) {
+        console.error('Failed to load school details:', e);
+      }
+      try {
+        const staffRes = await fetch('/api/staff');
+        if (staffRes.ok) setStaffList(await staffRes.json());
+      } catch (e) {
+        console.error('Failed to load staff list:', e);
+      }
     } catch (err) {
       console.error('Error fetching academic results records:', err);
       showToast('Network error loading result data.', 'error');
@@ -457,31 +655,71 @@ export default function ResultManagementPanel({ activeTab: propActiveTab = 'anal
     }
   }, [selectedExam, selectedClass, targetClass, selectedSubject, results]);
 
+  // Helper to retrieve all subjects linked to an exam for a class (timetables, saved results, and subjectIncluded fallback)
+  const getExamSubjectsForClass = (examObj, cls, studentId) => {
+    if (!examObj) return [];
+    const uniqueSubjectsMap = {};
+
+    // 1. Timetables
+    const allScheduled = examTimetables.filter(et => 
+      et.examId === examObj.id && 
+      (et.grade === cls || et.cohort === cls || (et.cohort && et.cohort.startsWith(`${cls}-`)))
+    );
+    allScheduled.forEach(s => {
+      uniqueSubjectsMap[s.subject.toLowerCase()] = { subject: s.subject, examId: examObj.id };
+    });
+
+    // 2. Existing results
+    if (studentId) {
+      const existing = results.filter(r => 
+        r.studentId === studentId && 
+        r.examId === examObj.id
+      );
+      existing.forEach(r => {
+        if (!uniqueSubjectsMap[r.subject.toLowerCase()]) {
+          uniqueSubjectsMap[r.subject.toLowerCase()] = { id: r.id, subject: r.subject, examId: r.examId };
+        }
+      });
+    }
+
+    // 3. subjectIncluded
+    if (examObj.subjectIncluded) {
+      Object.keys(examObj.subjectIncluded).forEach(key => {
+        if (examObj.subjectIncluded[key] !== false) {
+          const prefix = `${cls}-`;
+          if (key.toLowerCase().startsWith(prefix.toLowerCase())) {
+            const subName = key.substring(prefix.length);
+            if (!uniqueSubjectsMap[subName.toLowerCase()]) {
+              uniqueSubjectsMap[subName.toLowerCase()] = { subject: subName, examId: examObj.id };
+            }
+          }
+        }
+      });
+    }
+
+    // 4. Fallback 4: subjectMarks
+    if (examObj.subjectMarks) {
+      Object.keys(examObj.subjectMarks).forEach(key => {
+        const prefix = `${cls}-`;
+        if (key.toLowerCase().startsWith(prefix.toLowerCase())) {
+          const subName = key.substring(prefix.length);
+          if (!uniqueSubjectsMap[subName.toLowerCase()]) {
+            uniqueSubjectsMap[subName.toLowerCase()] = { subject: subName, examId: examObj.id };
+          }
+        }
+      });
+    }
+
+    return Object.values(uniqueSubjectsMap);
+  };
+
   // Load existing marks into the modal form when a student and exam are selected for modal results entry
   useEffect(() => {
     if (activeStudentForModal && activeExamForModal) {
       const cls = activeStudentForModal.studentClass || targetClass;
       const sec = activeStudentForModal.section || selectedSection;
       if (cls) {
-        const allScheduled = examTimetables.filter(et => 
-          et.examId === activeExamForModal.id && 
-          (et.grade === cls || et.cohort === cls || et.cohort.startsWith(`${cls}-`))
-        );
-        const uniqueSubjectsMap = {};
-        allScheduled.forEach(s => {
-          uniqueSubjectsMap[s.subject.toLowerCase()] = s;
-        });
-        // Fallback: also include subjects from existing saved results
-        const studentResults = results.filter(r => 
-          r.studentId === activeStudentForModal.id && 
-          r.examId === activeExamForModal.id
-        );
-        studentResults.forEach(r => {
-          if (!uniqueSubjectsMap[r.subject.toLowerCase()]) {
-            uniqueSubjectsMap[r.subject.toLowerCase()] = { id: r.id, subject: r.subject, examId: r.examId };
-          }
-        });
-        const scheduledSubjects = Object.values(uniqueSubjectsMap);
+        const scheduledSubjects = getExamSubjectsForClass(activeExamForModal, cls, activeStudentForModal.id);
         const newFormMarks = {};
         const newFormRemarks = {};
         
@@ -510,25 +748,7 @@ export default function ResultManagementPanel({ activeTab: propActiveTab = 'anal
     if (!activeStudentForModal || !activeExamForModal) return;
 
     const cls = activeStudentForModal.studentClass || selectedClass;
-    const allScheduled = examTimetables.filter(et => 
-      et.examId === activeExamForModal.id && 
-      (et.grade === cls || et.cohort === cls || et.cohort.startsWith(`${cls}-`))
-    );
-    const uniqueSubjectsMap = {};
-    allScheduled.forEach(s => {
-      uniqueSubjectsMap[s.subject.toLowerCase()] = s;
-    });
-    // Fallback: include subjects from existing saved results
-    const existingResults = results.filter(r => 
-      r.studentId === activeStudentForModal.id && 
-      r.examId === activeExamForModal.id
-    );
-    existingResults.forEach(r => {
-      if (!uniqueSubjectsMap[r.subject.toLowerCase()]) {
-        uniqueSubjectsMap[r.subject.toLowerCase()] = { id: r.id, subject: r.subject, examId: r.examId };
-      }
-    });
-    const scheduledSubjects = Object.values(uniqueSubjectsMap);
+    const scheduledSubjects = getExamSubjectsForClass(activeExamForModal, cls, activeStudentForModal.id);
 
     // Validate that no obtained marks exceed the max marks
     let validationError = null;
@@ -782,111 +1002,770 @@ export default function ResultManagementPanel({ activeTab: propActiveTab = 'anal
   // Print report card helper
   const handlePrint = (divId) => {
     const printContents = document.getElementById(divId).innerHTML;
-    const originalContents = document.body.innerHTML;
-    document.body.innerHTML = `
+    const printWindow = window.open('', '_blank', 'width=900,height=900');
+    if (!printWindow) {
+      showToast('Popup blocked! Please allow popups to print.', 'error');
+      return;
+    }
+    printWindow.document.write(`
       <html>
         <head>
           <title>Student Academic Marksheet Report</title>
           <style>
-            body { font-family: 'Outfit', 'Inter', sans-serif; color: #1e293b; padding: 20px; background: #fff; }
+            body { font-family: 'Outfit', 'Inter', sans-serif; color: #1e293b; padding: 20px; background: #fff; display: flex; justify-content: center; }
             table { width: 100%; border-collapse: collapse; margin-top: 15px; }
-            th, td { border: 1px solid #e2e8f0; padding: 10px; text-align: left; }
+            th, td { border: 1px solid #cbd5e1; padding: 10px; text-align: left; }
             th { background: #f8fafc; font-weight: bold; }
-            .badge { font-weight: bold; }
             @media print {
               .no-print { display: none !important; }
-              body { margin: 0; padding: 0; }
+              body { margin: 0; padding: 0; display: block; }
             }
           </style>
         </head>
         <body>
           ${printContents}
+          <script>
+            window.onload = function() {
+              setTimeout(function() {
+                window.print();
+                window.close();
+              }, 300);
+            };
+          </script>
         </body>
       </html>
-    `;
-    window.print();
-    document.body.innerHTML = originalContents;
-    // Reload components to restore react states
-    window.location.reload();
+    `);
+    printWindow.document.close();
   };
 
-  // Computations for Analytics Dashboard
+  // Computations for Analytics Dashboard (SaaS Cumulative Grouping)
+  const analyticsFilteredStudents = useMemo(() => {
+    return students.filter(s => {
+      if (analyticsClass) {
+        const matchesClass = s.studentClass === analyticsClass || (s.studentClass && (s.studentClass.startsWith(`${analyticsClass}-`) || s.studentClass.startsWith(`${analyticsClass} `)));
+        if (!matchesClass) return false;
+      }
+      if (analyticsSection !== 'All' && s.section !== analyticsSection) {
+        return false;
+      }
+      return true;
+    });
+  }, [students, analyticsClass, analyticsSection]);
+
+  const cumulativeStudentResults = useMemo(() => {
+    return analyticsFilteredStudents.map(student => {
+      // Find overall results for this student
+      const studentOverallRes = overallResults.filter(o => {
+        if (o.studentId !== student.id) return false;
+        
+        if (analyticsExam === 'All') {
+          const exam = exams.find(e => e.id === o.examId);
+          if (!exam || exam.academicSession !== analyticsSession) return false;
+          return true;
+        } else {
+          return o.examId === analyticsExam;
+        }
+      });
+
+      if (studentOverallRes.length === 0) return null;
+
+      const totalObtained = studentOverallRes.reduce((sum, o) => sum + (o.totalObtained || 0), 0);
+      const totalMax = studentOverallRes.reduce((sum, o) => sum + (o.totalMax || 100), 0);
+      const percentage = totalMax > 0 ? Math.round((totalObtained / totalMax) * 100) : 0;
+      
+      const grade = percentage >= 90 ? 'A+' : percentage >= 80 ? 'A' : percentage >= 70 ? 'B+' : percentage >= 60 ? 'B' : percentage >= 50 ? 'C' : percentage >= 40 ? 'D' : 'F';
+      const passStatus = percentage >= 40 ? 'Pass' : 'Fail';
+
+      return {
+        studentId: student.id,
+        studentName: student.name,
+        roll: student.rollNumber || student.roll || 'N/A',
+        cohort: student.studentClass + (student.section ? `-${student.section}` : ''),
+        totalObtained,
+        totalMax,
+        percentage,
+        grade,
+        passStatus
+      };
+    }).filter(Boolean);
+  }, [analyticsFilteredStudents, overallResults, exams, analyticsSession, analyticsExam]);
+
   const analyticsData = useMemo(() => {
-    if (overallResults.length === 0) {
-      return { passRate: 0, highAchievers: 0, overallAvg: 0, classPerformance: [], gradeDistribution: {} };
+    const totalStudentsCount = analyticsFilteredStudents.length;
+    const evaluatedCount = cumulativeStudentResults.length;
+    
+    if (evaluatedCount === 0) {
+      return {
+        totalStudentsCount,
+        passCount: 0,
+        failCount: 0,
+        passRate: 0,
+        failRate: 0,
+        gradeDistribution: {}
+      };
     }
 
-    const passCount = overallResults.filter(o => o.passStatus === 'Pass').length;
-    const passRate = Math.round((passCount / overallResults.length) * 100);
-
-    const highAchievers = overallResults.filter(o => o.percentage >= 80).length;
-    const overallAvg = Math.round(overallResults.reduce((sum, o) => sum + o.percentage, 0) / overallResults.length);
-
-    // Class wise pass averages
-    const classes = [...new Set(overallResults.map(o => o.cohort))];
-    const classPerformance = classes.map(c => {
-      const classRes = overallResults.filter(o => o.cohort === c);
-      const avg = Math.round(classRes.reduce((sum, o) => sum + o.percentage, 0) / classRes.length);
-      const passPct = Math.round((classRes.filter(o => o.passStatus === 'Pass').length / classRes.length) * 100);
-      return { class: c, average: avg, passRate: passPct };
-    });
-
-    // Grade Distribution counts
-    const grades = {};
-    overallResults.forEach(o => {
-      grades[o.grade] = (grades[o.grade] || 0) + 1;
-    });
-
-    return { passRate, highAchievers, overallAvg, classPerformance, gradeDistribution: grades };
-  }, [overallResults]);
-
-  // Computed top performers
-  const topPerformers = useMemo(() => {
-    return [...overallResults]
-      .sort((a, b) => b.percentage - a.percentage)
-      .slice(0, 5)
-      .map(o => {
-        const student = students.find(s => s.id === o.studentId);
-        return {
-          ...o,
-          studentName: student?.name || 'Unknown Student',
-          roll: student?.rollNumber || student?.roll || 'N/A'
-        };
-      });
-  }, [overallResults, students]);
-
-
-
-  // Load report card details for active report view student — aggregates ALL published exams
-  const activeReportCardData = useMemo(() => {
-    if (!reportStudentId) return null;
-    const studentPubs = publishedExams[reportStudentId];
-    if (!studentPubs) return null;
+    const passCount = cumulativeStudentResults.filter(r => r.passStatus === 'Pass').length;
+    const failCount = cumulativeStudentResults.filter(r => r.passStatus === 'Fail').length;
     
-    const student = students.find(s => s.id === reportStudentId);
+    const passRate = Math.round((passCount / evaluatedCount) * 100);
+    const failRate = Math.round((failCount / evaluatedCount) * 100);
+
+    // Grade Distribution counts based on student final cumulative results
+    const grades = {};
+    cumulativeStudentResults.forEach(r => {
+      grades[r.grade] = (grades[r.grade] || 0) + 1;
+    });
+
+    return {
+      totalStudentsCount,
+      passCount,
+      failCount,
+      passRate,
+      failRate,
+      gradeDistribution: grades
+    };
+  }, [analyticsFilteredStudents, cumulativeStudentResults]);
+
+  const topPerformers = useMemo(() => {
+    return [...cumulativeStudentResults]
+      .sort((a, b) => b.percentage - a.percentage)
+      .slice(0, 5);
+  }, [cumulativeStudentResults]);
+
+  const subjectBreakdown = useMemo(() => {
+    const subjectStats = {};
+    const studentIds = new Set(cumulativeStudentResults.map(r => r.studentId));
+    
+    results.forEach(r => {
+      if (studentIds.has(r.studentId)) {
+        let matchesExam = false;
+        if (analyticsExam === 'All') {
+          const exam = exams.find(e => e.id === r.examId);
+          matchesExam = exam && exam.academicSession === analyticsSession;
+        } else {
+          matchesExam = r.examId === analyticsExam;
+        }
+
+        if (matchesExam) {
+          const key = r.subject;
+          if (!subjectStats[key]) {
+            subjectStats[key] = { name: r.subject, totalObtained: 0, totalMax: 0, count: 0, passes: 0 };
+          }
+          subjectStats[key].totalObtained += (r.obtainedMarks || 0);
+          subjectStats[key].totalMax += (r.totalMarks || 100);
+          subjectStats[key].count += 1;
+          
+          const pct = r.totalMarks > 0 ? (r.obtainedMarks / r.totalMarks) * 100 : 0;
+          if (pct >= 40 || r.remarks !== 'Fail') {
+            subjectStats[key].passes += 1;
+          }
+        }
+      }
+    });
+    
+    return Object.values(subjectStats).map(stat => {
+      const avgPct = stat.totalMax > 0 ? Math.round((stat.totalObtained / stat.totalMax) * 100) : 0;
+      const passRate = stat.count > 0 ? Math.round((stat.passes / stat.count) * 100) : 0;
+      return {
+        subject: stat.name,
+        averagePct: avgPct,
+        passRate: passRate,
+        totalStudents: stat.count
+      };
+    }).sort((a, b) => b.averagePct - a.averagePct);
+  }, [cumulativeStudentResults, results, exams, analyticsSession, analyticsExam]);
+
+
+
+  // Reusable helper to get report card data for any student
+  const getStudentReportCardData = (studentId) => {
+    if (!studentId) return null;
+    
+    const student = students.find(s => s.id === studentId);
     if (!student) return null;
 
-    // Gather all published exam data
-    const publishedExamIds = Object.keys(studentPubs).filter(eid => studentPubs[eid] === true);
-    if (publishedExamIds.length === 0) return null;
+    // Gather all exams for this student in this academic session
+    const studentOverallResults = overallResults.filter(o => {
+      if (o.studentId !== studentId) return false;
+      const exam = exams.find(e => e.id === o.examId);
+      if (!exam || exam.academicSession !== reportSession) return false;
+      if (reportExamId !== 'All' && o.examId !== reportExamId) return false;
+      return true;
+    });
 
-    const examSections = publishedExamIds.map(examId => {
-      const exam = exams.find(e => e.id === examId);
+    if (studentOverallResults.length === 0) return null;
+
+    const examSections = studentOverallResults.map(overall => {
+      const exam = exams.find(e => e.id === overall.examId);
       if (!exam) return null;
-      const overall = overallResults.find(o => o.studentId === reportStudentId && o.examId === examId);
-      const subjectMarks = results.filter(r => r.studentId === reportStudentId && r.examId === examId);
+
+      const subjectMarks = results.filter(r => r.studentId === studentId && r.examId === overall.examId);
       return { exam, overall, subjectMarks };
     }).filter(Boolean);
 
     if (examSections.length === 0) return null;
 
-    // Calculate grand totals across all exams
+    // Calculate grand totals across selected/filtered exams
     const grandTotalObtained = examSections.reduce((sum, sec) => sum + (sec.overall?.totalObtained || 0), 0);
     const grandTotalMax = examSections.reduce((sum, sec) => sum + (sec.overall?.totalMax || 0), 0);
     const grandPercentage = grandTotalMax > 0 ? Math.round((grandTotalObtained / grandTotalMax) * 100) : 0;
 
     return { student, examSections, grandTotalObtained, grandTotalMax, grandPercentage };
-  }, [reportStudentId, students, exams, overallResults, results, publishedExams]);
+  };
+
+  // Load report card details for active report view student — filters by selected session and exam
+  const activeReportCardData = useMemo(() => {
+    return getStudentReportCardData(reportStudentId);
+  }, [reportStudentId, reportSession, reportExamId, students, exams, overallResults, results]);
+
+  const handleFileUpload = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const extension = file.name.split('.').pop().toLowerCase();
+    
+    // Size check (max 5MB for PDF/Image binary types, 1MB for text text/html templates)
+    const isBinary = extension === 'pdf' || file.type.startsWith('image/');
+    const maxSize = isBinary ? 5 * 1024 * 1024 : 1 * 1024 * 1024;
+    
+    if (file.size > maxSize) {
+      showToast(`File is too large! Maximum allowed size is ${isBinary ? '5MB' : '1MB'}.`, 'error');
+      e.target.value = '';
+      return;
+    }
+
+    if (extension === 'pdf') {
+      const reader = new FileReader();
+      reader.onload = async (event) => {
+        try {
+          if (!window.PDFLib) {
+            showToast('Loading PDF engine, please wait a second and re-upload.', 'info');
+            return;
+          }
+          const base64 = event.target.result.split(',')[1];
+          const { PDFDocument } = window.PDFLib;
+          const pdfDoc = await PDFDocument.load(event.target.result);
+          const form = pdfDoc.getForm();
+          const fields = form.getFields();
+          const fieldNames = fields.map(f => f.getName());
+          
+          localStorage.setItem(`report_card_template_id_${localStorage.getItem('tenant_subdomain') || 'default'}`, 'pdf_form');
+          localStorage.setItem(`report_card_pdf_template_${localStorage.getItem('tenant_subdomain') || 'default'}`, base64);
+          localStorage.setItem(`report_card_pdf_fields_${localStorage.getItem('tenant_subdomain') || 'default'}`, JSON.stringify(fieldNames));
+          
+          setReportTemplateId('pdf_form');
+          setPdfTemplateBase64(base64);
+          setPdfFields(fieldNames);
+          
+          showToast(`PDF template uploaded successfully! Found ${fields.length} form fields.`, 'success');
+        } catch (err) {
+          console.error(err);
+          showToast('Error parsing PDF form: ' + err.message, 'error');
+        }
+      };
+      reader.readAsDataURL(file);
+    } else if (file.type.startsWith('image/') || ['png', 'jpg', 'jpeg', 'webp', 'gif'].includes(extension)) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const dataUrl = event.target.result;
+        
+        // Save background image base64
+        localStorage.setItem(`report_card_bg_image_${localStorage.getItem('tenant_subdomain') || 'default'}`, dataUrl);
+        
+        // Update custom template HTML to use this image as background
+        const customHtml = `<div style="background-image: url('${dataUrl}'); background-size: cover; background-position: center; width: 100%; min-height: 800px; padding: 40px; box-sizing: border-box; position: relative;">
+  <!-- School Info -->
+  <div style="text-align: center; margin-bottom: 30px;">
+    {{schoolLogo}}
+    <h1 style="color: #1e3a8a; margin: 5px 0;">{{schoolName}}</h1>
+    <p>{{schoolAddress}}</p>
+  </div>
+
+  <!-- Student Details Grid -->
+  <div style="display: grid; grid-template-columns: 100px 1fr; gap: 20px; background: rgba(255,255,255,0.9); padding: 15px; border-radius: 8px; margin-bottom: 30px;">
+    {{studentPhoto}}
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 0.9rem;">
+      <div><strong>Student Name:</strong> {{studentName}}</div>
+      <div><strong>Admission No:</strong> {{admissionNo}}</div>
+      <div><strong>Class & Section:</strong> Class {{class}} - {{section}}</div>
+      <div><strong>Roll Number:</strong> {{rollNo}}</div>
+    </div>
+  </div>
+
+  <!-- Marks Breakdown -->
+  <div style="background: rgba(255,255,255,0.9); padding: 15px; border-radius: 8px; margin-bottom: 30px;">
+    <h3 style="margin-top: 0;">Academic Performance - {{examName}}</h3>
+    {{subjectMarksTable}}
+  </div>
+
+  <!-- Footer Summary -->
+  <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; background: #f0f4f8; padding: 15px; border-radius: 8px; text-align: center;">
+    <div>Obtained: <strong>{{obtainedMarks}} / {{totalMarks}}</strong></div>
+    <div>Percentage: <strong>{{percentage}}</strong></div>
+    <div>Grade: <strong>{{grade}} ({{result}})</strong></div>
+  </div>
+</div>`;
+        setCustomTemplateHtml(customHtml);
+        setReportTemplateId('custom');
+        localStorage.setItem(`report_card_template_id_${localStorage.getItem('tenant_subdomain') || 'default'}`, 'custom');
+        localStorage.setItem(`report_card_custom_html_${localStorage.getItem('tenant_subdomain') || 'default'}`, customHtml);
+        
+        showToast('Background image uploaded and loaded into custom template!', 'success');
+      };
+      reader.readAsDataURL(file);
+    } else {
+      // Read as text (HTML / TXT / DOC / XML etc.)
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const text = event.target.result;
+        setCustomTemplateHtml(text);
+        setReportTemplateId('custom');
+        localStorage.setItem(`report_card_template_id_${localStorage.getItem('tenant_subdomain') || 'default'}`, 'custom');
+        localStorage.setItem(`report_card_custom_html_${localStorage.getItem('tenant_subdomain') || 'default'}`, text);
+        showToast('Template file loaded as custom HTML text!', 'success');
+      };
+      reader.readAsText(file);
+    }
+    e.target.value = ''; // Reset input element so uploader works on subsequent selections of the same file name
+  };
+
+  const generateFilledPdf = async () => {
+    if (!pdfTemplateBase64 || !activeReportCardData) return;
+    try {
+      if (!window.PDFLib) {
+        return;
+      }
+      const { PDFDocument } = window.PDFLib;
+      // Load template
+      const binaryString = atob(pdfTemplateBase64);
+      const len = binaryString.length;
+      const bytes = new Uint8Array(len);
+      for (let i = 0; i < len; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+      const pdfDoc = await PDFDocument.load(bytes);
+      const form = pdfDoc.getForm();
+      const fields = form.getFields();
+
+      const { student, examSections, grandTotalObtained, grandTotalMax, grandPercentage } = activeReportCardData;
+      const { grade: gradeBase } = parseStudentClass(student.studentClass);
+
+      // Determine final grade and remarks
+      const finalGrade = grandPercentage >= 90 ? 'A+' : grandPercentage >= 80 ? 'A' : grandPercentage >= 70 ? 'B+' : grandPercentage >= 60 ? 'B' : grandPercentage >= 50 ? 'C' : grandPercentage >= 40 ? 'D' : 'F';
+      const finalResult = grandPercentage >= 40 ? 'Pass' : 'Fail';
+      
+      let finalRemarks = 'Keep up the good work!';
+      if (reportExamId !== 'All') {
+        const overall = overallResults.find(o => o.studentId === student.id && o.examId === reportExamId);
+        if (overall && overall.remarks) {
+          finalRemarks = overall.remarks;
+        } else {
+          const studentExamResults = results.filter(sr => sr.studentId === student.id && sr.examId === reportExamId);
+          const firstWithRemarks = studentExamResults.find(sr => sr.remarks);
+          if (firstWithRemarks) finalRemarks = firstWithRemarks.remarks;
+        }
+      } else {
+        const overallRemarksList = overallResults
+          .filter(o => o.studentId === student.id)
+          .map(o => o.remarks)
+          .filter(Boolean);
+        if (overallRemarksList.length > 0) {
+          finalRemarks = overallRemarksList.join(' | ');
+        }
+      }
+
+      // Gather subject marks
+      const subjectMarksList = [];
+      examSections.forEach(sec => {
+        sec.subjectMarks.forEach(m => {
+          subjectMarksList.push(m);
+        });
+      });
+
+      // Map subjects
+      const marksMap = {};
+      subjectMarksList.forEach(m => {
+        marksMap[m.subject.toLowerCase()] = m;
+      });
+      const subjectsSorted = Object.keys(marksMap).sort();
+
+      fields.forEach(field => {
+        const type = field.constructor.name;
+        if (type !== 'PDFTextField' && typeof field.setText !== 'function') return;
+
+        const fname = field.getName().toLowerCase();
+        
+        // Match standard fields
+        if (fname.includes('student') && (fname.includes('name') || fname.includes('studentname'))) {
+          field.setText(student.name);
+        } else if (fname === 'name' || fname === 'student_name') {
+          field.setText(student.name);
+        } else if (fname.includes('roll')) {
+          field.setText(String(student.rollNumber || student.roll || ''));
+        } else if (fname.includes('class') || fname.includes('grade')) {
+          field.setText(gradeBase);
+        } else if (fname.includes('section')) {
+          field.setText(student.section || 'A');
+        } else if (fname.includes('father')) {
+          field.setText(student.fatherName || 'N/A');
+        } else if (fname.includes('mother')) {
+          field.setText(student.motherName || 'N/A');
+        } else if (fname.includes('session')) {
+          field.setText(reportSession);
+        } else if (fname.includes('admission') || fname.includes('adm')) {
+          field.setText(student.admissionNumber || '');
+        } else if (fname.includes('percentage') || fname.includes('percent')) {
+          field.setText(grandPercentage + '%');
+        } else if (fname.includes('totalobtained') || fname === 'obtained' || fname.includes('obtainedmarks')) {
+          field.setText(String(grandTotalObtained));
+        } else if (fname.includes('totalmax') || fname === 'total' || fname.includes('maxmarks')) {
+          field.setText(String(grandTotalMax));
+        } else if (fname.includes('finalgrade') || fname === 'grade') {
+          field.setText(finalGrade);
+        } else if (fname.includes('result') || fname.includes('status')) {
+          field.setText(finalResult);
+        } else if (fname.includes('remarks')) {
+          field.setText(finalRemarks);
+        } else if (fname.includes('teacher')) {
+          field.setText(reportClassTeacherName);
+        } else {
+          // Try matching subjects
+          // 1. Direct name match
+          let matched = false;
+          for (const subName of Object.keys(marksMap)) {
+            if (fname.includes(subName)) {
+              matched = true;
+              const subData = marksMap[subName];
+              if (fname.includes('max') || fname.includes('total')) {
+                field.setText(String(subData.totalMarks));
+              } else if (fname.includes('grade')) {
+                field.setText(subData.grade);
+              } else if (fname.includes('percent') || fname.includes('pct')) {
+                field.setText(subData.percentage + '%');
+              } else {
+                field.setText(String(subData.obtainedMarks));
+              }
+              break;
+            }
+          }
+          // 2. Index match fallback (Subject1, Subject2...)
+          if (!matched) {
+            const indexMatch = fname.match(/(?:subject|subj|sub|s)(\d+)/);
+            if (indexMatch) {
+              const index = parseInt(indexMatch[1]) - 1;
+              if (index >= 0 && index < subjectsSorted.length) {
+                const subName = subjectsSorted[index];
+                const subData = marksMap[subName];
+                if (fname.includes('name')) {
+                  field.setText(subData.subject);
+                } else if (fname.includes('max') || fname.includes('total')) {
+                  field.setText(String(subData.totalMarks));
+                } else if (fname.includes('grade')) {
+                  field.setText(subData.grade);
+                } else if (fname.includes('percent') || fname.includes('pct')) {
+                  field.setText(subData.percentage + '%');
+                } else {
+                  field.setText(String(subData.obtainedMarks));
+                }
+              }
+            }
+          }
+        }
+      });
+
+      // Save filled PDF
+      const pdfBytes = await pdfDoc.save();
+      const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+      
+      // Cleanup previous ObjectURL if any to avoid memory leaks
+      setFilledPdfUrl(prev => {
+        if (prev) URL.revokeObjectURL(prev);
+        return URL.createObjectURL(blob);
+      });
+    } catch (err) {
+      console.error('Error generating filled PDF:', err);
+      showToast('Error generating filled PDF: ' + err.message, 'error');
+    }
+  };
+
+  useEffect(() => {
+    if (reportTemplateId === 'pdf_form' && pdfEngineLoaded) {
+      generateFilledPdf();
+    }
+  }, [activeReportCardData, reportTemplateId, pdfTemplateBase64, pdfEngineLoaded, reportSession, reportExamId]);
+
+  const handleSaveCustomTemplate = () => {
+    localStorage.setItem(`report_card_template_id_${localStorage.getItem('tenant_subdomain') || 'default'}`, reportTemplateId);
+    if (reportTemplateId === 'custom') {
+      localStorage.setItem(`report_card_custom_html_${localStorage.getItem('tenant_subdomain') || 'default'}`, customTemplateHtml);
+    }
+    showToast('Report card template saved successfully!', 'success');
+  };
+
+  const handleClearUploadedTemplate = () => {
+    const tenant = localStorage.getItem('tenant_subdomain') || 'default';
+    localStorage.removeItem(`report_card_template_id_${tenant}`);
+    localStorage.removeItem(`report_card_custom_html_${tenant}`);
+    localStorage.removeItem(`report_card_pdf_template_${tenant}`);
+    localStorage.removeItem(`report_card_pdf_fields_${tenant}`);
+    localStorage.removeItem(`report_card_bg_image_${tenant}`);
+
+    setReportTemplateId('classic');
+    setCustomTemplateHtml('');
+    setPdfTemplateBase64('');
+    setPdfFields([]);
+    setFilledPdfUrl('');
+    setShowHtmlCodeEditor(false);
+    
+    showToast('Uploaded template removed. Reverted to default template.', 'success');
+  };
+
+  const activeTemplateHtml = useMemo(() => {
+    if (reportTemplateId === 'custom') {
+      return customTemplateHtml || DEFAULT_TEMPLATES[0].html;
+    }
+    const template = DEFAULT_TEMPLATES.find(t => t.id === reportTemplateId);
+    return template ? template.html : DEFAULT_TEMPLATES[0].html;
+  }, [reportTemplateId, customTemplateHtml]);
+
+  // Get class teacher name helper
+  const getTeacherNameForStudent = (student) => {
+    if (!targetReportClass || !student) return 'N/A';
+    const studentSection = student.section || 'A';
+    
+    const staffArr = Array.isArray(staffList) ? staffList : [];
+    if (staffArr.length === 0) return 'N/A';
+    
+    // Find teacher assigned to this grade and section who isClassTeacher === true
+    const teacher = staffArr.find(s => 
+      s.assignedGradeId === targetReportClass && 
+      s.assignedSectionId === studentSection &&
+      (s.isClassTeacher === true || s.isClassTeacher === 'true' || s.isClassTeacher === 1 || s.isClassTeacher === 'Yes')
+    );
+    if (teacher) return teacher.name;
+    
+    // Fallback: find any teacher assigned to this grade and section
+    const fallbackTeacher = staffArr.find(s => 
+      s.assignedGradeId === targetReportClass && 
+      s.assignedSectionId === studentSection
+    );
+    if (fallbackTeacher) return fallbackTeacher.name;
+
+    // Second fallback: find any class teacher for this grade
+    const secondFallback = staffArr.find(s => 
+      s.assignedGradeId === targetReportClass && 
+      (s.isClassTeacher === true || s.isClassTeacher === 'true' || s.isClassTeacher === 1 || s.isClassTeacher === 'Yes')
+    );
+    return secondFallback ? secondFallback.name : 'N/A';
+  };
+
+  // Reusable helper to generate subject marks HTML table
+  const getSubjectMarksTableHtml = (reportCardData) => {
+    if (!reportCardData) return '';
+    const { examSections } = reportCardData;
+    
+    if (examSections.length === 0) return '<p style="text-align: center; color: #64748b;">No subject marks available.</p>';
+
+    // Extract unique subjects
+    const subjects = [...new Set(examSections.flatMap(sec => sec.subjectMarks.map(m => m.subject)))].sort();
+    // Extract exams list
+    const examsInSession = examSections.map(sec => sec.exam);
+
+    let html = `<table style="width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.82rem;">
+      <thead>
+        <tr style="background: #f1f5f9; border-bottom: 2px solid #cbd5e1;">
+          <th rowspan="2" style="border: 1px solid #cbd5e1; padding: 10px 8px; text-align: left; font-weight: 700; vertical-align: middle;">Subject</th>`;
+
+    // Exam headers
+    examsInSession.forEach(ex => {
+      html += `<th colspan="2" style="border: 1px solid #cbd5e1; padding: 6px; text-align: center; font-weight: 700;">${ex.examName}</th>`;
+    });
+
+    html += `
+          <th colspan="2" style="border: 1px solid #cbd5e1; padding: 6px; text-align: center; font-weight: 700;">Grand Total</th>
+          <th rowspan="2" style="border: 1px solid #cbd5e1; padding: 10px 8px; text-align: center; font-weight: 700; vertical-align: middle;">Aggregate %</th>
+          <th rowspan="2" style="border: 1px solid #cbd5e1; padding: 10px 8px; text-align: center; font-weight: 700; vertical-align: middle;">Grade</th>
+        </tr>
+        <tr style="background: #f8fafc; border-bottom: 2px solid #cbd5e1;">`;
+
+    // Sub-headers (Obt / Max)
+    examsInSession.forEach(() => {
+      html += `
+        <th style="border: 1px solid #cbd5e1; padding: 6px; text-align: center; font-size: 0.75rem; font-weight: 600; width: 60px;">Obt</th>
+        <th style="border: 1px solid #cbd5e1; padding: 6px; text-align: center; font-size: 0.75rem; font-weight: 600; width: 60px;">Max</th>`;
+    });
+
+    // Grand Total sub-headers
+    html += `
+        <th style="border: 1px solid #cbd5e1; padding: 6px; text-align: center; font-size: 0.75rem; font-weight: 600; width: 60px;">Obt</th>
+        <th style="border: 1px solid #cbd5e1; padding: 6px; text-align: center; font-size: 0.75rem; font-weight: 600; width: 60px;">Max</th>
+      </tr>
+    </thead>
+    <tbody>`;
+
+    subjects.forEach(subject => {
+      let subObtainedTotal = 0;
+      let subMaxTotal = 0;
+
+      html += `
+        <tr style="border-bottom: 1px solid #e2e8f0;">
+          <td style="border: 1px solid #cbd5e1; padding: 8px; font-weight: 600; text-align: left;">${subject}</td>`;
+
+      examsInSession.forEach(ex => {
+        const sec = examSections.find(s => s.exam.id === ex.id);
+        const match = sec ? sec.subjectMarks.find(sm => sm.subject === subject) : null;
+        if (match) {
+          html += `
+            <td style="border: 1px solid #cbd5e1; padding: 8px; text-align: center;">${match.obtainedMarks}</td>
+            <td style="border: 1px solid #cbd5e1; padding: 8px; text-align: center;">${match.totalMarks}</td>`;
+          subObtainedTotal += match.obtainedMarks || 0;
+          subMaxTotal += match.totalMarks || 0;
+        } else {
+          html += `
+            <td style="border: 1px solid #cbd5e1; padding: 8px; text-align: center; color: #cbd5e1;">-</td>
+            <td style="border: 1px solid #cbd5e1; padding: 8px; text-align: center; color: #cbd5e1;">-</td>`;
+        }
+      });
+
+      const pct = subMaxTotal > 0 ? Math.round((subObtainedTotal / subMaxTotal) * 100) : 0;
+      const grade = pct >= 90 ? 'A+' : pct >= 80 ? 'A' : pct >= 70 ? 'B+' : pct >= 60 ? 'B' : pct >= 50 ? 'C' : pct >= 40 ? 'D' : 'F';
+      const color = grade === 'F' ? '#ef4444' : '#10b981';
+
+      html += `
+          <td style="border: 1px solid #cbd5e1; padding: 8px; text-align: center; font-weight: 700;">${subObtainedTotal}</td>
+          <td style="border: 1px solid #cbd5e1; padding: 8px; text-align: center;">${subMaxTotal}</td>
+          <td style="border: 1px solid #cbd5e1; padding: 8px; text-align: center;">${pct}%</td>
+          <td style="border: 1px solid #cbd5e1; padding: 8px; text-align: center; font-weight: 700; color: ${color};">${grade}</td>
+        </tr>`;
+    });
+
+    // Overall summary footer row
+    const grandTotalObtained = examSections.reduce((sum, sec) => sum + (sec.overall?.totalObtained || 0), 0);
+    const grandTotalMax = examSections.reduce((sum, sec) => sum + (sec.overall?.totalMax || 0), 0);
+    const grandPercentage = grandTotalMax > 0 ? Math.round((grandTotalObtained / grandTotalMax) * 100) : 0;
+    const grandGrade = grandPercentage >= 90 ? 'A+' : grandPercentage >= 80 ? 'A' : grandPercentage >= 70 ? 'B+' : grandPercentage >= 60 ? 'B' : grandPercentage >= 50 ? 'C' : grandPercentage >= 40 ? 'D' : 'F';
+
+    html += `
+      <tr style="background: #f8fafc; font-weight: 700; border-top: 2px solid #cbd5e1;">
+        <td style="border: 1px solid #cbd5e1; padding: 8px; text-align: left;">Total / Overall</td>`;
+
+    // Exam-wise totals
+    examsInSession.forEach(ex => {
+      const sec = examSections.find(s => s.exam.id === ex.id);
+      if (sec && sec.overall) {
+        html += `
+          <td style="border: 1px solid #cbd5e1; padding: 8px; text-align: center; font-weight: 700;">${sec.overall.totalObtained}</td>
+          <td style="border: 1px solid #cbd5e1; padding: 8px; text-align: center;">${sec.overall.totalMax}</td>`;
+      } else {
+        html += `
+          <td style="border: 1px solid #cbd5e1; padding: 8px; text-align: center; color: #cbd5e1;">-</td>
+          <td style="border: 1px solid #cbd5e1; padding: 8px; text-align: center; color: #cbd5e1;">-</td>`;
+      }
+    });
+
+    html += `
+        <td style="border: 1px solid #cbd5e1; padding: 8px; text-align: center; font-weight: 800;">${grandTotalObtained}</td>
+        <td style="border: 1px solid #cbd5e1; padding: 8px; text-align: center; font-weight: 700;">${grandTotalMax}</td>
+        <td style="border: 1px solid #cbd5e1; padding: 8px; text-align: center; color: #1e3a8a;">${grandPercentage}%</td>
+        <td style="border: 1px solid #cbd5e1; padding: 8px; text-align: center; color: #1e3a8a; font-weight: 800;">${grandGrade}</td>
+      </tr>
+    </tbody></table>`;
+
+    return html;
+  };
+
+  // Reusable helper to compile full report card HTML for a student
+  const compileReportCardHtmlForStudent = (studentReportData) => {
+    if (!studentReportData) return '';
+    const { student, grandTotalObtained, grandTotalMax, grandPercentage } = studentReportData;
+    
+    // Determine exam name display
+    let examNameDisplay = 'Consolidated Evaluation';
+    if (reportExamId !== 'All') {
+      const exam = exams.find(e => e.id === reportExamId);
+      if (exam) examNameDisplay = exam.examName;
+    }
+
+    const { grade: gradeBase } = parseStudentClass(student.studentClass);
+
+    // Calculate final grade
+    const finalGrade = grandPercentage >= 90 ? 'A+' : grandPercentage >= 80 ? 'A' : grandPercentage >= 70 ? 'B+' : grandPercentage >= 60 ? 'B' : grandPercentage >= 50 ? 'C' : grandPercentage >= 40 ? 'D' : 'F';
+    const finalResult = grandPercentage >= 40 ? 'Pass' : 'Fail';
+
+    // Gather remarks
+    let finalRemarks = 'Keep up the good work!';
+    if (reportExamId !== 'All') {
+      const overall = overallResults.find(o => o.studentId === student.id && o.examId === reportExamId);
+      if (overall && overall.remarks) {
+        finalRemarks = overall.remarks;
+      } else {
+        const studentExamResults = results.filter(sr => sr.studentId === student.id && sr.examId === reportExamId);
+        const firstWithRemarks = studentExamResults.find(sr => sr.remarks);
+        if (firstWithRemarks) finalRemarks = firstWithRemarks.remarks;
+      }
+    } else {
+      const overallRemarksList = overallResults
+        .filter(o => o.studentId === student.id)
+        .map(o => o.remarks)
+        .filter(Boolean);
+      if (overallRemarksList.length > 0) {
+        finalRemarks = overallRemarksList.join(' | ');
+      }
+    }
+
+    const studentSubjectMarksTableHtml = getSubjectMarksTableHtml(studentReportData);
+    const teacherName = getTeacherNameForStudent(student);
+
+    const dataToCompile = {
+      schoolName: schoolInfo.name || 'Green Valley Public School',
+      schoolAddress: schoolInfo.address || 'Khimel Rani Station Road, Bali, Rajasthan',
+      schoolContact: schoolInfo.phone || schoolInfo.email || 'contact@gmail.com',
+      studentName: student.name,
+      admissionNo: student.admissionNumber || '',
+      rollNo: student.rollNumber || student.roll || '',
+      class: gradeBase,
+      section: student.section || 'A',
+      fatherName: student.fatherName || 'N/A',
+      motherName: student.motherName || 'N/A',
+      mobile: student.mobile || student.phone || 'N/A',
+      dob: student.dob ? new Date(student.dob).toLocaleDateString() : 'N/A',
+      gender: student.gender || 'N/A',
+      examName: examNameDisplay,
+      session: reportSession,
+      totalMarks: grandTotalMax,
+      obtainedMarks: grandTotalObtained,
+      percentage: grandPercentage,
+      grade: finalGrade,
+      result: finalResult,
+      remarks: finalRemarks,
+      rank: 'N/A',
+      attendance: 'Present',
+      classTeacherName: teacherName,
+      principalName: 'Alex Devlin',
+      generatedDate: new Date().toLocaleDateString(),
+      schoolLogoUrl: schoolInfo.logo,
+      studentPhotoUrl: student.photo,
+      subjectMarksTableHtml: studentSubjectMarksTableHtml
+    };
+
+    if (reportExamId !== 'All') {
+      const overall = overallResults.find(o => o.studentId === student.id && o.examId === reportExamId);
+      if (overall) {
+        if (overall.rank) dataToCompile.rank = overall.rank;
+      }
+    }
+
+    return compileTemplate(activeTemplateHtml, dataToCompile);
+  };
+
+  const subjectMarksTableHtml = useMemo(() => {
+    return getSubjectMarksTableHtml(activeReportCardData);
+  }, [activeReportCardData]);
+
+  const compiledReportCardHtml = useMemo(() => {
+    return compileReportCardHtmlForStudent(activeReportCardData);
+  }, [activeReportCardData, activeTemplateHtml, reportExamId, exams, reportSession, schoolInfo, overallResults, results, staffList, targetReportClass]);
 
   const handleExportCSV = () => {
     if (!activeReportCardData) return;
@@ -948,6 +1827,535 @@ export default function ResultManagementPanel({ activeTab: propActiveTab = 'anal
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+  };
+
+  // Download filled PDF for a single student client-side directly
+  const downloadPdfForSingleStudent = async (studentId) => {
+    if (!pdfTemplateBase64) return;
+    try {
+      if (!window.PDFLib) {
+        showToast('PDF engine not loaded yet. Please wait.', 'error');
+        return;
+      }
+      const { PDFDocument } = window.PDFLib;
+
+      const studentReportData = getStudentReportCardData(studentId);
+      if (!studentReportData) {
+        showToast('No report card data found for student.', 'error');
+        return;
+      }
+
+      const { student, examSections, grandTotalObtained, grandTotalMax, grandPercentage } = studentReportData;
+      const { grade: gradeBase } = parseStudentClass(student.studentClass);
+
+      const templateBinaryString = atob(pdfTemplateBase64);
+      const templateLen = templateBinaryString.length;
+      const templateBytes = new Uint8Array(templateLen);
+      for (let i = 0; i < templateLen; i++) {
+        templateBytes[i] = templateBinaryString.charCodeAt(i);
+      }
+
+      const pdfDoc = await PDFDocument.load(templateBytes);
+      const form = pdfDoc.getForm();
+      const fields = form.getFields();
+
+      const finalGrade = grandPercentage >= 90 ? 'A+' : grandPercentage >= 80 ? 'A' : grandPercentage >= 70 ? 'B+' : grandPercentage >= 60 ? 'B' : grandPercentage >= 50 ? 'C' : grandPercentage >= 40 ? 'D' : 'F';
+      const finalResult = grandPercentage >= 40 ? 'Pass' : 'Fail';
+      
+      let finalRemarks = 'Keep up the good work!';
+      if (reportExamId !== 'All') {
+        const overall = overallResults.find(o => o.studentId === student.id && o.examId === reportExamId);
+        if (overall && overall.remarks) {
+          finalRemarks = overall.remarks;
+        } else {
+          const studentExamResults = results.filter(sr => sr.studentId === student.id && sr.examId === reportExamId);
+          const firstWithRemarks = studentExamResults.find(sr => sr.remarks);
+          if (firstWithRemarks) finalRemarks = firstWithRemarks.remarks;
+        }
+      } else {
+        const overallRemarksList = overallResults
+          .filter(o => o.studentId === student.id)
+          .map(o => o.remarks)
+          .filter(Boolean);
+        if (overallRemarksList.length > 0) {
+          finalRemarks = overallRemarksList.join(' | ');
+        }
+      }
+
+      const teacherName = getTeacherNameForStudent(student);
+
+      const subjectMarksList = [];
+      examSections.forEach(sec => {
+        sec.subjectMarks.forEach(m => {
+          subjectMarksList.push(m);
+        });
+      });
+
+      const marksMap = {};
+      subjectMarksList.forEach(m => {
+        marksMap[m.subject.toLowerCase()] = m;
+      });
+      const subjectsSorted = Object.keys(marksMap).sort();
+
+      fields.forEach(field => {
+        const type = field.constructor.name;
+        if (type !== 'PDFTextField' && typeof field.setText !== 'function') return;
+
+        const fname = field.getName().toLowerCase();
+        
+        if (fname.includes('student') && (fname.includes('name') || fname.includes('studentname'))) {
+          field.setText(student.name);
+        } else if (fname === 'name' || fname === 'student_name') {
+          field.setText(student.name);
+        } else if (fname.includes('roll')) {
+          field.setText(String(student.rollNumber || student.roll || ''));
+        } else if (fname.includes('class') || fname.includes('grade')) {
+          field.setText(gradeBase);
+        } else if (fname.includes('section')) {
+          field.setText(student.section || 'A');
+        } else if (fname.includes('father')) {
+          field.setText(student.fatherName || 'N/A');
+        } else if (fname.includes('mother')) {
+          field.setText(student.motherName || 'N/A');
+        } else if (fname.includes('session')) {
+          field.setText(reportSession);
+        } else if (fname.includes('admission') || fname.includes('adm')) {
+          field.setText(student.admissionNumber || '');
+        } else if (fname.includes('percentage') || fname.includes('percent')) {
+          field.setText(grandPercentage + '%');
+        } else if (fname.includes('totalobtained') || fname === 'obtained' || fname.includes('obtainedmarks')) {
+          field.setText(String(grandTotalObtained));
+        } else if (fname.includes('totalmax') || fname === 'total' || fname.includes('maxmarks')) {
+          field.setText(String(grandTotalMax));
+        } else if (fname.includes('finalgrade') || fname === 'grade') {
+          field.setText(finalGrade);
+        } else if (fname.includes('result') || fname.includes('status')) {
+          field.setText(finalResult);
+        } else if (fname.includes('remarks')) {
+          field.setText(finalRemarks);
+        } else if (fname.includes('teacher')) {
+          field.setText(teacherName);
+        } else {
+          let matched = false;
+          for (const subName of Object.keys(marksMap)) {
+            if (fname.includes(subName)) {
+              matched = true;
+              const subData = marksMap[subName];
+              if (fname.includes('max') || fname.includes('total')) {
+                field.setText(String(subData.totalMarks));
+              } else if (fname.includes('grade')) {
+                field.setText(subData.grade);
+              } else if (fname.includes('percent') || fname.includes('pct')) {
+                field.setText(subData.percentage + '%');
+              } else {
+                field.setText(String(subData.obtainedMarks));
+              }
+              break;
+            }
+          }
+          if (!matched) {
+            const indexMatch = fname.match(/(?:subject|subj|sub|s)(\d+)/);
+            if (indexMatch) {
+              const index = parseInt(indexMatch[1]) - 1;
+              if (index >= 0 && index < subjectsSorted.length) {
+                const subName = subjectsSorted[index];
+                const subData = marksMap[subName];
+                if (fname.includes('name')) {
+                  field.setText(subData.subject);
+                } else if (fname.includes('max') || fname.includes('total')) {
+                  field.setText(String(subData.totalMarks));
+                } else if (fname.includes('grade')) {
+                  field.setText(subData.grade);
+                } else if (fname.includes('percent') || fname.includes('pct')) {
+                  field.setText(subData.percentage + '%');
+                } else {
+                  field.setText(String(subData.obtainedMarks));
+                }
+              }
+            }
+          }
+        }
+      });
+
+      const pdfBytes = await pdfDoc.save();
+      const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+      const downloadUrl = URL.createObjectURL(blob);
+
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      link.download = `Report_Card_${student.name.replace(/\s+/g, '_')}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      setTimeout(() => URL.revokeObjectURL(downloadUrl), 5000);
+    } catch (err) {
+      console.error(err);
+      showToast('Error generating PDF: ' + err.message, 'error');
+    }
+  };
+
+  // Bulk PDF fill and merge function for fillable PDF form templates
+  const handleBulkPdfFormExport = async () => {
+    if (!pdfTemplateBase64) {
+      showToast('No PDF template uploaded.', 'warning');
+      return;
+    }
+    if (!window.PDFLib) {
+      showToast('PDF engine not loaded yet. Please try again.', 'error');
+      return;
+    }
+
+    setIsBulkExporting(true);
+    setBulkExportProgress(0);
+
+    try {
+      const { PDFDocument } = window.PDFLib;
+      const mergedPdfDoc = await PDFDocument.create();
+      
+      const templateBinaryString = atob(pdfTemplateBase64);
+      const templateLen = templateBinaryString.length;
+      const templateBytes = new Uint8Array(templateLen);
+      for (let i = 0; i < templateLen; i++) {
+        templateBytes[i] = templateBinaryString.charCodeAt(i);
+      }
+
+      let successfullyFilledCount = 0;
+
+      for (let index = 0; index < reportFilteredStudents.length; index++) {
+        const student = reportFilteredStudents[index];
+        setBulkExportProgress(Math.round(((index + 1) / reportFilteredStudents.length) * 100));
+
+        const studentReportData = getStudentReportCardData(student.id);
+        if (!studentReportData) continue;
+
+        const { examSections, grandTotalObtained, grandTotalMax, grandPercentage } = studentReportData;
+        const { grade: gradeBase } = parseStudentClass(student.studentClass);
+
+        // Fill individual PDF form
+        const pdfDoc = await PDFDocument.load(templateBytes);
+        const form = pdfDoc.getForm();
+        const fields = form.getFields();
+
+        // Determine final grade and remarks
+        const finalGrade = grandPercentage >= 90 ? 'A+' : grandPercentage >= 80 ? 'A' : grandPercentage >= 70 ? 'B+' : grandPercentage >= 60 ? 'B' : grandPercentage >= 50 ? 'C' : grandPercentage >= 40 ? 'D' : 'F';
+        const finalResult = grandPercentage >= 40 ? 'Pass' : 'Fail';
+        
+        let finalRemarks = 'Keep up the good work!';
+        if (reportExamId !== 'All') {
+          const overall = overallResults.find(o => o.studentId === student.id && o.examId === reportExamId);
+          if (overall && overall.remarks) {
+            finalRemarks = overall.remarks;
+          } else {
+            const studentExamResults = results.filter(sr => sr.studentId === student.id && sr.examId === reportExamId);
+            const firstWithRemarks = studentExamResults.find(sr => sr.remarks);
+            if (firstWithRemarks) finalRemarks = firstWithRemarks.remarks;
+          }
+        } else {
+          const overallRemarksList = overallResults
+            .filter(o => o.studentId === student.id)
+            .map(o => o.remarks)
+            .filter(Boolean);
+          if (overallRemarksList.length > 0) {
+            finalRemarks = overallRemarksList.join(' | ');
+          }
+        }
+
+        const teacherName = getTeacherNameForStudent(student);
+
+        // Gather subject marks
+        const subjectMarksList = [];
+        examSections.forEach(sec => {
+          sec.subjectMarks.forEach(m => {
+            subjectMarksList.push(m);
+          });
+        });
+
+        // Map subjects
+        const marksMap = {};
+        subjectMarksList.forEach(m => {
+          marksMap[m.subject.toLowerCase()] = m;
+        });
+        const subjectsSorted = Object.keys(marksMap).sort();
+
+        fields.forEach(field => {
+          const type = field.constructor.name;
+          if (type !== 'PDFTextField' && typeof field.setText !== 'function') return;
+
+          const fname = field.getName().toLowerCase();
+          
+          if (fname.includes('student') && (fname.includes('name') || fname.includes('studentname'))) {
+            field.setText(student.name);
+          } else if (fname === 'name' || fname === 'student_name') {
+            field.setText(student.name);
+          } else if (fname.includes('roll')) {
+            field.setText(String(student.rollNumber || student.roll || ''));
+          } else if (fname.includes('class') || fname.includes('grade')) {
+            field.setText(gradeBase);
+          } else if (fname.includes('section')) {
+            field.setText(student.section || 'A');
+          } else if (fname.includes('father')) {
+            field.setText(student.fatherName || 'N/A');
+          } else if (fname.includes('mother')) {
+            field.setText(student.motherName || 'N/A');
+          } else if (fname.includes('session')) {
+            field.setText(reportSession);
+          } else if (fname.includes('admission') || fname.includes('adm')) {
+            field.setText(student.admissionNumber || '');
+          } else if (fname.includes('percentage') || fname.includes('percent')) {
+            field.setText(grandPercentage + '%');
+          } else if (fname.includes('totalobtained') || fname === 'obtained' || fname.includes('obtainedmarks')) {
+            field.setText(String(grandTotalObtained));
+          } else if (fname.includes('totalmax') || fname === 'total' || fname.includes('maxmarks')) {
+            field.setText(String(grandTotalMax));
+          } else if (fname.includes('finalgrade') || fname === 'grade') {
+            field.setText(finalGrade);
+          } else if (fname.includes('result') || fname.includes('status')) {
+            field.setText(finalResult);
+          } else if (fname.includes('remarks')) {
+            field.setText(finalRemarks);
+          } else if (fname.includes('teacher')) {
+            field.setText(teacherName);
+          } else {
+            // Subject match
+            let matched = false;
+            for (const subName of Object.keys(marksMap)) {
+              if (fname.includes(subName)) {
+                matched = true;
+                const subData = marksMap[subName];
+                if (fname.includes('max') || fname.includes('total')) {
+                  field.setText(String(subData.totalMarks));
+                } else if (fname.includes('grade')) {
+                  field.setText(subData.grade);
+                } else if (fname.includes('percent') || fname.includes('pct')) {
+                  field.setText(subData.percentage + '%');
+                } else {
+                  field.setText(String(subData.obtainedMarks));
+                }
+                break;
+              }
+            }
+            if (!matched) {
+              const indexMatch = fname.match(/(?:subject|subj|sub|s)(\d+)/);
+              if (indexMatch) {
+                const index = parseInt(indexMatch[1]) - 1;
+                if (index >= 0 && index < subjectsSorted.length) {
+                  const subName = subjectsSorted[index];
+                  const subData = marksMap[subName];
+                  if (fname.includes('name')) {
+                    field.setText(subData.subject);
+                  } else if (fname.includes('max') || fname.includes('total')) {
+                    field.setText(String(subData.totalMarks));
+                  } else if (fname.includes('grade')) {
+                    field.setText(subData.grade);
+                  } else if (fname.includes('percent') || fname.includes('pct')) {
+                    field.setText(subData.percentage + '%');
+                  } else {
+                    field.setText(String(subData.obtainedMarks));
+                  }
+                }
+              }
+            }
+          }
+        });
+
+        try {
+          form.flatten();
+        } catch (e) {
+          console.warn("Could not flatten form, continuing with unflattened page", e);
+        }
+
+        const filledPdfBytes = await pdfDoc.save();
+
+        const tempDoc = await PDFDocument.load(filledPdfBytes);
+        const copiedPages = await mergedPdfDoc.copyPages(tempDoc, tempDoc.getPageIndices());
+        copiedPages.forEach((page) => mergedPdfDoc.addPage(page));
+
+        successfullyFilledCount++;
+      }
+
+      if (successfullyFilledCount === 0) {
+        showToast('No PDF report cards could be filled.', 'error');
+        setIsBulkExporting(false);
+        return;
+      }
+
+      const mergedPdfBytes = await mergedPdfDoc.save();
+      const blob = new Blob([mergedPdfBytes], { type: 'application/pdf' });
+      const downloadUrl = URL.createObjectURL(blob);
+
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      link.download = `Bulk_Report_Cards_${reportClass.replace(/\s+/g, '_')}_Section_${reportSection}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      setTimeout(() => URL.revokeObjectURL(downloadUrl), 5000);
+
+      showToast(`Successfully exported ${successfullyFilledCount} report cards in a single PDF!`, 'success');
+    } catch (err) {
+      console.error('Error generating bulk PDF:', err);
+      showToast('Error generating bulk PDF: ' + err.message, 'error');
+    } finally {
+      setIsBulkExporting(false);
+      setBulkExportProgress(0);
+    }
+  };
+
+  // Bulk HTML print or bulk PDF merge depending on selected template type
+  const handleBulkPrintPDF = () => {
+    if (reportFilteredStudents.length === 0) {
+      showToast('No students to print report cards for.', 'warning');
+      return;
+    }
+
+    if (reportTemplateId === 'pdf_form') {
+      handleBulkPdfFormExport();
+      return;
+    }
+
+    let combinedHtml = '';
+    reportFilteredStudents.forEach((student, index) => {
+      const studentReportData = getStudentReportCardData(student.id);
+      if (studentReportData) {
+        const studentHtml = compileReportCardHtmlForStudent(studentReportData);
+        combinedHtml += `
+          <div class="report-card-page" style="${index > 0 ? 'page-break-before: always; break-before: page;' : ''}">
+            ${studentHtml}
+          </div>
+        `;
+      }
+    });
+
+    if (!combinedHtml) {
+      showToast('Could not compile report cards for any student.', 'error');
+      return;
+    }
+
+    const printWindow = window.open('', '_blank', 'width=900,height=900');
+    if (!printWindow) {
+      showToast('Popup blocked! Please allow popups to print.', 'error');
+      return;
+    }
+
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Bulk Student Academic Marksheet Reports</title>
+          <style>
+            body { font-family: 'Outfit', 'Inter', sans-serif; color: #1e293b; padding: 20px; background: #fff; margin: 0; }
+            table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+            th, td { border: 1px solid #cbd5e1; padding: 10px; text-align: left; }
+            th { background: #f8fafc; font-weight: bold; }
+            .report-card-page {
+              width: 100%;
+              box-sizing: border-box;
+            }
+            @media print {
+              .no-print { display: none !important; }
+              body { margin: 0; padding: 0; }
+              .report-card-page {
+                page-break-inside: avoid;
+              }
+            }
+          </style>
+        </head>
+        <body>
+          ${combinedHtml}
+          <script>
+            window.onload = function() {
+              setTimeout(function() {
+                window.print();
+                window.close();
+              }, 500);
+            };
+          </script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
+
+  // Bulk CSV export function
+  const handleBulkExportCSV = () => {
+    if (reportFilteredStudents.length === 0) {
+      showToast('No student entries available for bulk CSV export.', 'warning');
+      return;
+    }
+
+    const csvRows = [];
+    csvRows.push([
+      'Roll Number',
+      'Admission No',
+      'Student Name',
+      'Class',
+      'Section',
+      'Father Name',
+      'Exam Name',
+      'Subject',
+      'Max Marks',
+      'Obtained Marks',
+      'Subject Grade',
+      'Subject Remarks',
+      'Overall Obtained',
+      'Overall Max',
+      'Overall Percentage',
+      'Overall Grade',
+      'Rank',
+      'Remarks'
+    ]);
+
+    reportFilteredStudents.forEach(student => {
+      const studentReportData = getStudentReportCardData(student.id);
+      if (!studentReportData) return;
+
+      const { examSections, grandTotalObtained, grandTotalMax, grandPercentage } = studentReportData;
+      const { grade: gradeBase } = parseStudentClass(student.studentClass);
+
+      const overallGrade = grandPercentage >= 90 ? 'A+' : grandPercentage >= 80 ? 'A' : grandPercentage >= 70 ? 'B+' : grandPercentage >= 60 ? 'B' : grandPercentage >= 50 ? 'C' : grandPercentage >= 40 ? 'D' : 'F';
+      
+      examSections.forEach(section => {
+        const overallRank = section.overall?.rank || 'N/A';
+        const overallRemarks = section.overall?.remarks || '';
+        
+        section.subjectMarks.forEach(m => {
+          csvRows.push([
+            student.rollNumber || student.roll || '',
+            student.admissionNumber || '',
+            student.name,
+            gradeBase,
+            student.section || 'A',
+            student.fatherName || '',
+            section.exam.examName,
+            m.subject,
+            m.totalMarks,
+            m.obtainedMarks,
+            m.grade,
+            m.remarks || '',
+            section.overall?.totalObtained || '',
+            section.overall?.totalMax || '',
+            `${section.overall?.percentage || ''}%`,
+            section.overall?.grade || '',
+            overallRank,
+            overallRemarks
+          ]);
+        });
+      });
+    });
+
+    const csvContent = "data:text/csv;charset=utf-8,\uFEFF"
+      + csvRows.map(row => row.map(val => `"${String(val).replace(/"/g, '""')}"`).join(',')).join('\n');
+      
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    const fileName = `Bulk_Report_Cards_${reportClass.replace(/\s+/g, '_')}_Section_${reportSection}.csv`;
+    link.setAttribute('download', fileName);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    showToast('Consolidated CSV exported successfully!', 'success');
   };
 
   const filteredHistoryEntries = useMemo(() => {
@@ -1080,8 +2488,8 @@ export default function ResultManagementPanel({ activeTab: propActiveTab = 'anal
         </div>
       )}
 
-      {/* Sub-navigation Menu Header for Results Manager (Analytics, Marks Entry, Report Cards) */}
-      {['analytics', 'marks-entry', 'report-cards'].includes(activeTab) && (
+      {/* Sub-navigation Menu Header for Results Manager (Analytics, Report Cards) */}
+      {['analytics', 'report-cards'].includes(activeTab) && (
         <div className="glass-panel" style={{ padding: '8px', display: 'flex', gap: '8px', overflowX: 'auto', borderRadius: '12px' }}>
           <button 
             onClick={() => {
@@ -1097,21 +2505,6 @@ export default function ResultManagementPanel({ activeTab: propActiveTab = 'anal
             }}
           >
             <BarChart3 size={16} /> Analytics Dashboard
-          </button>
-          <button 
-            onClick={() => {
-              setActiveTab('marks-entry');
-              setAdminView('results-marks-entry');
-            }}
-            className={`tab-btn-custom ${activeTab === 'marks-entry' ? 'active' : ''}`}
-            style={{
-              display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px', borderRadius: '8px', fontSize: '0.85rem', fontWeight: 600, border: 'none', cursor: 'pointer',
-              background: activeTab === 'marks-entry' ? 'rgba(99,102,241,0.1)' : 'transparent',
-              color: activeTab === 'marks-entry' ? 'rgb(99,102,241)' : 'var(--text-muted)',
-              transition: 'all 0.2s ease'
-            }}
-          >
-            <FileSpreadsheet size={16} /> Marks Entry
           </button>
           <button 
             onClick={() => {
@@ -1142,109 +2535,291 @@ export default function ResultManagementPanel({ activeTab: propActiveTab = 'anal
           {/* TAB 1: ANALYTICS DASHBOARD */}
           {activeTab === 'analytics' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-              {/* Statistics Row */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '20px' }}>
-                <div className="glass-panel" style={{ padding: '20px', display: 'flex', alignItems: 'center', gap: '16px' }}>
-                  <div style={{ padding: '12px', background: 'rgba(16, 185, 129, 0.1)', color: '#10b981', borderRadius: '12px' }}>
-                    <TrendingUp size={24} />
-                  </div>
-                  <div>
-                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block' }}>Average Pass Rate</span>
-                    <strong style={{ fontSize: '1.5rem', fontWeight: 800 }}>{analyticsData.passRate}%</strong>
-                  </div>
+              
+              {/* SaaS Interactive Filters Bar */}
+              <div className="glass-panel" style={{ padding: '16px 20px', display: 'flex', flexWrap: 'wrap', gap: '16px', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <SlidersHorizontal size={18} style={{ color: 'hsl(var(--color-primary))' }} />
+                  <strong style={{ fontSize: '0.9rem', color: 'var(--text-main)' }}>Dashboard Filters</strong>
                 </div>
+                <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', flex: 1, justifyContent: 'flex-end', maxWidth: '800px' }}>
+                  
+                  {/* Session Selection */}
+                  <div style={{ minWidth: '150px', flex: 1 }}>
+                    <select 
+                      className="select-custom" 
+                      style={{ width: '100%' }} 
+                      value={analyticsSession} 
+                      onChange={e => {
+                        setAnalyticsSession(e.target.value);
+                        setAnalyticsExam('All');
+                      }}
+                    >
+                      {Array.from({ length: 2030 - 2026 + 1 }, (_, i) => {
+                        const s = 2026 + i;
+                        return `${s}-${s + 1}`;
+                      }).map(sy => (
+                        <option key={sy} value={sy}>{sy}</option>
+                      ))}
+                    </select>
+                  </div>
 
-                <div className="glass-panel" style={{ padding: '20px', display: 'flex', alignItems: 'center', gap: '16px' }}>
-                  <div style={{ padding: '12px', background: 'rgba(99, 102, 241, 0.1)', color: 'hsl(var(--color-primary))', borderRadius: '12px' }}>
-                    <Award size={24} />
+                  {/* Class Selection */}
+                  <div style={{ minWidth: '180px', flex: 1 }}>
+                    <select 
+                      className="select-custom" 
+                      style={{ width: '100%' }} 
+                      value={analyticsClass} 
+                      onChange={e => {
+                        setAnalyticsClass(e.target.value);
+                        setAnalyticsExam('All');
+                      }} 
+                      disabled={userProfile?.role === 'Teacher'}
+                    >
+                      <option value="">All Grades</option>
+                      {uniqueGradeNames.map(g => (
+                        <option key={g} value={g}>{g.startsWith('LKG') || g.startsWith('UKG') || g.startsWith('NURSERY') ? g : `Grade ${g}`}</option>
+                      ))}
+                    </select>
                   </div>
-                  <div>
-                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block' }}>High Achievers (≥80%)</span>
-                    <strong style={{ fontSize: '1.5rem', fontWeight: 800 }}>{analyticsData.highAchievers}</strong>
-                  </div>
-                </div>
 
-                <div className="glass-panel" style={{ padding: '20px', display: 'flex', alignItems: 'center', gap: '16px' }}>
-                  <div style={{ padding: '12px', background: 'rgba(245, 158, 11, 0.1)', color: '#f59e0b', borderRadius: '12px' }}>
-                    <Users size={24} />
+                  {/* Section Selection */}
+                  <div style={{ minWidth: '180px', flex: 1 }}>
+                    <select 
+                      className="select-custom" 
+                      style={{ width: '100%' }} 
+                      value={analyticsSection} 
+                      onChange={e => {
+                        setAnalyticsSection(e.target.value);
+                        setAnalyticsExam('All');
+                      }} 
+                      disabled={!analyticsClass || userProfile?.role === 'Teacher'}
+                    >
+                      {userProfile?.role !== 'Teacher' && <option value="All">All Sections</option>}
+                      {analyticsAllowedSections.map(sec => (
+                        <option key={sec} value={sec}>Section {sec}</option>
+                      ))}
+                    </select>
                   </div>
-                  <div>
-                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block' }}>Total Evaluated Students</span>
-                    <strong style={{ fontSize: '1.5rem', fontWeight: 800 }}>{students.length}</strong>
-                  </div>
-                </div>
 
-                <div className="glass-panel" style={{ padding: '20px', display: 'flex', alignItems: 'center', gap: '16px' }}>
-                  <div style={{ padding: '12px', background: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6', borderRadius: '12px' }}>
-                    <BarChart3 size={24} />
+                  {/* Exam Selection */}
+                  <div style={{ minWidth: '180px', flex: 1 }}>
+                    <select 
+                      className="select-custom" 
+                      style={{ width: '100%' }} 
+                      value={analyticsExam} 
+                      onChange={e => setAnalyticsExam(e.target.value)}
+                    >
+                      <option value="All">All Exams (Cumulative)</option>
+                      {exams.filter(ex => {
+                        if (ex.academicSession !== analyticsSession) return false;
+                        if (analyticsClass) {
+                          const matches = (ex.gradeSections || []).some(gs => gs.grade === analyticsClass && (analyticsSection === 'All' || gs.section === analyticsSection || !gs.section));
+                          if (!matches) return false;
+                        }
+                        return true;
+                      }).map(ex => (
+                        <option key={ex.id} value={ex.id}>{ex.examName}</option>
+                      ))}
+                    </select>
                   </div>
-                  <div>
-                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block' }}>Overall Percentage Average</span>
-                    <strong style={{ fontSize: '1.5rem', fontWeight: 800 }}>
-                      {overallResults.length > 0 ? (overallResults.reduce((sum, o) => sum + o.percentage, 0) / overallResults.length).toFixed(1) : '0.0'}%
-                    </strong>
-                  </div>
+
                 </div>
               </div>
 
+              {/* Statistics KPI Row */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '20px' }}>
+                
+                {/* KPI 1: Total Students */}
+                <div className="glass-panel" style={{ padding: '20px', display: 'flex', alignItems: 'center', gap: '16px', background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.05) 0%, rgba(99, 102, 241, 0.01) 100%)', borderLeft: '4px solid hsl(var(--color-primary))' }}>
+                  <div style={{ padding: '12px', background: 'rgba(99, 102, 241, 0.1)', color: 'hsl(var(--color-primary))', borderRadius: '12px' }}>
+                    <Users size={24} />
+                  </div>
+                  <div>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Total Students</span>
+                    <strong style={{ fontSize: '1.6rem', fontWeight: 800, color: 'var(--text-main)' }}>{analyticsData.totalStudentsCount}</strong>
+                  </div>
+                </div>
+
+                {/* KPI 2: Passed Students */}
+                <div className="glass-panel" style={{ padding: '20px', display: 'flex', alignItems: 'center', gap: '16px', background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.05) 0%, rgba(16, 185, 129, 0.01) 100%)', borderLeft: '4px solid #10b981' }}>
+                  <div style={{ padding: '12px', background: 'rgba(16, 185, 129, 0.1)', color: '#10b981', borderRadius: '12px' }}>
+                    <Check size={24} />
+                  </div>
+                  <div>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Passed Students</span>
+                    <strong style={{ fontSize: '1.6rem', fontWeight: 800, color: 'var(--text-main)' }}>{analyticsData.passCount}</strong>
+                  </div>
+                </div>
+
+                {/* KPI 3: Failed Students */}
+                <div className="glass-panel" style={{ padding: '20px', display: 'flex', alignItems: 'center', gap: '16px', background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.05) 0%, rgba(239, 68, 68, 0.01) 100%)', borderLeft: '4px solid #ef4444' }}>
+                  <div style={{ padding: '12px', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', borderRadius: '12px' }}>
+                    <AlertCircle size={24} />
+                  </div>
+                  <div>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Failed Students</span>
+                    <strong style={{ fontSize: '1.6rem', fontWeight: 800, color: 'var(--text-main)' }}>{analyticsData.failCount}</strong>
+                  </div>
+                </div>
+
+                {/* KPI 4: Pass Rate */}
+                <div className="glass-panel" style={{ padding: '20px', display: 'flex', alignItems: 'center', gap: '16px', background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.05) 0%, rgba(59, 130, 246, 0.01) 100%)', borderLeft: '4px solid #3b82f6' }}>
+                  <div style={{ padding: '12px', background: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6', borderRadius: '12px' }}>
+                    <TrendingUp size={24} />
+                  </div>
+                  <div>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Pass Rate</span>
+                    <strong style={{ fontSize: '1.6rem', fontWeight: 800, color: 'var(--text-main)' }}>{analyticsData.passRate}%</strong>
+                  </div>
+                </div>
+
+                {/* KPI 5: Fail Rate */}
+                <div className="glass-panel" style={{ padding: '20px', display: 'flex', alignItems: 'center', gap: '16px', background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.05) 0%, rgba(239, 68, 68, 0.01) 100%)', borderLeft: '4px solid #f43f5e' }}>
+                  <div style={{ padding: '12px', background: 'rgba(239, 68, 68, 0.1)', color: '#f43f5e', borderRadius: '12px' }}>
+                    <BarChart3 size={24} />
+                  </div>
+                  <div>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Fail Rate</span>
+                    <strong style={{ fontSize: '1.6rem', fontWeight: 800, color: 'var(--text-main)' }}>{analyticsData.failRate}%</strong>
+                  </div>
+                </div>
+
+              </div>
+
               {/* Graphical Charts and Top Performers */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: '24px' }}>
-                {/* Visual Chart 1: Grade Distributions */}
-                <div className="glass-panel" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                  <h4 style={{ fontSize: '1rem', fontWeight: 700, margin: 0 }}>Overall Grade Distribution</h4>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: '24px' }}>
+                
+                {/* Grade Distribution List */}
+                <div className="glass-panel" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                  <div>
+                    <h4 style={{ fontSize: '0.95rem', fontWeight: 700, margin: 0, color: 'var(--text-main)' }}>Overall Grade Distribution</h4>
+                    <span style={{ fontSize: '0.76rem', color: 'var(--text-muted)' }}>Student score spreads grouped by letter grade marks</span>
+                  </div>
                   {Object.keys(analyticsData.gradeDistribution).length > 0 ? (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', margin: 'auto 0' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                       {Object.entries(analyticsData.gradeDistribution).map(([grade, count]) => {
-                        const percent = Math.round((count / overallResults.length) * 100);
+                        const percent = Math.round((count / cumulativeStudentResults.length) * 100);
                         return (
-                          <div key={grade} style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                            <span style={{ width: '40px', fontWeight: 700, fontSize: '0.85rem' }}>{grade}</span>
-                            <div style={{ flex: 1, height: '12px', background: 'var(--bg-glass-active)', borderRadius: '6px', overflow: 'hidden' }}>
-                              <div style={{ width: `${percent}%`, height: '100%', background: 'hsl(var(--color-primary))', borderRadius: '6px' }} />
+                          <div key={grade} style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                            <span style={{ width: '40px', fontWeight: 700, fontSize: '0.85rem', color: 'var(--text-main)' }}>{grade}</span>
+                            <div style={{ flex: 1, height: '10px', background: 'var(--bg-glass-active, #f1f5f9)', borderRadius: '5px', overflow: 'hidden' }}>
+                              <div style={{ width: `${percent}%`, height: '100%', background: 'linear-gradient(90deg, hsl(var(--color-primary)) 0%, #818cf8 100%)', borderRadius: '5px' }} />
                             </div>
-                            <span style={{ width: '80px', fontSize: '0.8rem', color: 'var(--text-muted)', textAlign: 'right' }}>
-                              {count} ({percent}%)
+                            <span style={{ width: '80px', fontSize: '0.8rem', color: 'var(--text-muted)', textAlign: 'right', fontWeight: 600 }}>
+                              {count} student{count > 1 ? 's' : ''} ({percent}%)
                             </span>
                           </div>
                         );
                       })}
                     </div>
                   ) : (
-                    <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                    <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
                       No locked results to render grade distributions.
                     </div>
                   )}
                 </div>
 
-                {/* Top Performers List */}
-                <div className="glass-panel" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                  <h4 style={{ fontSize: '1rem', fontWeight: 700, margin: 0 }}>Top Performers Leaderboard</h4>
+                {/* Top Performers Leaderboard */}
+                <div className="glass-panel" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                  <div>
+                    <h4 style={{ fontSize: '0.95rem', fontWeight: 700, margin: 0, color: 'var(--text-main)' }}>Top Performers Leaderboard</h4>
+                    <span style={{ fontSize: '0.76rem', color: 'var(--text-muted)' }}>Highest ranking student percentage averages</span>
+                  </div>
                   {topPerformers.length > 0 ? (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                      {topPerformers.map((p, idx) => (
-                        <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', background: 'var(--bg-glass-active)', borderRadius: '10px', border: '1px solid var(--border-glass)' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                            <span style={{ width: '24px', height: '24px', borderRadius: '50%', background: idx === 0 ? '#f59e0b' : idx === 1 ? '#94a3b8' : '#b45309', color: '#fff', fontSize: '0.75rem', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800 }}>
-                              {idx + 1}
-                            </span>
-                            <div>
-                              <span style={{ fontWeight: 700, fontSize: '0.85rem', display: 'block' }}>{p.studentName}</span>
-                              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Roll: {p.roll} · Grade: {p.cohort}</span>
+                      {topPerformers.map((p, idx) => {
+                        const initials = p.studentName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+                        const rankColor = idx === 0 ? 'linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%)' : idx === 1 ? 'linear-gradient(135deg, #cbd5e1 0%, #94a3b8 100%)' : idx === 2 ? 'linear-gradient(135deg, #fb923c 0%, #ea580c 100%)' : 'linear-gradient(135deg, #94a3b8 0%, #64748b 100%)';
+                        return (
+                          <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', background: 'var(--bg-glass-active, rgba(255,255,255,0.4))', borderRadius: '10px', border: '1px solid var(--border-glass)' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                              <span style={{ width: '28px', height: '28px', borderRadius: '50%', background: rankColor, color: '#fff', fontSize: '0.8rem', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
+                                {idx + 1}
+                              </span>
+                              <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: 'linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 100%)', color: '#4f46e5', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '0.8rem' }}>
+                                {initials}
+                              </div>
+                              <div>
+                                <span style={{ fontWeight: 700, fontSize: '0.85rem', display: 'block', color: 'var(--text-main)' }}>{p.studentName}</span>
+                                <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>Roll: {p.roll} · Class: {p.cohort}</span>
+                              </div>
+                            </div>
+                            <div style={{ textAlign: 'right' }}>
+                              <strong style={{ color: 'hsl(var(--color-primary))', fontSize: '0.95rem', display: 'block', fontWeight: 800 }}>{p.percentage}%</strong>
+                              <span style={{ fontSize: '0.74rem', background: 'rgba(99,102,241,0.08)', color: '#4f46e5', padding: '1px 6px', borderRadius: '4px', fontWeight: 600 }}>Grade {p.grade}</span>
                             </div>
                           </div>
-                          <div style={{ textAlign: 'right' }}>
-                            <strong style={{ color: 'hsl(var(--color-primary))', fontSize: '0.9rem', display: 'block' }}>{p.percentage}%</strong>
-                            <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Grade: {p.grade}</span>
-                          </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   ) : (
-                    <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                    <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
                       No calculated rankings available. Go to Result Generation to process data.
                     </div>
                   )}
                 </div>
+
+              </div>
+
+              {/* SaaS Subject-wise Performance Breakdown Card */}
+              <div className="glass-panel" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <div>
+                  <h4 style={{ fontSize: '0.95rem', fontWeight: 700, margin: 0, color: 'var(--text-main)' }}>Subject-wise Performance Insights</h4>
+                  <span style={{ fontSize: '0.76rem', color: 'var(--text-muted)' }}>Granular breakdown of subject average scores and success pass percentages</span>
+                </div>
+                {subjectBreakdown.length > 0 ? (
+                  <div style={{ overflowX: 'auto' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem' }}>
+                      <thead>
+                        <tr style={{ borderBottom: '1.5px solid var(--border-glass)', textAlign: 'left' }}>
+                          <th style={{ padding: '12px 8px', color: 'var(--text-muted)', fontWeight: 600 }}>Subject Name</th>
+                          <th style={{ padding: '12px 8px', color: 'var(--text-muted)', fontWeight: 600 }}>Average Percentage Score</th>
+                          <th style={{ padding: '12px 8px', color: 'var(--text-muted)', fontWeight: 600 }}>Subject Pass Rate</th>
+                          <th style={{ padding: '12px 8px', color: 'var(--text-muted)', fontWeight: 600 }}>Evaluated Submissions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {subjectBreakdown.map((s, idx) => {
+                          const avgColor = s.averagePct >= 80 ? '#10b981' : s.averagePct >= 60 ? 'hsl(var(--color-primary))' : '#f59e0b';
+                          const passColor = s.passRate >= 90 ? '#10b981' : s.passRate >= 75 ? '#3b82f6' : '#ef4444';
+                          return (
+                            <tr key={idx} style={{ borderBottom: '1px solid var(--border-glass, rgba(0,0,0,0.03))' }}>
+                              <td style={{ padding: '12px 8px', fontWeight: 700, color: 'var(--text-main)' }}>{s.subject}</td>
+                              <td style={{ padding: '12px 8px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                  <strong style={{ color: avgColor, minWidth: '35px' }}>{s.averagePct}%</strong>
+                                  <div style={{ width: '100px', height: '6px', background: 'var(--bg-glass-active, #f1f5f9)', borderRadius: '3px', overflow: 'hidden' }}>
+                                    <div style={{ width: `${s.averagePct}%`, height: '100%', background: avgColor, borderRadius: '3px' }} />
+                                  </div>
+                                </div>
+                              </td>
+                              <td style={{ padding: '12px 8px' }}>
+                                <span style={{ 
+                                  background: s.passRate >= 90 ? 'rgba(16,185,129,0.08)' : s.passRate >= 75 ? 'rgba(59,130,246,0.08)' : 'rgba(239,68,68,0.08)',
+                                  color: passColor,
+                                  padding: '3px 8px',
+                                  borderRadius: '6px',
+                                  fontWeight: 700,
+                                  fontSize: '0.76rem'
+                                }}>
+                                  {s.passRate}% Pass
+                                </span>
+                              </td>
+                              <td style={{ padding: '12px 8px', color: 'var(--text-muted)' }}>
+                                {s.totalStudents} papers
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                    No subject scores calculated. Run evaluations to populate subject insights.
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -1269,7 +2844,7 @@ export default function ResultManagementPanel({ activeTab: propActiveTab = 'anal
  
                   <div className="form-group" style={{ flex: 1, minWidth: '150px' }}>
                     <label style={{ fontSize: '0.75rem', fontWeight: 600, display: 'block', marginBottom: '4px' }}>Class</label>
-                    <select className="select-custom" style={{ width: '100%' }} value={selectedClass} onChange={e => { setSelectedClass(e.target.value); setStudentExamSelections({}); setStudentExamCategories({}); setRosterSearch(''); }}>
+                    <select className="select-custom" style={{ width: '100%' }} value={selectedClass} onChange={e => { setSelectedClass(e.target.value); setStudentExamSelections({}); setStudentExamCategories({}); setRosterSearch(''); }} disabled={userProfile?.role === 'Teacher'}>
                       <option value="">Select Grade</option>
                       {uniqueGradeNames.map(g => (
                         <option key={g} value={g}>{g.startsWith('LKG') || g.startsWith('UKG') || g.startsWith('NURSERY') ? g : `Grade ${g}`}</option>
@@ -1285,6 +2860,7 @@ export default function ResultManagementPanel({ activeTab: propActiveTab = 'anal
                         style={{ width: '100%' }} 
                         value={selectedDepartment} 
                         onChange={e => { setSelectedDepartment(e.target.value); setStudentExamSelections({}); setStudentExamCategories({}); setRosterSearch(''); }}
+                        disabled={userProfile?.role === 'Teacher'}
                       >
                         {availableDepartments.map(dept => (
                           <option key={dept} value={dept}>{dept}</option>
@@ -1295,7 +2871,7 @@ export default function ResultManagementPanel({ activeTab: propActiveTab = 'anal
 
                   <div className="form-group" style={{ flex: 1, minWidth: '150px' }}>
                     <label style={{ fontSize: '0.75rem', fontWeight: 600, display: 'block', marginBottom: '4px' }}>Section</label>
-                    <select className="select-custom" style={{ width: '100%' }} value={selectedSection} onChange={e => { setSelectedSection(e.target.value); setStudentExamSelections({}); setStudentExamCategories({}); setRosterSearch(''); }}>
+                    <select className="select-custom" style={{ width: '100%' }} value={selectedSection} onChange={e => { setSelectedSection(e.target.value); setStudentExamSelections({}); setStudentExamCategories({}); setRosterSearch(''); }} disabled={userProfile?.role === 'Teacher'}>
                       <option value="">Select Section</option>
                       {allowedSections.map(s => (
                         <option key={s} value={s}>{s}</option>
@@ -1315,8 +2891,7 @@ export default function ResultManagementPanel({ activeTab: propActiveTab = 'anal
                       {exams.filter(ex => {
                         if (ex.academicSession !== selectedSession) return false;
                         const cohortMatches = (ex.gradeSections || []).some(gs => gs.grade === targetClass && (!selectedSection || gs.section === selectedSection || !gs.section));
-                        const hasTimetable = examTimetables.some(et => et.examId === ex.id);
-                        return cohortMatches && hasTimetable;
+                        return cohortMatches;
                       }).map(ex => (
                         <option key={ex.id} value={ex.id}>{ex.examName}</option>
                       ))}
@@ -1530,14 +3105,282 @@ export default function ResultManagementPanel({ activeTab: propActiveTab = 'anal
           {/* TAB 4: REPORT CARDS */}
           {activeTab === 'report-cards' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-              <div className="glass-panel" style={{ padding: '20px', display: 'flex', gap: '16px', flexWrap: 'wrap', alignItems: 'flex-end' }}>
-                <div className="form-group" style={{ flex: 2, minWidth: '220px', position: 'relative' }}>
-                  <label style={{ fontSize: '0.75rem', fontWeight: 600, display: 'block', marginBottom: '4px' }}>Search Student (Name / Roll No)</label>
+              
+              {/* Template Configuration */}
+              <div className="glass-panel" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-glass)', paddingBottom: '10px' }}>
+                  <strong style={{ fontSize: '0.9rem', color: 'var(--text-main)', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                    <Code size={16} /> Template Configuration
+                  </strong>
+                  <button 
+                    onClick={() => setShowPlaceholderCheatSheet(!showPlaceholderCheatSheet)}
+                    style={{ fontSize: '0.75rem', background: 'transparent', border: 'none', color: 'hsl(var(--color-primary))', cursor: 'pointer', fontWeight: 600 }}
+                  >
+                    {showPlaceholderCheatSheet ? 'Hide Tags' : 'Show Tags'}
+                  </button>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px' }}>
+                  <div className="form-group">
+                    <label style={{ fontSize: '0.75rem', fontWeight: 600, display: 'block', marginBottom: '4px' }}>Select Template</label>
+                    <select 
+                      className="select-custom" 
+                      style={{ width: '100%' }}
+                      value={reportTemplateId}
+                      onChange={e => {
+                        const tid = e.target.value;
+                        setReportTemplateId(tid);
+                        localStorage.setItem(`report_card_template_id_${localStorage.getItem('tenant_subdomain') || 'default'}`, tid);
+                      }}
+                    >
+                      {DEFAULT_TEMPLATES.map(t => (
+                        <option key={t.id} value={t.id}>{t.name}</option>
+                      ))}
+                      <option value="custom">Custom HTML Template</option>
+                      {pdfTemplateBase64 && (
+                        <option value="pdf_form">Fillable PDF Template</option>
+                      )}
+                    </select>
+                  </div>
+
+                  <div className="form-group">
+                    <label style={{ fontSize: '0.75rem', fontWeight: 600, display: 'block', marginBottom: '4px' }}>Upload HTML or PDF Template</label>
+                    <label className="btn-secondary" style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      padding: '10px 14px',
+                      borderRadius: '8px',
+                      cursor: 'pointer',
+                      fontSize: '0.8rem',
+                      textAlign: 'center',
+                      width: '100%',
+                      boxSizing: 'border-box',
+                      background: 'var(--bg-glass-active, #f1f5f9)',
+                      border: '1px solid var(--border-glass, #e2e8f0)',
+                      color: 'var(--text-main)',
+                      justifyContent: 'center',
+                      fontWeight: 600
+                    }}>
+                      <Upload size={14} /> Upload Template File
+                      <input type="file" accept="*" onChange={handleFileUpload} style={{ display: 'none' }} />
+                    </label>
+                  </div>
+                </div>
+
+                {(reportTemplateId === 'custom' || reportTemplateId === 'pdf_form') && (
+                  <div style={{
+                    background: 'rgba(239, 68, 68, 0.08)',
+                    border: '1px solid rgba(239, 68, 68, 0.2)',
+                    borderRadius: '8px',
+                    padding: '12px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    margin: '10px 0'
+                  }} className="animate-scale-up">
+                    <div style={{ fontSize: '0.78rem', color: 'var(--text-main)' }}>
+                      <strong>Active:</strong> {reportTemplateId === 'pdf_form' ? 'Uploaded PDF Form' : (customTemplateHtml.startsWith('<div style="background-image:') ? 'Uploaded Image Background' : 'Uploaded Custom Layout')}
+                    </div>
+                    <button
+                      onClick={handleClearUploadedTemplate}
+                      title="Remove Template"
+                      style={{
+                        background: '#ef4444',
+                        color: '#ffffff',
+                        border: 'none',
+                        borderRadius: '4px',
+                        padding: '2px 8px',
+                        cursor: 'pointer',
+                        fontWeight: 700,
+                        fontSize: '0.85rem',
+                        lineHeight: '1.2'
+                      }}
+                    >
+                      Remove X
+                    </button>
+                  </div>
+                )}
+
+                {reportTemplateId === 'pdf_form' && (
+                  <div className="form-group animate-scale-up" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    <strong style={{ fontSize: '0.8rem', color: 'var(--text-main)' }}>PDF Form Fields Detected:</strong>
+                    <div style={{
+                      background: '#1e293b',
+                      color: '#38bdf8',
+                      borderRadius: '8px',
+                      padding: '12px',
+                      fontSize: '0.75rem',
+                      fontFamily: 'monospace',
+                      maxHeight: '180px',
+                      overflowY: 'auto'
+                    }}>
+                      {pdfFields.length > 0 ? (
+                        pdfFields.map(f => (
+                          <div key={f} style={{ padding: '2px 0' }}>• {f}</div>
+                        ))
+                      ) : (
+                        <div style={{ color: '#94a3b8' }}>No form fields detected. Ensure it is a fillable PDF form.</div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {reportTemplateId === 'custom' && (
+                  <div className="form-group animate-scale-up" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    {customTemplateHtml.startsWith('<div style="background-image:') && (
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', background: 'var(--bg-glass-active, #f8fafc)', padding: '10px', borderRadius: '6px', border: '1px solid var(--border-glass)' }}>
+                        ✨ Background image loaded! Report card parameters are automatically overlaid.
+                      </div>
+                    )}
+                    
+                    <button
+                      className="btn-secondary"
+                      style={{ padding: '8px 12px', fontSize: '0.76rem', width: '100%', justifyContent: 'center', fontWeight: 600 }}
+                      onClick={() => setShowHtmlCodeEditor(!showHtmlCodeEditor)}
+                    >
+                      {showHtmlCodeEditor ? 'Hide raw HTML editor' : 'Show raw HTML code'}
+                    </button>
+
+                    {showHtmlCodeEditor && (
+                      <div className="animate-scale-up" style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '4px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <label style={{ fontSize: '0.75rem', fontWeight: 600 }}>Raw HTML Editor</label>
+                          <button 
+                            className="btn-primary" 
+                            style={{ padding: '4px 10px', fontSize: '0.72rem', borderRadius: '6px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                            onClick={handleSaveCustomTemplate}
+                          >
+                            <Save size={12} /> Save HTML
+                          </button>
+                        </div>
+                        <textarea
+                          className="form-control"
+                          rows={10}
+                          style={{
+                            fontFamily: 'Consolas, Monaco, Courier New, monospace',
+                            fontSize: '0.75rem',
+                            lineHeight: '1.4',
+                            background: '#1e293b',
+                            color: '#38bdf8',
+                            borderRadius: '8px',
+                            padding: '12px',
+                            width: '100%',
+                            boxSizing: 'border-box',
+                            resize: 'vertical'
+                          }}
+                          value={customTemplateHtml}
+                          onChange={e => setCustomTemplateHtml(e.target.value)}
+                          placeholder="Write your custom HTML here..."
+                        />
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {showPlaceholderCheatSheet && (
+                  <div className="animate-scale-up" style={{
+                    background: 'var(--bg-glass-active, #f8fafc)',
+                    border: '1px solid var(--border-glass, #cbd5e1)',
+                    borderRadius: '8px',
+                    padding: '12px',
+                    fontSize: '0.74rem',
+                    maxHeight: '260px',
+                    overflowY: 'auto',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '8px'
+                  }}>
+                    <strong style={{ color: 'var(--text-main)' }}>Placeholders Cheat Sheet</strong>
+                    <div>
+                      <strong style={{ color: 'hsl(var(--color-primary))' }}>School:</strong>
+                      <div style={{ paddingLeft: '8px' }}><code>{"{{schoolLogo}}"}</code>, <code>{"{{schoolName}}"}</code>, <code>{"{{schoolAddress}}"}</code>, <code>{"{{schoolContact}}"}</code></div>
+                    </div>
+                    <div>
+                      <strong style={{ color: 'hsl(var(--color-primary))' }}>Student:</strong>
+                      <div style={{ paddingLeft: '8px' }}><code>{"{{studentPhoto}}"}</code>, <code>{"{{studentName}}"}</code>, <code>{"{{admissionNo}}"}</code>, <code>{"{{rollNo}}"}</code>, <code>{"{{class}}"}</code>, <code>{"{{section}}"}</code>, <code>{"{{fatherName}}"}</code>, <code>{"{{motherName}}"}</code></div>
+                    </div>
+                    <div>
+                      <strong style={{ color: 'hsl(var(--color-primary))' }}>Academic:</strong>
+                      <div style={{ paddingLeft: '8px' }}><code>{"{{examName}}"}</code>, <code>{"{{session}}"}</code>, <code>{"{{subjectMarksTable}}"}</code>, <code>{"{{obtainedMarks}}"}</code>, <code>{"{{totalMarks}}"}</code>, <code>{"{{percentage}}"}</code>, <code>{"{{grade}}"}</code>, <code>{"{{result}}"}</code>, <code>{"{{remarks}}"}</code>, <code>{"{{rank}}"}</code></div>
+                    </div>
+                    <div>
+                      <strong style={{ color: 'hsl(var(--color-primary))' }}>Metadata:</strong>
+                      <div style={{ paddingLeft: '8px' }}><code>{"{{classTeacherName}}"}</code>, <code>{"{{principalSignature}}"}</code>, <code>{"{{schoolStamp}}"}</code>, <code>{"{{generatedDate}}"}</code>, <code>{"{{qrCode}}"}</code></div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Selectors Bar */}
+              <div className="glass-panel" style={{ padding: '20px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '16px', alignItems: 'flex-end' }}>
+                {/* 1. Academic Session */}
+                <div className="form-group">
+                  <label style={{ fontSize: '0.75rem', fontWeight: 600, display: 'block', marginBottom: '4px' }}>Academic Session</label>
+                  <select className="select-custom" style={{ width: '100%' }} value={reportSession} onChange={e => { setReportSession(e.target.value); setReportStudentId(''); setReportSearchQuery(''); }}>
+                    {Array.from({ length: 2030 - 2026 + 1 }, (_, i) => {
+                      const s = 2026 + i;
+                      return `${s}-${s + 1}`;
+                    }).map(sy => (
+                      <option key={sy} value={sy}>{sy}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* 3. Class */}
+                <div className="form-group">
+                  <label style={{ fontSize: '0.75rem', fontWeight: 600, display: 'block', marginBottom: '4px' }}>Class / Grade</label>
+                  <select className="select-custom" style={{ width: '100%' }} value={reportClass} onChange={e => { setReportClass(e.target.value); setReportStudentId(''); setReportSearchQuery(''); }} disabled={userProfile?.role === 'Teacher'}>
+                    <option value="">Select Grade</option>
+                    {uniqueGradeNames.map(g => (
+                      <option key={g} value={g}>{g.startsWith('LKG') || g.startsWith('UKG') || g.startsWith('NURSERY') ? g : `Grade ${g}`}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* 4. Department (Conditional) */}
+                {reportHasDepartments && (
+                  <div className="form-group animate-scale-up">
+                    <label style={{ fontSize: '0.75rem', fontWeight: 600, display: 'block', marginBottom: '4px' }}>Department</label>
+                    <select 
+                      className="select-custom" 
+                      style={{ width: '100%' }} 
+                      value={reportDepartment} 
+                      onChange={e => { setReportDepartment(e.target.value); setReportStudentId(''); setReportSearchQuery(''); }}
+                      disabled={userProfile?.role === 'Teacher'}
+                    >
+                      {reportAvailableDepartments.map(dept => (
+                        <option key={dept} value={dept}>{dept}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {/* 5. Section */}
+                <div className="form-group">
+                  <label style={{ fontSize: '0.75rem', fontWeight: 600, display: 'block', marginBottom: '4px' }}>Section</label>
+                  <select 
+                    className="select-custom" 
+                    style={{ width: '100%' }} 
+                    value={reportSection} 
+                    onChange={e => { setReportSection(e.target.value); setReportStudentId(''); setReportSearchQuery(''); }}
+                    disabled={!reportClass || userProfile?.role === 'Teacher'}
+                  >
+                    {userProfile?.role !== 'Teacher' && <option value="All">All Sections</option>}
+                    {reportAllowedSections.map(sec => (
+                      <option key={sec} value={sec}>Section {sec}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* 6. Quick Student Lookup */}
+                <div className="form-group" style={{ position: 'relative' }}>
+                  <label style={{ fontSize: '0.75rem', fontWeight: 600, display: 'block', marginBottom: '4px' }}>Quick Search Student</label>
                   <div style={{ position: 'relative' }}>
                     <input 
                       type="text" 
                       className="form-control" 
-                      placeholder="Search name or roll number..." 
+                      placeholder="Search student..." 
                       value={reportSearchQuery}
                       onChange={e => {
                         setReportSearchQuery(e.target.value);
@@ -1579,6 +3422,11 @@ export default function ResultManagementPanel({ activeTab: propActiveTab = 'anal
                                 } else {
                                   setReportDepartment('');
                                 }
+                                if (student.section) {
+                                  setReportSection(student.section);
+                                } else {
+                                  setReportSection('All');
+                                }
                                 setReportStudentId(student.id);
                                 setReportSearchQuery(student.name);
                                 setShowReportSearchResults(false);
@@ -1593,7 +3441,6 @@ export default function ResultManagementPanel({ activeTab: propActiveTab = 'anal
                                 color: 'var(--text-main, #0f172a)'
                               }}
                               onMouseDown={(e) => {
-                                // Prevent input blur from firing before onClick when clicking a list item
                                 e.preventDefault();
                               }}
                               className="search-item-hover"
@@ -1614,33 +3461,8 @@ export default function ResultManagementPanel({ activeTab: propActiveTab = 'anal
                   )}
                 </div>
 
-                <div className="form-group" style={{ flex: 1, minWidth: '130px' }}>
-                  <label style={{ fontSize: '0.75rem', fontWeight: 600, display: 'block', marginBottom: '4px' }}>Grade</label>
-                  <select className="select-custom" style={{ width: '100%' }} value={reportClass} onChange={e => { setReportClass(e.target.value); setReportStudentId(''); setReportSearchQuery(''); }}>
-                    <option value="">Select Grade</option>
-                    {uniqueGradeNames.map(g => (
-                      <option key={g} value={g}>{g.startsWith('LKG') || g.startsWith('UKG') || g.startsWith('NURSERY') ? g : `Grade ${g}`}</option>
-                    ))}
-                  </select>
-                </div>
-
-                {reportHasDepartments && (
-                  <div className="form-group animate-scale-up" style={{ flex: 1, minWidth: '130px' }}>
-                    <label style={{ fontSize: '0.75rem', fontWeight: 600, display: 'block', marginBottom: '4px' }}>Department</label>
-                    <select 
-                      className="select-custom" 
-                      style={{ width: '100%' }} 
-                      value={reportDepartment} 
-                      onChange={e => { setReportDepartment(e.target.value); setReportStudentId(''); }}
-                    >
-                      {reportAvailableDepartments.map(dept => (
-                        <option key={dept} value={dept}>{dept}</option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-
-                <div className="form-group" style={{ flex: 2, minWidth: '200px' }}>
+                {/* 7. Student Selector */}
+                <div className="form-group">
                   <label style={{ fontSize: '0.75rem', fontWeight: 600, display: 'block', marginBottom: '4px' }}>Select Student</label>
                   <select className="select-custom" style={{ width: '100%' }} value={reportStudentId} onChange={e => {
                     const studentId = e.target.value;
@@ -1660,222 +3482,360 @@ export default function ResultManagementPanel({ activeTab: propActiveTab = 'anal
                 </div>
               </div>
 
-              {activeReportCardData ? (
-                <div className="glass-panel" style={{ padding: '32px' }}>
-                  {/* Preview Container formatted for clean printable styling */}
-                  <div id="printable-academic-report" style={{ border: '2px solid #e2e8f0', borderRadius: '12px', padding: '30px', background: '#fff', color: '#1e293b' }}>
+              {/* Student Directory Roster Table & Bulk Actions */}
+              {reportClass && (
+                <div className="glass-panel" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+                    <div>
+                      <strong style={{ fontSize: '1rem', color: 'var(--text-main)', display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                        <Users size={18} /> Student Roster & Academic Status
+                      </strong>
+                      <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'block', marginTop: '2px' }}>
+                        Showing {reportFilteredStudents.length} student entries with published marks in {reportClass} (Section: {reportSection})
+                      </span>
+                    </div>
                     
-                    {/* Header */}
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '3px double #cbd5e1', paddingBottom: '20px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                        <div style={{ width: '60px', height: '60px', borderRadius: '12px', background: 'hsl(var(--color-primary))', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 900, fontSize: '1.5rem' }}>
-                          GV
-                        </div>
-                        <div>
-                          <h2 style={{ margin: 0, fontSize: '1.4rem', fontWeight: 800, color: 'hsl(var(--color-primary))', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                            Green Valley Public School
-                          </h2>
-                          <p style={{ margin: '4px 0 0 0', fontSize: '0.8rem', color: '#64748b' }}>
-                            Khimel Rani Station Road, Bali, Rajasthan · contact@gmail.com
-                          </p>
-                        </div>
-                      </div>
-                       <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '8px' }}>
-                        <span style={{ fontSize: '0.8rem', background: '#f1f5f9', padding: '4px 12px', borderRadius: '99px', fontWeight: 700, color: '#334155' }}>
-                          Consolidated Academic Report Card
-                        </span>
-                        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }} className="no-print">
-                          <button 
-                            className="btn-primary"
-                            style={{
-                              padding: '6px 12px',
-                              fontSize: '0.78rem',
-                              borderRadius: '8px',
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '4px',
-                              background: 'linear-gradient(135deg, hsl(var(--color-primary)) 0%, #4f46e5 100%)',
-                              border: 'none',
-                              color: '#ffffff',
-                              cursor: 'pointer',
-                              fontWeight: 600,
-                              boxShadow: '0 2px 8px rgba(99, 102, 241, 0.25)'
-                            }}
-                            onClick={() => handlePrint('printable-academic-report')}
-                          >
-                            <Printer size={12} /> Print
-                          </button>
-                          <button 
-                            className="btn-primary"
-                            style={{
-                              padding: '6px 12px',
-                              fontSize: '0.78rem',
-                              borderRadius: '8px',
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '4px',
-                              background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                              border: 'none',
-                              color: '#ffffff',
-                              cursor: 'pointer',
-                              fontWeight: 600,
-                              boxShadow: '0 2px 8px rgba(16, 185, 129, 0.25)'
-                            }}
-                            onClick={() => handlePrint('printable-academic-report')}
-                          >
-                            <Download size={12} /> Export PDF
-                          </button>
-                          <button 
-                            className="btn-primary"
-                            style={{
-                              padding: '6px 12px',
-                              fontSize: '0.78rem',
-                              borderRadius: '8px',
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '4px',
-                              background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
-                              border: 'none',
-                              color: '#ffffff',
-                              cursor: 'pointer',
-                              fontWeight: 600,
-                              boxShadow: '0 2px 8px rgba(245, 158, 11, 0.25)'
-                            }}
-                            onClick={handleExportCSV}
-                          >
-                            <Download size={12} /> Export CSV
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Student Metadata Card */}
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 3fr 1fr', gap: '20px', marginTop: '24px', background: '#f8fafc', padding: '20px', borderRadius: '10px' }}>
-                      {/* Photo Placeholder */}
-                      <div style={{ width: '90px', height: '110px', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8', fontSize: '0.75rem', fontWeight: 600 }}>
-                        Student Photo
-                      </div>
-                      
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', fontSize: '0.85rem' }}>
-                        <div>Student Name: <strong style={{ color: '#0f172a' }}>{activeReportCardData.student.name}</strong></div>
-                        <div>Admission No: <strong style={{ color: '#0f172a' }}>{activeReportCardData.student.admissionNumber}</strong></div>
-                        <div>Grade/Class: <strong style={{ color: '#0f172a' }}>Class {activeReportCardData.student.studentClass} - Section {activeReportCardData.student.section}</strong></div>
-                        <div>Roll Number: <strong style={{ color: '#0f172a' }}>{activeReportCardData.student.rollNumber || activeReportCardData.student.roll}</strong></div>
-                        <div>Father Name: <strong style={{ color: '#0f172a' }}>{activeReportCardData.student.fatherName}</strong></div>
-                        <div>Total Exams: <strong style={{ color: '#0f172a' }}>{activeReportCardData.examSections.length}</strong></div>
-                      </div>
-
-                      <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                        <span style={{ fontSize: '0.75rem', color: '#64748b', display: 'block' }}>OVERALL %</span>
-                        <strong style={{ fontSize: '1.4rem', color: 'hsl(var(--color-primary))' }}>
-                          {activeReportCardData.grandPercentage}%
-                        </strong>
-                      </div>
-                    </div>
-
-                    {/* Per-Exam Sections */}
-                    {activeReportCardData.examSections.map((section, secIdx) => (
-                      <div key={secIdx} style={{ marginTop: '30px' }}>
-                        {/* Exam Section Header */}
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%)', padding: '12px 18px', borderRadius: '8px 8px 0 0', borderBottom: '2px solid hsl(var(--color-primary))' }}>
-                          <div>
-                            <strong style={{ fontSize: '0.95rem', color: '#0f172a' }}>{section.exam.examName}</strong>
-                            <span style={{ fontSize: '0.78rem', color: '#64748b', marginLeft: '10px' }}>({section.exam.examType})</span>
-                          </div>
-                          <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
-                            <span style={{ fontSize: '0.78rem', color: '#64748b' }}>Session: <strong>{section.exam.academicSession}</strong></span>
-                            {section.overall && (
-                              <span style={{ 
-                                padding: '3px 10px', 
-                                borderRadius: '99px', 
-                                fontSize: '0.75rem', 
-                                fontWeight: 700, 
-                                background: section.overall.passStatus === 'Pass' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)', 
-                                color: section.overall.passStatus === 'Pass' ? '#10b981' : '#ef4444' 
-                              }}>
-                                {section.overall.passStatus} — {section.overall.percentage}%
-                              </span>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* Subject Breakdown Table */}
-                        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                          <thead>
-                            <tr style={{ background: '#f8fafc' }}>
-                              <th style={{ border: '1px solid #cbd5e1', padding: '10px 14px', textAlign: 'left', fontSize: '0.82rem', fontWeight: 700 }}>Subject</th>
-                              <th style={{ border: '1px solid #cbd5e1', padding: '10px 14px', textAlign: 'center', fontSize: '0.82rem', fontWeight: 700 }}>Max Marks</th>
-                              <th style={{ border: '1px solid #cbd5e1', padding: '10px 14px', textAlign: 'center', fontSize: '0.82rem', fontWeight: 700 }}>Obtained</th>
-                              <th style={{ border: '1px solid #cbd5e1', padding: '10px 14px', textAlign: 'center', fontSize: '0.82rem', fontWeight: 700 }}>Grade</th>
-                              <th style={{ border: '1px solid #cbd5e1', padding: '10px 14px', textAlign: 'center', fontSize: '0.82rem', fontWeight: 700 }}>Remarks</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {section.subjectMarks.map((m, idx) => (
-                              <tr key={idx}>
-                                <td style={{ border: '1px solid #cbd5e1', padding: '10px 14px', fontWeight: 600, fontSize: '0.82rem' }}>{m.subject}</td>
-                                <td style={{ border: '1px solid #cbd5e1', padding: '10px 14px', textAlign: 'center', fontSize: '0.82rem' }}>{m.totalMarks}</td>
-                                <td style={{ border: '1px solid #cbd5e1', padding: '10px 14px', textAlign: 'center', fontWeight: 800, fontSize: '0.82rem' }}>{m.obtainedMarks}</td>
-                                <td style={{ border: '1px solid #cbd5e1', padding: '10px 14px', textAlign: 'center', fontWeight: 700, color: m.grade === 'F' ? '#ef4444' : '#10b981', fontSize: '0.82rem' }}>{m.grade}</td>
-                                <td style={{ border: '1px solid #cbd5e1', padding: '10px 14px', fontSize: '0.78rem', color: '#475569' }}>{m.remarks || (m.percentage >= 40 ? 'Satisfactory Pass' : 'Academic Alert')}</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                          {section.overall && (
-                            <tfoot>
-                              <tr style={{ background: '#f1f5f9', fontWeight: 700 }}>
-                                <td style={{ border: '1px solid #cbd5e1', padding: '10px 14px', fontSize: '0.82rem' }}>Total</td>
-                                <td style={{ border: '1px solid #cbd5e1', padding: '10px 14px', textAlign: 'center', fontSize: '0.82rem' }}>{section.overall.totalMax}</td>
-                                <td style={{ border: '1px solid #cbd5e1', padding: '10px 14px', textAlign: 'center', fontSize: '0.82rem', fontWeight: 800 }}>{section.overall.totalObtained}</td>
-                                <td style={{ border: '1px solid #cbd5e1', padding: '10px 14px', textAlign: 'center', fontSize: '0.82rem', color: 'hsl(var(--color-primary))' }}>{section.overall.grade}</td>
-                                <td style={{ border: '1px solid #cbd5e1', padding: '10px 14px', textAlign: 'center', fontSize: '0.82rem' }}>Rank {section.overall.rank || 'N/A'}</td>
-                              </tr>
-                            </tfoot>
-                          )}
-                        </table>
-                      </div>
-                    ))}
-
-                    {/* Grand Overall Summary */}
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px', border: '2px solid hsl(var(--color-primary))', background: 'linear-gradient(135deg, rgba(99,102,241,0.04) 0%, rgba(79,70,229,0.08) 100%)', padding: '22px', borderRadius: '10px', textAlign: 'center', marginTop: '30px' }}>
-                      <div>
-                        <span style={{ fontSize: '0.75rem', color: '#64748b', display: 'block', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Grand Total Marks</span>
-                        <strong style={{ fontSize: '1.3rem', color: '#0f172a' }}>
-                          {activeReportCardData.grandTotalObtained} / {activeReportCardData.grandTotalMax}
-                        </strong>
-                      </div>
-                      <div>
-                        <span style={{ fontSize: '0.75rem', color: '#64748b', display: 'block', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Overall Percentage</span>
-                        <strong style={{ fontSize: '1.3rem', color: 'hsl(var(--color-primary))' }}>
-                          {activeReportCardData.grandPercentage}%
-                        </strong>
-                      </div>
-                      <div>
-                        <span style={{ fontSize: '0.75rem', color: '#64748b', display: 'block', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Total Exams</span>
-                        <strong style={{ fontSize: '1.3rem', color: '#16a34a' }}>
-                          {activeReportCardData.examSections.length}
-                        </strong>
-                      </div>
-                    </div>
-
-                    {/* Signatures */}
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '60px', borderTop: '1px dashed #cbd5e1', paddingTop: '20px', fontSize: '0.8rem', color: '#475569' }}>
-                      <div style={{ textAlign: 'center', width: '180px' }}>
-                        <div style={{ height: '35px' }} />
-                        <div style={{ borderTop: '1px solid #94a3b8', paddingTop: '4px' }}>Class Staff</div>
-                      </div>
-                      <div style={{ textAlign: 'center', width: '180px' }}>
-                        <div style={{ height: '35px' }} />
-                        <div style={{ borderTop: '1px solid #94a3b8', paddingTop: '4px' }}>Principal Stamp / Seal</div>
-                      </div>
+                    {/* Bulk Actions */}
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <button
+                        className="btn-primary"
+                        style={{
+                          padding: '8px 14px',
+                          fontSize: '0.78rem',
+                          borderRadius: '8px',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          background: 'linear-gradient(135deg, hsl(var(--color-primary)) 0%, #4f46e5 100%)',
+                          border: 'none',
+                          color: '#ffffff',
+                          cursor: isBulkExporting ? 'not-allowed' : 'pointer',
+                          fontWeight: 600,
+                          boxShadow: '0 2px 8px rgba(99, 102, 241, 0.2)'
+                        }}
+                        onClick={handleBulkPrintPDF}
+                        disabled={isBulkExporting}
+                      >
+                        {isBulkExporting ? (
+                          <>
+                            <RefreshCw size={13} className="animate-spin" /> Filling PDFs ({bulkExportProgress}%)...
+                          </>
+                        ) : (
+                          <>
+                            <Printer size={13} /> Bulk Export PDF Report Cards
+                          </>
+                        )}
+                      </button>
+                      <button
+                        className="btn-primary"
+                        style={{
+                          padding: '8px 14px',
+                          fontSize: '0.78rem',
+                          borderRadius: '8px',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                          border: 'none',
+                          color: '#ffffff',
+                          cursor: 'pointer',
+                          fontWeight: 600,
+                          boxShadow: '0 2px 8px rgba(16, 185, 129, 0.2)'
+                        }}
+                        onClick={handleBulkExportCSV}
+                      >
+                        <Download size={13} /> Bulk Export CSV
+                      </button>
                     </div>
                   </div>
-                </div>
-              ) : (
-                <div className="glass-panel" style={{ padding: '80px', textAlign: 'center', color: 'var(--text-muted)' }}>
-                  Please select a Grade and Student to preview the consolidated Report Card.
+
+                  {/* Table Container */}
+                  <div style={{ overflowX: 'auto' }}>
+                    {reportFilteredStudents.length > 0 ? (
+                      <table className="table-custom" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem' }}>
+                        <thead>
+                          <tr style={{ borderBottom: '2px solid var(--border-glass, #cbd5e1)', textAlign: 'left', background: 'rgba(0,0,0,0.02)' }}>
+                            <th style={{ padding: '10px 8px', fontWeight: 600 }}>Roll No</th>
+                            <th style={{ padding: '10px 8px', fontWeight: 600 }}>Admission No</th>
+                            <th style={{ padding: '10px 8px', fontWeight: 600 }}>Name</th>
+                            <th style={{ padding: '10px 8px', fontWeight: 600 }}>Section</th>
+                            <th style={{ padding: '10px 8px', fontWeight: 600, textAlign: 'center' }}>Obtained / Max Marks</th>
+                            <th style={{ padding: '10px 8px', fontWeight: 600, textAlign: 'center' }}>Percentage</th>
+                            <th style={{ padding: '10px 8px', fontWeight: 600, textAlign: 'center' }}>Grade</th>
+                            <th style={{ padding: '10px 8px', fontWeight: 600, textAlign: 'center' }}>Status</th>
+                            <th style={{ padding: '10px 8px', fontWeight: 600, textAlign: 'right' }}>Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {reportFilteredStudents.map(student => {
+                            const rData = getStudentReportCardData(student.id);
+                            if (!rData) return null;
+                            
+                            const { grandTotalObtained, grandTotalMax, grandPercentage } = rData;
+                            const overallGrade = grandPercentage >= 90 ? 'A+' : grandPercentage >= 80 ? 'A' : grandPercentage >= 70 ? 'B+' : grandPercentage >= 60 ? 'B' : grandPercentage >= 50 ? 'C' : grandPercentage >= 40 ? 'D' : 'F';
+                            const isPass = grandPercentage >= 40;
+                            const isSelected = reportStudentId === student.id;
+
+                            return (
+                              <tr 
+                                key={student.id} 
+                                style={{ 
+                                  borderBottom: '1px solid var(--border-glass, rgba(0,0,0,0.05))',
+                                  background: isSelected ? 'rgba(99, 102, 241, 0.08)' : 'transparent',
+                                  transition: 'background 0.2s ease'
+                                }}
+                              >
+                                <td style={{ padding: '10px 8px', fontWeight: 600 }}>{student.rollNumber || student.roll || '-'}</td>
+                                <td style={{ padding: '10px 8px' }}>{student.admissionNumber || '-'}</td>
+                                <td style={{ padding: '10px 8px', fontWeight: 700, color: 'hsl(var(--color-primary))' }}>{student.name}</td>
+                                <td style={{ padding: '10px 8px' }}>{student.section || 'A'}</td>
+                                <td style={{ padding: '10px 8px', textAlign: 'center', fontWeight: 600 }}>{grandTotalObtained} / {grandTotalMax}</td>
+                                <td style={{ padding: '10px 8px', textAlign: 'center', fontWeight: 700 }}>{grandPercentage}%</td>
+                                <td style={{ padding: '10px 8px', textAlign: 'center', fontWeight: 800 }}>{overallGrade}</td>
+                                <td style={{ padding: '10px 8px', textAlign: 'center' }}>
+                                  <span style={{
+                                    padding: '3px 6px',
+                                    borderRadius: '12px',
+                                    fontSize: '0.72rem',
+                                    fontWeight: 700,
+                                    background: isPass ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                                    color: isPass ? '#10b981' : '#ef4444',
+                                    border: isPass ? '1px solid rgba(16, 185, 129, 0.25)' : '1px solid rgba(239, 68, 68, 0.25)'
+                                  }}>
+                                    {isPass ? 'Pass' : 'Fail'}
+                                  </span>
+                                </td>
+                                <td style={{ padding: '10px 8px', textAlign: 'right' }}>
+                                  <div style={{ display: 'inline-flex', gap: '6px' }}>
+                                    <button
+                                      title="Preview Report Card"
+                                      style={{
+                                        padding: '4px 8px',
+                                        fontSize: '0.75rem',
+                                        background: isSelected ? 'hsl(var(--color-primary))' : 'var(--bg-glass-active, #f1f5f9)',
+                                        border: isSelected ? 'none' : '1px solid var(--border-glass)',
+                                        color: isSelected ? '#ffffff' : 'var(--text-main)',
+                                        borderRadius: '6px',
+                                        cursor: 'pointer',
+                                        fontWeight: 600,
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '4px'
+                                      }}
+                                      onClick={() => {
+                                        if (isSelected) {
+                                          setReportStudentId('');
+                                          setReportSearchQuery('');
+                                        } else {
+                                          setReportStudentId(student.id);
+                                          setReportSearchQuery(student.name);
+                                        }
+                                      }}
+                                    >
+                                      <Eye size={12} /> {isSelected ? 'Previewing' : 'Preview'}
+                                    </button>
+                                    <button
+                                      title="Export PDF / Download"
+                                      style={{
+                                        padding: '5px 8px',
+                                        background: 'rgba(16, 185, 129, 0.1)',
+                                        border: '1px solid rgba(16, 185, 129, 0.2)',
+                                        color: '#10b981',
+                                        borderRadius: '6px',
+                                        cursor: 'pointer',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '4px',
+                                        fontSize: '0.74rem',
+                                        fontWeight: 600
+                                      }}
+                                      onClick={() => {
+                                        if (reportTemplateId === 'pdf_form') {
+                                          downloadPdfForSingleStudent(student.id);
+                                        } else {
+                                          setReportStudentId(student.id);
+                                          setReportSearchQuery(student.name);
+                                          setTimeout(() => {
+                                            handlePrint('printable-dynamic-report');
+                                          }, 200);
+                                        }
+                                      }}
+                                    >
+                                      <Download size={11} /> PDF
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    ) : (
+                      <div style={{ padding: '30px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                        No student entries found for the selected Grade and Section. Ensure marks are entered and published.
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
+
+              {/* Live Preview Container (Centered & Full-width) */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                {activeReportCardData ? (
+                  <div className="glass-panel" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    
+                    {/* Action Header */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-glass)', paddingBottom: '12px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+                          Viewing template preview for <strong>{activeReportCardData.student.name}</strong>
+                        </span>
+                        <button
+                          onClick={() => {
+                            setReportStudentId('');
+                            setReportSearchQuery('');
+                          }}
+                          style={{
+                            background: 'rgba(239, 68, 68, 0.1)',
+                            border: '1px solid rgba(239, 68, 68, 0.2)',
+                            color: '#ef4444',
+                            borderRadius: '6px',
+                            padding: '4px 10px',
+                            fontSize: '0.74rem',
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            transition: 'all 0.2s ease'
+                          }}
+                          className="btn-danger-hover"
+                          title="Close Live Preview"
+                        >
+                          Close Preview ×
+                        </button>
+                      </div>
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        <button 
+                          className="btn-primary"
+                          style={{
+                            padding: '8px 14px',
+                            fontSize: '0.78rem',
+                            borderRadius: '8px',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            background: 'linear-gradient(135deg, hsl(var(--color-primary)) 0%, #4f46e5 100%)',
+                            border: 'none',
+                            color: '#ffffff',
+                            cursor: 'pointer',
+                            fontWeight: 600,
+                            boxShadow: '0 2px 8px rgba(99, 102, 241, 0.2)'
+                          }}
+                          onClick={() => {
+                            if (reportTemplateId === 'pdf_form') {
+                              if (filledPdfUrl) window.open(filledPdfUrl);
+                            } else {
+                              handlePrint('printable-dynamic-report');
+                            }
+                          }}
+                        >
+                          <Printer size={13} /> Print
+                        </button>
+                        <button 
+                          className="btn-primary"
+                          style={{
+                            padding: '8px 14px',
+                            fontSize: '0.78rem',
+                            borderRadius: '8px',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                            border: 'none',
+                            color: '#ffffff',
+                            cursor: 'pointer',
+                            fontWeight: 600,
+                            boxShadow: '0 2px 8px rgba(16, 185, 129, 0.2)'
+                          }}
+                          onClick={() => {
+                            if (reportTemplateId === 'pdf_form') {
+                              if (filledPdfUrl) {
+                                const link = document.createElement('a');
+                                link.href = filledPdfUrl;
+                                link.download = `Report_Card_${activeReportCardData.student.name.replace(/\s+/g, '_')}.pdf`;
+                                document.body.appendChild(link);
+                                link.click();
+                                document.body.removeChild(link);
+                              }
+                            } else {
+                              handlePrint('printable-dynamic-report');
+                            }
+                          }}
+                        >
+                          <Download size={13} /> Export PDF
+                        </button>
+                        <button 
+                          className="btn-primary"
+                          style={{
+                            padding: '8px 14px',
+                            fontSize: '0.78rem',
+                            borderRadius: '8px',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+                            border: 'none',
+                            color: '#ffffff',
+                            cursor: 'pointer',
+                            fontWeight: 600,
+                            boxShadow: '0 2px 8px rgba(245, 158, 11, 0.2)'
+                          }}
+                          onClick={handleExportCSV}
+                        >
+                          <Download size={13} /> Export CSV
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Real-time Compiled Frame */}
+                    {reportTemplateId === 'pdf_form' ? (
+                      <iframe 
+                        src={filledPdfUrl ? `${filledPdfUrl}#toolbar=0&navpanes=0&view=FitH` : ''} 
+                        title="PDF Preview"
+                        style={{
+                          width: '100%',
+                          height: '650px',
+                          border: '1px solid #cbd5e1',
+                          borderRadius: '8px',
+                          background: '#f8fafc'
+                        }}
+                      />
+                    ) : (
+                      <div 
+                        id="printable-dynamic-report"
+                        className="compiled-report-html-frame"
+                        style={{
+                          background: '#ffffff',
+                          borderRadius: '8px',
+                          boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+                          overflow: 'auto',
+                          padding: '24px',
+                          border: '1px solid #cbd5e1',
+                          display: 'flex',
+                          justifyContent: 'center',
+                          alignItems: 'center'
+                        }}
+                        dangerouslySetInnerHTML={{ __html: compiledReportCardHtml }}
+                      />
+                    )}
+                  </div>
+                ) : (
+                  <div className="glass-panel" style={{ padding: '80px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                    Please select a Session, Grade, Section, and Student to preview and compile the Report Card.
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
@@ -1902,6 +3862,7 @@ export default function ResultManagementPanel({ activeTab: propActiveTab = 'anal
                     style={{ width: '100%' }}
                     value={historyClassFilter} 
                     onChange={e => setHistoryClassFilter(e.target.value)}
+                    disabled={userProfile?.role === 'Teacher'}
                   >
                     <option value="">All Grades</option>
                     {uniqueGradeNames.map(g => (
@@ -1916,6 +3877,7 @@ export default function ResultManagementPanel({ activeTab: propActiveTab = 'anal
                       style={{ width: '100%' }}
                       value={historyDepartmentFilter} 
                       onChange={e => setHistoryDepartmentFilter(e.target.value)}
+                      disabled={userProfile?.role === 'Teacher'}
                     >
                       {historyAvailableDepartments.map(dept => (
                         <option key={dept} value={dept}>{dept}</option>
@@ -1929,8 +3891,9 @@ export default function ResultManagementPanel({ activeTab: propActiveTab = 'anal
                     style={{ width: '100%' }}
                     value={historySectionFilter} 
                     onChange={e => setHistorySectionFilter(e.target.value)}
+                    disabled={userProfile?.role === 'Teacher'}
                   >
-                    <option value="">All Sections</option>
+                    {userProfile?.role !== 'Teacher' && <option value="">All Sections</option>}
                     {historyAllowedSections.map(sec => (
                       <option key={sec} value={sec}>Section {sec}</option>
                     ))}
@@ -1988,70 +3951,6 @@ export default function ResultManagementPanel({ activeTab: propActiveTab = 'anal
 
                       {/* Footer Actions */}
                       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '4px' }}>
-                        {(() => {
-                          const studentPubs = publishedExams[student.studentId] || {};
-                          const isAllPublished = student.exams.length > 0 && student.exams.every(exam => studentPubs[exam.examId] === true);
-                          return isAllPublished ? (
-                            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                              <span
-                                style={{
-                                  padding: '6px 12px',
-                                  fontSize: '0.78rem',
-                                  borderRadius: '8px',
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: '4px',
-                                  background: 'rgba(16, 185, 129, 0.08)',
-                                  color: '#10b981',
-                                  border: '1px solid rgba(16, 185, 129, 0.15)',
-                                  fontWeight: 700
-                                }}
-                              >
-                                <Check size={12} /> Published
-                              </span>
-                              <button
-                                type="button"
-                                className="btn-secondary"
-                                style={{
-                                  padding: '6px 12px',
-                                  fontSize: '0.78rem',
-                                  borderRadius: '8px',
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: '4px',
-                                  border: '1px solid var(--border-glass)',
-                                  color: 'var(--text-muted)',
-                                  cursor: 'pointer'
-                                }}
-                                onClick={() => handleUnpublish(student.studentId, student.exams)}
-                              >
-                                <RotateCcw size={12} /> Undo
-                              </button>
-                            </div>
-                            ) : (
-                              <button
-                                className="btn-primary"
-                                style={{ 
-                                  padding: '6px 14px', 
-                                  fontSize: '0.78rem', 
-                                  borderRadius: '8px', 
-                                  display: 'inline-flex', 
-                                  alignItems: 'center', 
-                                  gap: '4px',
-                                  background: 'linear-gradient(135deg, hsl(var(--color-primary)) 0%, #4f46e5 100%)',
-                                  border: 'none',
-                                  color: '#ffffff',
-                                  cursor: 'pointer',
-                                  fontWeight: 600,
-                                  boxShadow: '0 2px 8px rgba(99, 102, 241, 0.25)',
-                                  transition: 'all 0.2s ease'
-                                }}
-                                onClick={() => handlePublish(student.studentId, student.exams)}
-                              >
-                                <Share2 size={12} /> Publish
-                              </button>
-                            );
-                          })()}
                         <button
                           className="btn-primary"
                           style={{ 

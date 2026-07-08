@@ -50,9 +50,9 @@ const LEGACY_MODULE_MAP = {
   'published-exam': 'academic-manager',
   'academic-calendar': 'academic-activities',
   'results-history': 'results-manager',
+  'results-marks-entry': 'results-marks-entry',
   'expense-dashboard': 'expenses',
   'expense-all-expenses': 'expenses',
-  'expense-tracker': 'expenses',
   'expense-history': 'expenses',
   'staff-payroll': 'finance',
   'staff-pay-structure': 'finance',
@@ -139,13 +139,13 @@ export default function RolesPermissions({ initialTab = 'dashboard', hideTabs = 
     { id: 'academic-activities', label: 'Academic Activities' },
     { id: 'academic-calendar', label: 'Academic Calendar' },
     { id: 'results-manager', label: 'Results Manager' },
+    { id: 'results-marks-entry', label: 'Marks Entry' },
     { id: 'results-history', label: 'Academic History' },
     { id: 'finance', label: 'Finance' },
     { id: 'expense-dashboard', label: 'Expense Panel' },
     { id: 'expense-all-expenses', label: 'Expenses' },
     { id: 'expense-history', label: 'Expense History' },
-    { id: 'income', label: 'Income Tracker' },
-    { id: 'expense-tracker', label: 'Expense Tracker' },
+
     { id: 'financial-reports', label: 'Financial Reports' },
     { id: 'auxiliary-income', label: 'Auxiliary & Other Income' },
     { id: 'security-audit', label: 'Security Audit Ledger' },
@@ -193,9 +193,10 @@ export default function RolesPermissions({ initialTab = 'dashboard', hideTabs = 
       const usersData = await usersRes.json();
       const auditData = await auditRes.json();
 
-      setRoles(rolesData);
-      setOriginalRoles(JSON.parse(JSON.stringify(rolesData)));
-      setUsers(usersData);
+      const sortedRoles = rolesData.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+      setRoles(sortedRoles);
+      setOriginalRoles(JSON.parse(JSON.stringify(sortedRoles)));
+      setUsers(usersData.sort((a, b) => (a.fullName || a.name || '').localeCompare(b.fullName || b.name || '')));
       setAuditLogs(auditData);
 
       if (rolesData.length > 0 && !matrixRoleId) {

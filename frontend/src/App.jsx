@@ -592,30 +592,132 @@ export default function App() {
 
   // Restore session & path on mount
   useEffect(() => {
-    fetchSchoolDetails();
-    fetchUserProfile();
+    const isReload = (() => {
+      try {
+        const navs = performance.getEntriesByType('navigation');
+        if (navs.length > 0) {
+          return navs[0].type === 'reload';
+        }
+        return window.performance?.navigation?.type === 1;
+      } catch (e) {
+        return false;
+      }
+    })();
 
-    const savedRole = localStorage.getItem('role') || localStorage.getItem('portal_role');
-    if (savedRole) {
-      switch (savedRole) {
-        case 'Developer Admin':
-          setIsDeveloperAdmin(true);
-          setActiveView('dashboard');
-          break;
-        case 'Student':
-        case 'Parent':
-          setIsAdmin(false);
-          setIsSchoolAdmin(false);
-          setActiveView('students');
-          break;
-        default:
-          // Any other role is admin/staff level (Teacher, Accountant, Clerk, etc.)
-          setIsAdmin(true);
-          setIsSchoolAdmin(false);
-          break;
+    if (!isReload) {
+      // Always clear session on fresh navigate/URL entry to force password login
+      const authKeys = [
+        'token', 'role', 'portal_role', 'username', 'name', 
+        'permissions', 'overrides', 'from_dev_admin', 'dev_token', 
+        'admin_view', 'userType', 'refreshToken', 'lastActive'
+      ];
+      authKeys.forEach(k => localStorage.removeItem(k));
+      setIsDeveloperAdmin(false);
+      setIsAdmin(false);
+      setIsSchoolAdmin(false);
+    } else {
+      // Restore session on reload
+      const token = localStorage.getItem('token');
+      if (token && token !== 'null' && token !== 'undefined') {
+        localStorage.setItem('lastActive', Date.now().toString());
+        fetchUserProfile();
+
+        const savedRole = localStorage.getItem('role') || localStorage.getItem('portal_role');
+        if (savedRole) {
+          switch (savedRole) {
+            case 'Developer Admin':
+              setIsDeveloperAdmin(true);
+              setActiveView('dashboard');
+              break;
+            case 'Student':
+            case 'Parent':
+              setIsAdmin(false);
+              setIsSchoolAdmin(false);
+              setActiveView('students');
+              break;
+            default:
+              setIsAdmin(true);
+              setIsSchoolAdmin(false);
+              break;
+          }
+        }
       }
     }
+
+    fetchSchoolDetails();
     initialised.current = true;
+  }, []);
+
+  // Sliding Session & Background Token Auto-Refresh
+  useEffect(() => {
+    const checkSession = async () => {
+      const activeToken = localStorage.getItem('token');
+      const activeRefreshToken = localStorage.getItem('refreshToken');
+      
+      if (!activeToken || activeToken === 'null' || activeToken === 'undefined') {
+        return;
+      }
+
+      // Update last active timestamp to keep session alive while tab is open
+      localStorage.setItem('lastActive', Date.now().toString());
+
+      // Check if token needs refresh (expiring within 15 minutes)
+      const shouldRefresh = (() => {
+        try {
+          const parts = activeToken.split('.');
+          if (parts.length !== 3) return false;
+          const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
+          if (!payload.exp) return false;
+          const nowSec = Math.floor(Date.now() / 1000);
+          return (payload.exp - nowSec) < 900; // 15 mins
+        } catch (e) {
+          return false;
+        }
+      })();
+
+      if (shouldRefresh && activeRefreshToken) {
+        console.log('[Session Manager] Access token is close to expiry. Refreshing session...');
+        try {
+          const res = await fetch('/api/auth/refresh', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ refreshToken: activeRefreshToken })
+          });
+          if (res.ok) {
+            const data = await res.json();
+            if (data.token) {
+              localStorage.setItem('token', data.token);
+              console.log('[Session Manager] Session successfully extended.');
+            }
+          } else if (res.status === 401) {
+            console.log('[Session Manager] Refresh token is invalid/expired. Logging out.');
+            handleLogout();
+          }
+        } catch (err) {
+          console.error('[Session Manager] Failed to refresh token:', err);
+        }
+      }
+    };
+
+    // Run every 1 minute
+    const intervalId = setInterval(checkSession, 60000);
+    checkSession(); // Initial run
+
+    // Set up event listeners for user interaction to update lastActive instantly
+    const handleActivity = () => {
+      const activeToken = localStorage.getItem('token');
+      if (activeToken && activeToken !== 'null' && activeToken !== 'undefined') {
+        localStorage.setItem('lastActive', Date.now().toString());
+      }
+    };
+    window.addEventListener('click', handleActivity);
+    window.addEventListener('keydown', handleActivity);
+
+    return () => {
+      clearInterval(intervalId);
+      window.removeEventListener('click', handleActivity);
+      window.removeEventListener('keydown', handleActivity);
+    };
   }, []);
 
   // Listen for browser forward/back buttons (popstate)
@@ -749,6 +851,10 @@ export default function App() {
           if (res.ok) {
             const data = await res.json();
             localStorage.setItem('token', data.token);
+            if (data.refreshToken) {
+              localStorage.setItem('refreshToken', data.refreshToken);
+            }
+            localStorage.setItem('lastActive', Date.now().toString());
             localStorage.setItem('role', data.role);
             localStorage.setItem('portal_role', data.role);
             localStorage.setItem('username', data.username || usernameParam);
@@ -831,7 +937,8 @@ export default function App() {
     const authKeys = [
       'token', 'role', 'portal_role', 'username', 'name', 
       'permissions', 'overrides', 'school_name', 'school_subdomain', 
-      'from_dev_admin', 'dev_token', 'admin_view', 'userType'
+      'from_dev_admin', 'dev_token', 'admin_view', 'userType',
+      'refreshToken', 'lastActive'
     ];
     authKeys.forEach(k => localStorage.removeItem(k));
     localStorage.removeItem('tenant_subdomain');

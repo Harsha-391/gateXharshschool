@@ -315,6 +315,7 @@ export default function RegisterStudent({ setActiveView, editData }) {
   const [activeGradesList, setActiveGradesList] = useState([]);
 
   const bloodGroupOptions = [
+    { value: '', label: 'None' },
     { value: 'A+', label: 'A+' },
     { value: 'A-', label: 'A-' },
     { value: 'B+', label: 'B+' },
@@ -326,12 +327,14 @@ export default function RegisterStudent({ setActiveView, editData }) {
   ];
 
   const genderOptions = [
+    { value: '', label: 'None' },
     { value: 'Male', label: 'Male' },
     { value: 'Female', label: 'Female' },
     { value: 'Other', label: 'Other' }
   ];
 
   const categoryOptions = [
+    { value: '', label: 'None' },
     { value: 'General', label: 'General' },
     { value: 'OBC', label: 'OBC' },
     { value: 'SC', label: 'SC' },
@@ -340,6 +343,7 @@ export default function RegisterStudent({ setActiveView, editData }) {
   ];
 
   const religionOptions = [
+    { value: '', label: 'None' },
     { value: 'Hinduism', label: 'Hinduism' },
     { value: 'Islam', label: 'Islam' },
     { value: 'Christianity', label: 'Christianity' },
@@ -1217,7 +1221,7 @@ export default function RegisterStudent({ setActiveView, editData }) {
                   className="form-control"
                   style={{ borderColor: formErrors.academicYear ? '#ef4444' : undefined }}
                 >
-                  <option value="">Select Session</option>
+                  <option value="">None</option>
                   {Array.from({ length: 2030 - 2026 + 1 }, (_, i) => {
                     const s = 2026 + i;
                     return `${s}-${s + 1}`;
@@ -1237,7 +1241,7 @@ export default function RegisterStudent({ setActiveView, editData }) {
                   className="form-control"
                   style={{ borderColor: formErrors.admissionType ? '#ef4444' : undefined }}
                 >
-                  <option value="">Select Admission Type</option>
+                  <option value="">None</option>
                   <option value="New Admission">New Admission</option>
                   <option value="Transfer">Transfer / Promotion</option>
                 </select>

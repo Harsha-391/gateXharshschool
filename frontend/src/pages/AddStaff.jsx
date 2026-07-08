@@ -287,12 +287,14 @@ export default function AddStaff({ setActiveView, editData }) {
 
   // Dropdown options datasets
   const genderOptions = [
+    { value: '', label: 'None' },
     { value: 'Male', label: 'Male' },
     { value: 'Female', label: 'Female' },
     { value: 'Other', label: 'Other' }
   ];
 
   const bloodGroupOptions = [
+    { value: '', label: 'None' },
     { value: 'A+', label: 'A+' },
     { value: 'A-', label: 'A-' },
     { value: 'B+', label: 'B+' },
@@ -304,6 +306,7 @@ export default function AddStaff({ setActiveView, editData }) {
   ];
 
   const maritalStatusOptions = [
+    { value: '', label: 'None' },
     { value: 'Single', label: 'Single' },
     { value: 'Married', label: 'Married' },
     { value: 'Divorced', label: 'Divorced' },
@@ -312,6 +315,7 @@ export default function AddStaff({ setActiveView, editData }) {
   ];
 
   const employmentTypeOptions = [
+    { value: '', label: 'None' },
     { value: 'Full Time', label: 'Full Time' },
     { value: 'Part Time', label: 'Part Time' },
     { value: 'Contract', label: 'Contract' },
@@ -323,6 +327,7 @@ export default function AddStaff({ setActiveView, editData }) {
   const [departmentOptions, setDepartmentOptions] = useState([]);
 
   const statusOptions = [
+    { value: '', label: 'None' },
     { value: 'Active', label: 'Active' },
     { value: 'Inactive', label: 'Inactive' }
   ];
@@ -351,7 +356,7 @@ export default function AddStaff({ setActiveView, editData }) {
       .then(data => {
         const activeRoles = data.filter(r => r.active && r.name !== 'Teacher');
         const mapped = activeRoles.map(r => ({ value: r.name, label: r.name }));
-        setRoleOptions(mapped);
+        setRoleOptions([{ value: '', label: 'None' }, ...mapped]);
       })
       .catch(err => {
         console.error('Error fetching roles:', err);
@@ -362,7 +367,7 @@ export default function AddStaff({ setActiveView, editData }) {
       .then(data => {
         const activeDepts = data.filter(d => d.status === 'Active' || !d.status);
         const mapped = activeDepts.map(d => ({ value: d.name, label: d.name }));
-        setDepartmentOptions(mapped);
+        setDepartmentOptions([{ value: '', label: 'None' }, ...mapped]);
       })
       .catch(err => {
         console.error('Error fetching departments:', err);
@@ -1578,12 +1583,12 @@ export default function AddStaff({ setActiveView, editData }) {
                 name="experience"
                 value={formData.experience}
                 onChange={(e) => {
-                  const v = e.target.value.replace(/[^0-9]/g, '').slice(0, 4);
+                  const v = e.target.value.replace(/[^0-9]/g, '').slice(0, 10);
                   setFormData(prev => ({ ...prev, experience: v }));
                 }}
                 className="form-control"
                 placeholder="e.g. 5"
-                maxLength={4}
+                maxLength={10}
                 inputMode="numeric"
               />
             </div>

@@ -63,3 +63,15 @@
   border-radius: 12px;
   padding: 24px;
 }
+
+/* Dynamic hover effect for row layout payroll buttons */
+.btn-payroll-row {
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+.btn-payroll-row:hover {
+  transform: translateY(-2px);
+  background: var(--bg-glass-active) !important;
+  border-color: rgba(hsl(var(--color-primary)), 0.3) !important;
+  box-shadow: var(--shadow-md);
+}

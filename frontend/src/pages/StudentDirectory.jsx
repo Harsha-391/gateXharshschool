@@ -350,7 +350,7 @@ export default function StudentDirectory({ readOnly = true, onAddClick, onEditCl
   };
 
   const fetchStudents = async () => {
-    if (classFilter === 'All') {
+    if (classFilter === 'All' && sectionFilter === 'All' && yearFilter === 'All' && searchQuery.trim() === '') {
       setStudents([]);
       setTotalCount(0);
       setTotalPages(1);
@@ -464,10 +464,10 @@ export default function StudentDirectory({ readOnly = true, onAddClick, onEditCl
             <Search size={18} className="search-bar-icon" />
             <input 
               type="text" 
-              placeholder="Search by name, ID or Admission No..."
+              placeholder="Search by student name..."
               className="search-bar-input"
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => setSearchQuery(e.target.value.replace(/[^A-Za-z\s]/g, ''))}
               style={{ width: '100%' }}
             />
           </div>
@@ -569,7 +569,7 @@ export default function StudentDirectory({ readOnly = true, onAddClick, onEditCl
       {/* Directory Roster Table Card */}
       <div className="glass-panel" style={{ padding: '24px', position: 'relative' }}>
         
-        {classFilter === 'All' ? (
+        {!isSearchOrFilterActive ? (
           <div style={{
             display: 'flex',
             flexDirection: 'column',
@@ -580,14 +580,13 @@ export default function StudentDirectory({ readOnly = true, onAddClick, onEditCl
             gap: '12px'
           }}>
             <span style={{
-              fontSize: '1.5rem',
+              fontSize: '1.25rem',
               fontWeight: 600,
               color: 'var(--text-muted)',
-              opacity: 0.5,
-              filter: 'blur(0.8px)',
+              opacity: 0.7,
               letterSpacing: '0.05em'
             }}>
-              Please select a grade
+              Please select a grade filter or enter a search query to load students.
             </span>
           </div>
         ) : loading ? (
@@ -692,8 +691,8 @@ export default function StudentDirectory({ readOnly = true, onAddClick, onEditCl
                     ))
                   ) : (
                     <tr>
-                      <td colSpan="7" style={{ textAlign: 'center', padding: '50px', color: 'var(--text-muted)' }}>
-                        No registered students found matching your filters.
+                      <td colSpan="8" style={{ textAlign: 'center', padding: '50px', color: 'var(--text-muted)' }}>
+                        {searchQuery ? `No students found starting with '${searchQuery}'.` : 'No registered students found matching your filters.'}
                       </td>
                     </tr>
                   )}

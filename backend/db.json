@@ -11,16 +11,6 @@
   "staffPayments": [],
   "activities": [
     {
-      "id": "ACT-1783079270900",
-      "type": "alert",
-      "title": "New School Onboarded",
-      "desc": "School \"Fatima Tate\" registered on the platform.",
-      "time": "Just now",
-      "timestamp": "2026-07-03T11:47:50.900Z",
-      "color": "hsl(var(--color-primary))",
-      "bg": "rgba(hsl(var(--color-primary)), 0.1)"
-    },
-    {
       "id": "ACT-1782299769157",
       "type": "alert",
       "title": "New School Onboarded",
@@ -118,6 +108,17 @@
       "color": "hsl(var(--color-primary))",
       "bg": "rgba(hsl(var(--color-primary)), 0.1)",
       "tenantId": "platform"
+    },
+    {
+      "id": "ACT-1783079270900",
+      "type": "alert",
+      "title": "New School Onboarded",
+      "description": "School \"Fatima Tate\" registered on the platform.",
+      "time": "Just now",
+      "timestamp": "2026-07-03T11:47:50.900Z",
+      "color": "hsl(var(--color-primary))",
+      "bg": "rgba(hsl(var(--color-primary)), 0.1)",
+      "tenantId": "platform"
     }
   ],
   "exams": [],
@@ -169,29 +170,34 @@
   ],
   "schools": [
     {
-      "id": "SCH-1783079270840",
-      "name": "Fatima Tate",
-      "code": "SCH-533",
-      "subdomain": "minima",
+      "id": "SCH-1783329955735",
+      "name": "Azalia Garrett",
+      "code": "SCH-877",
+      "subdomain": "rerum",
       "logo": "",
-      "principalName": "Hu Brooks",
-      "email": "malujuwu@mailinator.com",
-      "phone": "2345654321",
-      "address": "Consequatur volupta",
-      "city": "Cupiditate repellend",
-      "state": "Beatae aliqua Id pr",
+      "principalName": "Graiden Farmer",
+      "email": "nypuzipa@mailinator.com",
+      "phone": "2345789876",
+      "address": "In a laboris laboris",
+      "city": "Aut impedit at ea v",
+      "state": "Eum aut nihil maxime",
       "country": "India",
-      "academicSession": "Corporis ea rerum so",
-      "subscriptionPlan": "Growth",
-      "url": "https://minima.myschoolerp.com",
+      "academicSession": "Quo harum fugiat ea",
+      "subscriptionPlan": "Starter",
+      "url": "https://rerum.myschoolerp.com",
       "status": "Active",
-      "adminName": "Zahir Guerrero",
-      "adminEmail": "cosep@mailinator.com",
+      "adminName": "Shoshana Harrison",
+      "adminEmail": "sapyjawegi@mailinator.com",
       "adminUsername": "school_admin",
-      "adminPassword": "$2b$10$pWoeqrThz9xkpVuB15G3WuphS/8/3FrotD79sqmYpZo3ZINNFvDSu",
-      "dbName": "school_minima",
-      "createdAt": "2026-07-03T11:47:50.900Z",
-      "updatedAt": "2026-07-03T11:47:50.900Z"
+      "adminPassword": "$2b$10$4xw1kqyCgFFYh6a.9j.uS.gOQBWrg2MJRb8FLSbu2RxSjkQRZbFXm",
+      "ratePerStudent": "250.00",
+      "examTypes": "[\"Unit Test -1\",\"Unit Test -2\",\"Unit Test -3\",\"Half Yearly\",\"Yearly\"]",
+      "eventTypes": "[]",
+      "noticeCategories": [],
+      "holidayClassifications": [],
+      "createdAt": "2026-07-06T09:25:55.795Z",
+      "updatedAt": "2026-07-07T11:02:12.721Z",
+      "dbName": "school_rerum"
     }
   ],
   "roles": [
@@ -588,6 +594,17 @@
           "manage-settings": false
         },
         "published-timetable": {
+          "edit": false,
+          "view": false,
+          "create": false,
+          "delete": false,
+          "export": false,
+          "import": false,
+          "approve": false,
+          "publish": false,
+          "manage-settings": false
+        },
+        "results-marks-entry": {
           "edit": false,
           "view": false,
           "create": false,
@@ -1049,6 +1066,17 @@
           "publish": false,
           "manage-settings": false
         },
+        "results-marks-entry": {
+          "edit": false,
+          "view": false,
+          "create": false,
+          "delete": false,
+          "export": false,
+          "import": false,
+          "approve": false,
+          "publish": false,
+          "manage-settings": false
+        },
         "staff-pay-structure": {
           "edit": false,
           "view": false,
@@ -1490,6 +1518,17 @@
           "manage-settings": false
         },
         "published-timetable": {
+          "edit": false,
+          "view": false,
+          "create": false,
+          "delete": false,
+          "export": false,
+          "import": false,
+          "approve": false,
+          "publish": false,
+          "manage-settings": false
+        },
+        "results-marks-entry": {
           "edit": false,
           "view": false,
           "create": false,
@@ -1951,6 +1990,17 @@
           "publish": false,
           "manage-settings": false
         },
+        "results-marks-entry": {
+          "edit": false,
+          "view": false,
+          "create": false,
+          "delete": false,
+          "export": false,
+          "import": false,
+          "approve": false,
+          "publish": false,
+          "manage-settings": false
+        },
         "staff-pay-structure": {
           "edit": false,
           "view": false,
@@ -2030,7 +2080,7 @@
         },
         "overview": {
           "edit": false,
-          "view": true,
+          "view": false,
           "create": false,
           "delete": false,
           "export": false,
@@ -2062,10 +2112,10 @@
           "manage-settings": false
         },
         "attendance": {
-          "edit": true,
-          "view": true,
-          "create": true,
-          "delete": true,
+          "edit": false,
+          "view": false,
+          "create": false,
+          "delete": false,
           "export": false,
           "import": false,
           "approve": false,
@@ -2402,6 +2452,17 @@
           "publish": false,
           "manage-settings": false
         },
+        "results-marks-entry": {
+          "edit": false,
+          "view": false,
+          "create": false,
+          "delete": false,
+          "export": false,
+          "import": false,
+          "approve": false,
+          "publish": false,
+          "manage-settings": false
+        },
         "staff-pay-structure": {
           "edit": false,
           "view": false,
@@ -2454,24 +2515,15 @@
   "userAccess": [],
   "auditLogs": [
     {
-      "id": "log-1783079237082-513",
-      "userId": "school_admin",
-      "userName": "school_admin",
-      "userRole": "Main Admin",
-      "action": "Delete Grade",
-      "details": "Deleted grade: II",
+      "id": "LOG-1783423384099",
+      "userId": "dev_admin",
+      "userName": "dev@admin.com",
+      "userRole": "Developer Admin",
+      "action": "SCHOOL_CREDENTIALS_UPDATE",
+      "details": "Updated credentials for school: Azalia Garrett (Subdomain: rerum). Admin username changed from school_admin to school_admin.",
       "ipAddress": "::ffff:127.0.0.1",
-      "timestamp": "2026-07-03T11:47:17.082Z"
-    },
-    {
-      "id": "log-1783079234307-429",
-      "userId": "school_admin",
-      "userName": "school_admin",
-      "userRole": "Main Admin",
-      "action": "Create Grade",
-      "details": "Created grade: II",
-      "ipAddress": "::ffff:127.0.0.1",
-      "timestamp": "2026-07-03T11:47:14.307Z"
+      "timestamp": "2026-07-07T11:23:04.099Z",
+      "tenantId": "platform"
     }
   ],
   "grades": [],
@@ -2512,5 +2564,5 @@
       "updatedAt": "2026-07-03T05:19:17.238Z"
     }
   ],
-  "_signature": ""
+  "_signature": "SCH-1783329955735-rerum-Active-Azalia Garrett-SCH-877"
 }

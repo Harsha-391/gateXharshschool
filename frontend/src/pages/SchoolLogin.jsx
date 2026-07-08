@@ -59,6 +59,10 @@ export default function SchoolLogin({ tenantSubdomain, onLoginSuccess }) {
       if (res.ok) {
         // Save token & active tenant details
         localStorage.setItem('token', data.token);
+        if (data.refreshToken) {
+          localStorage.setItem('refreshToken', data.refreshToken);
+        }
+        localStorage.setItem('lastActive', Date.now().toString());
         localStorage.setItem('role', data.role);
         localStorage.setItem('portal_role', data.role);
         localStorage.setItem('username', data.username || username);

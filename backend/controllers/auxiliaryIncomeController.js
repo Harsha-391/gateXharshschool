@@ -14,10 +14,31 @@ const getTenantId = () => {
 export const getCategories = async (req, res) => {
   try {
     const tId = getTenantId();
-    const rows = await sqlDb.query(
+    let rows = await sqlDb.query(
       'SELECT * FROM auxiliary_income_categories WHERE tenantId = ? ORDER BY name ASC',
       [tId]
     );
+
+    if (!rows || rows.length === 0) {
+      const defaultCategories = ['Donations', 'Grants', 'Event Revenue', 'Canteen', 'Rental', 'Sponsorship', 'Other'];
+      const now = new Date().toISOString();
+      for (const name of defaultCategories) {
+        const id = `AXC-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
+        try {
+          await sqlDb.query(
+            'INSERT INTO auxiliary_income_categories (id, name, description, tenantId, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?)',
+            [id, name, `Default category for ${name}`, tId, now, now]
+          );
+        } catch (e) {
+          // ignore duplicate
+        }
+      }
+      rows = await sqlDb.query(
+        'SELECT * FROM auxiliary_income_categories WHERE tenantId = ? ORDER BY name ASC',
+        [tId]
+      );
+    }
+
     res.json(rows || []);
   } catch (err) {
     console.error('Error fetching auxiliary categories:', err);

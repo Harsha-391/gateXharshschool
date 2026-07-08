@@ -9,6 +9,7 @@ import {
   deleteFeeStructure,
   getFees,
   collectFee,
+  updateFee,
   deleteFee,
   getSalaryStructures,
   createSalaryStructure,
@@ -108,6 +109,7 @@ router.delete('/fee-structures/:id', deleteFeeStructure);
 // Student fees (collections)
 router.get('/fees', getFees);
 router.post('/fees', collectFee);
+router.put('/fees/:id', updateFee);
 router.delete('/fees/:id', deleteFee);
 
 // Salary structures

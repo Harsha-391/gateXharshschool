@@ -21,7 +21,8 @@ import {
   Calendar,
   AlertTriangle,
   Coffee,
-  Trash2
+  Trash2,
+  Edit2
 } from 'lucide-react';
 
 const getTenantHeader = () => {
@@ -46,6 +47,16 @@ export default function AttendanceManager() {
   const [loading, setLoading] = useState(false);
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
 
+  // Unified Employees List for Manual Punch
+  const [employeesList, setEmployeesList] = useState([]);
+  const [showManualModal, setShowManualModal] = useState(false);
+  const [manualData, setManualData] = useState({ employeeId: '', employeeType: 'Teacher', punchType: 'checkIn', punchTime: '', date: '' });
+
+  // Edit Records
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editRecord, setEditRecord] = useState(null);
+  const [editData, setEditData] = useState({ checkIn: '', checkOut: '', status: '', date: '' });
+
   // Scanner states
   const [scanActive, setScanActive] = useState(false);
   const [scanResult, setScanResult] = useState(null); // Success/Warning scan payload
@@ -59,6 +70,8 @@ export default function AttendanceManager() {
   const [filterType, setFilterType] = useState('All');
   const [filterMonth, setFilterMonth] = useState('All');
   const [filterYear, setFilterYear] = useState(new Date().getFullYear().toString());
+  const [filterStartDate, setFilterStartDate] = useState('');
+  const [filterEndDate, setFilterEndDate] = useState('');
 
   // Scanner Refs
   const videoRef = useRef(null);
@@ -121,6 +134,8 @@ export default function AttendanceManager() {
         employeeType: filterType,
         month: filterMonth,
         year: filterYear,
+        startDate: filterStartDate,
+        endDate: filterEndDate,
         _t: Date.now()
       }).toString();
       
@@ -141,16 +156,140 @@ export default function AttendanceManager() {
     }
   };
 
+  const fetchEmployeeDropdowns = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const tenant = getTenantHeader();
+      const headers = { 'Authorization': `Bearer ${token}`, 'x-tenant-id': tenant };
+
+      const [tchRes, stfRes, empRes] = await Promise.all([
+        fetch('/api/teachers', { headers }),
+        fetch('/api/staff', { headers }),
+        fetch('/api/employees', { headers })
+      ]);
+
+      let unified = [];
+      if (tchRes.ok) {
+        const data = await tchRes.json();
+        const teachers = Array.isArray(data) ? data : data.teachers || [];
+        teachers.forEach(t => {
+          unified.push({
+            id: t.employeeId || t.id,
+            name: t.fullName || t.name,
+            type: 'Teacher',
+            department: t.department || 'Academic',
+            designation: t.role || 'Teacher'
+          });
+        });
+      }
+      if (stfRes.ok) {
+        const data = await stfRes.json();
+        const staff = Array.isArray(data) ? data : data.teachers || [];
+        staff.forEach(s => {
+          unified.push({
+            id: s.employeeId || s.id,
+            name: s.fullName || s.name,
+            type: 'Staff',
+            department: s.department || 'Administration',
+            designation: s.role || 'Staff'
+          });
+        });
+      }
+      if (empRes.ok) {
+        const data = await empRes.json();
+        const employees = Array.isArray(data) ? data : [];
+        employees.forEach(e => {
+          unified.push({
+            id: e.employeeId || e.id,
+            name: e.fullName || e.name,
+            type: 'Employee',
+            department: e.department || 'General',
+            designation: e.designation || 'Employee'
+          });
+        });
+      }
+
+      setEmployeesList(unified);
+    } catch (err) {
+      console.error('Error fetching employee dropdown lists:', err);
+    }
+  };
+
+  const handleManualPunch = async () => {
+    if (!manualData.employeeId) {
+      alert('Please select an employee.');
+      return;
+    }
+    try {
+      const token = localStorage.getItem('token');
+      const tenant = getTenantHeader();
+      const res = await fetch('/api/employee-attendance/manual-punch', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+          'x-tenant-id': tenant
+        },
+        body: JSON.stringify(manualData)
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setShowManualModal(false);
+        setManualData({ employeeId: '', employeeType: 'Teacher', punchType: 'checkIn', punchTime: '', date: '' });
+        fetchAnalytics();
+        fetchTodayRecords();
+        fetchReports();
+        alert(data.message || 'Manual punch recorded successfully.');
+      } else {
+        alert(data.error || 'Failed to record manual punch.');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Network error recording manual punch.');
+    }
+  };
+
+  const handleUpdateRecord = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const tenant = getTenantHeader();
+      const res = await fetch(`/api/employee-attendance/record/${editRecord.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+          'x-tenant-id': tenant
+        },
+        body: JSON.stringify(editData)
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setShowEditModal(false);
+        setEditRecord(null);
+        fetchAnalytics();
+        fetchTodayRecords();
+        fetchReports();
+        alert(data.message || 'Record updated successfully.');
+      } else {
+        alert(data.error || 'Failed to update record.');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Network error updating record.');
+    }
+  };
+
   useEffect(() => {
     fetchAnalytics();
     fetchTodayRecords();
+    fetchEmployeeDropdowns();
   }, []);
 
   useEffect(() => {
     if (activeTab === 'reports') {
       fetchReports();
     }
-  }, [activeTab, filterDept, filterType, filterMonth, filterYear]);
+  }, [activeTab, filterDept, filterType, filterMonth, filterYear, filterStartDate, filterEndDate]);
 
   // --------------------------------------------------------
   // WEB AUDIO BEEP HELPER
@@ -490,30 +629,52 @@ export default function AttendanceManager() {
           </div>
         </div>
 
-        {/* Tab Selection */}
-        <div style={{ display: 'flex', gap: '8px', background: 'rgba(255,255,255,0.03)', padding: '6px', borderRadius: '10px', border: '1px solid var(--border-glass)' }}>
-          {[
-            { id: 'dashboard', label: 'Dashboard', icon: Users },
-            { id: 'scanner', label: 'QR Scanner', icon: Camera },
-            { id: 'today', label: 'Today\'s Log', icon: Clock },
-            { id: 'reports', label: 'Reports & Analytics', icon: FileText }
-          ].map(tab => (
-            <button
-              key={tab.id}
-              onClick={() => {
-                setActiveTab(tab.id);
-                if (tab.id !== 'scanner') stopScanner();
-              }}
-              style={{
-                display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: '0.82rem', transition: 'all 0.2s',
-                background: activeTab === tab.id ? 'hsl(var(--color-primary))' : 'transparent',
-                color: activeTab === tab.id ? '#ffffff' : 'var(--text-muted)'
-              }}
-            >
-              <tab.icon size={15} />
-              {tab.label}
-            </button>
-          ))}
+        {/* Tab Selection & Manual Action */}
+        <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: '8px', background: 'rgba(255,255,255,0.03)', padding: '6px', borderRadius: '10px', border: '1px solid var(--border-glass)' }}>
+            {[
+              { id: 'dashboard', label: 'Dashboard', icon: Users },
+              { id: 'scanner', label: 'QR Scanner', icon: Camera },
+              { id: 'today', label: 'Today\'s Log', icon: Clock },
+              { id: 'reports', label: 'Reports & Analytics', icon: FileText }
+            ].map(tab => (
+              <button
+                key={tab.id}
+                onClick={() => {
+                  setActiveTab(tab.id);
+                  if (tab.id !== 'scanner') stopScanner();
+                }}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: '0.82rem', transition: 'all 0.2s',
+                  background: activeTab === tab.id ? 'hsl(var(--color-primary))' : 'transparent',
+                  color: activeTab === tab.id ? '#ffffff' : 'var(--text-muted)'
+                }}
+              >
+                <tab.icon size={15} />
+                {tab.label}
+              </button>
+            ))}
+          </div>
+
+          <button
+            onClick={() => setShowManualModal(true)}
+            className="btn-primary"
+            style={{
+              padding: '10px 18px',
+              borderRadius: '10px',
+              fontWeight: 700,
+              fontSize: '0.82rem',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              background: 'linear-gradient(135deg, hsl(var(--color-primary)) 0%, #4f46e5 100%)',
+              border: 'none',
+              boxShadow: '0 4px 12px rgba(99, 102, 241, 0.25)'
+            }}
+          >
+            <Clock size={16} />
+            Manual Punch
+          </button>
         </div>
       </div>
 
@@ -967,13 +1128,40 @@ export default function AttendanceManager() {
                         <td style={{ fontWeight: 600, color: 'rgb(var(--color-success-rgb))' }}>{r.checkIn}</td>
                         <td style={{ fontWeight: 600, color: r.checkOut ? 'hsl(var(--color-primary))' : 'var(--text-muted)' }}>{r.checkOut || '—'}</td>
                         <td style={{ fontWeight: 600 }}>{r.checkOut && r.workingHours !== undefined && r.workingHours !== null ? `${r.workingHours} hrs` : '—'}</td>
-                        <td style={{ fontWeight: 600, color: 'var(--text-muted)' }}>QR Code</td>
+                        <td style={{ fontWeight: 600, color: 'var(--text-muted)' }}>{r.method || 'QR Code'}</td>
                         <td>
                           <span className="badge" style={{ background: 'rgba(255,255,255,0.03)', color: getStatusColor(r.status), border: `1px solid ${getStatusColor(r.status)}`, padding: '2px 8px', borderRadius: '12px', fontSize: '0.72rem', fontWeight: 700 }}>
                             {r.status}
                           </span>
                         </td>
-                        <td>
+                        <td style={{ display: 'flex', gap: '6px' }}>
+                          <button
+                            onClick={() => {
+                              setEditRecord(r);
+                              setEditData({
+                                checkIn: r.checkIn || '',
+                                checkOut: r.checkOut || '',
+                                status: r.status || '',
+                                date: r.date || ''
+                              });
+                              setShowEditModal(true);
+                            }}
+                            style={{
+                              background: 'rgba(99, 102, 241, 0.1)',
+                              border: 'none',
+                              color: 'hsl(var(--color-primary))',
+                              padding: '6px',
+                              borderRadius: '6px',
+                              cursor: 'pointer',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              transition: 'all 0.2s'
+                            }}
+                            title="Edit Timing"
+                          >
+                            <Edit2 size={14} />
+                          </button>
                           <button
                             onClick={() => handleDeleteRecord(r.id)}
                             style={{
@@ -1022,19 +1210,19 @@ export default function AttendanceManager() {
                 placeholder="Search Employee Name..."
                 className="search-bar-input"
                 value={filterEmpId}
-                onChange={(e) => setFilterEmpId(e.target.value)}
+                onChange={(e) => setFilterEmpId(e.target.value.replace(/[^A-Za-z\s]/g, ''))}
                 style={{ width: '100%', background: 'transparent', border: 'none', color: 'var(--text-main)', fontSize: '0.85rem' }}
               />
             </div>
 
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', alignItems: 'center' }}>
 
               {/* Type */}
               <select className="select-custom" value={filterType} onChange={(e) => setFilterType(e.target.value)}>
                 <option value="All">All Types</option>
-<option value="Staff">Staff Only</option>
-<option value="Teacher">Teacher Only</option>
-<option value="Employee">Employee Only</option>
+                <option value="Staff">Staff Only</option>
+                <option value="Teacher">Teacher Only</option>
+                <option value="Employee">Employee Only</option>
               </select>
 
               {/* Month */}
@@ -1051,6 +1239,29 @@ export default function AttendanceManager() {
                 <option value="2026">2026</option>
                 <option value="2027">2027</option>
               </select>
+
+              {/* Custom Date Filters */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 600 }}>From:</span>
+                <input
+                  type="date"
+                  className="select-custom"
+                  value={filterStartDate}
+                  onChange={(e) => setFilterStartDate(e.target.value)}
+                  style={{ height: '36px', borderRadius: '8px', padding: '0 8px', fontSize: '0.8rem', width: '130px', color: 'var(--text-main)', background: 'var(--bg-glass)', border: '1px solid var(--border-glass)' }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 600 }}>To:</span>
+                <input
+                  type="date"
+                  className="select-custom"
+                  value={filterEndDate}
+                  onChange={(e) => setFilterEndDate(e.target.value)}
+                  style={{ height: '36px', borderRadius: '8px', padding: '0 8px', fontSize: '0.8rem', width: '130px', color: 'var(--text-main)', background: 'var(--bg-glass)', border: '1px solid var(--border-glass)' }}
+                />
+              </div>
 
               <button onClick={fetchReports} className="btn-secondary" style={{ padding: '8px 12px', borderRadius: '8px' }}>
                 <RefreshCw size={14} />
@@ -1088,12 +1299,13 @@ export default function AttendanceManager() {
                     <th>Hours</th>
                     <th>Method</th>
                     <th>Status</th>
+                    <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {loading ? (
                     <tr>
-                      <td colSpan="11" style={{ textAlign: 'center', padding: '60px', color: 'var(--text-muted)' }}>Querying attendance logs...</td>
+                      <td colSpan="12" style={{ textAlign: 'center', padding: '60px', color: 'var(--text-muted)' }}>Querying attendance logs...</td>
                     </tr>
                   ) : reports.length > 0 ? (
                     reports.map((r) => (
@@ -1107,17 +1319,64 @@ export default function AttendanceManager() {
                         <td style={{ color: 'rgb(var(--color-success-rgb))', fontWeight: 600 }}>{r.checkIn || '—'}</td>
                         <td style={{ color: r.checkOut ? 'hsl(var(--color-primary))' : 'var(--text-muted)', fontWeight: 600 }}>{r.checkOut || '—'}</td>
                         <td style={{ fontWeight: 600 }}>{r.workingHours ? `${r.workingHours} hrs` : '—'}</td>
-                        <td style={{ fontWeight: 600, color: 'var(--text-muted)' }}>QR Code</td>
+                        <td style={{ fontWeight: 600, color: 'var(--text-muted)' }}>{r.method || 'QR Code'}</td>
                         <td>
                           <span className="badge" style={{ background: 'rgba(255,255,255,0.03)', color: getStatusColor(r.status), border: `1px solid ${getStatusColor(r.status)}`, padding: '2px 8px', borderRadius: '12px', fontSize: '0.72rem', fontWeight: 700 }}>
                             {r.status}
                           </span>
                         </td>
+                        <td style={{ display: 'flex', gap: '6px' }}>
+                          <button
+                            onClick={() => {
+                              setEditRecord(r);
+                              setEditData({
+                                checkIn: r.checkIn || '',
+                                checkOut: r.checkOut || '',
+                                status: r.status || '',
+                                date: r.date || ''
+                              });
+                              setShowEditModal(true);
+                            }}
+                            style={{
+                              background: 'rgba(99, 102, 241, 0.1)',
+                              border: 'none',
+                              color: 'hsl(var(--color-primary))',
+                              padding: '6px',
+                              borderRadius: '6px',
+                              cursor: 'pointer',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              transition: 'all 0.2s'
+                            }}
+                            title="Edit Timing"
+                          >
+                            <Edit2 size={14} />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteRecord(r.id)}
+                            style={{
+                              background: 'rgba(239, 68, 68, 0.1)',
+                              border: 'none',
+                              color: '#ef4444',
+                              padding: '6px',
+                              borderRadius: '6px',
+                              cursor: 'pointer',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              transition: 'all 0.2s'
+                            }}
+                            title="Delete Attendance"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </td>
                       </tr>
                     ))
                   ) : (
                     <tr>
-                      <td colSpan="11" style={{ textAlign: 'center', padding: '60px', color: 'var(--text-muted)' }}>No historical logs found matching the selected filters.</td>
+                      <td colSpan="12" style={{ textAlign: 'center', padding: '60px', color: 'var(--text-muted)' }}>No historical logs found matching the selected filters.</td>
                     </tr>
                   )}
                 </tbody>
@@ -1126,8 +1385,199 @@ export default function AttendanceManager() {
           </div>
         </div>
       )}
+      {/* ========================================================
+          MANUAL PUNCH MODAL
+          ======================================================== */}
+      {showManualModal && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
+          backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)',
+          display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000
+        }}>
+          <div className="glass-panel" style={{
+            width: '460px', padding: '28px', borderRadius: '16px',
+            border: '1px solid rgba(255,255,255,0.08)', position: 'relative'
+          }}>
+            <button
+              onClick={() => setShowManualModal(false)}
+              style={{
+                position: 'absolute', right: '16px', top: '16px', background: 'transparent',
+                border: 'none', color: 'var(--text-muted)', cursor: 'pointer'
+              }}
+            >
+              <X size={18} />
+            </button>
 
+            <h3 style={{ margin: '0 0 8px 0', fontSize: '1.2rem', fontWeight: 750 }}>Manual Attendance Punch</h3>
+            <p style={{ margin: '0 0 20px 0', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+              Manually record Check-In or Check-Out for staff and teachers.
+            </p>
 
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div className="form-group" style={{ margin: 0 }}>
+                <label>Employee Category</label>
+                <select
+                  className="select-custom"
+                  value={manualData.employeeType}
+                  onChange={(e) => setManualData(prev => ({ ...prev, employeeType: e.target.value, employeeId: '' }))}
+                >
+                  <option value="Teacher">Teacher</option>
+                  <option value="Staff">Staff</option>
+                  <option value="Employee">Employee</option>
+                </select>
+              </div>
+
+              <div className="form-group" style={{ margin: 0 }}>
+                <label>Select Profile</label>
+                <select
+                  className="select-custom"
+                  value={manualData.employeeId}
+                  onChange={(e) => setManualData(prev => ({ ...prev, employeeId: e.target.value }))}
+                >
+                  <option value="">-- Choose Employee --</option>
+                  {employeesList
+                    .filter(emp => emp.type === manualData.employeeType)
+                    .map(emp => (
+                      <option key={emp.id} value={emp.id}>{emp.name} ({emp.id})</option>
+                    ))
+                  }
+                </select>
+              </div>
+
+              <div className="form-group" style={{ margin: 0 }}>
+                <label>Punch Action</label>
+                <select
+                  className="select-custom"
+                  value={manualData.punchType}
+                  onChange={(e) => setManualData(prev => ({ ...prev, punchType: e.target.value }))}
+                >
+                  <option value="checkIn">Check-In</option>
+                  <option value="checkOut">Check-Out</option>
+                </select>
+              </div>
+
+              <div className="form-group" style={{ margin: 0 }}>
+                <label>Date (Optional - Default Today)</label>
+                <input
+                  type="date"
+                  className="form-control"
+                  value={manualData.date}
+                  onChange={(e) => setManualData(prev => ({ ...prev, date: e.target.value }))}
+                />
+              </div>
+
+              <div className="form-group" style={{ margin: 0 }}>
+                <label>Time (Optional - Default Now)</label>
+                <input
+                  type="text"
+                  placeholder="e.g. 09:30 AM or 05:15 PM"
+                  className="form-control"
+                  value={manualData.punchTime}
+                  onChange={(e) => setManualData(prev => ({ ...prev, punchTime: e.target.value }))}
+                />
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '24px' }}>
+              <button onClick={() => setShowManualModal(false)} className="btn-secondary" style={{ padding: '8px 16px', borderRadius: '8px' }}>
+                Cancel
+              </button>
+              <button onClick={handleManualPunch} className="btn-primary" style={{ padding: '8px 20px', borderRadius: '8px' }}>
+                Save Punch
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================
+          EDIT TIMING MODAL
+          ======================================================== */}
+      {showEditModal && editRecord && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
+          backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)',
+          display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000
+        }}>
+          <div className="glass-panel" style={{
+            width: '460px', padding: '28px', borderRadius: '16px',
+            border: '1px solid rgba(255,255,255,0.08)', position: 'relative'
+          }}>
+            <button
+              onClick={() => { setShowEditModal(false); setEditRecord(null); }}
+              style={{
+                position: 'absolute', right: '16px', top: '16px', background: 'transparent',
+                border: 'none', color: 'var(--text-muted)', cursor: 'pointer'
+              }}
+            >
+              <X size={18} />
+            </button>
+
+            <h3 style={{ margin: '0 0 8px 0', fontSize: '1.2rem', fontWeight: 750 }}>Edit Attendance Record</h3>
+            <p style={{ margin: '0 0 20px 0', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+              Modify times and status details for <strong>{editRecord.name}</strong> ({editRecord.employeeId}).
+            </p>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div className="form-group" style={{ margin: 0 }}>
+                <label>Date</label>
+                <input
+                  type="date"
+                  className="form-control"
+                  value={editData.date}
+                  onChange={(e) => setEditData(prev => ({ ...prev, date: e.target.value }))}
+                />
+              </div>
+
+              <div className="form-group" style={{ margin: 0 }}>
+                <label>Check-In Time</label>
+                <input
+                  type="text"
+                  placeholder="e.g. 09:30 AM"
+                  className="form-control"
+                  value={editData.checkIn}
+                  onChange={(e) => setEditData(prev => ({ ...prev, checkIn: e.target.value }))}
+                />
+              </div>
+
+              <div className="form-group" style={{ margin: 0 }}>
+                <label>Check-Out Time</label>
+                <input
+                  type="text"
+                  placeholder="e.g. 05:15 PM"
+                  className="form-control"
+                  value={editData.checkOut}
+                  onChange={(e) => setEditData(prev => ({ ...prev, checkOut: e.target.value }))}
+                />
+              </div>
+
+              <div className="form-group" style={{ margin: 0 }}>
+                <label>Status Badge</label>
+                <select
+                  className="select-custom"
+                  value={editData.status}
+                  onChange={(e) => setEditData(prev => ({ ...prev, status: e.target.value }))}
+                >
+                  <option value="Present">Present</option>
+                  <option value="Late">Late</option>
+                  <option value="Half Day">Half Day</option>
+                  <option value="Absent">Absent</option>
+                  <option value="Leave">Leave</option>
+                </select>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '24px' }}>
+              <button onClick={() => { setShowEditModal(false); setEditRecord(null); }} className="btn-secondary" style={{ padding: '8px 16px', borderRadius: '8px' }}>
+                Cancel
+              </button>
+              <button onClick={handleUpdateRecord} className="btn-primary" style={{ padding: '8px 20px', borderRadius: '8px' }}>
+                Save Changes
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );

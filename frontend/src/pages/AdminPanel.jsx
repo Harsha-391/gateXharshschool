@@ -68,11 +68,11 @@ const FeesHistoryView = lazy(() => import('./AccountantPanel').then(m => ({ defa
 const PayrollView = lazy(() => import('./AccountantPanel').then(m => ({ default: m.PayrollView })));
 const TeacherSalaryStructureView = lazy(() => import('./AccountantPanel').then(m => ({ default: m.TeacherSalaryStructureView })));
 const ExpensesView = lazy(() => import('./AccountantPanel').then(m => ({ default: m.ExpensesView })));
-const IncomeView = lazy(() => import('./AccountantPanel').then(m => ({ default: m.IncomeView })));
 const ReportsView = lazy(() => import('./AccountantPanel').then(m => ({ default: m.ReportsView })));
 const StaffPaymentsView = lazy(() => import('./AccountantPanel').then(m => ({ default: m.StaffPaymentsView })));
 const StaffPaymentStructureView = lazy(() => import('./AccountantPanel').then(m => ({ default: m.StaffPaymentStructureView })));
 const PayrollHistoryView = lazy(() => import('./AccountantPanel').then(m => ({ default: m.PayrollHistoryView })));
+const PayrollHub = lazy(() => import('./AccountantPanel').then(m => ({ default: m.PayrollHub })));
 
 // ─── Overview Stats Card (Theme-Aware) ──────────────────────────────────────
 function GenderRatioBar({ maleCount, femaleCount, total }) {
@@ -241,8 +241,12 @@ const getViewPermissionModuleAndAction = (view) => {
   if (view === 'results') return { module: 'results-manager', action: 'view' };
   if (view === 'results-history') return { module: 'results-history', action: 'view' };
   
-  if (['staff-payroll', 'staff-pay-structure', 'teacher-payroll', 'teacher-pay-structure', 'employee-payroll', 'employee-pay-structure', 'payroll-history'].includes(view)) {
-    return { module: view, action: 'view' };
+  if (['staff-payroll-hub', 'staff-payroll', 'staff-pay-structure', 'teacher-payroll-hub', 'teacher-payroll', 'teacher-pay-structure', 'employee-payroll-hub', 'employee-payroll', 'employee-pay-structure', 'payroll-history'].includes(view)) {
+    let mapped = view;
+    if (view === 'staff-payroll-hub') mapped = 'staff-payroll';
+    if (view === 'teacher-payroll-hub') mapped = 'teacher-payroll';
+    if (view === 'employee-payroll-hub') mapped = 'employee-payroll';
+    return { module: mapped, action: 'view' };
   }
   if (['finance', 'collect-fees', 'fee-structure', 'fees-history'].includes(view)) {
     return { module: 'finance', action: 'view' };
@@ -254,7 +258,6 @@ const getViewPermissionModuleAndAction = (view) => {
   if (view === 'expense-history') return { module: 'expense-history', action: 'view' };
   
   if (view === 'auxiliary-income') return { module: 'auxiliary-income', action: 'view' };
-  if (view === 'income') return { module: 'income', action: 'view' };
   if (view === 'financial-reports') return { module: 'financial-reports', action: 'view' };
   
   if (view === 'security-audit') {
@@ -1068,6 +1071,18 @@ export default function AdminPanel({ setActiveView, onLogout, adminView, setAdmi
           <FeesHistoryView showToast={showToast} />
         </KeepAlive>
 
+        <KeepAlive active={adminView === 'staff-payroll-hub'}>
+          <PayrollHub title="Staff" type="Staff" onSelectPayroll={() => setAdminView('staff-payroll')} onSelectStructure={() => setAdminView('staff-pay-structure')} />
+        </KeepAlive>
+
+        <KeepAlive active={adminView === 'teacher-payroll-hub'}>
+          <PayrollHub title="Teacher" type="Teacher" onSelectPayroll={() => setAdminView('teacher-payroll')} onSelectStructure={() => setAdminView('teacher-pay-structure')} />
+        </KeepAlive>
+
+        <KeepAlive active={adminView === 'employee-payroll-hub'}>
+          <PayrollHub title="Employee" type="Employee" onSelectPayroll={() => setAdminView('employee-payroll')} onSelectStructure={() => setAdminView('employee-pay-structure')} />
+        </KeepAlive>
+
         <KeepAlive active={adminView === 'staff-payroll'}>
           <PayrollView showToast={showToast} type="Staff" />
         </KeepAlive>
@@ -1100,9 +1115,6 @@ export default function AdminPanel({ setActiveView, onLogout, adminView, setAdmi
           <ExpensesView showToast={showToast} />
         </KeepAlive>
 
-        <KeepAlive active={adminView === 'income'}>
-          <IncomeView showToast={showToast} active={adminView === 'income'} />
-        </KeepAlive>
 
         <KeepAlive active={adminView === 'reports'}>
           <ReportsView showToast={showToast} />
@@ -1176,6 +1188,7 @@ export default function AdminPanel({ setActiveView, onLogout, adminView, setAdmi
           <AttendanceHistoryView 
             date={selectedDate}
             showToast={showToast}
+            userProfile={userProfile}
           />
         </KeepAlive>
 
@@ -1288,7 +1301,7 @@ export default function AdminPanel({ setActiveView, onLogout, adminView, setAdmi
         </KeepAlive>
 
         <KeepAlive active={isAcademicView}>
-          <AcademicPanel subView={adminView} setAdminView={setAdminView} />
+          <AcademicPanel subView={adminView} setAdminView={setAdminView} userProfile={userProfile} />
         </KeepAlive>
 
         <KeepAlive active={isGradeView}>

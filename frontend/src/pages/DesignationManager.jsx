@@ -174,7 +174,7 @@ export default function DesignationManager({ showToast }) {
   // Filtered designations
   const filteredDesignations = designations.filter(d => 
     d.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  ).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
 
   // Pagination calculations
   const totalPages = Math.max(1, Math.ceil(filteredDesignations.length / itemsPerPage));

@@ -272,10 +272,9 @@ export const getTeachers = (req, res) => { // Keep getTeachers naming for compat
     if (search && search.trim() !== '') {
       const query = search.toLowerCase().trim();
       decryptedList = decryptedList.filter(s => 
-        (s.name || '').toLowerCase().includes(query) ||
-        (s.employeeId || '').toLowerCase().includes(query) ||
-        (s.email || '').toLowerCase().includes(query) ||
-        (s.phone || '').toLowerCase().includes(query)
+        (s.name || '').toLowerCase().startsWith(query) ||
+        (s.fullName || '').toLowerCase().startsWith(query) ||
+        (s.employeeId || '').toLowerCase().startsWith(query)
       );
     }
 

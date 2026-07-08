@@ -105,6 +105,8 @@ export default function EmployeeDirectory({ readOnly = true, onAddClick, onEditC
   const [sortBy, setSortBy] = useState('name');
   const [sortOrder, setSortOrder] = useState('asc');
 
+  const isSearchOrFilterActive = searchQuery.trim() !== '' || designationFilter !== 'All' || statusFilter !== 'All';
+
   const handleRegenerateQR = async (empId) => {
     try {
       setQrLoading(true);
@@ -355,7 +357,7 @@ export default function EmployeeDirectory({ readOnly = true, onAddClick, onEditC
     }
   });
 
-  const displayStaff = filteredStaff;
+  const displayStaff = isSearchOrFilterActive ? filteredStaff : [];
 
   // Safe JSON parse for qualifications/experiences
   const parseJSON = (val) => {
@@ -603,10 +605,10 @@ export default function EmployeeDirectory({ readOnly = true, onAddClick, onEditC
           <Search size={18} className="search-bar-icon" />
           <input 
             type="text" 
-            placeholder="Search by name or Employee ID..."
+            placeholder="Search by employee name..."
             className="search-bar-input"
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => setSearchQuery(e.target.value.replace(/[^A-Za-z\s]/g, ''))}
             style={{ width: '100%' }}
           />
         </div>
@@ -714,8 +716,8 @@ export default function EmployeeDirectory({ readOnly = true, onAddClick, onEditC
                   ))
                 ) : (
                   <tr>
-                    <td colSpan="7" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
-                      No employees match your search criteria.
+                    <td colSpan="8" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
+                      {!isSearchOrFilterActive ? 'Please select a filter or enter a search query to load employees.' : searchQuery ? `No employees found starting with '${searchQuery}'.` : 'No employees match your search criteria.'}
                     </td>
                   </tr>
                 )}

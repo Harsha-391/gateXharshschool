@@ -65,6 +65,8 @@ export default function StaffDirectory({ setActiveView, readOnly = true, onAddCl
   const [limit] = useState(8);
   const [totalPages, setTotalPages] = useState(1);
 
+  const isSearchOrFilterActive = searchQuery.trim() !== '' || departmentFilter !== 'All' || typeFilter !== 'All' || statusFilter !== 'All' || roleFilter !== 'All';
+
   // Inspector Drawer
   const [selectedTeacher, setSelectedTeacher] = useState(null);
   const [qrLoading, setQrLoading] = useState(false);
@@ -212,6 +214,13 @@ export default function StaffDirectory({ setActiveView, readOnly = true, onAddCl
   // DATA FETCHING
   // ==========================================
   const fetchTeachers = async () => {
+    if (!isSearchOrFilterActive) {
+      setTeachers([]);
+      setTotalCount(0);
+      setTotalPages(1);
+      setLoading(false);
+      return;
+    }
     try {
       setLoading(true);
       const queryParams = new URLSearchParams({
@@ -392,10 +401,10 @@ export default function StaffDirectory({ setActiveView, readOnly = true, onAddCl
             <Search size={18} className="search-bar-icon" />
             <input 
               type="text" 
-              placeholder="Search by name or Employee ID..."
+              placeholder="Search by staff name..."
               className="search-bar-input"
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => setSearchQuery(e.target.value.replace(/[^A-Za-z\s]/g, ''))}
               style={{ width: '100%' }}
             />
           </div>
@@ -483,7 +492,27 @@ export default function StaffDirectory({ setActiveView, readOnly = true, onAddCl
           ========================================== */}
       <div className="glass-panel" style={{ padding: '24px', position: 'relative' }}>
         
-        {loading ? (
+        {!isSearchOrFilterActive ? (
+          <div style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '100px 24px',
+            textAlign: 'center',
+            gap: '12px'
+          }}>
+            <span style={{
+              fontSize: '1.25rem',
+              fontWeight: 600,
+              color: 'var(--text-muted)',
+              opacity: 0.7,
+              letterSpacing: '0.05em'
+            }}>
+              Please select a filter or enter a search query to load staff.
+            </span>
+          </div>
+        ) : loading ? (
           <div style={{ textAlign: 'center', padding: '60px', color: 'var(--text-muted)', fontSize: '0.9rem' }}>
             Loading faculty directory...
           </div>
@@ -565,7 +594,7 @@ export default function StaffDirectory({ setActiveView, readOnly = true, onAddCl
                   ) : (
                     <tr>
                       <td colSpan="11" style={{ textAlign: 'center', padding: '50px', color: 'var(--text-muted)' }}>
-                        No staff found matching your filters. Click "Add Staff" in the sidebar to register new staff.
+                        {searchQuery ? `No staff found starting with '${searchQuery}'.` : 'No staff found matching your filters.'}
                       </td>
                     </tr>
                   )}
@@ -876,8 +905,19 @@ export default function StaffDirectory({ setActiveView, readOnly = true, onAddCl
 
                 <div className="form-group">
                   <label>Experience (Years)</label>
-                  <input type="number" value={editFormData.experience || ''} onChange={(e) => setEditFormData({ ...editFormData, experience: e.target.value })}
-                    className="form-control" style={{ padding: '10px 14px', borderRadius: '10px' }} min="0" />
+                  <input 
+                    type="text" 
+                    value={editFormData.experience || ''} 
+                    onChange={(e) => {
+                      const v = e.target.value.replace(/[^0-9]/g, '').slice(0, 10);
+                      setEditFormData({ ...editFormData, experience: v });
+                    }}
+                    className="form-control" 
+                    style={{ padding: '10px 14px', borderRadius: '10px' }} 
+                    placeholder="e.g. 5" 
+                    maxLength={10} 
+                    inputMode="numeric" 
+                  />
                 </div>
 
                 <div className="form-group">

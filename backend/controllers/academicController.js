@@ -1005,6 +1005,17 @@ export const deleteTimeslot = (req, res) => {
   res.json({ message: 'Timeslot successfully deleted.' });
 };
 
+export const reorderTimeslots = (req, res) => {
+  const { timeslots } = req.body;
+  if (!Array.isArray(timeslots)) {
+    return res.status(400).json({ error: 'Timeslots must be an array.' });
+  }
+  const db = readDb();
+  db.timeslots = timeslots;
+  writeDb(db);
+  res.json({ message: 'Timeslots reordered successfully.', timeslots: db.timeslots });
+};
+
 // =============================================
 // 9. SUBJECTS CONTROLLER
 // =============================================

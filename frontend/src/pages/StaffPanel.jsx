@@ -177,6 +177,7 @@ export default function StaffPanel({ setActiveView, onLogout, teacherView, setTe
           <AttendanceHistoryView 
             date={selectedDate}
             showToast={showToast}
+            userProfile={userProfile}
           />
         );
       case 'student-reports':
@@ -905,7 +906,11 @@ export function MarkAttendanceView({ date, setDate, studentClass, setClass, sect
 // ============================================================================
 // TAB B: ATTENDANCE HISTORY LOG VIEW
 // ============================================================================
-export function AttendanceHistoryView({ date, showToast }) {
+export function AttendanceHistoryView({ date, showToast, userProfile }) {
+  const isTeacher = userProfile?.role === 'Teacher';
+  const assignedClass = isTeacher ? userProfile?.assignedGradeId || '' : '';
+  const assignedSection = isTeacher ? userProfile?.assignedSectionId || '' : '';
+
   const todayStr = new Date().toISOString().split('T')[0];
   const [historyDate, setHistoryDate] = useState(date || todayStr);
   const [studentClass, setClass] = useState('');
@@ -915,17 +920,28 @@ export function AttendanceHistoryView({ date, showToast }) {
   const [loading, setLoading] = useState(false);
   const [activeGrades, setActiveGrades] = useState([]);
 
+  useEffect(() => {
+    if (isTeacher) {
+      if (assignedClass) setClass(assignedClass);
+      if (assignedSection) setSection(assignedSection);
+    }
+  }, [userProfile, assignedClass, assignedSection, isTeacher]);
+
   const { baseGrade: baseClass, department: selectedDept } = parseGradeName(studentClass);
   const isHighGrade = isGrade11or12(baseClass);
 
   // Compute allowed sections for the selected studentClass
   const allowedSections = React.useMemo(() => {
+    if (isTeacher) {
+      return assignedSection ? [assignedSection] : [];
+    }
     const matchedGrade = activeGrades.find(g => g.name === studentClass);
     return matchedGrade ? (matchedGrade.sections || []) : [];
-  }, [studentClass, activeGrades]);
+  }, [studentClass, activeGrades, isTeacher, assignedSection]);
 
   // Sync selected section when class selection shifts
   useEffect(() => {
+    if (isTeacher) return; // Skip automatic reset for teachers
     if (allowedSections.length > 0) {
       if (!allowedSections.includes(section)) {
         setSection(allowedSections[0]);
@@ -933,7 +949,7 @@ export function AttendanceHistoryView({ date, showToast }) {
     } else {
       setSection('');
     }
-  }, [allowedSections, section, setSection]);
+  }, [allowedSections, section, setSection, isTeacher]);
 
   // Compute unique base grades from activeGrades
   const baseGrades = [];
@@ -1225,8 +1241,9 @@ export function AttendanceHistoryView({ date, showToast }) {
                 value={baseClass} 
                 onChange={(e) => handleBaseClassChange(e.target.value)}
                 style={{ height: '38px', borderRadius: '8px' }}
+                disabled={isTeacher}
               >
-                {baseGrades.map(g => (
+                {baseGrades.filter(g => !isTeacher || g === baseClass).map(g => (
                   <option key={g} value={g}>
                     {g.startsWith('LKG') || g.startsWith('UKG') || g.startsWith('NURSERY') ? g : `Grade ${g}`}
                   </option>
@@ -1243,8 +1260,9 @@ export function AttendanceHistoryView({ date, showToast }) {
                 value={selectedDept} 
                 onChange={(e) => handleDeptChange(e.target.value)}
                 style={{ height: '38px', borderRadius: '8px' }}
+                disabled={isTeacher}
               >
-                {departmentsForSelectedGrade.map(d => (
+                {departmentsForSelectedGrade.filter(d => !isTeacher || d === selectedDept).map(d => (
                   <option key={d} value={d}>{d}</option>
                 ))}
               </select>
@@ -1258,6 +1276,7 @@ export function AttendanceHistoryView({ date, showToast }) {
               value={section} 
               onChange={(e) => setSection(e.target.value)}
               style={{ height: '38px', borderRadius: '8px' }}
+              disabled={isTeacher}
             >
               {allowedSections.map(secName => (
                 <option key={secName} value={secName}>Section {secName}</option>

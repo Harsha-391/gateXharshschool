@@ -6,3 +6,16 @@
 - `[x]` Update `backend/utils/authHelper.js` with failed login tracking, lockout checks, and password strength check
 - `[x]` Update `backend/middleware/auth.js` with active tenant context checks for cross-tenant access prevention
 - `[x]` Mount dynamic `checkPermission` validation in `backend/routes/academicRoutes.js`
+- `[x]` 1. Directories load constraints (show empty list by default until filtered or searched)
+  - `[x]` StudentDirectory.jsx
+  - `[x]` TeacherDirectory.jsx
+  - `[x]` 2. Put Date Filter on Reports in Staff/Employee Attendance section
+  - `[x]` AttendanceManager.jsx: Define filterStartDate and filterEndDate states
+  - `[x]` AttendanceManager.jsx: Include startDate/endDate query parameters in fetchReports call
+  - `[x]` AttendanceManager.jsx: Add date inputs to Reports filter panel UI
+- `[/]` 3. Restore localStorage overrides to sessionStorage for auth tokens
+  - `[/]` main.jsx: Intercept token and refreshToken reads/writes (letters & spaces only, prefix-matching, show not-found)
+  - `[x]` StudentDirectory.jsx
+  - `[x]` TeacherDirectory.jsx
+  - `[x]` StaffDirectory.jsx
+  - `[x]` EmployeeDirectory.jsx

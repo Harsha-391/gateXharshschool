@@ -74,7 +74,7 @@ const isTeacherProfile = (t) => {
 };
 
 
-export default function AcademicPanel({ subView, setAdminView }) {
+export default function AcademicPanel({ subView, setAdminView, userProfile }) {
   // Master API states
   const [timetables, setTimetables] = useState([]);
   const [publishedData, setPublishedData] = useState({ classTimetables: [], teacherTimetables: [] });
@@ -302,9 +302,20 @@ export default function AcademicPanel({ subView, setAdminView }) {
     '02:00 PM - 03:00 PM'
   ]);
   const [showTimeslotsModal, setShowTimeslotsModal] = useState(false);
-  const [startTimeInput, setStartTimeInput] = useState('');
-  const [endTimeInput, setEndTimeInput] = useState('');
+  const [startTimeInput, setStartTimeInput] = useState('09:00');
+  const [startAmPm, setStartAmPm] = useState('AM');
+  const [endTimeInput, setEndTimeInput] = useState('10:00');
+  const [endAmPm, setEndAmPm] = useState('AM');
   const [timeslotType, setTimeslotType] = useState('Regular');
+  const [draggedTimeslotIndex, setDraggedTimeslotIndex] = useState(null);
+  
+  // Published Timetables & Exams Filters
+  const [pubTtSearch, setPubTtSearch] = useState('');
+  const [pubTtGrade, setPubTtGrade] = useState('All');
+  const [pubTtSection, setPubTtSection] = useState('All');
+  const [pubTtTeacher, setPubTtTeacher] = useState('');
+  const [pubExamSearch, setPubExamSearch] = useState('');
+  const [pubExamGrade, setPubExamGrade] = useState('All');
 
   const convertTo12HourFormat = (time24) => {
     if (!time24) return '';
@@ -321,11 +332,18 @@ export default function AcademicPanel({ subView, setAdminView }) {
   const handleAddTimeslot = async (e) => {
     e.preventDefault();
     if (!startTimeInput || !endTimeInput) {
-      alert('Please select both start and end times.');
+      alert('Please enter both start and end times.');
+      return;
+    }
+    const timeRegex = /^(0?[1-9]|1[0-2]):[0-5][0-9]$/;
+    if (!timeRegex.test(startTimeInput.trim()) || !timeRegex.test(endTimeInput.trim())) {
+      alert('Please enter time in HH:MM 12-hour format (e.g. 09:30 or 12:00).');
       return;
     }
     const suffix = timeslotType !== 'Regular' ? ` [${timeslotType}]` : '';
-    const finalSlot = `${convertTo12HourFormat(startTimeInput)} - ${convertTo12HourFormat(endTimeInput)}${suffix}`;
+    const startStr = startTimeInput.trim().padStart(5, '0');
+    const endStr = endTimeInput.trim().padStart(5, '0');
+    const finalSlot = `${startStr} ${startAmPm} - ${endStr} ${endAmPm}${suffix}`;
     try {
       const res = await fetch('/api/academics/timeslots', {
         method: 'POST',
@@ -335,8 +353,10 @@ export default function AcademicPanel({ subView, setAdminView }) {
       const data = await res.json();
       if (res.ok) {
         showToast('Time slot registered successfully!', 'success');
-        setStartTimeInput('');
-        setEndTimeInput('');
+        setStartTimeInput('09:00');
+        setStartAmPm('AM');
+        setEndTimeInput('10:00');
+        setEndAmPm('AM');
         setTimeslotType('Regular');
         fetchAllData();
       } else {
@@ -366,6 +386,31 @@ export default function AcademicPanel({ subView, setAdminView }) {
     }
   };
 
+  const handleTimeslotDrop = async (targetIdx) => {
+    if (draggedTimeslotIndex === null || draggedTimeslotIndex === targetIdx) return;
+    const reordered = [...timeslots];
+    const [draggedItem] = reordered.splice(draggedTimeslotIndex, 1);
+    reordered.splice(targetIdx, 0, draggedItem);
+    
+    try {
+      const res = await fetch('/api/academics/timeslots/reorder', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ timeslots: reordered })
+      });
+      if (res.ok) {
+        setTimeslots(reordered);
+        showToast('Timeslots reordered successfully!', 'success');
+      } else {
+        showToast('Failed to save timeslot order.', 'error');
+      }
+    } catch (err) {
+      console.error(err);
+      showToast('Network error saving timeslot order.', 'error');
+    }
+    setDraggedTimeslotIndex(null);
+  };
+
   const classesList = availableGradeSections
     .filter(pair => subjects.some(s => s.grade === pair.grade))
     .map(pair => `${pair.grade}-${pair.section}`);
@@ -393,7 +438,7 @@ export default function AcademicPanel({ subView, setAdminView }) {
         { url: '/api/academics/timeslots', setter: setTimeslots },
         { url: '/api/academics/subjects', setter: setSubjects },
         { url: '/api/students?limit=10000', setter: (data) => setStudents(data.students || []) },
-        { url: '/api/staff?limit=10000', setter: (data) => setTeachers(data.teachers || []) },
+        { url: '/api/teachers', setter: (data) => setTeachers(Array.isArray(data) ? data : (data.teachers || [])) },
         { url: '/api/academics/grades-sections', setter: (data) => setAvailableGradeSections(data.gradeSectionPairs || []) },
         { url: '/api/academics/calendar-events', setter: setCalendarEvents },
         { url: '/api/academics/calendar-imports', setter: setCalendarImports },
@@ -1853,26 +1898,30 @@ export default function AcademicPanel({ subView, setAdminView }) {
   const renderTimetableEditor = () => {
     const selectedExamObj = exams.find(e => e.id === activeExam);
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-        <div className="glass-panel" style={{ padding: '20px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div>
-            <h3 style={{ fontSize: '1.1rem', fontWeight: 700 }}>Custom Exam Timetable Editor</h3>
-            <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-              Grade {manualGrade}{manualSection ? ` - Section ${manualSection}` : ''} | Exam: {selectedExamObj?.examName}
-            </p>
-          </div>
-          <div style={{ display: 'flex', gap: '12px' }}>
-            <button className="btn-secondary" onClick={() => setIsManualSchedulerOpen(false)} style={{ padding: '8px 16px', borderRadius: '8px', fontSize: '0.85rem' }}>
-              Cancel
+      <div className="modal-overlay" style={{ zIndex: 20000000 }}>
+        <div className="animate-scale-up" style={{
+          width: '100%', maxWidth: '750px', maxHeight: '90vh', overflowY: 'auto', padding: '28px', borderRadius: '16px',
+          background: 'var(--bg-card)', border: '1px solid var(--border-glass)',
+          boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)', display: 'flex', flexDirection: 'column', gap: '20px'
+        }}>
+          {/* Modal Header */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-glass)', paddingBottom: '16px' }}>
+            <div>
+              <h3 style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--text-main)', margin: 0 }}>Custom Exam Timetable Editor</h3>
+              <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', margin: '4px 0 0 0' }}>
+                Grade {manualGrade}{manualSection ? ` - Section ${manualSection}` : ''} | Exam: {selectedExamObj?.examName}
+              </p>
+            </div>
+            <button
+              onClick={() => setIsManualSchedulerOpen(false)}
+              style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '1.8rem', lineHeight: 1, padding: '4px' }}
+            >
+              ×
             </button>
-            <button className="btn-primary" onClick={handleSaveCustomTimetable} style={{ padding: '8px 16px', borderRadius: '8px', fontSize: '0.85rem', background: 'linear-gradient(135deg, hsl(var(--color-primary)) 0%, #4f46e5 100%)', fontWeight: 700 }}>
-              Save Timetable
-            </button>
           </div>
-        </div>
 
-        <div className="glass-panel" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          {/* Modal Body - slots list */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', overflowY: 'auto', maxHeight: '55vh', paddingRight: '4px' }}>
             {manualSlots.map((slot, index) => {
               const isDragged = draggedSlotIndex === index;
               return (
@@ -1970,6 +2019,16 @@ export default function AcademicPanel({ subView, setAdminView }) {
                 </div>
               );
             })}
+          </div>
+
+          {/* Modal Footer */}
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', borderTop: '1px solid var(--border-glass)', paddingTop: '16px' }}>
+            <button className="btn-secondary" onClick={() => setIsManualSchedulerOpen(false)} style={{ padding: '8px 16px', borderRadius: '8px', fontSize: '0.85rem' }}>
+              Cancel
+            </button>
+            <button className="btn-primary" onClick={handleSaveCustomTimetable} style={{ padding: '8px 16px', borderRadius: '8px', fontSize: '0.85rem', background: 'linear-gradient(135deg, hsl(var(--color-primary)) 0%, #4f46e5 100%)', fontWeight: 700 }}>
+              Save Timetable
+            </button>
           </div>
         </div>
       </div>
@@ -2805,9 +2864,6 @@ export default function AcademicPanel({ subView, setAdminView }) {
   };
 
   const renderExams = () => {
-    if (isManualSchedulerOpen) {
-      return renderTimetableEditor();
-    }
     const sessions = [...new Set(exams.map(e => e.academicSession).filter(Boolean))].sort().reverse();
 
     const filteredExams = exams.filter(ex => ex.status !== 'Completed').filter(ex => {
@@ -3486,133 +3542,6 @@ export default function AcademicPanel({ subView, setAdminView }) {
       }
     };
 
-    if (isManualSchedulerOpen) {
-      const gsObj = examGradeSections.find(gs => gs.grade === manualGrade && gs.section === manualSection);
-      return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-          <div className="glass-panel" style={{ padding: '20px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div>
-              <h3 style={{ fontSize: '1.1rem', fontWeight: 700 }}>Custom Exam Timetable Editor</h3>
-              <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                Grade {manualGrade}{manualSection ? ` - Section ${manualSection}` : ''} | Exam: {selectedExamObj?.examName}
-              </p>
-            </div>
-            <div style={{ display: 'flex', gap: '12px' }}>
-              <button className="btn-secondary" onClick={() => setIsManualSchedulerOpen(false)} style={{ padding: '8px 16px', borderRadius: '8px', fontSize: '0.85rem' }}>
-                Cancel
-              </button>
-              <button className="btn-primary" onClick={handleSaveCustomTimetable} style={{ padding: '8px 16px', borderRadius: '8px', fontSize: '0.85rem', background: 'linear-gradient(135deg, hsl(var(--color-primary)) 0%, #4f46e5 100%)', fontWeight: 700 }}>
-                Save Timetable
-              </button>
-            </div>
-          </div>
-
-          <div className="glass-panel" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              {manualSlots.map((slot, index) => {
-                const isDragged = draggedSlotIndex === index;
-                return (
-                  <div
-                    key={index}
-                    draggable
-                    onDragStart={(e) => handleDragStart(e, index)}
-                    onDragOver={(e) => handleDragOver(e, index)}
-                    onDrop={(e) => handleDrop(e, index)}
-                    onDragEnd={handleDragEnd}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '16px',
-                      padding: '16px',
-                      background: isDragged ? 'rgba(99,102,241,0.04)' : 'var(--bg-glass-active)',
-                      border: isDragged ? '2px dashed hsl(var(--color-primary))' : '1px solid var(--border-glass)',
-                      borderRadius: '12px',
-                      opacity: isDragged ? 0.5 : 1,
-                      cursor: 'grab',
-                      transition: 'all 0.2s ease',
-                      boxShadow: 'var(--shadow-glass)'
-                    }}
-                  >
-                    <div style={{ color: 'var(--text-muted)', display: 'flex', alignItems: 'center' }}>
-                      <GripVertical size={18} />
-                    </div>
-
-                    <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'rgba(99, 102, 241, 0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'hsl(var(--color-primary))', fontWeight: 800, fontSize: '0.9rem' }}>
-                      {index + 1}
-                    </div>
-
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontWeight: 800, fontSize: '0.95rem', color: 'var(--text-main)' }}>
-                        {slot.subject}
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
-                        <span style={{ fontSize: '0.72rem', padding: '2px 8px', borderRadius: '12px', background: 'rgba(99, 102, 241, 0.06)', color: 'hsl(var(--color-primary))', fontWeight: 700 }}>
-                          {getDayOfWeek(slot.examDate) || 'No day'}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div style={{ width: '180px' }}>
-                      <input
-                        type="date"
-                        className="form-control"
-                        value={slot.examDate}
-                        onChange={(e) => handleDateChange(index, e.target.value)}
-                        style={{
-                          width: '100%',
-                          padding: '8px 12px',
-                          borderRadius: '8px',
-                          fontSize: '0.85rem',
-                          background: 'rgba(255,255,255,0.05)',
-                          border: '1px solid var(--border-glass)',
-                          color: 'var(--text-main)'
-                        }}
-                      />
-                    </div>
-
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <input
-                        type="time"
-                        className="form-control"
-                        value={convertTo24HourFormat(slot.startTime || '09:00 AM')}
-                        onChange={(e) => handleStartTimeChange(index, convertTo12HourFormat(e.target.value))}
-                        style={{
-                          width: '110px',
-                          padding: '8px 12px',
-                          borderRadius: '8px',
-                          fontSize: '0.85rem',
-                          background: 'rgba(255,255,255,0.05)',
-                          border: '1px solid var(--border-glass)',
-                          color: 'var(--text-main)'
-                        }}
-                      />
-                      <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>to</span>
-                      <input
-                        type="time"
-                        className="form-control"
-                        value={convertTo24HourFormat(slot.endTime || '12:00 PM')}
-                        onChange={(e) => handleEndTimeChange(index, convertTo12HourFormat(e.target.value))}
-                        style={{
-                          width: '110px',
-                          padding: '8px 12px',
-                          borderRadius: '8px',
-                          fontSize: '0.85rem',
-                          background: 'rgba(255,255,255,0.05)',
-                          border: '1px solid var(--border-glass)',
-                          color: 'var(--text-main)'
-                        }}
-                      />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      );
-    }
-
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
         <div className="glass-panel" style={{ padding: '20px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
@@ -4052,7 +3981,17 @@ export default function AcademicPanel({ subView, setAdminView }) {
   };
 
   const renderPublishedExams = () => {
-    const publishedExams = exams.filter(ex => ex.status === 'Published');
+    const isFiltered = pubExamSearch.trim() !== '' || pubExamGrade !== 'All';
+    const showExams = exams.filter(ex => ex.status === 'Published');
+    const filteredPublishedExams = isFiltered
+      ? showExams.filter(ex => {
+          const query = pubExamSearch.toLowerCase().trim();
+          const matchesSearch = query === '' || ex.examName.toLowerCase().startsWith(query) || (ex.name || '').toLowerCase().startsWith(query);
+          const gsList = ex.gradeSections || [];
+          if (pubExamGrade === 'All') return matchesSearch;
+          return matchesSearch && gsList.some(gs => gs.grade === pubExamGrade);
+        })
+      : [];
 
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
@@ -4064,13 +4003,62 @@ export default function AcademicPanel({ subView, setAdminView }) {
           </div>
         </div>
 
+        {/* Search & Filter Bar */}
+        <div className="glass-panel" style={{ padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <Search size={18} style={{ color: 'var(--text-muted)' }} />
+            <h4 style={{ fontSize: '0.9rem', fontWeight: 800, margin: 0, color: 'var(--text-main)' }}>Search & Filter Published Exams</h4>
+          </div>
+          <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
+            <input
+              type="text"
+              className="form-control"
+              placeholder="Search exam name..."
+              value={pubExamSearch}
+              onChange={(e) => setPubExamSearch(e.target.value.replace(/[^A-Za-z0-9\s]/g, ''))}
+              style={{ width: '220px', padding: '6px 12px', borderRadius: '8px', fontSize: '0.82rem', background: 'var(--bg-glass-active)', border: '1px solid var(--border-glass)', color: 'var(--text-main)' }}
+            />
+
+            <select
+              className="select-custom"
+              value={pubExamGrade}
+              onChange={(e) => setPubExamGrade(e.target.value)}
+              style={{ padding: '6px 12px', borderRadius: '8px', fontSize: '0.82rem', background: 'var(--bg-glass-active)', border: '1px solid var(--border-glass)', color: 'var(--text-main)' }}
+            >
+              <option value="All">All Grades</option>
+              {activeGrades.map(g => (
+                <option key={g.id} value={g.name}>Grade {g.name}</option>
+              ))}
+            </select>
+
+            {(pubExamSearch || pubExamGrade !== 'All') && (
+              <button
+                onClick={() => {
+                  setPubExamSearch('');
+                  setPubExamGrade('All');
+                }}
+                className="btn-secondary"
+                style={{ padding: '6px 12px', fontSize: '0.8rem', borderRadius: '8px', border: '1px solid #ef4444', color: '#ef4444' }}
+              >
+                Clear Filters
+              </button>
+            )}
+          </div>
+        </div>
+
         {/* Exam Cards */}
-        {publishedExams.length > 0 ? (
+        {!isFiltered ? (
+          <div className="glass-panel" style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>
+            <Search size={32} style={{ opacity: 0.3, marginBottom: '12px' }} />
+            <p style={{ fontWeight: 600 }}>Please select a filter or enter a search query to load published exams.</p>
+          </div>
+        ) : filteredPublishedExams.length > 0 ? (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: '20px' }}>
-            {publishedExams.flatMap(ex => {
+            {filteredPublishedExams.flatMap(ex => {
               const gsList = ex.gradeSections || [];
-              if (gsList.length === 0) return [{ ex, gs: null }];
-              return gsList.map(gs => ({ ex, gs }));
+              const allowedGsList = pubExamGrade === 'All' ? gsList : gsList.filter(gs => gs.grade === pubExamGrade);
+              if (allowedGsList.length === 0) return [{ ex, gs: null }];
+              return allowedGsList.map(gs => ({ ex, gs }));
             }).map(({ ex, gs }) => {
               const earliestStart = gs ? gs.startDate : '';
               const endDate = gs ? gs.endDate : ex.endDate;
@@ -4248,7 +4236,7 @@ export default function AcademicPanel({ subView, setAdminView }) {
         ) : (
           <div className="glass-panel" style={{ padding: '60px 40px', textAlign: 'center', color: 'var(--text-muted)' }}>
             <BookOpen size={40} style={{ opacity: 0.3 }} />
-            <p style={{ fontWeight: 600, marginTop: '12px' }}>No published exams found</p>
+            <p style={{ fontWeight: 600, marginTop: '12px' }}>No published exams found matching search criteria.</p>
           </div>
         )}
       </div>
@@ -4258,11 +4246,34 @@ export default function AcademicPanel({ subView, setAdminView }) {
   const renderPublishedTimetables = () => {
     const formatDate = (dateStr) => {
       if (!dateStr) return '-';
-      // format to locale string without seconds
       return new Date(dateStr).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' });
     };
 
     const daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+    const showClassTimetables = publishedData && publishedData.classTimetables ? publishedData.classTimetables : [];
+    const isClassFiltered = pubTtSearch.trim() !== '' || pubTtGrade !== 'All' || pubTtSection !== 'All';
+    const filteredClassTimetables = isClassFiltered
+      ? showClassTimetables.filter(pub => {
+          const query = pubTtSearch.toLowerCase().trim();
+          const matchesSearch = query === '' || pub.cohort.toLowerCase().startsWith(query);
+          const [g, s] = pub.cohort.split('-');
+          const matchesGrade = pubTtGrade === 'All' || g === pubTtGrade;
+          const matchesSection = pubTtSection === 'All' || s === pubTtSection;
+          return matchesSearch && matchesGrade && matchesSection;
+        })
+      : [];
+
+    const showTeacherTimetables = publishedData && publishedData.teacherTimetables ? publishedData.teacherTimetables : [];
+    const isTeacherFiltered = pubTtSearch.trim() !== '' || pubTtTeacher !== '';
+    const filteredTeacherTimetables = isTeacherFiltered
+      ? showTeacherTimetables.filter(pub => {
+          const query = pubTtSearch.toLowerCase().trim();
+          const matchesSearch = query === '' || pub.teacher.toLowerCase().startsWith(query);
+          const matchesSelect = pubTtTeacher === '' || pub.teacher.toLowerCase() === pubTtTeacher.toLowerCase();
+          return matchesSearch && matchesSelect;
+        })
+      : [];
 
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
@@ -4277,7 +4288,7 @@ export default function AcademicPanel({ subView, setAdminView }) {
         {/* Tabs Row */}
         <div className="glass-panel" style={{ padding: '8px', display: 'flex', gap: '8px', overflowX: 'auto', borderRadius: '12px' }}>
           <button
-            onClick={() => setPublishedSubTab('class')}
+            onClick={() => { setPublishedSubTab('class'); setPubTtSearch(''); }}
             className={`tab-btn-custom ${publishedSubTab === 'class' ? 'active' : ''}`}
             style={{
               display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px', borderRadius: '8px', fontSize: '0.85rem', fontWeight: 600, border: 'none', cursor: 'pointer',
@@ -4289,7 +4300,7 @@ export default function AcademicPanel({ subView, setAdminView }) {
             <Clock size={16} /> Published Class Timetable
           </button>
           <button
-            onClick={() => setPublishedSubTab('teacher')}
+            onClick={() => { setPublishedSubTab('teacher'); setPubTtSearch(''); }}
             className={`tab-btn-custom ${publishedSubTab === 'teacher' ? 'active' : ''}`}
             style={{
               display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px', borderRadius: '8px', fontSize: '0.85rem', fontWeight: 600, border: 'none', cursor: 'pointer',
@@ -4302,11 +4313,110 @@ export default function AcademicPanel({ subView, setAdminView }) {
           </button>
         </div>
 
+        {/* Search & Filter Bar */}
+        <div className="glass-panel" style={{ padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <Search size={18} style={{ color: 'var(--text-muted)' }} />
+            <h4 style={{ fontSize: '0.9rem', fontWeight: 800, margin: 0, color: 'var(--text-main)' }}>Search & Filter Published</h4>
+          </div>
+          {publishedSubTab === 'class' ? (
+            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
+              <input
+                type="text"
+                className="form-control"
+                placeholder="Search cohort (e.g. IX-A)..."
+                value={pubTtSearch}
+                onChange={(e) => setPubTtSearch(e.target.value.replace(/[^A-Za-z0-9\-\s]/g, ''))}
+                style={{ width: '220px', padding: '6px 12px', borderRadius: '8px', fontSize: '0.82rem', background: 'var(--bg-glass-active)', border: '1px solid var(--border-glass)', color: 'var(--text-main)' }}
+              />
+
+              <select
+                className="select-custom"
+                value={pubTtGrade}
+                onChange={(e) => setPubTtGrade(e.target.value)}
+                style={{ padding: '6px 12px', borderRadius: '8px', fontSize: '0.82rem', background: 'var(--bg-glass-active)', border: '1px solid var(--border-glass)', color: 'var(--text-main)' }}
+              >
+                <option value="All">All Grades</option>
+                {activeGrades.map(g => (
+                  <option key={g.id} value={g.name}>Grade {g.name}</option>
+                ))}
+              </select>
+
+              <select
+                className="select-custom"
+                value={pubTtSection}
+                onChange={(e) => setPubTtSection(e.target.value)}
+                style={{ padding: '6px 12px', borderRadius: '8px', fontSize: '0.82rem', background: 'var(--bg-glass-active)', border: '1px solid var(--border-glass)', color: 'var(--text-main)' }}
+              >
+                <option value="All">All Sections</option>
+                {activeSections.map(s => (
+                  <option key={s.id} value={s.name}>Section {s.name}</option>
+                ))}
+              </select>
+
+              {(pubTtSearch || pubTtGrade !== 'All' || pubTtSection !== 'All') && (
+                <button
+                  onClick={() => {
+                    setPubTtSearch('');
+                    setPubTtGrade('All');
+                    setPubTtSection('All');
+                  }}
+                  className="btn-secondary"
+                  style={{ padding: '6px 12px', fontSize: '0.8rem', borderRadius: '8px', border: '1px solid #ef4444', color: '#ef4444' }}
+                >
+                  Clear Filters
+                </button>
+              )}
+            </div>
+          ) : (
+            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
+              <input
+                type="text"
+                className="form-control"
+                placeholder="Search teacher name..."
+                value={pubTtSearch}
+                onChange={(e) => setPubTtSearch(e.target.value.replace(/[^A-Za-z\s]/g, ''))}
+                style={{ width: '220px', padding: '6px 12px', borderRadius: '8px', fontSize: '0.82rem', background: 'var(--bg-glass-active)', border: '1px solid var(--border-glass)', color: 'var(--text-main)' }}
+              />
+
+              <select
+                className="select-custom"
+                value={pubTtTeacher}
+                onChange={(e) => setPubTtTeacher(e.target.value)}
+                style={{ padding: '6px 12px', borderRadius: '8px', fontSize: '0.82rem', background: 'var(--bg-glass-active)', border: '1px solid var(--border-glass)', color: 'var(--text-main)' }}
+              >
+                <option value="">All Teachers</option>
+                {teachers.map((t, idx) => (
+                  <option key={idx} value={t.name}>{t.fullName || t.name}</option>
+                ))}
+              </select>
+
+              {(pubTtSearch || pubTtTeacher) && (
+                <button
+                  onClick={() => {
+                    setPubTtSearch('');
+                    setPubTtTeacher('');
+                  }}
+                  className="btn-secondary"
+                  style={{ padding: '6px 12px', fontSize: '0.8rem', borderRadius: '8px', border: '1px solid #ef4444', color: '#ef4444' }}
+                >
+                  Clear Filters
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+
         {/* Content list */}
         {publishedSubTab === 'class' ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
-            {publishedData && publishedData.classTimetables && publishedData.classTimetables.length > 0 ? (
-              publishedData.classTimetables.map(pub => (
+            {!isClassFiltered ? (
+              <div className="glass-panel" style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                <Search size={32} style={{ opacity: 0.3, marginBottom: '12px' }} />
+                <p style={{ fontWeight: 600 }}>Please select a filter or enter a search query to load published class timetables.</p>
+              </div>
+            ) : filteredClassTimetables.length > 0 ? (
+              filteredClassTimetables.map(pub => (
                 <div key={pub.cohort} className="glass-panel animate-scale-up" style={{ padding: '24px', overflowX: 'auto', display: 'flex', flexDirection: 'column', gap: '16px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-glass)', paddingBottom: '12px' }}>
                     <div>
@@ -4396,14 +4506,19 @@ export default function AcademicPanel({ subView, setAdminView }) {
             ) : (
               <div className="glass-panel" style={{ padding: '60px 40px', textAlign: 'center', color: 'var(--text-muted)' }}>
                 <Clock size={40} style={{ opacity: 0.3 }} />
-                <p style={{ fontWeight: 600, marginTop: '12px' }}>No published class timetables found</p>
+                <p style={{ fontWeight: 600, marginTop: '12px' }}>No published class timetables found matching search criteria.</p>
               </div>
             )}
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
-            {publishedData && publishedData.teacherTimetables && publishedData.teacherTimetables.length > 0 ? (
-              publishedData.teacherTimetables.map(pub => (
+            {!isTeacherFiltered ? (
+              <div className="glass-panel" style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                <Search size={32} style={{ opacity: 0.3, marginBottom: '12px' }} />
+                <p style={{ fontWeight: 600 }}>Please select a filter or enter a search query to load published teacher timetables.</p>
+              </div>
+            ) : filteredTeacherTimetables.length > 0 ? (
+              filteredTeacherTimetables.map(pub => (
                 <div key={pub.teacher} className="glass-panel animate-scale-up" style={{ padding: '24px', overflowX: 'auto', display: 'flex', flexDirection: 'column', gap: '16px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-glass)', paddingBottom: '12px' }}>
                     <div>
@@ -4469,8 +4584,7 @@ export default function AcademicPanel({ subView, setAdminView }) {
                                       gap: '4px',
                                       width: '100%'
                                     }}>
-                                      <Users size={12} style={{ color: 'hsl(var(--color-info))' }} />
-                                      <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-main)' }}>Grade {matched.cohort}</span>
+                                      <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-main)' }}>Class {matched.cohort}</span>
                                       <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>({matched.subject})</span>
                                     </div>
                                   ) : (
@@ -4491,7 +4605,7 @@ export default function AcademicPanel({ subView, setAdminView }) {
             ) : (
               <div className="glass-panel" style={{ padding: '60px 40px', textAlign: 'center', color: 'var(--text-muted)' }}>
                 <UserCheck size={40} style={{ opacity: 0.3 }} />
-                <p style={{ fontWeight: 600, marginTop: '12px' }}>No published teacher timetables found</p>
+                <p style={{ fontWeight: 600, marginTop: '12px' }}>No published teacher timetables found matching search criteria.</p>
               </div>
             )}
           </div>
@@ -7552,13 +7666,13 @@ export default function AcademicPanel({ subView, setAdminView }) {
       case 'results-manager':
       case 'academic-results':
       case 'results-analytics':
-        return <ResultManagementPanel activeTab="analytics" setAdminView={setAdminView} />;
+        return <ResultManagementPanel activeTab="analytics" setAdminView={setAdminView} userProfile={userProfile} />;
       case 'results-marks-entry':
-        return <ResultManagementPanel activeTab="marks-entry" setAdminView={setAdminView} />;
+        return <ResultManagementPanel activeTab="marks-entry" setAdminView={setAdminView} userProfile={userProfile} />;
       case 'results-report-cards':
-        return <ResultManagementPanel activeTab="report-cards" setAdminView={setAdminView} />;
+        return <ResultManagementPanel activeTab="report-cards" setAdminView={setAdminView} userProfile={userProfile} />;
       case 'results-history':
-        return <ResultManagementPanel activeTab="history" setAdminView={setAdminView} />;
+        return <ResultManagementPanel activeTab="history" setAdminView={setAdminView} userProfile={userProfile} />;
 
       default:
         return renderClassTimetable();
@@ -7704,6 +7818,9 @@ export default function AcademicPanel({ subView, setAdminView }) {
 
       {/* Render selected Tab Panel Content */}
       {renderSubViewContent()}
+
+      {/* Manual Custom Timetable Editor Modal */}
+      {isManualSchedulerOpen && createPortal(renderTimetableEditor(), document.body)}
 
       {/* Dynamic Modal Renderer */}
       {showAddModal && createPortal(
@@ -8233,8 +8350,28 @@ export default function AcademicPanel({ subView, setAdminView }) {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '200px', overflowY: 'auto', paddingRight: '4px' }}>
               {timeslots.length > 0 ? (
                 timeslots.map((slot, idx) => (
-                  <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', background: 'var(--bg-glass-active)', border: '1px solid var(--border-glass)', borderRadius: '8px' }}>
-                    <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-main)' }}>{slot}</span>
+                  <div
+                    key={idx}
+                    draggable
+                    onDragStart={() => setDraggedTimeslotIndex(idx)}
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={() => handleTimeslotDrop(idx)}
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      padding: '8px 12px',
+                      background: 'var(--bg-glass-active)',
+                      border: '1px solid var(--border-glass)',
+                      borderRadius: '8px',
+                      cursor: 'grab',
+                      transition: 'transform 0.15s ease'
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ color: 'var(--text-muted)', fontSize: '0.9rem', cursor: 'grab', userSelect: 'none' }}>☰</span>
+                      <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-main)' }}>{slot}</span>
+                    </div>
                     <button
                       onClick={() => handleDeleteTimeslot(slot)}
                       style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: '4px' }}
@@ -8253,23 +8390,49 @@ export default function AcademicPanel({ subView, setAdminView }) {
               <span style={{ fontSize: '0.75rem', fontWeight: 800, color: 'hsl(var(--color-primary))', textTransform: 'uppercase' }}>Add New Period Slot</span>              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                 <div className="form-group">
                   <label style={{ fontSize: '0.75rem' }}>Start Time *</label>
-                  <input
-                    type="time"
-                    className="form-control"
-                    value={startTimeInput}
-                    onChange={e => setStartTimeInput(e.target.value)}
-                    required
-                  />
+                  <div style={{ display: 'flex', gap: '4px', marginTop: '4px' }}>
+                    <input
+                      type="text"
+                      placeholder="09:00"
+                      className="form-control"
+                      value={startTimeInput}
+                      onChange={e => setStartTimeInput(e.target.value)}
+                      required
+                      style={{ flex: 1 }}
+                    />
+                    <select
+                      className="select-custom"
+                      value={startAmPm}
+                      onChange={e => setStartAmPm(e.target.value)}
+                      style={{ width: '60px', padding: '0 4px', fontSize: '0.8rem', borderRadius: '8px' }}
+                    >
+                      <option value="AM">AM</option>
+                      <option value="PM">PM</option>
+                    </select>
+                  </div>
                 </div>
                 <div className="form-group">
                   <label style={{ fontSize: '0.75rem' }}>End Time *</label>
-                  <input
-                    type="time"
-                    className="form-control"
-                    value={endTimeInput}
-                    onChange={e => setEndTimeInput(e.target.value)}
-                    required
-                  />
+                  <div style={{ display: 'flex', gap: '4px', marginTop: '4px' }}>
+                    <input
+                      type="text"
+                      placeholder="10:00"
+                      className="form-control"
+                      value={endTimeInput}
+                      onChange={e => setEndTimeInput(e.target.value)}
+                      required
+                      style={{ flex: 1 }}
+                    />
+                    <select
+                      className="select-custom"
+                      value={endAmPm}
+                      onChange={e => setEndAmPm(e.target.value)}
+                      style={{ width: '60px', padding: '0 4px', fontSize: '0.8rem', borderRadius: '8px' }}
+                    >
+                      <option value="AM">AM</option>
+                      <option value="PM">PM</option>
+                    </select>
+                  </div>
                 </div>
               </div>
               <div className="form-group" style={{ margin: 0 }}>

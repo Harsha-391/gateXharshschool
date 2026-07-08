@@ -69,7 +69,7 @@ export default function StaffLeave({ showToast, userProfile }) {
       const res = await fetch(`/api/staff-leaves?_t=${Date.now()}`);
       if (res.ok) {
         const data = await res.json();
-        setLeaves(data || []);
+        setLeaves((data || []).sort((a, b) => new Date(a.fromDate) - new Date(b.fromDate)));
       } else {
         showToast('Failed to load leave records.', 'error');
       }
@@ -743,15 +743,12 @@ export default function StaffLeave({ showToast, userProfile }) {
                     onChange={e => setForm({ ...form, leaveType: e.target.value })}
                     style={{ padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#f8fafc', color: '#000000', cursor: 'pointer', fontSize: '0.86rem' }}
                   >
-                    {activePolicies.length === 0 ? (
-                      <option value="">No Active Policies Configured</option>
-                    ) : (
-                      activePolicies.map(p => (
-                        <option key={p.id} value={p.leaveType}>
-                          {p.leaveType} ({p.leaveCode})
-                        </option>
-                      ))
-                    )}
+                    <option value="">None</option>
+                    {activePolicies.map(p => (
+                      <option key={p.id} value={p.leaveType}>
+                        {p.leaveType} ({p.leaveCode})
+                      </option>
+                    ))}
                   </select>
                 </div>
 

@@ -5,7 +5,9 @@ import {
   getAttendanceAnalytics, 
   getAttendanceReports,
   regenerateEmployeeQr,
-  deleteAttendanceRecord
+  deleteAttendanceRecord,
+  manualPunchEmployee,
+  updateAttendanceRecord
 } from '../controllers/employeeAttendanceController.js';
 import { restoreTenantContext, ensureTenantSqlLoaded } from '../utils/db.js';
 import { auth } from '../middleware/auth.js';
@@ -32,5 +34,7 @@ router.get('/analytics', attendanceLimiter, getAttendanceAnalytics);
 router.get('/reports', attendanceLimiter, getAttendanceReports);
 router.post('/regenerate-qr', attendanceLimiter, regenerateEmployeeQr);
 router.delete('/record/:id', attendanceLimiter, deleteAttendanceRecord);
+router.post('/manual-punch', attendanceLimiter, manualPunchEmployee);
+router.put('/record/:id', attendanceLimiter, updateAttendanceRecord);
 
 export default router;

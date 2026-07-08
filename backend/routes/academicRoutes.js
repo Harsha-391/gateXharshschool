@@ -46,6 +46,7 @@ import {
   getTimeslots,
   createTimeslot,
   deleteTimeslot,
+  reorderTimeslots,
   getSubjects,
   createSubject,
   deleteSubject,
@@ -126,7 +127,7 @@ const getPermissionParams = (req) => {
     if (action === 'view') {
       return { module: 'results', action };
     }
-    return { module: 'results-manager', action };
+    return { module: 'results-marks-entry', action };
   }
   if (path.startsWith('/calendar-events') || path.startsWith('/calendar-imports') || path.startsWith('/calendar-upload') || path.startsWith('/calendar-import-confirm') || path.startsWith('/calendar-template') || path.startsWith('/calendar-export') || path.startsWith('/calendar')) {
     return { module: 'academic-calendar', action };
@@ -161,6 +162,7 @@ router.delete('/subjects/:id', deleteSubject);
 router.get('/timeslots', getTimeslots);
 router.post('/timeslots', createTimeslot);
 router.delete('/timeslots', deleteTimeslot);
+router.post('/timeslots/reorder', reorderTimeslots);
 
 // Exams
 router.get('/exams', getExams);

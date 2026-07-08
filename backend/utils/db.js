@@ -66,6 +66,13 @@ export const convertToRoman = (str) => {
   return str;
 };
 
+export const isGrade11or12 = (name) => {
+  if (!name) return false;
+  const clean = name.trim().toUpperCase();
+  const tokens = clean.split(/[\s()\-]+/);
+  return tokens.some(t => ['11', '12', 'XI', 'XII'].includes(t));
+};
+
 export const isSubdomainRegistered = (subdomain) => {
   if (!subdomain) return false;
   const cleanSub = slugify(subdomain);
@@ -328,6 +335,7 @@ const createTablesFromSchema = async () => {
       "ALTER TABLE exams ADD COLUMN subjectMarks JSON",
       "ALTER TABLE exams ADD COLUMN createdAt VARCHAR(100)",
       "ALTER TABLE exams ADD COLUMN timetablePublished TINYINT(1) DEFAULT 0",
+      "ALTER TABLE exams ADD COLUMN academicSession VARCHAR(100)",
       "ALTER TABLE results ADD COLUMN status VARCHAR(50) DEFAULT 'Draft'",
       "ALTER TABLE fee_structures ADD COLUMN studentClass VARCHAR(100)",
       "ALTER TABLE fee_structures ADD COLUMN admissionFee DECIMAL(10,2) DEFAULT 0.00",
@@ -1023,9 +1031,9 @@ const dropGradeIdForeignKey = async (pool) => {
     
     for (const r of rows) {
       const constraintName = r.CONSTRAINT_NAME;
-      console.log(`[SQL Migration] Dropping foreign key constraint \${constraintName} from database \${dbName}...`);
+      console.log(`[SQL Migration] Dropping foreign key constraint ${constraintName} from database ${dbName}...`);
       await pool.query('SET FOREIGN_KEY_CHECKS = 0');
-      await pool.query(`ALTER TABLE \`grade_departments\` DROP FOREIGN KEY \`\${constraintName}\``);
+      await pool.query(`ALTER TABLE \`grade_departments\` DROP FOREIGN KEY \`${constraintName}\``);
       await pool.query('SET FOREIGN_KEY_CHECKS = 1');
     }
   } catch (err) {
@@ -1145,6 +1153,7 @@ const applySchemaUpdates = async (pool, isMaster = false, tenantId = null) => {
       "ALTER TABLE exams ADD COLUMN subjectMarks JSON",
       "ALTER TABLE exams ADD COLUMN createdAt VARCHAR(100)",
       "ALTER TABLE exams ADD COLUMN timetablePublished TINYINT(1) DEFAULT 0",
+      "ALTER TABLE exams ADD COLUMN academicSession VARCHAR(100)",
       "ALTER TABLE results ADD COLUMN status VARCHAR(50) DEFAULT 'Draft'",
       "ALTER TABLE fee_structures ADD COLUMN studentClass VARCHAR(100)",
       "ALTER TABLE fee_structures ADD COLUMN admissionFee DECIMAL(10,2) DEFAULT 0.00",
@@ -1184,7 +1193,18 @@ const applySchemaUpdates = async (pool, isMaster = false, tenantId = null) => {
 
       // Work Reports tables
       "CREATE TABLE IF NOT EXISTS teacher_reports (id VARCHAR(50) PRIMARY KEY, teacherId VARCHAR(50) NOT NULL, reportType VARCHAR(50) NOT NULL, reportDate VARCHAR(50) NOT NULL, subject VARCHAR(100), className VARCHAR(100), title VARCHAR(255) NOT NULL, summary TEXT NOT NULL, tasksCompleted TEXT, hoursWorked DECIMAL(4,1) DEFAULT 0.0, chapterTopic VARCHAR(255), syllabusPercentage DECIMAL(5,1) DEFAULT 0.0, attachment TEXT, status VARCHAR(50) DEFAULT 'Pending', reviewRemarks TEXT, reviewedAt VARCHAR(100), createdAt VARCHAR(100), updatedAt VARCHAR(100), tenantId VARCHAR(100) NOT NULL, INDEX idx_tr_teacher (teacherId), INDEX idx_tr_date (reportDate), INDEX idx_tr_tenant (tenantId), INDEX idx_tr_status (status))",
-      "CREATE TABLE IF NOT EXISTS staff_reports (id VARCHAR(50) PRIMARY KEY, staffId VARCHAR(50) NOT NULL, reportType VARCHAR(50) NOT NULL, reportDate VARCHAR(50) NOT NULL, department VARCHAR(100), title VARCHAR(255) NOT NULL, summary TEXT NOT NULL, tasksCompleted TEXT, hoursWorked DECIMAL(4,1) DEFAULT 0.0, attachment TEXT, status VARCHAR(50) DEFAULT 'Pending', reviewRemarks TEXT, reviewedAt VARCHAR(100), createdAt VARCHAR(100), updatedAt VARCHAR(100), tenantId VARCHAR(100) NOT NULL, INDEX idx_sr_staff (staffId), INDEX idx_sr_date (reportDate), INDEX idx_sr_tenant (tenantId), INDEX idx_sr_status (status))"
+      "CREATE TABLE IF NOT EXISTS staff_reports (id VARCHAR(50) PRIMARY KEY, staffId VARCHAR(50) NOT NULL, reportType VARCHAR(50) NOT NULL, reportDate VARCHAR(50) NOT NULL, department VARCHAR(100), title VARCHAR(255) NOT NULL, summary TEXT NOT NULL, tasksCompleted TEXT, hoursWorked DECIMAL(4,1) DEFAULT 0.0, attachment TEXT, status VARCHAR(50) DEFAULT 'Pending', reviewRemarks TEXT, reviewedAt VARCHAR(100), createdAt VARCHAR(100), updatedAt VARCHAR(100), tenantId VARCHAR(100) NOT NULL, INDEX idx_sr_staff (staffId), INDEX idx_sr_date (reportDate), INDEX idx_sr_tenant (tenantId), INDEX idx_sr_status (status))",
+
+      // Fees table updates for school-specific databases
+      "ALTER TABLE fees ADD COLUMN receiptNumber VARCHAR(100)",
+      "ALTER TABLE fees ADD COLUMN transactionId VARCHAR(100)",
+      "ALTER TABLE fees ADD COLUMN discount DECIMAL(10,2) DEFAULT 0.00",
+      "ALTER TABLE fees ADD COLUMN fine DECIMAL(10,2) DEFAULT 0.00",
+      "ALTER TABLE fees ADD COLUMN amount DECIMAL(10,2) DEFAULT 0.00",
+      "ALTER TABLE fees ADD COLUMN studentClass VARCHAR(100)",
+      "ALTER TABLE fees ADD COLUMN section VARCHAR(50)",
+      "ALTER TABLE fees ADD COLUMN paymentStatus VARCHAR(50)",
+      "ALTER TABLE fees ADD COLUMN billingPeriod VARCHAR(100)"
     ];
     for (const sql of schoolAlters) {
       try {
@@ -1386,38 +1406,12 @@ export const migrateTenantDataToDedicatedDb = async (subdomain) => {
       console.warn(`[SQL Migration WARNING] Splitting teachers and staff tables failed for ${subdomain}:`, splitErr.message);
     }
 
-    // Seed default leave settings/policies if empty in tenant database
+    // Clean default seeded leave settings/policies to keep it empty by default
     try {
-      const [lsRows] = await pool.query('SELECT COUNT(*) as cnt FROM leave_settings');
-      if (lsRows[0] && lsRows[0].cnt === 0) {
-        console.log(`[SQL Migration] Seeding default leave policies for tenant database: ${subdomain}`);
-        const defaultPolicies = [
-          // Teacher policies
-          { employeeType: 'Teacher', leaveCode: 'CL', leaveType: 'Casual Leave', maxDays: 12.0, maxCarryForward: 0.0, isPaid: 1, carryForward: 0, encashment: 0, status: 'Active', description: 'Casual Leave for short-term personal needs.' },
-          { employeeType: 'Teacher', leaveCode: 'SL', leaveType: 'Sick Leave', maxDays: 10.0, maxCarryForward: 0.0, isPaid: 1, carryForward: 0, encashment: 0, status: 'Active', description: 'Sick Leave for medical recuperation.' },
-          { employeeType: 'Teacher', leaveCode: 'EL', leaveType: 'Earned Leave', maxDays: 15.0, maxCarryForward: 0.0, isPaid: 1, carryForward: 0, encashment: 0, status: 'Active', description: 'Earned Leave accrued based on tenure.' },
-          // Staff policies
-          { employeeType: 'Staff', leaveCode: 'CL', leaveType: 'Casual Leave', maxDays: 12.0, maxCarryForward: 0.0, isPaid: 1, carryForward: 0, encashment: 0, status: 'Active', description: 'Casual Leave for short-term personal needs.' },
-          { employeeType: 'Staff', leaveCode: 'SL', leaveType: 'Sick Leave', maxDays: 10.0, maxCarryForward: 0.0, isPaid: 1, carryForward: 0, encashment: 0, status: 'Active', description: 'Sick Leave for medical recuperation.' },
-          { employeeType: 'Staff', leaveCode: 'EL', leaveType: 'Earned Leave', maxDays: 15.0, maxCarryForward: 0.0, isPaid: 1, carryForward: 0, encashment: 0, status: 'Active', description: 'Earned Leave accrued based on tenure.' }
-        ];
-
-        const now = new Date().toISOString();
-        for (const p of defaultPolicies) {
-          const id = `ls-${subdomain}-${p.employeeType.toLowerCase()}-${p.leaveCode.toLowerCase()}`;
-          await pool.query(
-            `INSERT INTO leave_settings 
-             (id, employeeType, leaveCode, leaveType, maxDays, maxCarryForward, carryForward, isPaid, encashment, status, description, extraConfig, createdAt, updatedAt, tenantId) 
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [
-              id, p.employeeType, p.leaveCode, p.leaveType, p.maxDays, p.maxCarryForward, p.carryForward, p.isPaid, p.encashment, p.status, p.description,
-              JSON.stringify({}), now, now, subdomain
-            ]
-          );
-        }
-      }
+      await pool.query("DELETE FROM leave_settings WHERE id LIKE 'ls-%-teacher-cl' OR id LIKE 'ls-%-teacher-sl' OR id LIKE 'ls-%-teacher-el' OR id LIKE 'ls-%-staff-cl' OR id LIKE 'ls-%-staff-sl' OR id LIKE 'ls-%-staff-el'");
+      console.log(`[SQL Migration] Cleaned default leave policies for tenant database: ${subdomain}`);
     } catch (lsErr) {
-      console.error(`[SQL Migration Error] Failed to seed default leave policies for ${subdomain}:`, lsErr.message);
+      console.error(`[SQL Migration Error] Failed to clean default leave policies for ${subdomain}:`, lsErr.message);
     }
 
   } catch (err) {
@@ -1625,16 +1619,6 @@ export const initSqlDb = async () => {
     // 4. Run recovery migrations on master database
     try {
       await sqlDb.query("UPDATE schools SET adminUsername = 'school_admin' WHERE adminUsername IS NULL OR adminUsername = ''", [], 'platform');
-      
-      // Update default roles permissions in DB to include defaults
-      const defaultRoles = getDefaultRoles();
-      for (const role of defaultRoles) {
-        await sqlDb.query("UPDATE roles SET permissions = ? WHERE id = ?", [
-          JSON.stringify(role.permissions),
-          role.id
-        ], 'platform');
-      }
-      console.log('[SQL Migration] Seeded default system roles permissions in master DB.');
     } catch (err) {
       console.warn('[SQL Migration WARNING] Master DB recovery migrations warning:', err.message);
     }
@@ -1675,6 +1659,7 @@ export const getDefaultRoles = () => {
     'academic-activities',
     'academic-calendar',
     'results-manager',
+    'results-marks-entry',
     'results-history',
     'finance',
     'staff-payroll',
@@ -1756,8 +1741,13 @@ export const getDefaultRoles = () => {
 
 const repairGradesAndMappings = async (tId) => {
   try {
-    // Permanently remove XI and XII from grades table in MySQL (they should only exist in grade_departments)
-    await sqlDb.query("DELETE FROM grades WHERE tenantId = ? AND (name LIKE '%11%' OR name LIKE '%12%' OR name LIKE '%XI%' OR name LIKE '%XII%')", [tId]);
+    // Permanently remove XI and XII from grades table in MySQL if they have mappings in grade_departments
+    await sqlDb.query(`
+      DELETE FROM grades 
+      WHERE tenantId = ? 
+        AND (name LIKE '%11%' OR name LIKE '%12%' OR name LIKE '%XI%' OR name LIKE '%XII%')
+        AND id IN (SELECT DISTINCT gradeId FROM grade_departments WHERE tenantId = ?)
+    `, [tId, tId]);
 
     const dbGrades = await sqlDb.query('SELECT * FROM grades WHERE tenantId = ?', [tId]);
     for (const g of dbGrades) {
@@ -2209,7 +2199,8 @@ export const loadTenantSqlIntoMemory = async (tenantId) => {
         subjectIncluded,
         subjectMarks,
         createdAt: ex.createdAt || '',
-        timetablePublished: ex.timetablePublished === 1 || ex.timetablePublished === true
+        timetablePublished: ex.timetablePublished === 1 || ex.timetablePublished === true,
+        academicSession: ex.academicSession || ''
       };
     });
 
@@ -2240,8 +2231,8 @@ export const loadTenantSqlIntoMemory = async (tenantId) => {
 
     data.results = rawResults.map(r => ({
       ...r,
-      obtainedMarks: r.obtainedMarks !== undefined ? r.obtainedMarks : 0,
-      totalMarks: r.maxMarks !== undefined ? r.maxMarks : 100,
+      obtainedMarks: r.obtainedMarks !== undefined ? r.obtainedMarks : (r.marksObtained !== undefined ? r.marksObtained : 0),
+      totalMarks: r.totalMarks !== undefined ? r.totalMarks : (r.maxMarks !== undefined ? r.maxMarks : 100),
       locked: r.isLocked === 1 || r.isLocked === true,
       published: r.isPublished === 1 || r.isPublished === true,
       status: r.status || 'Draft'
@@ -2537,6 +2528,27 @@ export const loadTenantSqlIntoMemory = async (tenantId) => {
       status: g.status || 'Active',
       sections: g.sections ? (typeof g.sections === 'string' ? JSON.parse(g.sections) : g.sections) : []
     }));
+
+    // Reconstruct Grade 11/12 objects from mappings in dbGradeDepts if they are not in data.grades
+    const activeGradesMap = new Map(data.grades.map(g => [g.id, g]));
+    dbGradeDepts.forEach(gd => {
+      if (!activeGradesMap.has(gd.gradeId)) {
+        const idParts = gd.gradeId.split('-');
+        const slug = idParts[idParts.length - 1]; // e.g. "xi"
+        const name = convertToRoman(slug); // e.g. "XI"
+        
+        const reconstructedGrade = {
+          id: gd.gradeId,
+          name: name,
+          status: gd.status || 'Active',
+          createdAt: gd.createdAt || new Date().toISOString(),
+          updatedAt: gd.updatedAt || new Date().toISOString(),
+          sections: []
+        };
+        data.grades.push(reconstructedGrade);
+        activeGradesMap.set(gd.gradeId, reconstructedGrade);
+      }
+    });
 
     data.departments = dbDepts.map(d => ({
       ...d,
@@ -3375,8 +3387,8 @@ export const saveMemoryDbToSql = async (tenantId, db, changedKeys, newUpdatedAt)
             await sqlDb.query('DELETE FROM exams WHERE tenantId = ?', [tId]);
           }
 
-          const columns = ['id', 'name', 'term', 'startDate', 'endDate', 'status', 'tenantId', 'description', 'totalMarks', 'gradeSections', 'subjectIncluded', 'subjectMarks', 'createdAt', 'timetablePublished'];
-          const updateColumns = ['name', 'term', 'status', 'startDate', 'endDate', 'description', 'totalMarks', 'gradeSections', 'subjectIncluded', 'subjectMarks', 'createdAt', 'timetablePublished'];
+          const columns = ['id', 'name', 'term', 'startDate', 'endDate', 'status', 'tenantId', 'description', 'totalMarks', 'gradeSections', 'subjectIncluded', 'subjectMarks', 'createdAt', 'timetablePublished', 'academicSession'];
+          const updateColumns = ['name', 'term', 'status', 'startDate', 'endDate', 'description', 'totalMarks', 'gradeSections', 'subjectIncluded', 'subjectMarks', 'createdAt', 'timetablePublished', 'academicSession'];
           const valueRows = db.exams.filter(ex => ex.id).map(ex => {
             const earliestStart = ex.startDate || (ex.gradeSections && ex.gradeSections.length > 0 
               ? ex.gradeSections.map(g => g.startDate).filter(Boolean).sort()[0] 
@@ -3390,7 +3402,8 @@ export const saveMemoryDbToSql = async (tenantId, db, changedKeys, newUpdatedAt)
               ex.gradeSections ? JSON.stringify(ex.gradeSections) : '[]',
               ex.subjectIncluded ? JSON.stringify(ex.subjectIncluded) : '{}',
               ex.subjectMarks ? JSON.stringify(ex.subjectMarks) : '{}',
-              ex.createdAt || new Date().toISOString(), ex.timetablePublished ? 1 : 0
+              ex.createdAt || new Date().toISOString(), ex.timetablePublished ? 1 : 0,
+              ex.academicSession || ''
             ];
           });
           await bulkInsertOrUpdate('exams', columns, valueRows, updateColumns);
@@ -3943,20 +3956,33 @@ export const saveMemoryDbToSql = async (tenantId, db, changedKeys, newUpdatedAt)
       // Sync central grades
       if (db.grades && Array.isArray(db.grades) && hasTableChanged('grades')) {
         tasks.push((async () => {
-          const activeGradeIds = db.grades.map(g => g.id).filter(Boolean);
+          // Identify Grade 11/12 that have department mappings assigned
+          const mappedGradeIds = new Set((db.gradeDepartments || []).map(gd => gd.gradeId));
+
+          // Filter grades to sync: keep regular grades, and keep Grade 11/12 ONLY if they are NOT mapped to any department!
+          const gradesToSync = db.grades.filter(g => {
+            if (isGrade11or12(g.name)) {
+              return !mappedGradeIds.has(g.id);
+            }
+            return true;
+          });
+
+          const activeGradeIds = gradesToSync.map(g => g.id).filter(Boolean);
           if (activeGradeIds.length > 0) {
             await sqlDb.query(`DELETE FROM grades WHERE tenantId = ? AND id NOT IN (${activeGradeIds.map(() => '?').join(',')})`, [tId, ...activeGradeIds]);
           } else {
             await sqlDb.query('DELETE FROM grades WHERE tenantId = ?', [tId]);
           }
 
-          const columns = ['id', 'name', 'status', 'createdAt', 'updatedAt', 'tenantId', 'sections'];
-          const updateColumns = ['name', 'status', 'updatedAt', 'sections'];
-          const valueRows = db.grades.filter(g => g.id).map(g => [
-            g.id, g.name, g.status || 'Active', g.createdAt || new Date().toISOString(), g.updatedAt || new Date().toISOString(), tId,
-            g.sections ? (typeof g.sections === 'string' ? g.sections : JSON.stringify(g.sections)) : '[]'
-          ]);
-          await bulkInsertOrUpdate('grades', columns, valueRows, updateColumns);
+          if (gradesToSync.length > 0) {
+            const columns = ['id', 'name', 'status', 'createdAt', 'updatedAt', 'tenantId', 'sections'];
+            const updateColumns = ['name', 'status', 'updatedAt', 'sections'];
+            const valueRows = gradesToSync.filter(g => g.id).map(g => [
+              g.id, g.name, g.status || 'Active', g.createdAt || new Date().toISOString(), g.updatedAt || new Date().toISOString(), tId,
+              g.sections ? (typeof g.sections === 'string' ? g.sections : JSON.stringify(g.sections)) : '[]'
+            ]);
+            await bulkInsertOrUpdate('grades', columns, valueRows, updateColumns);
+          }
         })());
       }
 

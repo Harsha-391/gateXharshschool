@@ -12,6 +12,7 @@ import {
 
 import StudentDirectory from './StudentDirectory';
 import { fetchActiveGrades, fetchActiveSections } from '../utils/grades';
+import { hasPermission } from '../utils/permissions';
 
 function ConfirmDialog({ show, message, onConfirm, onCancel }) {
   if (!show) return null;
@@ -61,16 +62,18 @@ export default function AccountantPanel({ setActiveView, onLogout, accountantVie
       case 'dashboard': return <DashboardView setAccountantView={setAccountantView} />;
       case 'collect-fees': return <CollectFeesView showToast={showToast} />;
       case 'fee-structure': return <FeeStructureView showToast={showToast} />;
-      case 'fees-history': return <FeesHistoryView showToast={showToast} />;
+      case 'fees-history': return <CollectFeesView showToast={showToast} readOnly={true} />;
+      case 'staff-payroll-hub': return <PayrollHub title="Staff" type="Staff" showToast={showToast} />;
+      case 'teacher-payroll-hub': return <PayrollHub title="Teacher" type="Teacher" showToast={showToast} />;
+      case 'employee-payroll-hub': return <PayrollHub title="Employee" type="Employee" showToast={showToast} />;
       case 'staff-payroll': return <PayrollView showToast={showToast} type="Staff" />;
       case 'staff-pay-structure': return <StaffPaymentStructureView showToast={showToast} type="Staff" />;
       case 'teacher-payroll': return <PayrollView showToast={showToast} type="Teacher" />;
       case 'teacher-pay-structure': return <TeacherSalaryStructureView showToast={showToast} />;
       case 'employee-payroll': return <StaffPaymentsView showToast={showToast} />;
       case 'employee-pay-structure': return <StaffPaymentStructureView showToast={showToast} type="Employee" />;
-      case 'payroll-history': return <PayrollHistoryView showToast={showToast} />;
+
       case 'expenses': return <ExpensesView showToast={showToast} />;
-      case 'income': return <IncomeView showToast={showToast} active={true} />;
       case 'reports': return <ReportsView showToast={showToast} />;
       case 'students': return <StudentDirectory />;
       case 'staff-directory': return <StaffDirectory setActiveView={setActiveView} readOnly={true} />;
@@ -123,7 +126,6 @@ export default function AccountantPanel({ setActiveView, onLogout, accountantVie
               accountantView === 'employee-pay-structure' ? 'Employee Pay Structure' :
               accountantView === 'payroll-history' ? 'Payroll History' :
               accountantView === 'expenses' ? 'Expense Tracker' :
-              accountantView === 'income' ? 'Income Tracker' :
               accountantView === 'reports' ? 'Financial Reports' :
               accountantView === 'students' ? 'Student Directory' :
               accountantView === 'teacher-list' ? 'Staff Directory' :
@@ -179,27 +181,9 @@ function DashboardView({ setAccountantView }) {
     { label: 'Monthly Expenses', value: `₹${(data?.totalExpenses || 0).toLocaleString()}`, icon: TrendingDown, color: '#ef4444', bg: 'rgba(239,68,68,0.08)', trend: '0.0%', up: false },
     { label: 'Net Profit', value: `₹${(data?.netProfit || 0).toLocaleString()}`, icon: TrendingUp, color: '#8b5cf6', bg: 'rgba(139,92,246,0.08)', trend: '0.0%', up: true },
     { label: 'Total Payroll Paid', value: `₹${(data?.totalPayrollPaid || 0).toLocaleString()}`, icon: Banknote, color: '#06b6d4', bg: 'rgba(6,182,212,0.08)', trend: `0 staff`, up: true },
-    { label: 'Other Income', value: `₹${(data?.totalIncome || 0).toLocaleString()}`, icon: HandCoins, color: '#ec4899', bg: 'rgba(236,72,153,0.08)', trend: '0 records', up: true },
   ];
 
-  const quickActions = [
-    { label: 'Collect Fees', icon: Receipt, view: 'collect-fees', color: '#10b981' },
-    { label: 'Fee Structure', icon: BookOpen, view: 'fee-structure', color: '#3b82f6' },
-    { label: 'Fees History', icon: History, view: 'fees-history', color: '#8b5cf6' },
-    { label: 'Staff Payroll', icon: Banknote, view: 'staff-payroll', color: '#8b5cf6' },
-    { label: 'Staff Pay Structure', icon: Calculator, view: 'staff-pay-structure', color: '#10b981' },
-    { label: 'Teacher Payroll', icon: Banknote, view: 'teacher-payroll', color: '#3b82f6' },
-    { label: 'Teacher Pay Structure', icon: Calculator, view: 'teacher-pay-structure', color: '#0ea5e9' },
-    { label: 'Employee Payroll', icon: UserCog, view: 'employee-payroll', color: '#ec4899' },
-    { label: 'Employee Pay Structure', icon: Calculator, view: 'employee-pay-structure', color: '#14b8a6' },
-    { label: 'Payroll History', icon: History, view: 'payroll-history', color: '#db2777' },
-    { label: 'Add Expense', icon: TrendingDown, view: 'expenses', color: '#ef4444' },
-    { label: 'Add Income', icon: TrendingUp, view: 'income', color: '#f59e0b' },
-    { label: 'View Reports', icon: BarChart3, view: 'reports', color: '#06b6d4' },
-    { label: 'Student Directory', icon: Users, view: 'students', color: '#14b8a6' },
-    { label: 'Staff Directory', icon: UserCheck, view: 'teacher-list', color: '#f97316' },
-    { label: 'Employee Directory', icon: UserCog, view: 'staff', color: '#a855f7' },
-  ];
+
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}>
@@ -241,30 +225,146 @@ function DashboardView({ setAccountantView }) {
         })}
       </div>
 
-      {/* Quick Actions */}
-      <div>
-        <h3 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-main)', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <CircleDollarSign size={18} style={{ color: '#10b981' }} /> Quick Actions
-        </h3>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: '14px' }}>
-          {quickActions.map((action, i) => {
-            const Icon = action.icon;
-            return (
-              <div key={i} className="glass-panel admin-dash-card" onClick={() => setAccountantView(action.view)} style={{
-                padding: '20px', cursor: 'pointer', borderRadius: '14px', transition: 'all 0.2s ease',
-                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', textAlign: 'center'
-              }}>
-                <div style={{
-                  width: '48px', height: '48px', borderRadius: '12px',
-                  background: `${action.color}15`, display: 'flex', alignItems: 'center', justifyContent: 'center'
-                }}>
-                  <Icon size={22} style={{ color: action.color }} />
-                </div>
-                <span style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-main)' }}>{action.label}</span>
+      {/* Redesigned Structured Actions Area */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+        
+        {/* Row 1: Student Fees Management */}
+        <div className="glass-panel" style={{ padding: '20px', borderRadius: '16px' }}>
+          <h4 style={{ fontSize: '0.85rem', fontWeight: 800, textTransform: 'uppercase', color: '#10b981', letterSpacing: '0.05em', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <Receipt size={16} /> Student Fees Management
+          </h4>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '14px' }}>
+            <button onClick={() => setAccountantView('collect-fees')} className="btn-payroll-row" style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '16px', background: 'rgba(16,185,129,0.04)', border: '1px solid var(--border-glass)', borderRadius: '12px', cursor: 'pointer', textAlign: 'left' }}>
+              <div style={{ padding: '10px', borderRadius: '10px', background: '#10b981', color: '#fff' }}><Receipt size={18} /></div>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: '0.85rem', color: 'var(--text-main)' }}>Collect Fees</div>
+                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Log student tuition payments</div>
               </div>
-            );
-          })}
+            </button>
+            <button onClick={() => setAccountantView('fee-structure')} className="btn-payroll-row" style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '16px', background: 'rgba(16,185,129,0.04)', border: '1px solid var(--border-glass)', borderRadius: '12px', cursor: 'pointer', textAlign: 'left' }}>
+              <div style={{ padding: '10px', borderRadius: '10px', background: '#10b981', color: '#fff' }}><BookOpen size={18} /></div>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: '0.85rem', color: 'var(--text-main)' }}>Fee Structure</div>
+                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Define grade fee categories</div>
+              </div>
+            </button>
+          </div>
         </div>
+
+        {/* Row 2: Staff payroll & structure */}
+        <div className="glass-panel" style={{ padding: '20px', borderRadius: '16px' }}>
+          <h4 style={{ fontSize: '0.85rem', fontWeight: 800, textTransform: 'uppercase', color: '#8b5cf6', letterSpacing: '0.05em', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <Users size={16} /> Staff Payroll & HR
+          </h4>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '14px' }}>
+            <button onClick={() => setAccountantView('staff-payroll')} className="btn-payroll-row" style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '16px', background: 'rgba(139,92,246,0.04)', border: '1px solid var(--border-glass)', borderRadius: '12px', cursor: 'pointer', textAlign: 'left' }}>
+              <div style={{ padding: '10px', borderRadius: '10px', background: '#8b5cf6', color: '#fff' }}><Banknote size={18} /></div>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: '0.85rem', color: 'var(--text-main)' }}>Staff Payroll</div>
+                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Disburse staff salary slips</div>
+              </div>
+            </button>
+            <button onClick={() => setAccountantView('staff-pay-structure')} className="btn-payroll-row" style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '16px', background: 'rgba(139,92,246,0.04)', border: '1px solid var(--border-glass)', borderRadius: '12px', cursor: 'pointer', textAlign: 'left' }}>
+              <div style={{ padding: '10px', borderRadius: '10px', background: '#8b5cf6', color: '#fff' }}><Calculator size={18} /></div>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: '0.85rem', color: 'var(--text-main)' }}>Staff Pay Structure</div>
+                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Define staff basic allowances</div>
+              </div>
+            </button>
+          </div>
+        </div>
+
+        {/* Row 3: Teacher payroll & structure */}
+        <div className="glass-panel" style={{ padding: '20px', borderRadius: '16px' }}>
+          <h4 style={{ fontSize: '0.85rem', fontWeight: 800, textTransform: 'uppercase', color: '#3b82f6', letterSpacing: '0.05em', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <UserCheck size={16} /> Teacher Payroll & HR
+          </h4>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '14px' }}>
+            <button onClick={() => setAccountantView('teacher-payroll')} className="btn-payroll-row" style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '16px', background: 'rgba(59,130,246,0.04)', border: '1px solid var(--border-glass)', borderRadius: '12px', cursor: 'pointer', textAlign: 'left' }}>
+              <div style={{ padding: '10px', borderRadius: '10px', background: '#3b82f6', color: '#fff' }}><Banknote size={18} /></div>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: '0.85rem', color: 'var(--text-main)' }}>Teacher Payroll</div>
+                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Disburse teacher monthly salary</div>
+              </div>
+            </button>
+            <button onClick={() => setAccountantView('teacher-pay-structure')} className="btn-payroll-row" style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '16px', background: 'rgba(59,130,246,0.04)', border: '1px solid var(--border-glass)', borderRadius: '12px', cursor: 'pointer', textAlign: 'left' }}>
+              <div style={{ padding: '10px', borderRadius: '10px', background: '#3b82f6', color: '#fff' }}><Calculator size={18} /></div>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: '0.85rem', color: 'var(--text-main)' }}>Teacher Pay Structure</div>
+                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Configure teacher wage grades</div>
+              </div>
+            </button>
+          </div>
+        </div>
+
+        {/* Row 4: Employee payroll & structure */}
+        <div className="glass-panel" style={{ padding: '20px', borderRadius: '16px' }}>
+          <h4 style={{ fontSize: '0.85rem', fontWeight: 800, textTransform: 'uppercase', color: '#ec4899', letterSpacing: '0.05em', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <UserCog size={16} /> Employee Payroll & HR
+          </h4>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '14px' }}>
+            <button onClick={() => setAccountantView('employee-payroll')} className="btn-payroll-row" style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '16px', background: 'rgba(236,72,153,0.04)', border: '1px solid var(--border-glass)', borderRadius: '12px', cursor: 'pointer', textAlign: 'left' }}>
+              <div style={{ padding: '10px', borderRadius: '10px', background: '#ec4899', color: '#fff' }}><UserCog size={18} /></div>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: '0.85rem', color: 'var(--text-main)' }}>Employee Payroll</div>
+                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Pay support/admin workers</div>
+              </div>
+            </button>
+            <button onClick={() => setAccountantView('employee-pay-structure')} className="btn-payroll-row" style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '16px', background: 'rgba(236,72,153,0.04)', border: '1px solid var(--border-glass)', borderRadius: '12px', cursor: 'pointer', textAlign: 'left' }}>
+              <div style={{ padding: '10px', borderRadius: '10px', background: '#ec4899', color: '#fff' }}><Calculator size={18} /></div>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: '0.85rem', color: 'var(--text-main)' }}>Employee Pay Structure</div>
+                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Configure operational pay rules</div>
+              </div>
+            </button>
+          </div>
+        </div>
+
+
+        {/* Row 6: Administrative Operations & Directories */}
+        <div className="glass-panel" style={{ padding: '20px', borderRadius: '16px' }}>
+          <h4 style={{ fontSize: '0.85rem', fontWeight: 800, textTransform: 'uppercase', color: '#06b6d4', letterSpacing: '0.05em', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <UserCog size={16} /> Operations & Directories
+          </h4>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '14px' }}>
+            <button onClick={() => setAccountantView('expenses')} className="btn-payroll-row" style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '16px', background: 'rgba(239,68,68,0.04)', border: '1px solid var(--border-glass)', borderRadius: '12px', cursor: 'pointer', textAlign: 'left' }}>
+              <div style={{ padding: '10px', borderRadius: '10px', background: '#ef4444', color: '#fff' }}><TrendingDown size={18} /></div>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: '0.85rem', color: 'var(--text-main)' }}>Add Expense</div>
+                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Log school outflow vouchers</div>
+              </div>
+            </button>
+            <button onClick={() => setAccountantView('reports')} className="btn-payroll-row" style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '16px', background: 'rgba(6,182,212,0.04)', border: '1px solid var(--border-glass)', borderRadius: '12px', cursor: 'pointer', textAlign: 'left' }}>
+              <div style={{ padding: '10px', borderRadius: '10px', background: '#06b6d4', color: '#fff' }}><BarChart3 size={18} /></div>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: '0.85rem', color: 'var(--text-main)' }}>View Reports</div>
+                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Cashflow charts & stats</div>
+              </div>
+            </button>
+            <button onClick={() => setAccountantView('students')} className="btn-payroll-row" style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '16px', background: 'rgba(20,184,166,0.04)', border: '1px solid var(--border-glass)', borderRadius: '12px', cursor: 'pointer', textAlign: 'left' }}>
+              <div style={{ padding: '10px', borderRadius: '10px', background: '#14b8a6', color: '#fff' }}><Users size={18} /></div>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: '0.85rem', color: 'var(--text-main)' }}>Student Directory</div>
+                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>View student details</div>
+              </div>
+            </button>
+            <button onClick={() => setAccountantView('teacher-list')} className="btn-payroll-row" style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '16px', background: 'rgba(249,115,22,0.04)', border: '1px solid var(--border-glass)', borderRadius: '12px', cursor: 'pointer', textAlign: 'left' }}>
+              <div style={{ padding: '10px', borderRadius: '10px', background: '#f97316', color: '#fff' }}><UserCheck size={18} /></div>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: '0.85rem', color: 'var(--text-main)' }}>Staff Directory</div>
+                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>View school teachers list</div>
+              </div>
+            </button>
+            <button onClick={() => setAccountantView('staff')} className="btn-payroll-row" style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '16px', background: 'rgba(168,85,247,0.04)', border: '1px solid var(--border-glass)', borderRadius: '12px', cursor: 'pointer', textAlign: 'left' }}>
+              <div style={{ padding: '10px', borderRadius: '10px', background: '#a855f7', color: '#fff' }}><UserCog size={18} /></div>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: '0.85rem', color: 'var(--text-main)' }}>Employee Directory</div>
+                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>View school employees list</div>
+              </div>
+            </button>
+          </div>
+        </div>
+
       </div>
 
       {/* Revenue Chart (CSS-based bar chart) */}
@@ -339,24 +439,34 @@ const isGrade11or12 = (name) => {
   return tokens.some(t => ['11', '12', 'XI', 'XII'].includes(t));
 };
 
-export function CollectFeesView({ showToast }) {
+export function CollectFeesView({ showToast, readOnly = false }) {
   const [fees, setFees] = useState([]);
   const [students, setStudents] = useState([]);
+  const [schoolInfo, setSchoolInfo] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
+
+  useEffect(() => {
+    fetch('/api/school')
+      .then(r => r.json())
+      .then(d => setSchoolInfo(d))
+      .catch(() => {});
+  }, []);
   const [feeStructures, setFeeStructures] = useState([]);
   const [feePeriods, setFeePeriods] = useState([]);
+  const [expandedStudents, setExpandedStudents] = useState({});
   const [showMonthRangeModal, setShowMonthRangeModal] = useState(false);
   const [newPeriodFreq, setNewPeriodFreq] = useState('Quarterly');
   const [newPeriodName, setNewPeriodName] = useState('');
   const [filterClass, setFilterClass] = useState('All');
   const [filterDept, setFilterDept] = useState('All');
+  const [filterSection, setFilterSection] = useState('All');
   const [filterStatus, setFilterStatus] = useState('All');
   const [search, setSearch] = useState('');
   const [form, setForm] = useState({
     studentId: '', studentName: '', admissionNumber: '', studentClass: '', section: '',
     feeType: 'Tuition Fee', amount: '', discount: '0', fine: '0', paidAmount: '', paymentMethod: 'Cash', remarks: '',
-    billingPeriod: 'Yearly'
+    billingPeriod: 'Yearly', isCollectDue: false
   });
   const [receiptData, setReceiptData] = useState(null);
   const [studentSearchQuery, setStudentSearchQuery] = useState('');
@@ -365,8 +475,17 @@ export function CollectFeesView({ showToast }) {
   const [selectedFormSection, setSelectedFormSection] = useState('');
   const [selectedFormDept, setSelectedFormDept] = useState('');
   const [editingId, setEditingId] = useState(null);
+  const [editingPeriodComponents, setEditingPeriodComponents] = useState([]);
   const [showConfirmDelete, setShowConfirmDelete] = useState(null);
   const [isPaidAmountEdited, setIsPaidAmountEdited] = useState(false);
+  const [collectDueState, setCollectDueState] = useState(null);
+  // collectDueState: { period, detailsStudent, tuitionDue, transportDue, otherDue, paymentMethod, remarks, fine } | null
+  const [selectedDetailsStudentId, setSelectedDetailsStudentId] = useState(null);
+  const [sectionTab, setSectionTab] = useState('due'); // 'due', 'completed'
+
+  const [tuitionAmount, setTuitionAmount] = useState('');
+  const [transportAmount, setTransportAmount] = useState('');
+  const [otherAmount, setOtherAmount] = useState('');
 
   useEffect(() => {
     if (!showForm) {
@@ -376,12 +495,18 @@ export function CollectFeesView({ showToast }) {
       setSelectedFormSection('');
       setSelectedFormDept('');
       setEditingId(null);
+      setEditingPeriodComponents([]);
       setIsPaidAmountEdited(false);
+      setTuitionAmount('');
+      setTransportAmount('');
+      setOtherAmount('');
       setForm({
         studentId: '', studentName: '', admissionNumber: '', studentClass: '', section: '',
         feeType: 'Tuition Fee', amount: '', discount: '0', fine: '0', paidAmount: '', paymentMethod: 'Cash', remarks: '',
         billingPeriod: 'Yearly'
       });
+    } else {
+      fetchStudents();
     }
   }, [showForm]);
 
@@ -434,6 +559,29 @@ export function CollectFeesView({ showToast }) {
     }
   }, [selectedFormGrade, selectedFormDept, allowedSectionsForForm, selectedFormSection]);
 
+  const allowedSectionsForFilter = React.useMemo(() => {
+    if (filterClass === 'All') {
+      return activeSections.map(s => s.name);
+    }
+    const matchingGrades = activeGrades.filter(g => {
+      const parsed = parseGradeName(g.name);
+      return parsed.baseGrade === filterClass;
+    });
+    const sectionsUnion = new Set();
+    matchingGrades.forEach(g => {
+      if (g.sections) {
+        g.sections.forEach(sec => sectionsUnion.add(sec));
+      }
+    });
+    return Array.from(sectionsUnion);
+  }, [filterClass, activeGrades, activeSections]);
+
+  useEffect(() => {
+    if (filterSection !== 'All' && !allowedSectionsForFilter.includes(filterSection)) {
+      setFilterSection('All');
+    }
+  }, [filterClass, allowedSectionsForFilter, filterSection]);
+
   const fetchFees = () => {
     const params = new URLSearchParams();
     if (filterClass !== 'All') {
@@ -446,7 +594,6 @@ export function CollectFeesView({ showToast }) {
       }
     }
     if (filterStatus !== 'All') params.set('status', filterStatus);
-    if (search) params.set('search', search);
     fetch(`/api/finance/fees?${params}`)
       .then(r => r.json())
       .then(d => {
@@ -454,10 +601,22 @@ export function CollectFeesView({ showToast }) {
         if (filterClass !== 'All' && isGrade11or12(filterClass) && filterDept === 'All') {
           filtered = d.filter(f => parseGradeName(f.studentClass || f.classId).baseGrade === filterClass);
         }
+        if (filterSection !== 'All') {
+          filtered = filtered.filter(f => f.section === filterSection);
+        }
+        if (search && search.trim()) {
+          const q = search.trim().toLowerCase();
+          filtered = filtered.filter(f => 
+            f.studentName?.toLowerCase().startsWith(q)
+          );
+        }
         setFees(filtered);
         setLoading(false);
       })
-      .catch(() => setLoading(false));
+      .catch(() => {
+        setFees([]);
+        setLoading(false);
+      });
   };
 
   const fetchStudents = () => {
@@ -467,17 +626,29 @@ export function CollectFeesView({ showToast }) {
       .catch(() => {});
 
     fetch('/api/finance/fee-structures')
-    .then(r => r.json())
-      .then(d => setFeeStructures(d))
-      .catch(() => {});
+      .then(r => r.json())
+      .then(d => {
+        if (Array.isArray(d)) {
+          setFeeStructures(d);
+        } else {
+          setFeeStructures([]);
+        }
+      })
+      .catch(() => setFeeStructures([]));
 
     fetch('/api/finance/fee-periods')
       .then(r => r.json())
-      .then(d => setFeePeriods(d || []))
-      .catch(() => {});
+      .then(d => {
+        if (Array.isArray(d)) {
+          setFeePeriods(d);
+        } else {
+          setFeePeriods([]);
+        }
+      })
+      .catch(() => setFeePeriods([]));
   };
 
-  useEffect(() => { fetchFees(); fetchStudents(); }, [filterClass, filterDept, filterStatus, search]);
+  useEffect(() => { fetchFees(); fetchStudents(); }, [filterClass, filterDept, filterSection, filterStatus]);
 
   useEffect(() => {
     if (!form.studentId) {
@@ -486,30 +657,46 @@ export function CollectFeesView({ showToast }) {
         : selectedFormGrade;
 
       if (targetClass) {
-        const classStructures = feeStructures.filter(f => f.studentClass === targetClass);
+        const classStructures = feeStructures.filter(f => 
+          parseGradeName(f.studentClass || '').baseGrade.toLowerCase() === targetClass.toLowerCase()
+        );
         const fstr = classStructures[0];
         const freq = fstr ? (fstr.frequency || 'Yearly') : 'Yearly';
         const bpOptions = getBillingPeriodOptions(freq);
         const defaultBp = bpOptions[0] || 'Full Year';
 
         const matchedFstr = classStructures.find(f => f.monthRange === defaultBp) || fstr;
-        let defaultAmount = 0;
+        let tAmt = 0;
+        let trAmt = 0;
+        let oAmt = 0;
         if (matchedFstr) {
-          if (form.feeType === 'Tuition Fee') defaultAmount = matchedFstr.tuitionFee;
-          else if (form.feeType === 'Transport Fee') defaultAmount = matchedFstr.transportFee;
-          else if (form.feeType === 'Other Charges') defaultAmount = matchedFstr.otherCharges;
+          tAmt = matchedFstr.tuitionFee || 0;
+          trAmt = matchedFstr.transportFee || 0;
+          oAmt = matchedFstr.otherCharges || 0;
         }
 
-        const calculatedAmount = getCalculatedAmount(defaultAmount, freq, !!(matchedFstr && matchedFstr.monthRange));
+        const calcTuition = getCalculatedAmount(tAmt, freq, !!(matchedFstr && matchedFstr.monthRange));
+        const calcTransport = getCalculatedAmount(trAmt, freq, !!(matchedFstr && matchedFstr.monthRange));
+        const calcOther = getCalculatedAmount(oAmt, freq, !!(matchedFstr && matchedFstr.monthRange));
+
+        setTuitionAmount(tAmt ? String(calcTuition) : '');
+        setTransportAmount(trAmt ? String(calcTransport) : '');
+        setOtherAmount(oAmt ? String(calcOther) : '');
+
+        const baseTotal = calcTuition + calcTransport + calcOther;
+        const totalAmount = baseTotal + (Number(form.fine) || 0);
 
         setForm(prev => ({
           ...prev,
-          amount: defaultAmount ? String(calculatedAmount) : '',
-          paidAmount: defaultAmount ? String(calculatedAmount) : '',
+          amount: String(baseTotal),
+          paidAmount: String(totalAmount),
           billingPeriod: defaultBp
         }));
         setIsPaidAmountEdited(false);
       } else {
+        setTuitionAmount('');
+        setTransportAmount('');
+        setOtherAmount('');
         setForm(prev => ({
           ...prev,
           amount: '',
@@ -519,7 +706,7 @@ export function CollectFeesView({ showToast }) {
         setIsPaidAmountEdited(false);
       }
     }
-  }, [selectedFormGrade, selectedFormDept, form.feeType, feeStructures]);
+  }, [selectedFormGrade, selectedFormDept, feeStructures]);
 
   const getBillingPeriodOptions = (frequency) => {
     if (frequency === 'Monthly') {
@@ -531,9 +718,9 @@ export function CollectFeesView({ showToast }) {
     const customPeriods = feePeriods.filter(fp => fp.frequency === frequency).map(fp => fp.name);
     if (customPeriods.length > 0) return customPeriods;
     if (frequency === 'Quarterly') {
-      return ['Q1 (Apr-Jun)', 'Q2 (Jul-Sep)', 'Q3 (Oct-Dec)', 'Q4 (Jan-Mar)'];
+      return [];
     } else if (frequency === 'Half-Yearly') {
-      return ['First Half (H1)', 'Second Half (H2)'];
+      return [];
     } else {
       return ['Full Year'];
     }
@@ -555,21 +742,35 @@ export function CollectFeesView({ showToast }) {
       setSelectedFormSection(stu.section);
       setSelectedFormDept(parsed.department);
 
-      const classStructures = feeStructures.filter(f => f.studentClass === stu.studentClass);
+      const studentBase = parseGradeName(stu.studentClass || '').baseGrade.toLowerCase();
+      const classStructures = feeStructures.filter(f => 
+        parseGradeName(f.studentClass || '').baseGrade.toLowerCase() === studentBase
+      );
       const fstr = classStructures[0];
       const freq = fstr ? (fstr.frequency || 'Yearly') : 'Yearly';
       const bpOptions = getBillingPeriodOptions(freq);
       const defaultBp = bpOptions[0] || 'Full Year';
 
       const matchedFstr = classStructures.find(f => f.monthRange === defaultBp) || fstr;
-      let defaultAmount = 0;
+      let tAmt = 0;
+      let trAmt = 0;
+      let oAmt = 0;
       if (matchedFstr) {
-        if (form.feeType === 'Tuition Fee') defaultAmount = matchedFstr.tuitionFee;
-        else if (form.feeType === 'Transport Fee') defaultAmount = matchedFstr.transportFee;
-        else if (form.feeType === 'Other Charges') defaultAmount = matchedFstr.otherCharges;
+        tAmt = matchedFstr.tuitionFee || 0;
+        trAmt = matchedFstr.transportFee || 0;
+        oAmt = matchedFstr.otherCharges || 0;
       }
 
-      const calculatedAmount = getCalculatedAmount(defaultAmount, freq, !!(matchedFstr && matchedFstr.monthRange));
+      const calcTuition = getCalculatedAmount(tAmt, freq, !!(matchedFstr && matchedFstr.monthRange));
+      const calcTransport = getCalculatedAmount(trAmt, freq, !!(matchedFstr && matchedFstr.monthRange));
+      const calcOther = getCalculatedAmount(oAmt, freq, !!(matchedFstr && matchedFstr.monthRange));
+
+      setTuitionAmount(tAmt ? String(calcTuition) : '');
+      setTransportAmount(trAmt ? String(calcTransport) : '');
+      setOtherAmount(oAmt ? String(calcOther) : '');
+
+      const baseTotal = calcTuition + calcTransport + calcOther;
+      const totalAmount = baseTotal + (Number(form.fine) || 0);
 
       setForm(prev => ({
         ...prev,
@@ -578,14 +779,17 @@ export function CollectFeesView({ showToast }) {
         admissionNumber: stu.admissionNumber,
         studentClass: stu.studentClass,
         section: stu.section,
-        amount: defaultAmount ? String(calculatedAmount) : '',
-        paidAmount: defaultAmount ? String(calculatedAmount) : '',
+        amount: String(baseTotal),
+        paidAmount: String(totalAmount),
         billingPeriod: defaultBp
       }));
       setIsPaidAmountEdited(false);
       setStudentSearchQuery(stu.fullName || stu.name);
       setShowStudentDropdown(false);
     } else {
+      setTuitionAmount('');
+      setTransportAmount('');
+      setOtherAmount('');
       setForm(prev => ({
         ...prev,
         studentId: '',
@@ -605,98 +809,45 @@ export function CollectFeesView({ showToast }) {
 
   const handleStudentSelect = (e) => {
     const stu = students.find(s => s.id === e.target.value);
-    if (stu) {
-      const classStructures = feeStructures.filter(f => f.studentClass === stu.studentClass);
-      const fstr = classStructures[0];
-      const freq = fstr ? (fstr.frequency || 'Yearly') : 'Yearly';
-      const bpOptions = getBillingPeriodOptions(freq);
-      const defaultBp = bpOptions[0] || 'Full Year';
-
-      const matchedFstr = classStructures.find(f => f.monthRange === defaultBp) || fstr;
-      let defaultAmount = 0;
-      if (matchedFstr) {
-        if (form.feeType === 'Tuition Fee') defaultAmount = matchedFstr.tuitionFee;
-        else if (form.feeType === 'Transport Fee') defaultAmount = matchedFstr.transportFee;
-        else if (form.feeType === 'Other Charges') defaultAmount = matchedFstr.otherCharges;
-      }
-
-      const calculatedAmount = getCalculatedAmount(defaultAmount, freq, !!(matchedFstr && matchedFstr.monthRange));
-
-      setForm(prev => ({
-        ...prev,
-        studentId: stu.id,
-        studentName: stu.fullName || stu.name,
-        admissionNumber: stu.admissionNumber,
-        studentClass: stu.studentClass,
-        section: stu.section,
-        amount: defaultAmount ? String(calculatedAmount) : '',
-        paidAmount: defaultAmount ? String(calculatedAmount) : '',
-        billingPeriod: defaultBp
-      }));
-      setIsPaidAmountEdited(false);
-    } else {
-      setForm(prev => ({
-        ...prev,
-        studentId: '',
-        studentName: '',
-        admissionNumber: '',
-        studentClass: '',
-        section: '',
-        amount: '',
-        paidAmount: '',
-        billingPeriod: 'Yearly'
-      }));
-      setIsPaidAmountEdited(false);
-    }
-  };
-
-  const handleFeeTypeChange = (newFeeType, selectedStudentId = form.studentId) => {
-    const stu = students.find(s => s.id === selectedStudentId);
-    let defaultAmount = 0;
-    let freq = 'Yearly';
-    let matchedFstr = null;
-    if (stu) {
-      const classStructures = feeStructures.filter(f => f.studentClass === stu.studentClass);
-      matchedFstr = classStructures.find(f => f.monthRange === form.billingPeriod) || classStructures[0];
-      if (matchedFstr) {
-        freq = matchedFstr.frequency || 'Yearly';
-        if (newFeeType === 'Tuition Fee') defaultAmount = matchedFstr.tuitionFee;
-        else if (newFeeType === 'Transport Fee') defaultAmount = matchedFstr.transportFee;
-        else if (newFeeType === 'Other Charges') defaultAmount = matchedFstr.otherCharges;
-      }
-    }
-    const calculatedAmount = getCalculatedAmount(defaultAmount, freq, !!(matchedFstr && matchedFstr.monthRange));
-    setForm(prev => ({
-      ...prev,
-      feeType: newFeeType,
-      amount: defaultAmount ? String(calculatedAmount) : prev.amount,
-      paidAmount: defaultAmount ? String(calculatedAmount) : prev.paidAmount
-    }));
-    setIsPaidAmountEdited(false);
+    selectStudent(stu);
   };
 
   const handleBillingPeriodChange = (newBp) => {
     const stu = students.find(s => s.id === form.studentId);
-    let defaultAmount = 0;
+    let tAmt = 0;
+    let trAmt = 0;
+    let oAmt = 0;
     let freq = 'Yearly';
     let matchedFstr = null;
     if (stu) {
-      const classStructures = feeStructures.filter(f => f.studentClass === stu.studentClass);
+      const studentBase = parseGradeName(stu.studentClass || '').baseGrade.toLowerCase();
+      const classStructures = feeStructures.filter(f => 
+        parseGradeName(f.studentClass || '').baseGrade.toLowerCase() === studentBase
+      );
       matchedFstr = classStructures.find(f => f.monthRange === newBp) || classStructures[0];
       if (matchedFstr) {
         freq = matchedFstr.frequency || 'Yearly';
-        if (form.feeType === 'Tuition Fee') defaultAmount = matchedFstr.tuitionFee;
-        else if (form.feeType === 'Transport Fee') defaultAmount = matchedFstr.transportFee;
-        else if (form.feeType === 'Other Charges') defaultAmount = matchedFstr.otherCharges;
+        tAmt = matchedFstr.tuitionFee || 0;
+        trAmt = matchedFstr.transportFee || 0;
+        oAmt = matchedFstr.otherCharges || 0;
       }
     }
-    const calculatedAmount = getCalculatedAmount(defaultAmount, freq, !!(matchedFstr && matchedFstr.monthRange));
+    const calcTuition = getCalculatedAmount(tAmt, freq, !!(matchedFstr && matchedFstr.monthRange));
+    const calcTransport = getCalculatedAmount(trAmt, freq, !!(matchedFstr && matchedFstr.monthRange));
+    const calcOther = getCalculatedAmount(oAmt, freq, !!(matchedFstr && matchedFstr.monthRange));
+
+    setTuitionAmount(tAmt ? String(calcTuition) : '');
+    setTransportAmount(trAmt ? String(calcTransport) : '');
+    setOtherAmount(oAmt ? String(calcOther) : '');
+
+    const baseTotal = calcTuition + calcTransport + calcOther;
+    const totalAmount = baseTotal + (Number(form.fine) || 0);
 
     setForm(prev => ({
       ...prev,
       billingPeriod: newBp,
-      amount: defaultAmount ? String(calculatedAmount) : prev.amount,
-      paidAmount: defaultAmount ? String(calculatedAmount) : prev.paidAmount
+      amount: String(baseTotal),
+      paidAmount: String(totalAmount)
     }));
     setIsPaidAmountEdited(false);
   };
@@ -722,6 +873,37 @@ export function CollectFeesView({ showToast }) {
     });
   };
 
+  const handleAmountChange = (type, val) => {
+    let tAmt = type === 'Tuition Fee' ? val : tuitionAmount;
+    let trAmt = type === 'Transport Fee' ? val : transportAmount;
+    let oAmt = type === 'Other Charges' ? val : otherAmount;
+    
+    if (type === 'Tuition Fee') setTuitionAmount(val);
+    else if (type === 'Transport Fee') setTransportAmount(val);
+    else if (type === 'Other Charges') setOtherAmount(val);
+
+    const baseTotal = (Number(tAmt) || 0) + (Number(trAmt) || 0) + (Number(oAmt) || 0);
+    const totalAmount = baseTotal + (Number(form.fine) || 0);
+    
+    setForm(prev => ({
+      ...prev,
+      amount: String(baseTotal),
+      paidAmount: !isPaidAmountEdited || prev.paidAmount === '' || prev.paidAmount === '0' ? String(totalAmount) : prev.paidAmount
+    }));
+  };
+
+  const handleFineChange = (val) => {
+    setForm(prev => {
+      const nextForm = { ...prev, fine: val };
+      const baseTotal = (Number(tuitionAmount) || 0) + (Number(transportAmount) || 0) + (Number(otherAmount) || 0);
+      const totalAmount = baseTotal + (Number(val) || 0);
+      if (!isPaidAmountEdited || prev.paidAmount === '' || prev.paidAmount === '0') {
+        nextForm.paidAmount = String(totalAmount);
+      }
+      return nextForm;
+    });
+  };
+
   const handleEdit = (fee) => {
     setEditingId(fee.id || fee.feeId);
     setForm({
@@ -732,18 +914,229 @@ export function CollectFeesView({ showToast }) {
       section: fee.section || fee.sectionId || '',
       feeType: fee.feeType,
       amount: String(fee.amount || fee.totalAmount || ''),
-      discount: String(fee.discount || 0),
+      discount: '0',
       fine: String(fee.fine || 0),
       paidAmount: String(fee.paidAmount || ''),
       paymentMethod: fee.paymentMethod || 'Cash',
-      remarks: fee.remarks || ''
+      remarks: fee.remarks || '',
+      billingPeriod: fee.billingPeriod || 'Yearly'
     });
+    
+    if (fee.feeType === 'Tuition Fee') {
+      setTuitionAmount(String(fee.amount || ''));
+      setTransportAmount('');
+      setOtherAmount('');
+    } else if (fee.feeType === 'Transport Fee') {
+      setTuitionAmount('');
+      setTransportAmount(String(fee.amount || ''));
+      setOtherAmount('');
+    } else {
+      setTuitionAmount('');
+      setTransportAmount('');
+      setOtherAmount(String(fee.amount || ''));
+    }
+
     setStudentSearchQuery(fee.studentName);
     const parsed = parseGradeName(fee.studentClass || fee.classId);
     setSelectedFormGrade(parsed.baseGrade);
     setSelectedFormSection(fee.section || fee.sectionId || '');
     setSelectedFormDept(parsed.department);
     setIsPaidAmountEdited(true);
+    setShowForm(true);
+  };
+
+  const handlePrintPeriod = (period) => {
+    const firstRaw = period.components[0]?.rawFee || {};
+    const totalAmt = period.components.reduce((sum, c) => sum + c.amount, 0);
+    const totalFine = period.components.reduce((sum, c) => sum + c.fine, 0);
+    const totalPaid = period.components.reduce((sum, c) => sum + c.paidAmount, 0);
+    const totalDue = period.components.reduce((sum, c) => sum + c.dueAmount, 0);
+
+    setReceiptData({
+      isPeriodReceipt: true,
+      studentId: firstRaw.studentId,
+      admissionNumber: firstRaw.admissionNumber || '',
+      studentName: firstRaw.studentName,
+      studentClass: firstRaw.studentClass,
+      section: firstRaw.section,
+      billingPeriod: period.name,
+      components: period.components,
+      amount: totalAmt,
+      discount: 0,
+      fine: totalFine,
+      totalAmount: totalAmt + totalFine,
+      paidAmount: totalPaid,
+      dueAmount: totalDue,
+      paymentMethod: period.paymentMethod || firstRaw.paymentMethod,
+      paymentDate: period.paymentDate || firstRaw.paymentDate,
+      transactionId: firstRaw.transactionId,
+      receiptNumber: period.receiptNumber || firstRaw.receiptNumber
+    });
+  };
+
+  const handleEditPeriod = (period) => {
+    const firstRaw = period.components[0]?.rawFee || {};
+    
+    const tuitionComp = period.components.find(c => c.feeType === 'Tuition Fee');
+    const transportComp = period.components.find(c => c.feeType === 'Transport Fee');
+    const otherComp = period.components.find(c => c.feeType === 'Other Charges');
+    
+    setTuitionAmount(tuitionComp ? String(tuitionComp.paidAmount) : '');
+    setTransportAmount(transportComp ? String(transportComp.paidAmount) : '');
+    setOtherAmount(otherComp ? String(otherComp.paidAmount) : '');
+    
+    const totalFine = period.components.reduce((sum, c) => sum + c.fine, 0);
+    const totalPaid = period.components.reduce((sum, c) => sum + c.paidAmount, 0);
+    
+    setEditingId(`PERIOD_${period.name}_${firstRaw.studentId}`);
+    setEditingPeriodComponents(period.components.map(c => c.rawFee).filter(Boolean));
+    
+    setForm({
+      studentId: firstRaw.studentId,
+      studentName: firstRaw.studentName,
+      admissionNumber: firstRaw.admissionNumber || '',
+      studentClass: firstRaw.studentClass || '',
+      section: firstRaw.section || '',
+      feeType: 'Tuition Fee',
+      amount: String(totalPaid),
+      discount: '0',
+      fine: String(totalFine),
+      paidAmount: String(totalPaid),
+      paymentMethod: firstRaw.paymentMethod || 'Cash',
+      remarks: firstRaw.remarks || '',
+      billingPeriod: period.name
+    });
+    
+    setStudentSearchQuery(firstRaw.studentName);
+    const parsed = parseGradeName(firstRaw.studentClass);
+    setSelectedFormGrade(parsed.baseGrade);
+    setSelectedFormSection(firstRaw.section || '');
+    setSelectedFormDept(parsed.department);
+    setIsPaidAmountEdited(false);
+    setShowForm(true);
+  };
+
+  const handleCollectDue = (period, detailsStudent) => {
+    const dueComponents = period.components.filter(c => c.dueAmount > 0);
+    if (dueComponents.length === 0) return;
+    const tuitionComp = dueComponents.find(c => c.feeType === 'Tuition Fee');
+    const transportComp = dueComponents.find(c => c.feeType === 'Transport Fee');
+    const otherComp = dueComponents.find(c => c.feeType === 'Other Charges');
+    // Stay on popup – show the inline mini-form
+    setCollectDueState({
+      period,
+      detailsStudent,
+      tuitionDue: tuitionComp ? String(tuitionComp.dueAmount) : '',
+      transportDue: transportComp ? String(transportComp.dueAmount) : '',
+      otherDue: otherComp ? String(otherComp.dueAmount) : '',
+      paymentMethod: 'Cash',
+      remarks: '',
+      fine: '0'
+    });
+  };
+
+  const handleSubmitDueCollection = async (e) => {
+    e.preventDefault();
+    if (!collectDueState) return;
+    const { period, detailsStudent, tuitionDue, transportDue, otherDue, paymentMethod, remarks, fine } = collectDueState;
+    const firstRaw = period.components[0]?.rawFee || {};
+    const studentId = firstRaw.studentId || detailsStudent?.studentId;
+    const studentName = firstRaw.studentName || detailsStudent?.studentName;
+    const admissionNumber = firstRaw.admissionNumber || detailsStudent?.admissionNumber || '';
+    const studentClass = firstRaw.studentClass || detailsStudent?.studentClass || '';
+    const section = firstRaw.section || detailsStudent?.section || '';
+    const fineNum = Number(fine) || 0;
+    const dueItems = [];
+    if (Number(tuitionDue) > 0) dueItems.push({ type: 'Tuition Fee', amt: Number(tuitionDue) });
+    if (Number(transportDue) > 0) dueItems.push({ type: 'Transport Fee', amt: Number(transportDue) });
+    if (Number(otherDue) > 0) dueItems.push({ type: 'Other Charges', amt: Number(otherDue) });
+    if (dueItems.length === 0) {
+      showToast('No due amounts to collect.', 'error');
+      return;
+    }
+    try {
+      let savedReceipt = null;
+      for (let i = 0; i < dueItems.length; i++) {
+        const { type, amt } = dueItems[i];
+        const fn = i === 0 ? fineNum : 0;
+        const payload = {
+          studentId,
+          studentName,
+          admissionNumber,
+          studentClass,
+          section,
+          feeType: type,
+          amount: amt,
+          discount: 0,
+          fine: fn,
+          paidAmount: amt + fn,
+          paymentMethod,
+          remarks: 'DUE_COLLECTION',
+          billingPeriod: period.name
+        };
+        const res = await fetch('/api/finance/fees', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        if (!res.ok) {
+          const err = await res.json();
+          throw new Error(err.error || 'Server error recording due collection.');
+        }
+        const data = await res.json();
+        if (i === 0) savedReceipt = data;
+      }
+      showToast('Due amount collected successfully!');
+      if (savedReceipt) setReceiptData(savedReceipt);
+      setCollectDueState(null);
+      fetchFees();
+    } catch (err) {
+      showToast(err.message || 'Network error', 'error');
+    }
+  };
+
+  const handleNewPeriodCollect = (student) => {
+    const classStructures = feeStructures.filter(fs => fs.studentClass === student.studentClass);
+    let matchedFs = classStructures[0] || {};
+    const freq = matchedFs.frequency || 'Yearly';
+    const periodName = matchedFs.monthRange || 'Full Year';
+    const hasMonthRange = !!matchedFs.monthRange;
+
+    const configTuition = getCalculatedAmount(matchedFs.tuitionFee || 0, freq, hasMonthRange);
+    const configTransport = getCalculatedAmount(matchedFs.transportFee || 0, freq, hasMonthRange);
+    const configOther = getCalculatedAmount(matchedFs.otherCharges || 0, freq, hasMonthRange);
+
+    setTuitionAmount(configTuition > 0 ? String(configTuition) : '');
+    setTransportAmount(configTransport > 0 ? String(configTransport) : '');
+    setOtherAmount(configOther > 0 ? String(configOther) : '');
+
+    const totalAmt = configTuition + configTransport + configOther;
+
+    setEditingId(null);
+    setEditingPeriodComponents([]);
+
+    setForm({
+      studentId: student.studentId || student.id,
+      studentName: student.studentName || student.fullName || student.name,
+      admissionNumber: student.admissionNumber || '',
+      studentClass: student.studentClass || '',
+      section: student.section || '',
+      feeType: 'Tuition Fee',
+      amount: String(totalAmt),
+      discount: '0',
+      fine: '0',
+      paidAmount: String(totalAmt),
+      paymentMethod: 'Cash',
+      remarks: '',
+      billingPeriod: periodName
+    });
+
+    setStudentSearchQuery(student.studentName || student.fullName || student.name);
+    const parsed = parseGradeName(student.studentClass);
+    setSelectedFormGrade(parsed.baseGrade);
+    setSelectedFormSection(student.section || '');
+    setSelectedFormDept(parsed.department || '');
+    setIsPaidAmountEdited(false);
     setShowForm(true);
   };
 
@@ -754,32 +1147,209 @@ export function CollectFeesView({ showToast }) {
       return;
     }
     try {
-      const url = editingId ? `/api/finance/fees/${editingId}` : '/api/finance/fees';
-      const method = editingId ? 'PUT' : 'POST';
-      const res = await fetch(url, {
-        method: method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form)
-      });
-      if (res.ok) {
-        const data = await res.json();
-        if (editingId) {
-          showToast(`Fee record updated successfully!`);
+      if (editingId) {
+        if (editingId.startsWith('PERIOD_') || editingPeriodComponents.length > 0) {
+          const activeFeeTypes = [];
+          if (Number(tuitionAmount) > 0) activeFeeTypes.push({ type: 'Tuition Fee', amt: Number(tuitionAmount) });
+          if (Number(transportAmount) > 0) activeFeeTypes.push({ type: 'Transport Fee', amt: Number(transportAmount) });
+          if (Number(otherAmount) > 0) activeFeeTypes.push({ type: 'Other Charges', amt: Number(otherAmount) });
+
+          if (activeFeeTypes.length === 0) {
+            showToast('Please enter an amount for at least one fee type.', 'error');
+            return;
+          }
+
+          let remainingPaid = form.paidAmount !== '' ? Number(form.paidAmount) : null;
+          const totalCollectAmount = activeFeeTypes.reduce((acc, curr) => acc + curr.amt, 0) + Number(form.fine || 0);
+          const isFullPayment = (remainingPaid === null || remainingPaid === totalCollectAmount);
+
+          // 1. Deletions: any components that were present in the period but are now 0
+          const typesToKeep = activeFeeTypes.map(x => x.type);
+          const componentsToDelete = editingPeriodComponents.filter(c => !typesToKeep.includes(c.feeType));
+          for (let c of componentsToDelete) {
+            const res = await fetch(`/api/finance/fees/${c.id || c.feeId}`, { method: 'DELETE' });
+            if (!res.ok) throw new Error(`Failed to delete component ${c.feeType}`);
+          }
+
+          const studentBase = parseGradeName(form.studentClass || '').baseGrade.toLowerCase();
+          const classStructures = feeStructures.filter(fs => 
+            parseGradeName(fs.studentClass || '').baseGrade.toLowerCase() === studentBase
+          );
+          const matchedFs = classStructures.find(fs => (fs.monthRange || 'Full Year') === form.billingPeriod) || classStructures[0];
+          const freq = matchedFs ? (matchedFs.frequency || 'Yearly') : 'Yearly';
+          const hasMonthRange = !!(matchedFs && matchedFs.monthRange);
+
+          // 2. Updates & Insertions
+          for (let i = 0; i < activeFeeTypes.length; i++) {
+            const { type, amt } = activeFeeTypes[i];
+            const fn = i === 0 ? Number(form.fine || 0) : 0;
+            const itemTotal = amt + fn;
+
+            let itemPaid = itemTotal;
+            if (!isFullPayment) {
+              if (remainingPaid !== null) {
+                itemPaid = Math.min(remainingPaid, itemTotal);
+                remainingPaid -= itemPaid;
+              } else {
+                itemPaid = itemTotal;
+              }
+            }
+
+            const existingComp = editingPeriodComponents.find(c => c.feeType === type);
+
+            let structureAmt = amt;
+            if (type === 'Tuition Fee' && matchedFs) {
+              structureAmt = getCalculatedAmount(matchedFs.tuitionFee || 0, freq, hasMonthRange);
+            } else if (type === 'Transport Fee' && matchedFs) {
+              structureAmt = getCalculatedAmount(matchedFs.transportFee || 0, freq, hasMonthRange);
+            } else if (type === 'Other Charges' && matchedFs) {
+              structureAmt = getCalculatedAmount(matchedFs.otherCharges || 0, freq, hasMonthRange);
+            }
+
+            const isCollectDue = !!form.isCollectDue;
+
+            // When collecting due on an existing record, the backend replaces paidAmount.
+            // So we must send the CUMULATIVE total (already paid + new payment).
+            let finalPaid = itemPaid;
+            if (isCollectDue && existingComp) {
+              finalPaid = (existingComp.paidAmount || 0) + itemPaid;
+            }
+
+            const payload = {
+              studentId: form.studentId,
+              studentName: form.studentName,
+              admissionNumber: form.admissionNumber || '',
+              studentClass: form.studentClass || '',
+              section: form.section || '',
+              feeType: type,
+              amount: existingComp ? existingComp.amount : structureAmt,
+              discount: 0,
+              fine: fn,
+              paidAmount: finalPaid,
+              paymentMethod: form.paymentMethod || 'Cash',
+              remarks: form.remarks || '',
+              billingPeriod: form.billingPeriod || 'Yearly'
+            };
+
+            const url = existingComp ? `/api/finance/fees/${existingComp.id || existingComp.feeId}` : '/api/finance/fees';
+            const method = existingComp ? 'PUT' : 'POST';
+
+            const res = await fetch(url, {
+              method,
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload)
+            });
+            if (!res.ok) {
+              const err = await res.json();
+              throw new Error(err.error || 'Server error saving fee component.');
+            }
+          }
+
+          showToast(form.isCollectDue ? `Due amount collected successfully!` : `Fee period updated successfully!`);
+          setShowForm(false);
+          fetchFees();
         } else {
-          showToast(`Fee collected successfully! Receipt: ${data.receiptNumber}`);
-          setReceiptData(data);
+          const payload = {
+            studentId: form.studentId,
+            studentName: form.studentName,
+            admissionNumber: form.admissionNumber || '',
+            studentClass: form.studentClass || '',
+            section: form.section || '',
+            feeType: form.feeType,
+            amount: Number(form.feeType === 'Tuition Fee' ? tuitionAmount : (form.feeType === 'Transport Fee' ? transportAmount : otherAmount)) || 0,
+            discount: 0,
+            fine: Number(form.fine) || 0,
+            paidAmount: Number(form.paidAmount) || 0,
+            paymentMethod: form.paymentMethod || 'Cash',
+            remarks: form.remarks || '',
+            billingPeriod: form.billingPeriod || 'Yearly'
+          };
+          const res = await fetch(`/api/finance/fees/${editingId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+          if (res.ok) {
+            showToast(`Fee record updated successfully!`);
+            setShowForm(false);
+            fetchFees();
+          } else {
+            const err = await res.json();
+            showToast(err.error || 'Failed to update record', 'error');
+          }
+        }
+      } else {
+        const activeFeeTypes = [];
+        if (Number(tuitionAmount) > 0) activeFeeTypes.push({ type: 'Tuition Fee', amt: Number(tuitionAmount) });
+        if (Number(transportAmount) > 0) activeFeeTypes.push({ type: 'Transport Fee', amt: Number(transportAmount) });
+        if (Number(otherAmount) > 0) activeFeeTypes.push({ type: 'Other Charges', amt: Number(otherAmount) });
+
+        if (activeFeeTypes.length === 0) {
+          showToast('Please enter an amount for at least one fee type.', 'error');
+          return;
+        }
+
+        let remainingPaid = form.paidAmount !== '' ? Number(form.paidAmount) : null;
+        const totalCollectAmount = activeFeeTypes.reduce((acc, curr) => acc + curr.amt, 0) + Number(form.fine || 0);
+        const isFullPayment = (remainingPaid === null || remainingPaid === totalCollectAmount);
+
+        let savedReceipt = null;
+        for (let i = 0; i < activeFeeTypes.length; i++) {
+          const { type, amt } = activeFeeTypes[i];
+          const fn = i === 0 ? Number(form.fine || 0) : 0;
+          const itemTotal = amt + fn;
+
+          let itemPaid = itemTotal;
+          if (!isFullPayment) {
+            if (remainingPaid !== null) {
+              itemPaid = Math.min(remainingPaid, itemTotal);
+              remainingPaid -= itemPaid;
+            } else {
+              itemPaid = itemTotal;
+            }
+          }
+
+          const payload = {
+            studentId: form.studentId,
+            studentName: form.studentName,
+            admissionNumber: form.admissionNumber || '',
+            studentClass: form.studentClass || '',
+            section: form.section || '',
+            feeType: type,
+            amount: amt,
+            discount: 0,
+            fine: fn,
+            paidAmount: itemPaid,
+            paymentMethod: form.paymentMethod || 'Cash',
+            remarks: form.remarks || '',
+            billingPeriod: form.billingPeriod || 'Yearly'
+          };
+
+          const res = await fetch('/api/finance/fees', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+          if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.error || 'Server error recording fee.');
+          }
+          const data = await res.json();
+          if (i === 0) {
+            savedReceipt = data;
+          }
+        }
+
+        showToast(`Fee(s) collected successfully!`);
+        if (savedReceipt) {
+          setReceiptData(savedReceipt);
         }
         setShowForm(false);
-        setForm({ studentId: '', studentName: '', admissionNumber: '', studentClass: '', section: '',
-          feeType: 'Tuition Fee', amount: '', discount: '0', fine: '0', paidAmount: '', paymentMethod: 'Cash', remarks: '',
-          billingPeriod: 'Yearly' });
-        setEditingId(null);
         fetchFees();
-      } else {
-        const err = await res.json();
-        showToast(err.error || 'Failed to submit fee record', 'error');
       }
-    } catch { showToast('Network error', 'error'); }
+    } catch (err) {
+      showToast(err.message || 'Network error', 'error');
+    }
   };
 
   const inputStyle = {
@@ -804,108 +1374,408 @@ export function CollectFeesView({ showToast }) {
     return matchesSearch && matchesGrade && matchesSection && matchesDept;
   });
 
+  const groupFeesByStudent = (feesArray) => {
+    if (filterClass === 'All' || filterSection === 'All') {
+      return [];
+    }
+
+    const matchingStudents = students.filter(student => {
+      const parsed = parseGradeName(student.studentClass);
+      const matchesClass = parsed.baseGrade === filterClass && (!isGrade11or12(filterClass) || filterDept === 'All' || parsed.department === filterDept);
+      const matchesSection = student.section === filterSection;
+      const sq = search.toLowerCase();
+      const firstName = (student.fullName || student.name || '').toLowerCase().split(/\s+/)[0] || '';
+      const matchesSearch = !search || firstName.startsWith(sq);
+      return matchesClass && matchesSection && matchesSearch;
+    });
+
+    return matchingStudents.map(student => {
+      const studentFees = (feesArray || []).filter(f => 
+        f.studentId === student.id || f.admissionNumber === student.admissionNumber
+      );
+
+      const studentBase = parseGradeName(student.studentClass || '').baseGrade.toLowerCase();
+      const classStructures = feeStructures.filter(fs => 
+        parseGradeName(fs.studentClass || '').baseGrade.toLowerCase() === studentBase
+      );
+      const periodNames = [...new Set(classStructures.map(fs => fs.monthRange || 'Full Year'))];
+      if (periodNames.length === 0) {
+        periodNames.push('Full Year');
+      }
+
+      const periodsList = periodNames.map(periodName => {
+        let matchedFs = classStructures.find(fs => (fs.monthRange || 'Full Year') === periodName);
+        if (!matchedFs && classStructures.length > 0) {
+          matchedFs = classStructures[0];
+        }
+
+        const freq = matchedFs ? (matchedFs.frequency || 'Yearly') : 'Yearly';
+        const hasMonthRange = !!(matchedFs && matchedFs.monthRange);
+
+        const configTuition = matchedFs ? getCalculatedAmount(matchedFs.tuitionFee || 0, freq, hasMonthRange) : 0;
+        const configTransport = matchedFs ? getCalculatedAmount(matchedFs.transportFee || 0, freq, hasMonthRange) : 0;
+        const configOther = matchedFs ? getCalculatedAmount(matchedFs.otherCharges || 0, freq, hasMonthRange) : 0;
+
+        const configMap = {
+          'Tuition Fee': configTuition,
+          'Transport Fee': configTransport,
+          'Other Charges': configOther
+        };
+
+        const studentPeriodFees = studentFees.filter(f => f.billingPeriod === periodName);
+        const alignedComponents = [];
+        const standardTypes = ['Tuition Fee', 'Transport Fee', 'Other Charges'];
+
+        standardTypes.forEach(type => {
+          const configAmt = configMap[type] || 0;
+          // Primary payment record (not a due-collection entry)
+          const pay = studentPeriodFees.find(f => f.feeType === type && f.remarks !== 'DUE_COLLECTION');
+          // Due-collection records created via inline due collection
+          const dueCollectionRecords = studentPeriodFees.filter(f => f.feeType === type && f.remarks === 'DUE_COLLECTION');
+          const totalDueCollected = dueCollectionRecords.reduce((s, r) => s + (r.paidAmount || 0), 0);
+
+          if (configAmt > 0 || pay || dueCollectionRecords.length > 0) {
+            const basePaid = pay ? pay.paidAmount : 0;
+            const fine = pay ? pay.fine : 0;
+            const totalPaid = basePaid + totalDueCollected;
+            const due = Math.max(0, (configAmt + fine) - totalPaid);
+
+            alignedComponents.push({
+              feeType: type,
+              amount: configAmt,
+              fine,
+              paidAmount: totalPaid,
+              dueAmount: due,
+              status: pay ? pay.paymentStatus : 'Pending',
+              rawFee: pay ? pay : {
+                studentId: student.id,
+                studentName: student.fullName || student.name,
+                admissionNumber: student.admissionNumber,
+                studentClass: student.studentClass,
+                section: student.section,
+                feeType: type,
+                amount: configAmt,
+                discount: 0,
+                fine: 0,
+                paidAmount: 0,
+                dueAmount: configAmt,
+                paymentStatus: 'Pending',
+                paymentMethod: 'N/A',
+                paymentDate: 'N/A',
+                billingPeriod: periodName
+              },
+              dueCollectionRecords
+            });
+          }
+        });
+
+        let totalFee = 0;
+        let paidAmount = 0;
+        let dueAmount = 0;
+
+        alignedComponents.forEach(comp => {
+          totalFee += comp.amount + comp.fine;
+          paidAmount += comp.paidAmount;
+          dueAmount += comp.dueAmount;
+        });
+
+        let status = 'Pending';
+        if (dueAmount <= 0) {
+          status = 'Paid';
+        } else if (paidAmount > 0) {
+          status = 'Partial';
+        }
+
+        const firstPay = studentPeriodFees[0] || {};
+
+        return {
+          name: periodName,
+          components: alignedComponents,
+          totalPeriodFee: totalFee,
+          paidPeriodAmount: paidAmount,
+          duePeriodAmount: dueAmount,
+          status,
+          paymentMethod: firstPay.paymentMethod || 'N/A',
+          paymentDate: firstPay.paymentDate || 'N/A',
+          receiptNumber: firstPay.receiptNumber || 'N/A'
+        };
+      });
+
+      let overallTotal = 0;
+      let overallPaid = 0;
+      let overallDue = 0;
+
+      periodsList.forEach(p => {
+        overallTotal += p.totalPeriodFee;
+        overallPaid += p.paidPeriodAmount;
+        overallDue += p.duePeriodAmount;
+      });
+
+      let overallStatus = 'Pending';
+      if (overallDue <= 0) {
+        overallStatus = 'Paid';
+      } else if (overallPaid > 0) {
+        overallStatus = 'Partial';
+      }
+
+      return {
+        studentId: student.id,
+        studentName: student.fullName || student.name,
+        admissionNumber: student.admissionNumber,
+        studentClass: student.studentClass,
+        section: student.section,
+        rollNumber: student.rollNumber || student.roll || '',
+        periods: periodsList,
+        overallTotal,
+        overallPaid,
+        overallDue,
+        overallStatus
+      };
+    });
+  };
+
+  const groupedStudents = groupFeesByStudent(fees);
+
+  const toggleStudentExpand = (studentId) => {
+    setExpandedStudents(prev => ({
+      ...prev,
+      [studentId]: !prev[studentId]
+    }));
+  };
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
       {/* Receipt Modal */}
-      {receiptData && createPortal(
-        <div className="modal-overlay" onClick={() => setReceiptData(null)}>
-          <div onClick={e => e.stopPropagation()} style={{
-            width: '100%', maxWidth: '440px', background: 'var(--bg-elevated)', borderRadius: '20px',
-            border: '1px solid var(--border-glass)', padding: '32px', boxShadow: 'var(--shadow-lg)'
-          }}>
-            <div style={{ textAlign: 'center', marginBottom: '24px' }}>
-              <CheckCircle size={40} style={{ color: '#10b981', marginBottom: '12px' }} />
-              <h3 style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--text-main)' }}>Payment Receipt</h3>
-              <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{receiptData.receiptNumber}</p>
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', padding: '16px', background: 'var(--bg-card-subtle)', borderRadius: '12px', border: '1px solid var(--border-subtle)' }}>
-              {[
-                ['Student', receiptData.studentName],
-                ['Class', `${receiptData.studentClass}-${receiptData.section}`],
-                ['Billing Period', receiptData.billingPeriod || 'Yearly'],
-                ['Fee Type', receiptData.feeType],
-                ['Amount', `₹${receiptData.amount?.toLocaleString()}`],
-                ['Discount', `₹${receiptData.discount?.toLocaleString()}`],
-                ['Fine', `₹${receiptData.fine?.toLocaleString()}`],
-                ['Total', `₹${receiptData.totalAmount?.toLocaleString()}`],
-                ['Paid', `₹${receiptData.paidAmount?.toLocaleString()}`],
-                ['Due', `₹${receiptData.dueAmount?.toLocaleString()}`],
-                ['Method', receiptData.paymentMethod],
-                ['Date', receiptData.paymentDate],
-                ['Transaction', receiptData.transactionId],
-              ].map(([k, v], i) => (
-                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem' }}>
-                  <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}>{k}</span>
-                  <span style={{ color: 'var(--text-main)', fontWeight: 700 }}>{v}</span>
-                </div>
-              ))}
-            </div>
-            <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
-              <button onClick={() => window.print()} style={{
-                flex: 1, padding: '12px', background: 'linear-gradient(135deg, #10b981, #059669)',
-                border: 'none', borderRadius: '10px', color: '#fff', fontWeight: 700, cursor: 'pointer',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontSize: '0.85rem'
-              }}>
-                <Printer size={16} /> Print Receipt
-              </button>
-              <button onClick={() => setReceiptData(null)} style={{
-                padding: '12px 20px', background: 'var(--bg-card-subtle)', border: '1px solid var(--border-subtle)',
-                borderRadius: '10px', color: 'var(--text-main)', fontWeight: 600, cursor: 'pointer', fontSize: '0.85rem'
-              }}>Close</button>
-            </div>
-          </div>
-        </div>,
-        document.body
-      )}
+      {receiptData && (() => {
+        const printStudent = students.find(s => s.id === receiptData.studentId || s.admissionNumber === receiptData.admissionNumber) || {};
+        const baseClass = printStudent.studentClass || receiptData.studentClass || 'N/A';
+        const section = printStudent.section || receiptData.section || '';
+        const gradeSec = section ? `${baseClass}-${section}` : baseClass;
 
-      {/* Toolbar */}
-      <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
-        <button onClick={() => setShowForm(true)} style={{
-          padding: '10px 20px', background: 'linear-gradient(135deg, #10b981, #059669)', border: 'none',
-          borderRadius: '10px', color: '#fff', fontWeight: 700, cursor: 'pointer', display: 'flex',
-          alignItems: 'center', gap: '6px', fontSize: '0.85rem', boxShadow: '0 4px 15px rgba(16,185,129,0.2)'
-        }}>
-          <Plus size={16} /> Collect New Fee
-        </button>
-        <div style={{ flex: 1 }} />
-        <div style={{ position: 'relative' }}>
-          <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search student, receipt..."
-            style={{ ...inputStyle, paddingLeft: '36px', width: '220px' }} />
+        return createPortal(
+          <div className="modal-overlay" onClick={() => setReceiptData(null)}>
+            <div onClick={e => e.stopPropagation()} style={{
+              width: '100%', maxWidth: '750px', background: 'var(--bg-elevated)', borderRadius: '16px',
+              border: '1px solid var(--border-glass)', padding: '30px', boxShadow: 'var(--shadow-lg)',
+              display: 'flex', flexDirection: 'column', gap: '20px', color: 'var(--text-main)'
+            }}>
+              {/* Receipt Header (Logo & School Info) */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '2px solid var(--border-glass)', paddingBottom: '16px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                  {schoolInfo?.logo ? (
+                    <img src={schoolInfo.logo} alt="School Logo" style={{ height: '60px', width: '60px', objectFit: 'contain' }} />
+                  ) : (
+                    <div style={{
+                      width: '60px', height: '60px', borderRadius: '12px', 
+                      background: 'rgba(16, 185, 129, 0.1)', color: '#10b981',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontWeight: 800, fontSize: '1.5rem'
+                    }}>
+                      {schoolInfo?.name ? schoolInfo.name.charAt(0) : 'S'}
+                    </div>
+                  )}
+                  <div style={{ textAlign: 'left' }}>
+                    <h3 style={{ fontSize: '1.3rem', fontWeight: 800, margin: '0 0 4px 0', color: 'var(--text-main)' }}>
+                      {schoolInfo?.name || 'Aether Academy'}
+                    </h3>
+                    <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: 0 }}>
+                      {schoolInfo?.address || '123 Academic Street, Education Zone'}
+                    </p>
+                    <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: '2px 0 0 0' }}>
+                      Phone: {schoolInfo?.phone || '+1 234 567 890'} | Email: {schoolInfo?.email || 'admin@aether.edu'}
+                    </p>
+                  </div>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{
+                    background: 'rgba(16, 185, 129, 0.1)', color: '#10b981',
+                    padding: '6px 12px', borderRadius: '8px', fontSize: '0.8rem',
+                    fontWeight: 700, display: 'inline-block', marginBottom: '8px'
+                  }}>
+                    FEE RECEIPT
+                  </div>
+                  <p style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-main)', margin: '0 0 2px 0' }}>
+                    Receipt No: {receiptData.receiptNumber || 'N/A'}
+                  </p>
+                  <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: 0 }}>
+                    Date: {receiptData.paymentDate || 'N/A'}
+                  </p>
+                </div>
+              </div>
+
+              {/* Student & Parent Info Grid */}
+              <div style={{
+                display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px 24px',
+                background: 'var(--bg-card-subtle)', border: '1px solid var(--border-subtle)',
+                borderRadius: '12px', padding: '16px', fontSize: '0.85rem'
+              }}>
+                <div>
+                  <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.72rem', fontWeight: 600, textTransform: 'uppercase', marginBottom: '2px' }}>Student Name</span>
+                  <strong style={{ color: 'var(--text-main)' }}>{printStudent.fullName || receiptData.studentName || 'N/A'}</strong>
+                </div>
+                <div>
+                  <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.72rem', fontWeight: 600, textTransform: 'uppercase', marginBottom: '2px' }}>Father's Name</span>
+                  <strong style={{ color: 'var(--text-main)' }}>{printStudent.fatherName || 'N/A'}</strong>
+                </div>
+                <div>
+                  <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.72rem', fontWeight: 600, textTransform: 'uppercase', marginBottom: '2px' }}>Mother's Name</span>
+                  <strong style={{ color: 'var(--text-main)' }}>{printStudent.motherName || 'N/A'}</strong>
+                </div>
+                <div>
+                  <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.72rem', fontWeight: 600, textTransform: 'uppercase', marginBottom: '2px' }}>Admission No</span>
+                  <span style={{ color: 'var(--text-main)', fontWeight: 700 }}>{receiptData.admissionNumber || printStudent.admissionNumber || 'N/A'}</span>
+                </div>
+                <div>
+                  <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.72rem', fontWeight: 600, textTransform: 'uppercase', marginBottom: '2px' }}>Roll Number</span>
+                  <span style={{ color: 'var(--text-main)', fontWeight: 700 }}>{printStudent.rollNumber || printStudent.roll || 'N/A'}</span>
+                </div>
+                <div>
+                  <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.72rem', fontWeight: 600, textTransform: 'uppercase', marginBottom: '2px' }}>Session</span>
+                  <span style={{ color: 'var(--text-main)', fontWeight: 700 }}>{printStudent.academicYear || receiptData.academicYear || '2026-2027'}</span>
+                </div>
+                <div>
+                  <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.72rem', fontWeight: 600, textTransform: 'uppercase', marginBottom: '2px' }}>Grade & Section</span>
+                  <span style={{ color: 'var(--text-main)', fontWeight: 700 }}>{gradeSec}</span>
+                </div>
+                <div>
+                  <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.72rem', fontWeight: 600, textTransform: 'uppercase', marginBottom: '2px' }}>Billing Period</span>
+                  <span style={{ color: 'var(--text-main)', fontWeight: 700 }}>{receiptData.billingPeriod || 'Yearly'}</span>
+                </div>
+                <div>
+                  <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.72rem', fontWeight: 600, textTransform: 'uppercase', marginBottom: '2px' }}>Payment Method</span>
+                  <span style={{ color: 'var(--text-main)', fontWeight: 700 }}>{receiptData.paymentMethod || 'Cash'}</span>
+                </div>
+              </div>
+
+              {/* Fee Components Table */}
+              <div style={{ border: '1px solid var(--border-glass)', borderRadius: '12px', overflow: 'hidden' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem', textAlign: 'left' }}>
+                  <thead>
+                    <tr style={{ background: 'var(--bg-card-subtle)', borderBottom: '1px solid var(--border-glass)' }}>
+                      <th style={{ padding: '12px 16px', color: 'var(--text-muted)', fontWeight: 700 }}>Fee Component</th>
+                      <th style={{ padding: '12px 16px', color: 'var(--text-muted)', fontWeight: 700, textAlign: 'right' }}>Amount</th>
+                      <th style={{ padding: '12px 16px', color: 'var(--text-muted)', fontWeight: 700, textAlign: 'right' }}>Fine</th>
+                      <th style={{ padding: '12px 16px', color: 'var(--text-muted)', fontWeight: 700, textAlign: 'right' }}>Paid</th>
+                      <th style={{ padding: '12px 16px', color: 'var(--text-muted)', fontWeight: 700, textAlign: 'right' }}>Due</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {receiptData.isPeriodReceipt && receiptData.components ? (
+                      receiptData.components.map((comp, idx) => (
+                        <tr key={idx} style={{ borderBottom: '1px solid var(--border-glass)' }}>
+                          <td style={{ padding: '12px 16px', fontWeight: 600 }}>{comp.feeType}</td>
+                          <td style={{ padding: '12px 16px', textAlign: 'right' }}>₹{comp.amount?.toLocaleString()}</td>
+                          <td style={{ padding: '12px 16px', textAlign: 'right', color: comp.fine > 0 ? '#ef4444' : 'var(--text-main)' }}>+₹{comp.fine?.toLocaleString()}</td>
+                          <td style={{ padding: '12px 16px', textAlign: 'right', color: '#10b981', fontWeight: 600 }}>₹{comp.paidAmount?.toLocaleString()}</td>
+                          <td style={{ padding: '12px 16px', textAlign: 'right', color: comp.dueAmount > 0 ? '#f59e0b' : 'var(--text-main)', fontWeight: 600 }}>₹{comp.dueAmount?.toLocaleString()}</td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr style={{ borderBottom: '1px solid var(--border-glass)' }}>
+                        <td style={{ padding: '12px 16px', fontWeight: 600 }}>{receiptData.feeType}</td>
+                        <td style={{ padding: '12px 16px', textAlign: 'right' }}>₹{receiptData.amount?.toLocaleString()}</td>
+                        <td style={{ padding: '12px 16px', textAlign: 'right', color: receiptData.fine > 0 ? '#ef4444' : 'var(--text-main)' }}>+₹{receiptData.fine?.toLocaleString()}</td>
+                        <td style={{ padding: '12px 16px', textAlign: 'right', color: '#10b981', fontWeight: 600 }}>₹{receiptData.paidAmount?.toLocaleString()}</td>
+                        <td style={{ padding: '12px 16px', textAlign: 'right', color: receiptData.dueAmount > 0 ? '#f59e0b' : 'var(--text-main)', fontWeight: 600 }}>₹{receiptData.dueAmount?.toLocaleString()}</td>
+                      </tr>
+                    )}
+                    {/* Summary row */}
+                    <tr style={{ background: 'var(--bg-card-subtle)', fontWeight: 700 }}>
+                      <td style={{ padding: '12px 16px' }}>Total Summary</td>
+                      <td style={{ padding: '12px 16px', textAlign: 'right' }}>₹{receiptData.amount?.toLocaleString()}</td>
+                      <td style={{ padding: '12px 16px', textAlign: 'right' }}>+₹{receiptData.fine?.toLocaleString()}</td>
+                      <td style={{ padding: '12px 16px', textAlign: 'right', color: '#10b981' }}>₹{receiptData.paidAmount?.toLocaleString()}</td>
+                      <td style={{ padding: '12px 16px', textAlign: 'right', color: receiptData.dueAmount > 0 ? '#f59e0b' : '#10b981' }}>₹{receiptData.dueAmount?.toLocaleString()}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Signature Fields (Two signature lines in bottom) */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '40px', padding: '0 20px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                  <div style={{ width: '180px', borderTop: '1px solid var(--text-main)', marginTop: '20px' }}></div>
+                  <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)', marginTop: '6px' }}>Principal Signature</span>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                  <div style={{ width: '180px', borderTop: '1px solid var(--text-main)', marginTop: '20px' }}></div>
+                  <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)', marginTop: '6px' }}>Accountant Signature</span>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
+                <button onClick={() => window.print()} style={{
+                  flex: 1, padding: '12px', background: 'linear-gradient(135deg, #10b981, #059669)',
+                  border: 'none', borderRadius: '10px', color: '#fff', fontWeight: 700, cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontSize: '0.85rem'
+                }}>
+                  <Printer size={16} /> Print Receipt
+                </button>
+                <button onClick={() => setReceiptData(null)} style={{
+                  padding: '12px 20px', background: 'var(--bg-card-subtle)', border: '1px solid var(--border-subtle)',
+                  borderRadius: '10px', color: 'var(--text-main)', fontWeight: 600, cursor: 'pointer', fontSize: '0.85rem'
+                }}>Close</button>
+              </div>
+            </div>
+          </div>,
+          document.body
+        );
+      })()}
+
+      {/* Grade and Section Selection Panel */}
+      <div className="glass-panel animate-scale-up" style={{ padding: '20px', display: 'flex', gap: '16px', flexWrap: 'wrap', alignItems: 'center', borderRadius: '16px' }}>
+        <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', alignItems: 'center', flex: 1 }}>
+          <div style={{ minWidth: '150px' }}>
+            <label style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '6px', display: 'block' }}>Class / Grade</label>
+            <select 
+              value={filterClass} 
+              onChange={e => {
+                setFilterClass(e.target.value);
+                setFilterDept('All');
+                setFilterSection('All');
+              }} 
+              style={{ ...inputStyle, background: 'var(--bg-card-subtle)', cursor: 'pointer' }}
+            >
+              <option value="All" style={optionStyle}>Select Grade</option>
+              {uniqueBaseGrades.map(c => <option key={c} value={c} style={optionStyle}>Grade {c}</option>)}
+            </select>
+          </div>
+
+          {isGrade11or12(filterClass) && (
+            <div style={{ minWidth: '150px' }}>
+              <label style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '6px', display: 'block' }}>Department</label>
+              <select 
+                value={filterDept} 
+                onChange={e => setFilterDept(e.target.value)} 
+                style={{ ...inputStyle, background: 'var(--bg-card-subtle)', cursor: 'pointer' }}
+              >
+                <option value="All" style={optionStyle}>All Departments</option>
+                {[...new Set(activeGrades
+                  .filter(g => parseGradeName(g.name).baseGrade === filterClass)
+                  .map(g => parseGradeName(g.name).department)
+                  .filter(Boolean)
+                )].map(d => (
+                  <option key={d} value={d} style={optionStyle}>{d}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          <div style={{ minWidth: '150px' }}>
+            <label style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '6px', display: 'block' }}>Section</label>
+            <select
+              value={filterSection}
+              onChange={e => setFilterSection(e.target.value)}
+              style={{ ...inputStyle, background: 'var(--bg-card-subtle)', cursor: 'pointer' }}
+            >
+              <option value="All" style={optionStyle}>Select Section</option>
+              {allowedSectionsForFilter.map(sec => (
+                <option key={sec} value={sec} style={optionStyle}>Section {sec}</option>
+              ))}
+            </select>
+          </div>
         </div>
-        <select 
-          value={filterClass} 
-          onChange={e => {
-            setFilterClass(e.target.value);
-            setFilterDept('All');
-          }} 
-          style={{ ...inputStyle, width: '120px', cursor: 'pointer' }}
-        >
-          <option value="All" style={optionStyle}>All Classes</option>
-          {uniqueBaseGrades.map(c => <option key={c} value={c} style={optionStyle}>Grade {c}</option>)}
-        </select>
-        {isGrade11or12(filterClass) && (
-          <select 
-            value={filterDept} 
-            onChange={e => setFilterDept(e.target.value)} 
-            style={{ ...inputStyle, width: '150px', cursor: 'pointer' }}
-          >
-            <option value="All" style={optionStyle}>All Departments</option>
-            {[...new Set(activeGrades
-              .filter(g => parseGradeName(g.name).baseGrade === filterClass)
-              .map(g => parseGradeName(g.name).department)
-              .filter(Boolean)
-            )].map(d => (
-              <option key={d} value={d} style={optionStyle}>{d}</option>
-            ))}
-          </select>
-        )}
-        <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} style={{ ...inputStyle, width: '120px', cursor: 'pointer' }}>
-          <option value="All" style={optionStyle}>All Status</option>
-          <option value="Paid" style={optionStyle}>Paid</option>
-          <option value="Pending" style={optionStyle}>Pending</option>
-          <option value="Partial" style={optionStyle}>Partial</option>
-        </select>
       </div>
 
       {/* Collection Form Modal */}
@@ -923,141 +1793,136 @@ export function CollectFeesView({ showToast }) {
             </div>
 
             <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '22px' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '18px' }}>
-                <div>
-                  <label style={labelStyle}>Select Grade</label>
-                  <select 
-                    value={selectedFormGrade} 
-                    onChange={e => {
-                      const val = e.target.value;
-                      setSelectedFormGrade(val);
-                      if (isGrade11or12(val)) {
-                        const depts = activeGrades
-                          .filter(g => parseGradeName(g.name).baseGrade === val)
-                          .map(g => parseGradeName(g.name).department)
-                          .filter(Boolean);
-                        setSelectedFormDept(depts[0] || '');
-                      } else {
-                        setSelectedFormDept('');
-                      }
-                      selectStudent(null);
-                    }} 
-                    style={{ ...inputStyle, cursor: 'pointer' }}
-                  >
-                    <option value="" style={optionStyle}>All Grades</option>
-                    {uniqueBaseGrades.map(g => (
-                      <option key={g} value={g} style={optionStyle}>Grade {g}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label style={labelStyle}>Select Section</label>
-                  <select 
-                    value={selectedFormSection} 
-                    onChange={e => {
-                      setSelectedFormSection(e.target.value);
-                      selectStudent(null);
-                    }} 
-                    style={{ ...inputStyle, cursor: 'pointer' }}
-                  >
-                    <option value="" style={optionStyle}>All Sections</option>
-                    {allowedSectionsForForm.map(sec => (
-                      <option key={sec} value={sec} style={optionStyle}>Section {sec}</option>
-                    ))}
-                  </select>
-                </div>
-
-                {isGrade11or12(selectedFormGrade) && departmentsForSelectedGrade.length > 0 && (
-                  <div>
-                    <label style={labelStyle}>Select Department</label>
-                    <select 
-                      value={selectedFormDept} 
-                      onChange={e => {
-                        setSelectedFormDept(e.target.value);
-                        selectStudent(null);
-                      }} 
-                      style={{ ...inputStyle, cursor: 'pointer' }}
-                    >
-                      <option value="" style={optionStyle}>All Departments</option>
-                      {departmentsForSelectedGrade.map(dept => (
-                        <option key={dept} value={dept} style={optionStyle}>{dept}</option>
-                      ))}
-                    </select>
+              {/* Student Header Card inside Modal */}
+              <div style={{ 
+                padding: '16px 20px', 
+                background: 'rgba(255,255,255,0.02)', 
+                borderRadius: '12px', 
+                border: '1px solid var(--border-glass)', 
+                marginBottom: '20px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '8px',
+                width: '100%',
+                boxSizing: 'border-box'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <div style={{
+                    width: '32px',
+                    height: '32px',
+                    borderRadius: '50%',
+                    background: 'rgba(16, 185, 129, 0.1)',
+                    border: '1.5px solid rgba(16, 185, 129, 0.2)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: '#10b981',
+                    fontWeight: 700,
+                    fontSize: '0.8rem'
+                  }}>
+                    {form.studentName ? form.studentName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() : 'ST'}
                   </div>
+                  <div>
+                    <h4 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 800, color: 'var(--text-main)' }}>{form.studentName}</h4>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+                  <span>Adm No: <strong style={{ color: 'var(--text-main)' }}>{form.admissionNumber}</strong></span>
+                  <span>•</span>
+                  <span>Class: <strong style={{ color: 'var(--text-main)' }}>{form.studentClass}</strong></span>
+                  <span>•</span>
+                  <span>Section: <strong style={{ color: 'var(--text-main)' }}>{form.section}</strong></span>
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '18px' }}>
+                {editingId && !editingId.startsWith('PERIOD_') ? (
+                  <>
+                    <div>
+                      <label style={labelStyle}>Fee Type</label>
+                      <input 
+                        type="text" 
+                        value={form.feeType} 
+                        readOnly 
+                        style={{ ...inputStyle, background: 'var(--bg-form-subtle)', cursor: 'not-allowed', color: 'var(--text-muted)' }} 
+                      />
+                    </div>
+                    <div>
+                      <label style={labelStyle}>Amount (₹)</label>
+                      <input 
+                        type="number" 
+                        value={form.feeType === 'Tuition Fee' ? tuitionAmount : (form.feeType === 'Transport Fee' ? transportAmount : otherAmount)} 
+                        onChange={e => {
+                          const val = e.target.value;
+                          if (form.feeType === 'Tuition Fee') setTuitionAmount(val);
+                          else if (form.feeType === 'Transport Fee') setTransportAmount(val);
+                          else setOtherAmount(val);
+                          
+                          const baseTotal = Number(val) || 0;
+                          const totalAmount = baseTotal + (Number(form.fine) || 0);
+                          setForm(prev => ({
+                            ...prev,
+                            amount: String(baseTotal),
+                            paidAmount: !isPaidAmountEdited || prev.paidAmount === '' || prev.paidAmount === '0' ? String(totalAmount) : prev.paidAmount
+                          }));
+                        }} 
+                        required 
+                        style={inputStyle} 
+                      />
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div>
+                      <label style={labelStyle}>Tuition Fee (₹)</label>
+                      <input 
+                        type="number" 
+                        value={tuitionAmount} 
+                        onChange={e => handleAmountChange('Tuition Fee', e.target.value)} 
+                        placeholder="0" 
+                        style={inputStyle} 
+                      />
+                    </div>
+                    <div>
+                      <label style={labelStyle}>Transport Fee (₹)</label>
+                      <input 
+                        type="number" 
+                        value={transportAmount} 
+                        onChange={e => handleAmountChange('Transport Fee', e.target.value)} 
+                        placeholder="0" 
+                        style={inputStyle} 
+                      />
+                    </div>
+                    <div>
+                      <label style={labelStyle}>Other Charges (₹)</label>
+                      <input 
+                        type="number" 
+                        value={otherAmount} 
+                        onChange={e => handleAmountChange('Other Charges', e.target.value)} 
+                        placeholder="0" 
+                        style={inputStyle} 
+                      />
+                    </div>
+                  </>
                 )}
 
-                <div style={{ position: 'relative' }}>
-                  <label style={labelStyle}>Select Student</label>
-                  <input 
-                    type="text" 
-                    placeholder="Type student name to search..." 
-                    value={studentSearchQuery} 
-                    onChange={(e) => {
-                      setStudentSearchQuery(e.target.value);
-                      setShowStudentDropdown(true);
-                      if (!e.target.value) {
-                        selectStudent(null);
-                      }
-                    }} 
-                    onFocus={() => setShowStudentDropdown(true)}
-                    onBlur={() => setTimeout(() => setShowStudentDropdown(false), 250)}
-                    style={inputStyle}
-                  />
-                  {showStudentDropdown && (
+                {form.isCollectDue ? (
+                  <div>
+                    <label style={labelStyle}>Billing Period</label>
                     <div style={{
-                      position: 'absolute',
-                      top: '100%',
-                      left: 0,
-                      right: 0,
-                      maxHeight: '200px',
-                      overflowY: 'auto',
-                      background: 'var(--bg-elevated)',
-                      border: '1px solid var(--border-glass)',
-                      borderRadius: '10px',
-                      zIndex: 1000,
-                      marginTop: '4px',
-                      boxShadow: '0 10px 25px rgba(0,0,0,0.5)'
+                      ...inputStyle,
+                      background: 'rgba(16, 185, 129, 0.06)',
+                      border: '1.5px solid rgba(16, 185, 129, 0.25)',
+                      color: '#10b981',
+                      fontWeight: 700,
+                      cursor: 'default',
+                      display: 'flex',
+                      alignItems: 'center'
                     }}>
-                      {filteredStudentsForSelect.length === 0 ? (
-                        <div style={{ padding: '10px 14px', fontSize: '0.85rem', color: 'var(--text-muted)' }}>No matches found</div>
-                      ) : (
-                        filteredStudentsForSelect.slice(0, 10).map(s => (
-                          <div 
-                            key={s.id} 
-                            onMouseDown={(e) => {
-                              e.preventDefault();
-                              selectStudent(s);
-                            }}
-                            style={{
-                              padding: '10px 14px',
-                              fontSize: '0.85rem',
-                              color: 'var(--text-main)',
-                              cursor: 'pointer',
-                              borderBottom: '1px solid var(--border-subtle)',
-                              transition: 'background 0.15s',
-                              display: 'flex',
-                              justifyContent: 'space-between',
-                              alignItems: 'center'
-                            }}
-                            onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-card-subtle)'}
-                            onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-                          >
-                            <span>{s.fullName || s.name}</span>
-                            <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Grade {s.studentClass}-{s.section}</span>
-                          </div>
-                        ))
-                      )}
+                      {form.billingPeriod}
                     </div>
-                  )}
-                </div>
-                <div>
-                  <label style={labelStyle}>Fee Type</label>
-                  <select value={form.feeType} onChange={e => handleFeeTypeChange(e.target.value)} style={{ ...inputStyle, cursor: 'pointer' }}>
-                    {feeTypes.map(f => <option key={f} value={f} style={optionStyle}>{f}</option>)}
-                  </select>
-                </div>
-                {(() => {
+                  </div>
+                ) : (() => {
                   const selStudent = students.find(s => s.id === form.studentId);
                   let selFs = null;
                   const targetClass = selStudent 
@@ -1105,45 +1970,10 @@ export function CollectFeesView({ showToast }) {
                     </div>
                   );
                 })()}
-                <div>
-                  <label style={labelStyle}>Amount (₹)</label>
-                  <input type="number" value={form.amount} onChange={e => updateFormFields({ amount: e.target.value })} required placeholder="12000" style={inputStyle} />
-                  {(() => {
-                    const selStudent = students.find(s => s.id === form.studentId);
-                    let selFs = null;
-                    const targetClass = selStudent 
-                      ? selStudent.studentClass 
-                      : ((isGrade11or12(selectedFormGrade) && selectedFormDept)
-                          ? `${selectedFormGrade} (${selectedFormDept})`
-                          : selectedFormGrade);
-                    
-                    if (targetClass) {
-                      const classStructures = feeStructures.filter(f => f.studentClass === targetClass);
-                      selFs = classStructures.find(f => f.monthRange === form.billingPeriod) || classStructures[0];
-                    }
-                    const selFreq = selFs ? (selFs.frequency || 'Yearly') : 'Yearly';
-                    const baseAmt = selFs ? (
-                      form.feeType === 'Tuition Fee' ? selFs.tuitionFee :
-                      form.feeType === 'Transport Fee' ? selFs.transportFee :
-                      form.feeType === 'Other Charges' ? selFs.otherCharges : 0
-                    ) : 0;
-                    if (selFs && baseAmt > 0) {
-                      return (
-                        <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '4px', display: 'block' }}>
-                          Base structure: ₹{baseAmt.toLocaleString()} ({selFreq}{selFs.monthRange ? ` - ${selFs.monthRange}` : ''})
-                        </span>
-                      );
-                    }
-                    return null;
-                  })()}
-                </div>
-                <div>
-                  <label style={labelStyle}>Discount (₹)</label>
-                  <input type="number" value={form.discount} onChange={e => updateFormFields({ discount: e.target.value })} placeholder="0" style={inputStyle} />
-                </div>
+
                 <div>
                   <label style={labelStyle}>Fine (₹)</label>
-                  <input type="number" value={form.fine} onChange={e => updateFormFields({ fine: e.target.value })} placeholder="0" style={inputStyle} />
+                  <input type="number" value={form.fine} onChange={e => handleFineChange(e.target.value)} placeholder="0" style={inputStyle} />
                 </div>
                 <div>
                   <label style={labelStyle}>Paid Amount (₹)</label>
@@ -1165,17 +1995,17 @@ export function CollectFeesView({ showToast }) {
               </div>
 
               {(() => {
-                const totalAmount = (Number(form.amount) || 0) - (Number(form.discount) || 0) + (Number(form.fine) || 0);
+                const tuitionVal = Number(tuitionAmount) || 0;
+                const transportVal = Number(transportAmount) || 0;
+                const otherVal = Number(otherAmount) || 0;
+                const baseTotal = tuitionVal + transportVal + otherVal;
+                const totalAmount = baseTotal + (Number(form.fine) || 0);
                 const dueAmount = totalAmount - (form.paidAmount !== '' ? (Number(form.paidAmount) || 0) : totalAmount);
                 return (
                   <div style={{ padding: '16px', background: 'rgba(255,255,255,0.02)', borderRadius: '12px', border: '1px solid var(--border-glass)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem' }}>
                       <span style={{ color: 'var(--text-muted)' }}>Base Amount</span>
-                      <span style={{ color: 'var(--text-main)', fontWeight: 600 }}>₹{Number(form.amount || 0).toLocaleString()}</span>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem' }}>
-                      <span style={{ color: 'var(--text-muted)' }}>Discount</span>
-                      <span style={{ color: '#ef4444' }}>- ₹{Number(form.discount || 0).toLocaleString()}</span>
+                      <span style={{ color: 'var(--text-main)', fontWeight: 600 }}>₹{baseTotal.toLocaleString()}</span>
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem' }}>
                       <span style={{ color: 'var(--text-muted)' }}>Fine</span>
@@ -1213,76 +2043,699 @@ export function CollectFeesView({ showToast }) {
         document.body
       )}
 
-      {/* Fees Table */}
-      <div className="glass-panel" style={{ borderRadius: '16px', overflow: 'hidden' }}>
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead>
-              <tr style={{ background: 'rgba(255,255,255,0.02)' }}>
-                {['Receipt #', 'Student', 'Class', 'Period', 'Fee Type', 'Amount', 'Discount', 'Fine', 'Paid', 'Due', 'Status', 'Method', 'Date'].map(h => (
-                  <th key={h} style={{ padding: '14px 16px', textAlign: 'left', fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', borderBottom: '1px solid rgba(255,255,255,0.04)', whiteSpace: 'nowrap' }}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? (
-                <tr><td colSpan={13} style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
-                  <Loader2 className="animate-spin" size={20} style={{ marginRight: '8px' }} /> Loading...
-                </td></tr>
-              ) : fees.length === 0 ? (
-                <tr><td colSpan={13} style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)', fontSize: '0.85rem', whiteSpace: 'nowrap' }}>
-                  No fee records found. Click "Collect New Fee" to get started.
-                </td></tr>
-              ) : (
-                fees.slice(0, 50).map((fee, i) => {
-                  const baseAmt = fee.amount !== undefined && fee.amount !== null ? fee.amount : (fee.totalAmount - (fee.fine || 0) + (fee.discount || 0));
-                  return (
-                    <tr key={i} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)', transition: 'background 0.15s' }}
-                      onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.02)'}
-                      onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-                      <td style={{ padding: '12px 16px', fontSize: '0.8rem', fontWeight: 600, color: '#10b981', whiteSpace: 'nowrap' }}>{fee.receiptNumber}</td>
-                      <td style={{ padding: '12px 16px', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-main)', whiteSpace: 'nowrap' }}>{fee.studentName}</td>
-                      <td style={{ padding: '12px 16px', fontSize: '0.8rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{fee.studentClass}-{fee.section}</td>
-                      <td style={{ padding: '12px 16px', fontSize: '0.8rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{fee.billingPeriod || 'Yearly'}</td>
-                      <td style={{ padding: '12px 16px', fontSize: '0.8rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{fee.feeType}</td>
-                      <td style={{ padding: '12px 16px', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-main)', whiteSpace: 'nowrap' }}>₹{baseAmt?.toLocaleString()}</td>
-                      <td style={{ padding: '12px 16px', fontSize: '0.8rem', fontWeight: 600, color: '#ef4444', whiteSpace: 'nowrap' }}>₹{fee.discount?.toLocaleString()}</td>
-                      <td style={{ padding: '12px 16px', fontSize: '0.8rem', fontWeight: 600, color: '#10b981', whiteSpace: 'nowrap' }}>₹{fee.fine?.toLocaleString()}</td>
-                      <td style={{ padding: '12px 16px', fontSize: '0.8rem', fontWeight: 600, color: '#10b981', whiteSpace: 'nowrap' }}>₹{fee.paidAmount?.toLocaleString()}</td>
-                      <td style={{ padding: '12px 16px', fontSize: '0.8rem', fontWeight: 600, color: fee.dueAmount > 0 ? '#ef4444' : 'var(--text-muted)', whiteSpace: 'nowrap' }}>₹{fee.dueAmount?.toLocaleString()}</td>
-                      <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
-                        <span style={{
-                          padding: '4px 10px', borderRadius: '20px', fontSize: '0.7rem', fontWeight: 700,
-                          background: fee.paymentStatus === 'Paid' ? 'rgba(16,185,129,0.1)' : fee.paymentStatus === 'Partial' ? 'rgba(245,158,11,0.1)' : 'rgba(239,68,68,0.1)',
-                          color: fee.paymentStatus === 'Paid' ? '#10b981' : fee.paymentStatus === 'Partial' ? '#f59e0b' : '#ef4444'
-                        }}>{fee.paymentStatus}</span>
-                      </td>
-                      <td style={{ padding: '12px 16px', fontSize: '0.8rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{fee.paymentMethod}</td>
-                      <td style={{ padding: '12px 16px', fontSize: '0.8rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{fee.paymentDate}</td>
 
-                    </tr>
+      {/* Student Details Popup Modal */}
+      {selectedDetailsStudentId && (() => {
+        const detailsStudent = groupedStudents.find(s => (s.studentId || s.id) === selectedDetailsStudentId);
+        if (!detailsStudent) return null;
+        
+        return createPortal(
+          <div className="modal-overlay" onClick={() => setSelectedDetailsStudentId(null)}>
+            <div onClick={e => e.stopPropagation()} className="animate-scale-up" style={{
+              width: '95%',
+              maxWidth: '950px',
+              background: 'var(--bg-elevated)',
+              borderRadius: '20px',
+              border: '1px solid var(--border-glass)',
+              padding: '24px 32px',
+              boxShadow: 'var(--shadow-lg)',
+              maxHeight: '90vh',
+              overflowY: 'auto',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '20px',
+              boxSizing: 'border-box'
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-glass)', paddingBottom: '16px' }}>
+                <div>
+                  <h3 style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--text-main)', margin: '0 0 6px 0' }}>
+                    Student Fee Ledger
+                  </h3>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                    <span>Student Name: <strong style={{ color: 'var(--text-main)' }}>{detailsStudent.studentName}</strong></span>
+                    <span>•</span>
+                    {detailsStudent.rollNumber && (
+                      <>
+                        <span>Roll No: <strong style={{ color: 'var(--text-main)' }}>{detailsStudent.rollNumber}</strong></span>
+                        <span>•</span>
+                      </>
+                    )}
+                    <span>Class: <strong style={{ color: 'var(--text-main)' }}>{detailsStudent.studentClass}</strong></span>
+                    <span>•</span>
+                    <span>Section: <strong style={{ color: 'var(--text-main)' }}>{detailsStudent.section}</strong></span>
+                    <span>•</span>
+                    <span>Session: <strong style={{ color: 'var(--text-main)' }}>{detailsStudent.periods[0]?.rawFee?.academicSession || '2026-2027'}</strong></span>
+                  </div>
+                </div>
+                <button onClick={() => setSelectedDetailsStudentId(null)} style={{ background: 'var(--bg-card-subtle)', border: '1px solid var(--border-subtle)', cursor: 'pointer', color: 'var(--text-main)', borderRadius: '50%', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <X size={18} />
+                </button>
+              </div>
+              
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                {detailsStudent.periods.map((period, pIdx) => {
+                  const hasPayments = period.paidPeriodAmount > 0;
+                  const statusColors = {
+                    Paid: { text: '#10b981', bg: 'rgba(16,185,129,0.08)', border: 'rgba(16,185,129,0.15)' },
+                    Partial: { text: '#f59e0b', bg: 'rgba(245,158,11,0.08)', border: 'rgba(245,158,11,0.15)' },
+                    Pending: { text: '#ef4444', bg: 'rgba(239,68,68,0.08)', border: 'rgba(239,68,68,0.15)' }
+                  };
+                  const pColors = hasPayments 
+                    ? (statusColors[period.status] || statusColors.Paid)
+                    : { text: '#ef4444', bg: 'rgba(239,68,68,0.08)', border: 'rgba(239,68,68,0.15)' };
+                  const pStatusLabel = hasPayments ? period.status : 'Due';
+                  
+                  return (
+                    <div key={pIdx} style={{ padding: '16px', background: 'var(--bg-card)', border: '1px solid var(--border-glass)', borderRadius: '12px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                          <Calendar size={14} style={{ color: '#10b981' }} />
+                          <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-main)' }}>{period.name} Period</span>
+                          <span style={{
+                            padding: '2px 8px', borderRadius: '12px', fontSize: '0.65rem', fontWeight: 700,
+                            color: pColors.text, background: pColors.bg, border: `1px solid ${pColors.border}`
+                          }}>{pStatusLabel}</span>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                          <div style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-muted)' }}>
+                            Period Total: <span style={{ color: 'var(--text-main)' }}>₹{period.totalPeriodFee.toLocaleString()}</span>
+                            {period.duePeriodAmount > 0 && (
+                              <>
+                                {' '}| Due: <span style={{ color: '#ef4444' }}>₹{period.duePeriodAmount.toLocaleString()}</span>
+                              </>
+                            )}
+                          </div>
+                          <div style={{ display: 'inline-flex', gap: '6px', alignItems: 'center' }}>
+                            {!readOnly && hasPayments && period.duePeriodAmount > 0 && (
+                              <button
+                                onClick={(e) => { e.stopPropagation(); handleCollectDue(period, detailsStudent); }}
+                                title="Collect Due Amount"
+                                style={{
+                                  padding: '5px 10px',
+                                  background: 'linear-gradient(135deg, #ef4444, #dc2626)',
+                                  border: 'none',
+                                  borderRadius: '6px',
+                                  color: '#fff',
+                                  fontWeight: 700,
+                                  cursor: 'pointer',
+                                  fontSize: '0.7rem',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '4px'
+                                }}
+                              >
+                                <Plus size={11} /> Collect Due ₹{period.duePeriodAmount.toLocaleString()}
+                              </button>
+                            )}
+                            {hasPayments && (
+                              <>
+                                <button onClick={(e) => { e.stopPropagation(); handlePrintPeriod(period); }} title="Print Period Receipt" style={{ padding: '6px', background: 'rgba(16,185,129,0.06)', border: '1px solid rgba(16,185,129,0.15)', borderRadius: '6px', color: '#10b981', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                  <Printer size={13} />
+                                </button>
+                                {!readOnly && (
+                                  <button onClick={(e) => { e.stopPropagation(); handleEditPeriod(period); }} title="Edit Period Record" style={{ padding: '6px', background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.15)', borderRadius: '6px', color: '#f59e0b', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    <Pencil size={13} />
+                                  </button>
+                                )}
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      <div style={{ overflowX: 'hidden', overflowY: 'auto', maxHeight: '180px' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                          <thead>
+                            <tr style={{ borderBottom: '1px solid var(--border-glass)' }}>
+                              <th style={{ padding: '8px 10px', fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', width: '22%', textAlign: 'left' }}>Fee Component</th>
+                              <th style={{ padding: '8px 10px', fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', width: '11%', textAlign: 'right' }}>Amount</th>
+                              <th style={{ padding: '8px 10px', fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', width: '11%', textAlign: 'right' }}>Fine</th>
+                              <th style={{ padding: '8px 10px', fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', width: '11%', textAlign: 'right' }}>Paid</th>
+                              <th style={{ padding: '8px 10px', fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', width: '11%', textAlign: 'right' }}>Due</th>
+                              <th style={{ padding: '8px 10px', fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', width: '12%', textAlign: 'right' }}>Receipt #</th>
+                              <th style={{ padding: '8px 10px', fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', width: '12%', textAlign: 'right' }}>Date</th>
+                              <th style={{ padding: '8px 10px', fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', width: '10%', textAlign: 'right' }}>Method</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {/* Render main component rows */}
+                            {period.components.map((comp, cIdx) => {
+                              const rawPaid = comp.rawFee?.paidAmount || 0;
+                              const calcDue = Math.max(0, (comp.amount + comp.fine) - rawPaid);
+                              return (
+                                <tr key={`main-${cIdx}`} style={{ borderBottom: '1px solid rgba(255,255,255,0.01)', fontSize: '0.8rem' }}>
+                                  <td style={{ padding: '10px 10px', fontWeight: 700, color: 'var(--text-main)', width: '22%', textAlign: 'left' }}>{comp.feeType}</td>
+                                  <td style={{ padding: '10px 10px', color: 'var(--text-main)', width: '11%', textAlign: 'right' }}>₹{comp.amount.toLocaleString()}</td>
+                                  <td style={{ padding: '10px 10px', color: comp.fine > 0 ? '#ef4444' : 'var(--text-muted)', width: '11%', textAlign: 'right' }}>+ ₹{comp.fine.toLocaleString()}</td>
+                                  <td style={{ padding: '10px 10px', color: '#10b981', fontWeight: 600, width: '11%', textAlign: 'right' }}>₹{rawPaid.toLocaleString()}</td>
+                                  <td style={{ padding: '10px 10px', color: calcDue > 0 ? '#ef4444' : 'var(--text-muted)', fontWeight: 600, width: '11%', textAlign: 'right' }}>₹{calcDue.toLocaleString()}</td>
+                                  <td style={{ padding: '10px 10px', color: '#10b981', fontWeight: 600, width: '12%', textAlign: 'right' }}>{comp.rawFee?.receiptNumber || '—'}</td>
+                                  <td style={{ padding: '10px 10px', color: 'var(--text-muted)', fontSize: '0.75rem', width: '12%', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                                    {comp.rawFee?.paymentDate && comp.rawFee.paymentDate !== 'N/A' ? comp.rawFee.paymentDate.split('T')[0] : '—'}
+                                  </td>
+                                  <td style={{ padding: '10px 10px', color: 'var(--text-muted)', fontSize: '0.75rem', width: '10%', textAlign: 'right', fontWeight: 500 }}>
+                                    {comp.rawFee?.paymentDate && comp.rawFee.paymentDate !== 'N/A' ? (comp.rawFee.paymentMethod || '—') : '—'}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+
+                      {/* Render due collection rows wrapped in a separate card structure with a header & buttons */}
+                      {(() => {
+                        const allDcRecords = [];
+                        period.components.forEach(comp => {
+                          if (comp.dueCollectionRecords) {
+                            comp.dueCollectionRecords.forEach(dcRec => {
+                              allDcRecords.push({ ...dcRec, parentFeeType: comp.feeType });
+                            });
+                          }
+                        });
+                        if (allDcRecords.length === 0) return null;
+                        return (
+                          <div style={{ marginTop: '16px', borderTop: '1px dashed var(--border-glass)', paddingTop: '14px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
+                              <span style={{ fontSize: '0.68rem', fontWeight: 800, padding: '3px 8px', borderRadius: '6px', background: 'rgba(16,185,129,0.1)', color: '#10b981', border: '1px solid rgba(16,185,129,0.15)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                                Dues Cleared Details
+                              </span>
+                              <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    const combinedReceipt = {
+                                      studentId: detailsStudent.studentId || detailsStudent.id,
+                                      studentName: detailsStudent.fullName || detailsStudent.studentName || detailsStudent.name,
+                                      admissionNumber: detailsStudent.admissionNumber || '',
+                                      studentClass: detailsStudent.studentClass || '',
+                                      section: detailsStudent.section || '',
+                                      billingPeriod: period.name,
+                                      paymentMethod: allDcRecords[0]?.paymentMethod || 'Cash',
+                                      paymentDate: allDcRecords[0]?.paymentDate || new Date().toISOString(),
+                                      receiptNumber: allDcRecords[0]?.receiptNumber || 'RCP-DUES',
+                                      isPeriodReceipt: true,
+                                      components: allDcRecords.map(dc => ({
+                                        feeType: `DUE CLEARED (${dc.parentFeeType})`,
+                                        amount: dc.amount,
+                                        fine: dc.fine,
+                                        paidAmount: dc.paidAmount,
+                                        dueAmount: 0
+                                      })),
+                                      amount: allDcRecords.reduce((sum, dc) => sum + (dc.amount || 0), 0),
+                                      fine: allDcRecords.reduce((sum, dc) => sum + (dc.fine || 0), 0),
+                                      paidAmount: allDcRecords.reduce((sum, dc) => sum + (dc.paidAmount || 0), 0),
+                                      dueAmount: 0
+                                    };
+                                    setReceiptData(combinedReceipt);
+                                  }}
+                                  title="Print Dues Cleared Receipt"
+                                  style={{ padding: '6px', background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.2)', borderRadius: '8px', color: '#10b981', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                >
+                                  <Printer size={15} />
+                                </button>
+                                {!readOnly && (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      const tuitionRec = allDcRecords.find(dc => dc.parentFeeType === 'Tuition Fee');
+                                      const transportRec = allDcRecords.find(dc => dc.parentFeeType === 'Transport Fee');
+                                      const otherRec = allDcRecords.find(dc => dc.parentFeeType === 'Other Charges');
+                                      const firstDc = allDcRecords[0];
+                                      setCollectDueState({
+                                        period,
+                                        detailsStudent,
+                                        tuitionDue: tuitionRec ? String(tuitionRec.paidAmount || '') : '',
+                                        transportDue: transportRec ? String(transportRec.paidAmount || '') : '',
+                                        otherDue: otherRec ? String(otherRec.paidAmount || '') : '',
+                                        paymentMethod: firstDc?.paymentMethod || 'Cash',
+                                        remarks: '',
+                                        fine: String(firstDc?.fine || '0'),
+                                        editingDcIds: {
+                                          'Tuition Fee': tuitionRec?.id || tuitionRec?.feeId || null,
+                                          'Transport Fee': transportRec?.id || transportRec?.feeId || null,
+                                          'Other Charges': otherRec?.id || otherRec?.feeId || null
+                                        }
+                                      });
+                                    }}
+                                    title="Edit Dues Clearance"
+                                    style={{ padding: '6px', background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.2)', borderRadius: '8px', color: '#f59e0b', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                  >
+                                    <Pencil size={15} />
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                            <div style={{ overflowX: 'hidden', overflowY: 'auto', maxHeight: '140px' }}>
+                              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                                <thead>
+                                  <tr style={{ borderBottom: '1px solid var(--border-glass)' }}>
+                                    <th style={{ padding: '8px 10px', fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', width: '22%', textAlign: 'left' }}>Fee Component</th>
+                                    <th style={{ padding: '8px 10px', fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', width: '11%', textAlign: 'right' }}>Amount</th>
+                                    <th style={{ padding: '8px 10px', fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', width: '11%', textAlign: 'right' }}>Fine</th>
+                                    <th style={{ padding: '8px 10px', fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', width: '11%', textAlign: 'right' }}>Paid</th>
+                                    <th style={{ padding: '8px 10px', fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', width: '11%', textAlign: 'right' }}>Due</th>
+                                    <th style={{ padding: '8px 10px', fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', width: '12%', textAlign: 'right' }}>Receipt #</th>
+                                    <th style={{ padding: '8px 10px', fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', width: '12%', textAlign: 'right' }}>Date</th>
+                                    <th style={{ padding: '8px 10px', fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', width: '10%', textAlign: 'right' }}>Method</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {allDcRecords.map((dcRec, dcIdx) => (
+                                    <tr key={`dc-${dcIdx}`} style={{ borderBottom: '1px solid rgba(16,185,129,0.08)', fontSize: '0.78rem', background: 'rgba(16,185,129,0.03)' }}>
+                                      <td style={{ padding: '8px 10px', fontWeight: 700, color: 'var(--text-main)', width: '22%', textAlign: 'left' }}>
+                                        DUE CLEARED ({dcRec.parentFeeType})
+                                      </td>
+                                      <td style={{ padding: '8px 10px', color: '#10b981', width: '11%', textAlign: 'right' }}>₹{(dcRec.amount || 0).toLocaleString()}</td>
+                                      <td style={{ padding: '8px 10px', color: dcRec.fine > 0 ? '#ef4444' : 'var(--text-muted)', width: '11%', textAlign: 'right' }}>+ ₹{(dcRec.fine || 0).toLocaleString()}</td>
+                                      <td style={{ padding: '8px 10px', color: '#10b981', fontWeight: 700, width: '11%', textAlign: 'right' }}>₹{(dcRec.paidAmount || 0).toLocaleString()}</td>
+                                      <td style={{ padding: '8px 10px', color: 'var(--text-muted)', width: '11%', textAlign: 'right' }}>₹0</td>
+                                      <td style={{ padding: '8px 10px', color: '#10b981', fontWeight: 600, width: '12%', textAlign: 'right', fontSize: '0.7rem' }}>{dcRec.receiptNumber || '—'}</td>
+                                      <td style={{ padding: '8px 10px', color: 'var(--text-muted)', fontSize: '0.75rem', width: '12%', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                                        {dcRec.paymentDate ? dcRec.paymentDate.split('T')[0] : '—'}
+                                      </td>
+                                      <td style={{ padding: '8px 10px', color: 'var(--text-muted)', fontSize: '0.75rem', width: '10%', textAlign: 'right' }}>
+                                        {dcRec.paymentMethod || '—'}
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+                        );
+                      })()}
+
+                    </div>
                   );
-                })
-              )}
-            </tbody>
-          </table>
+                })}
+              </div>
+            </div>
+          </div>,
+          document.body
+        );
+      })()}
+
+
+      {/* Collect Due Portal Modal */}
+      {collectDueState && createPortal(
+        <div className="modal-overlay" onClick={() => setCollectDueState(null)} style={{ zIndex: 1100 }}>
+          <div onClick={e => e.stopPropagation()} className="animate-scale-up" style={{
+            width: '95%',
+            maxWidth: '560px',
+            background: 'var(--bg-elevated)',
+            borderRadius: '20px',
+            border: '1px solid rgba(16,185,129,0.25)',
+            padding: '28px 32px',
+            boxShadow: '0 24px 80px rgba(0,0,0,0.5), 0 0 0 1px rgba(16,185,129,0.1)',
+            boxSizing: 'border-box',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '20px'
+          }}>
+            {/* Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                  <div style={{ width: '30px', height: '30px', borderRadius: '8px', background: 'rgba(16,185,129,0.12)', border: '1px solid rgba(16,185,129,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <CheckCircle size={15} style={{ color: '#10b981' }} />
+                  </div>
+                  <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 800, color: 'var(--text-main)' }}>
+                    {collectDueState.editingDcIds ? 'Edit Due Collection' : 'Collect Due Payment'}
+                  </h3>
+                </div>
+                <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                  {collectDueState.detailsStudent?.studentName} &nbsp;•&nbsp; {collectDueState.period?.name} Period
+                </p>
+              </div>
+              <button onClick={() => setCollectDueState(null)} style={{ background: 'var(--bg-card-subtle)', border: '1px solid var(--border-subtle)', cursor: 'pointer', color: 'var(--text-muted)', borderRadius: '50%', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Period info bar */}
+            <div style={{ padding: '10px 14px', background: 'rgba(16,185,129,0.05)', border: '1px solid rgba(16,185,129,0.15)', borderRadius: '10px', fontSize: '0.78rem', color: 'var(--text-muted)', display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
+              <span>Period: <strong style={{ color: '#10b981' }}>{collectDueState.period?.name}</strong></span>
+              <span>Due Tuition: <strong style={{ color: '#ef4444' }}>₹{collectDueState.tuitionDue || 0}</strong></span>
+              {collectDueState.transportDue && <span>Due Transport: <strong style={{ color: '#ef4444' }}>₹{collectDueState.transportDue}</strong></span>}
+              {collectDueState.otherDue && <span>Due Other: <strong style={{ color: '#ef4444' }}>₹{collectDueState.otherDue}</strong></span>}
+            </div>
+
+            {/* Form */}
+            <form onSubmit={async (e) => {
+              e.preventDefault();
+              if (!collectDueState) return;
+              const { period: cPeriod, detailsStudent: cStudent, tuitionDue, transportDue, otherDue, paymentMethod, fine, editingDcIds } = collectDueState;
+              const firstRaw = cPeriod.components[0]?.rawFee || {};
+              const studentId = firstRaw.studentId || cStudent?.studentId;
+              const studentName = firstRaw.studentName || cStudent?.studentName;
+              const admissionNumber = firstRaw.admissionNumber || cStudent?.admissionNumber || '';
+              const studentClass = firstRaw.studentClass || cStudent?.studentClass || '';
+              const section = firstRaw.section || cStudent?.section || '';
+              const fineNum = Number(fine) || 0;
+
+              const dueItems = [];
+              if (Number(tuitionDue) > 0) dueItems.push({ type: 'Tuition Fee', amt: Number(tuitionDue) });
+              if (Number(transportDue) > 0) dueItems.push({ type: 'Transport Fee', amt: Number(transportDue) });
+              if (Number(otherDue) > 0) dueItems.push({ type: 'Other Charges', amt: Number(otherDue) });
+
+              const itemsToDelete = [];
+              if (editingDcIds) {
+                if (editingDcIds['Tuition Fee'] && !(Number(tuitionDue) > 0)) {
+                  itemsToDelete.push({ type: 'Tuition Fee', id: editingDcIds['Tuition Fee'] });
+                }
+                if (editingDcIds['Transport Fee'] && !(Number(transportDue) > 0)) {
+                  itemsToDelete.push({ type: 'Transport Fee', id: editingDcIds['Transport Fee'] });
+                }
+                if (editingDcIds['Other Charges'] && !(Number(otherDue) > 0)) {
+                  itemsToDelete.push({ type: 'Other Charges', id: editingDcIds['Other Charges'] });
+                }
+              }
+
+              if (dueItems.length === 0 && itemsToDelete.length === 0) {
+                showToast('No due amounts entered.', 'error');
+                return;
+              }
+
+              try {
+                // 1. Process deletions
+                for (const item of itemsToDelete) {
+                  const res = await fetch(`/api/finance/fees/${item.id}`, { method: 'DELETE' });
+                  if (!res.ok) { const err = await res.json(); throw new Error(err.error || `Error deleting ${item.type}`); }
+                }
+
+                // 2. Process active items
+                let savedReceipt = null;
+                for (let i = 0; i < dueItems.length; i++) {
+                  const { type, amt } = dueItems[i];
+                  const fn = i === 0 ? fineNum : 0;
+                  const payload = { studentId, studentName, admissionNumber, studentClass, section, feeType: type, amount: amt, discount: 0, fine: fn, paidAmount: amt + fn, paymentMethod, remarks: 'DUE_COLLECTION', billingPeriod: cPeriod.name };
+                  
+                  const existingId = editingDcIds ? editingDcIds[type] : null;
+                  const url = existingId ? `/api/finance/fees/${existingId}` : '/api/finance/fees';
+                  const method = existingId ? 'PUT' : 'POST';
+                  
+                  const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                  if (!res.ok) { const err = await res.json(); throw new Error(err.error || 'Error saving due collection'); }
+                  const data = await res.json();
+                  if (i === 0) savedReceipt = data;
+                }
+
+                showToast(editingDcIds ? 'Due collection updated!' : 'Due amount collected successfully!');
+                if (savedReceipt) setReceiptData(savedReceipt);
+                setCollectDueState(null);
+                fetchFees();
+              } catch (err) {
+                showToast(err.message || 'Network error', 'error');
+              }
+            }} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '14px' }}>
+                {(collectDueState.tuitionDue || collectDueState.tuitionDue === '') && (
+                  <div>
+                    <label style={labelStyle}>Tuition Fee Due (₹)</label>
+                    <input type="number" value={collectDueState.tuitionDue} onChange={e => setCollectDueState(s => ({ ...s, tuitionDue: e.target.value }))} style={inputStyle} placeholder="0" />
+                  </div>
+                )}
+                {(collectDueState.transportDue || collectDueState.transportDue === '') && (
+                  <div>
+                    <label style={labelStyle}>Transport Fee Due (₹)</label>
+                    <input type="number" value={collectDueState.transportDue} onChange={e => setCollectDueState(s => ({ ...s, transportDue: e.target.value }))} style={inputStyle} placeholder="0" />
+                  </div>
+                )}
+                {(collectDueState.otherDue || collectDueState.otherDue === '') && (
+                  <div>
+                    <label style={labelStyle}>Other Charges Due (₹)</label>
+                    <input type="number" value={collectDueState.otherDue} onChange={e => setCollectDueState(s => ({ ...s, otherDue: e.target.value }))} style={inputStyle} placeholder="0" />
+                  </div>
+                )}
+                <div>
+                  <label style={labelStyle}>Fine (₹)</label>
+                  <input type="number" value={collectDueState.fine} onChange={e => setCollectDueState(s => ({ ...s, fine: e.target.value }))} style={inputStyle} placeholder="0" />
+                </div>
+                <div>
+                  <label style={labelStyle}>Payment Method</label>
+                  <select value={collectDueState.paymentMethod} onChange={e => setCollectDueState(s => ({ ...s, paymentMethod: e.target.value }))} style={{ ...inputStyle, cursor: 'pointer' }}>
+                    {['Cash', 'UPI', 'Bank Transfer', 'Cheque', 'Card', 'Online'].map(m => <option key={m} value={m} style={optionStyle}>{m}</option>)}
+                  </select>
+                </div>
+              </div>
+
+              {/* Summary */}
+              <div style={{ padding: '14px', background: 'rgba(16,185,129,0.04)', borderRadius: '10px', border: '1px solid rgba(16,185,129,0.12)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem' }}>
+                  <span style={{ color: 'var(--text-muted)' }}>Total Due Being Collected</span>
+                  <span style={{ color: '#10b981', fontWeight: 700 }}>₹{(
+                    (Number(collectDueState.tuitionDue) || 0) +
+                    (Number(collectDueState.transportDue) || 0) +
+                    (Number(collectDueState.otherDue) || 0) +
+                    (Number(collectDueState.fine) || 0)
+                  ).toLocaleString()}</span>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+                <button type="button" onClick={() => setCollectDueState(null)} style={{ padding: '11px 22px', background: 'var(--bg-card-subtle)', border: '1px solid var(--border-subtle)', borderRadius: '10px', color: 'var(--text-muted)', cursor: 'pointer', fontWeight: 600, fontSize: '0.85rem' }}>Cancel</button>
+                <button type="submit" style={{ padding: '11px 24px', background: 'linear-gradient(135deg, #10b981, #059669)', border: 'none', borderRadius: '10px', color: '#fff', cursor: 'pointer', fontWeight: 700, fontSize: '0.85rem', display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                  <CheckCircle size={15} /> {collectDueState.editingDcId ? 'Update Collection' : 'Collect & Generate Receipt'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>,
+        document.body
+      )}
+
+
+      {/* Redesigned Grouped Fees List */}
+      {(filterClass === 'All' || filterSection === 'All') ? (
+        <div className="glass-panel animate-scale-up" style={{ padding: '60px 20px', textAlign: 'center', borderRadius: '16px', color: 'var(--text-muted)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
+          <Search size={32} style={{ color: 'var(--text-muted)', opacity: 0.5 }} />
+          <div style={{ fontSize: '0.95rem', fontWeight: 600 }}>Select Grade and Section to collect fees</div>
         </div>
-      </div>
+      ) : loading ? (
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '200px' }}>
+          <Loader2 className="animate-spin" size={24} style={{ color: '#10b981' }} />
+        </div>
+      ) : (() => {
+        const hasStudentsInClass = (students || []).some(student => {
+          const parsed = parseGradeName(student.studentClass);
+          const matchesClass = parsed.baseGrade === filterClass && (!isGrade11or12(filterClass) || filterDept === 'All' || parsed.department === filterDept);
+          const matchesSection = student.section === filterSection;
+          return matchesClass && matchesSection;
+        });
+        if (!hasStudentsInClass) {
+          return (
+            <div className="glass-panel animate-scale-up" style={{ padding: '60px 20px', textAlign: 'center', borderRadius: '16px', color: 'var(--text-muted)' }}>
+              No student records found in this Grade and Section.
+            </div>
+          );
+        }
+        return (() => {
+          const renderStudentTable = (list) => {
+            return (
+              <div className="glass-panel animate-scale-up" style={{ borderRadius: '16px', padding: 0, border: '1px solid var(--border-glass)', overflow: 'hidden' }}>
+                {/* Embedded Filters Toolbar inside the glass panel header */}
+                <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center', padding: '16px 20px', borderBottom: '1px solid var(--border-glass)', background: 'rgba(255,255,255,0.015)' }}>
+                  <div style={{ position: 'relative', flex: 1, minWidth: '220px' }}>
+                    <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                    <input 
+                      value={search} 
+                      onChange={e => {
+                        const val = e.target.value;
+                        if (/^[a-zA-Z\s]*$/.test(val) && val.length <= 50) {
+                          setSearch(val);
+                        }
+                      }} 
+                      placeholder="Search by student name..."
+                      style={{ ...inputStyle, paddingLeft: '36px', width: '100%', background: 'var(--bg-card-subtle)' }} 
+                    />
+                  </div>
+                  <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600 }}>
+                    Class: <span style={{ color: 'var(--text-main)' }}>{filterClass}-{filterSection}</span> ({list.length} Student{list.length !== 1 ? 's' : ''})
+                  </div>
+                </div>
+
+                <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
+                  {list.length === 0 && search ? (
+                    <div style={{ padding: '40px 20px', textAlign: 'center', color: 'var(--text-muted)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
+                      <Search size={24} style={{ opacity: 0.35 }} />
+                      <div style={{ fontWeight: 700, fontSize: '0.9rem' }}>No student found starting with "{search}"</div>
+                      <div style={{ fontSize: '0.78rem' }}>Try a different name or clear the search</div>
+                    </div>
+                  ) : (
+                    <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                      <tbody>
+                      {list.map((student, sIdx) => {
+                        const statusColors = {
+                          Paid: { text: '#10b981', bg: 'rgba(16,185,129,0.08)', border: 'rgba(16,185,129,0.15)' },
+                          Partial: { text: '#f59e0b', bg: 'rgba(245,158,11,0.08)', border: 'rgba(245,158,11,0.15)' },
+                          Pending: { text: '#ef4444', bg: 'rgba(239,68,68,0.08)', border: 'rgba(239,68,68,0.15)' }
+                        };
+                        const colors = statusColors[student.overallStatus] || statusColors.Paid;
+                        
+                        return (
+                          <tr 
+                            key={`main-${sIdx}`}
+                            style={{ borderBottom: '1px solid var(--border-glass)', transition: 'background 0.2s', cursor: 'pointer' }}
+                            onClick={() => setSelectedDetailsStudentId(student.studentId || student.id)}
+                            onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.015)'}
+                            onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                          >
+                            <td style={{ padding: '14px 20px', width: '100%' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', width: '100%' }}>
+                                <div style={{ 
+                                  width: '38px', 
+                                  height: '38px', 
+                                  borderRadius: '50%', 
+                                  background: colors.bg, 
+                                  border: `1.5px solid ${colors.border}`, 
+                                  display: 'flex', 
+                                  alignItems: 'center', 
+                                  justifyContent: 'center', 
+                                  color: colors.text, 
+                                  fontWeight: 700, 
+                                  fontSize: '0.85rem' 
+                                }}>
+                                  {student.studentName ? student.studentName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() : 'ST'}
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flex: 1, minWidth: 0, flexWrap: 'wrap' }}>
+                                  <div style={{ minWidth: 0 }}>
+                                    <div style={{ fontSize: '0.9rem', fontWeight: 800, color: 'var(--text-main)' }}>{student.studentName}</div>
+                                    <div style={{ display: 'flex', gap: '8px', fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px', fontWeight: 500, flexWrap: 'wrap' }}>
+                                      {student.rollNumber && (
+                                        <>
+                                          <span>Roll No: <strong style={{ color: 'var(--text-main)' }}>{student.rollNumber}</strong></span>
+                                          <span>•</span>
+                                        </>
+                                      )}
+                                      <span>Class: <strong style={{ color: 'var(--text-main)' }}>{student.studentClass}-{student.section}</strong></span>
+                                      <span>•</span>
+                                      <span>Session: <strong style={{ color: 'var(--text-main)' }}>{student.periods[0]?.rawFee?.academicSession || '2026-2027'}</strong></span>
+                                    </div>
+                                  </div>
+                                  {student.periods && student.periods.length > 0 && (
+                                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center', flex: 1 }}>
+                                      {student.periods.map((p, pIdx) => {
+                                        const hasPayments = p.paidPeriodAmount > 0;
+                                        const pStatus = hasPayments ? p.status : 'Pending';
+                                        const statusConfig = {
+                                          Paid: { text: 'Paid', color: '#10b981', bg: 'rgba(16, 185, 129, 0.1)', border: 'rgba(16, 185, 129, 0.25)' },
+                                          Partial: { text: 'Partial', color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.1)', border: 'rgba(245, 158, 11, 0.25)' },
+                                          Pending: { text: 'Due', color: '#ef4444', bg: 'rgba(239, 68, 68, 0.1)', border: 'rgba(239, 68, 68, 0.25)' }
+                                        };
+                                        const cfg = statusConfig[pStatus] || statusConfig.Pending;
+                                        return (
+                                          <div key={pIdx} style={{
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            alignItems: 'center',
+                                            background: cfg.bg,
+                                            border: `1px solid ${cfg.border}`,
+                                            borderRadius: '8px',
+                                            padding: '5px 12px',
+                                            textAlign: 'center',
+                                            flexShrink: 0
+                                          }}>
+                                            <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '3px', whiteSpace: 'nowrap' }}>
+                                              {p.name}
+                                            </span>
+                                            <span style={{
+                                              fontSize: '0.65rem',
+                                              fontWeight: 800,
+                                              textTransform: 'uppercase',
+                                              color: cfg.color,
+                                              whiteSpace: 'nowrap'
+                                            }}>
+                                              {cfg.text}
+                                            </span>
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  )}
+                                  <div style={{ marginLeft: 'auto', flexShrink: 0 }}>
+                                    {!readOnly && !(student.periods.length > 0 && student.overallDue <= 0) && (
+                                      <button 
+                                        onClick={(e) => { 
+                                          e.stopPropagation(); 
+                                          handleNewPeriodCollect(student);
+                                        }} 
+                                        style={{
+                                          padding: '6px 12px',
+                                          background: 'linear-gradient(135deg, #10b981, #059669)',
+                                          border: 'none',
+                                          borderRadius: '6px',
+                                          color: '#fff',
+                                          fontWeight: 700,
+                                          cursor: 'pointer',
+                                          fontSize: '0.75rem',
+                                          boxShadow: '0 2px 8px rgba(16,185,129,0.15)',
+                                          display: 'inline-flex',
+                                          alignItems: 'center',
+                                          gap: '4px',
+                                          whiteSpace: 'nowrap'
+                                        }}
+                                      >
+                                        <Plus size={12} /> Collect Fee
+                                      </button>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            </td>
+
+                          </tr>
+                        );
+                      })}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+              </div>
+            );
+          };
+
+          return (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              {renderStudentTable(groupedStudents)}
+            </div>
+          );
+        })()
+      })()
+      }
 
       <ConfirmDialog 
         show={!!showConfirmDelete} 
-        message={`Are you sure you want to delete the fee record for ${showConfirmDelete?.studentName}?`}
+        message={
+          showConfirmDelete?.components 
+            ? `Are you sure you want to delete all fee records for ${showConfirmDelete.components[0]?.rawFee?.studentName} in ${showConfirmDelete.name}?`
+            : `Are you sure you want to delete the fee record for ${showConfirmDelete?.studentName}?`
+        }
         onConfirm={async () => {
           if (showConfirmDelete) {
             try {
-              const res = await fetch(`/api/finance/fees/${showConfirmDelete.id || showConfirmDelete.feeId}`, {
-                method: 'DELETE'
-              });
-              if (res.ok) {
-                showToast('Fee record deleted successfully!');
-                fetchFees();
+              if (showConfirmDelete.components) {
+                let success = true;
+                for (const comp of showConfirmDelete.components) {
+                  const res = await fetch(`/api/finance/fees/${comp.rawFee.id || comp.rawFee.feeId}`, { method: 'DELETE' });
+                  if (!res.ok) success = false;
+                }
+                if (success) {
+                  showToast('Period fee records deleted successfully!');
+                  fetchFees();
+                } else {
+                  showToast('Failed to delete some fee records', 'error');
+                  fetchFees();
+                }
               } else {
-                showToast('Failed to delete fee record', 'error');
+                const res = await fetch(`/api/finance/fees/${showConfirmDelete.id || showConfirmDelete.feeId}`, {
+                  method: 'DELETE'
+                });
+                if (res.ok) {
+                  showToast('Fee record deleted successfully!');
+                  fetchFees();
+                } else {
+                  showToast('Failed to delete fee record', 'error');
+                }
               }
             } catch {
               showToast('Network error', 'error');
@@ -1317,6 +2770,7 @@ export function FeeStructureView({ showToast }) {
     transportFee: '0', hostelFee: '0', libraryFee: '0', otherCharges: '0',
     frequency: 'Yearly', monthRange: null
   });
+  const [rangesData, setRangesData] = useState({});
 
   const classes = activeGrades.map(g => g.name);
 
@@ -1349,28 +2803,33 @@ export function FeeStructureView({ showToast }) {
     const customPeriods = feePeriods.filter(fp => fp.frequency === frequency).map(fp => fp.name);
     if (customPeriods.length > 0) return customPeriods;
     if (frequency === 'Quarterly') {
-      return ['Q1 (Apr-Jun)', 'Q2 (Jul-Sep)', 'Q3 (Oct-Dec)', 'Q4 (Jan-Mar)'];
+      return [];
     } else if (frequency === 'Half-Yearly') {
-      return ['First Half (H1)', 'Second Half (H2)'];
+      return [];
     } else {
       return ['Full Year'];
     }
   };
 
   const handleFrequencyChange = (freq) => {
-    let monthRange = null;
-    const options = getBillingPeriodOptions(freq);
-    if (options.length > 0) {
-      monthRange = options[0];
-    }
-    setForm(prev => ({ ...prev, frequency: freq, monthRange }));
+    setForm(prev => ({ ...prev, frequency: freq, monthRange: null }));
   };
 
   const fetchStructures = () => {
     fetch('/api/finance/fee-structures')
       .then(r => r.json())
-      .then(d => { setStructures(d); setLoading(false); })
-      .catch(() => setLoading(false));
+      .then(d => {
+        if (Array.isArray(d)) {
+          setStructures(d);
+        } else {
+          setStructures([]);
+        }
+        setLoading(false);
+      })
+      .catch(() => {
+        setStructures([]);
+        setLoading(false);
+      });
   };
 
   const fetchFeePeriods = () => {
@@ -1407,8 +2866,53 @@ export function FeeStructureView({ showToast }) {
         transportFee: '0', hostelFee: '0', libraryFee: '0', otherCharges: '0',
         frequency: 'Yearly', monthRange: null
       });
+      setRangesData({});
     }
   }, [showForm]);
+
+  useEffect(() => {
+    const finalClass = (isGrade11or12(selectedFormGrade) && selectedFormDept)
+      ? `${selectedFormGrade} (${selectedFormDept})`
+      : selectedFormGrade;
+
+    const freq = form.frequency || 'Yearly';
+    const activeOpts = getBillingPeriodOptions(freq);
+
+    if (finalClass && activeOpts.length > 0) {
+      const classStructures = structures.filter(s => s.studentClass === finalClass && s.frequency === freq);
+      
+      const newData = {};
+      activeOpts.forEach(opt => {
+        const match = classStructures.find(s => (s.monthRange || 'Full Year') === opt);
+        if (match) {
+          newData[opt] = {
+            tuitionFee: String(match.tuitionFee || '0'),
+            transportFee: String(match.transportFee || '0'),
+            otherCharges: String(match.otherCharges || '0')
+          };
+        } else {
+          newData[opt] = {
+            tuitionFee: '0',
+            transportFee: '0',
+            otherCharges: '0'
+          };
+        }
+      });
+      setRangesData(newData);
+    } else {
+      setRangesData({});
+    }
+  }, [selectedFormGrade, selectedFormDept, form.frequency, structures, showForm]);
+
+  const handleRangeFieldChange = (range, field, value) => {
+    setRangesData(prev => ({
+      ...prev,
+      [range]: {
+        ...(prev[range] || { tuitionFee: '0', transportFee: '0', otherCharges: '0' }),
+        [field]: value
+      }
+    }));
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -1421,29 +2925,64 @@ export function FeeStructureView({ showToast }) {
       return;
     }
 
-    const payload = {
-      ...form,
-      studentClass: finalClass
-    };
+    const activeOpts = getBillingPeriodOptions(form.frequency || 'Yearly');
+    const structuresToDelete = structures.filter(s => 
+      s.studentClass === finalClass && 
+      (s.frequency || 'Yearly') !== (form.frequency || 'Yearly')
+    );
 
     try {
-      const isEdit = !!editingId;
-      const url = isEdit ? `/api/finance/fee-structures/${editingId}` : '/api/finance/fee-structures';
-      const res = await fetch(url, {
-        method: isEdit ? 'PUT' : 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-      if (res.ok) {
-        showToast(`Fee structure saved for Grade ${finalClass}!`);
-        setEditingId(null);
-        setShowForm(false);
-        fetchStructures();
-      } else {
-        const err = await res.json();
-        showToast(err.error || 'Failed to save', 'error');
+      // 1. Delete obsolete structures of different frequency
+      if (structuresToDelete.length > 0) {
+        const deleteIds = structuresToDelete.map(s => s.id).join(',');
+        const deleteRes = await fetch(`/api/finance/fee-structures/${deleteIds}`, { method: 'DELETE' });
+        if (!deleteRes.ok) {
+          throw new Error('Failed to clean up old fee structures of different frequency.');
+        }
       }
-    } catch { showToast('Network error', 'error'); }
+
+      // 2. Save new structures in a single batch request
+      const payloads = activeOpts.map(opt => {
+        const data = rangesData[opt] || { tuitionFee: '0', transportFee: '0', otherCharges: '0' };
+        const tuition = Number(data.tuitionFee) || 0;
+        const transport = Number(data.transportFee) || 0;
+        const other = Number(data.otherCharges) || 0;
+
+        const isQuarterlyOrHalf = form.frequency === 'Quarterly' || form.frequency === 'Half-Yearly' || form.frequency === 'Monthly';
+        const finalMonthRange = isQuarterlyOrHalf ? opt : null;
+
+        return {
+          studentClass: finalClass,
+          admissionFee: 0,
+          tuitionFee: tuition,
+          examFee: 0,
+          transportFee: transport,
+          hostelFee: 0,
+          libraryFee: 0,
+          otherCharges: other,
+          frequency: form.frequency || 'Yearly',
+          monthRange: finalMonthRange
+        };
+      });
+
+      const res = await fetch('/api/finance/fee-structures', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payloads)
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to save fee structures');
+      }
+
+      showToast(`Fee structures saved for Grade ${finalClass}!`);
+      setEditingId(null);
+      setShowForm(false);
+      fetchStructures();
+    } catch (err) {
+      showToast(err.message || 'Failed to save structures', 'error');
+      fetchStructures();
+    }
   };
 
   const handleDelete = async (id) => {
@@ -1478,7 +3017,28 @@ export function FeeStructureView({ showToast }) {
   const labelStyle = { fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '6px', display: 'block' };
   const optionStyle = { background: 'var(--bg-form)', color: 'var(--text-main)' };
 
-  const total = Number(form.tuitionFee || 0) + Number(form.transportFee || 0) + Number(form.otherCharges || 0);
+  const groupedStructures = React.useMemo(() => {
+    const groups = {};
+    structures.forEach(s => {
+      const key = `${s.studentClass}#${s.frequency || 'Yearly'}`;
+      if (!groups[key]) {
+        groups[key] = {
+          studentClass: s.studentClass,
+          frequency: s.frequency || 'Yearly',
+          items: []
+        };
+      }
+      groups[key].items.push(s);
+    });
+    const sorted = Object.values(groups);
+    sorted.forEach(g => {
+      g.items.sort((a, b) => {
+        const opts = getBillingPeriodOptions(g.frequency);
+        return opts.indexOf(a.monthRange || 'Full Year') - opts.indexOf(b.monthRange || 'Full Year');
+      });
+    });
+    return sorted;
+  }, [structures]);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
@@ -1541,38 +3101,81 @@ export function FeeStructureView({ showToast }) {
                     <option value="Yearly" style={optionStyle}>Yearly</option>
                   </select>
                 </div>
-                {(form.frequency === 'Quarterly' || form.frequency === 'Half-Yearly' || form.frequency === 'Monthly') && form.frequency !== 'Yearly' && getBillingPeriodOptions(form.frequency).length > 0 && (
-                  <div>
-                    <label style={labelStyle}>Month Range</label>
-                    <select 
-                      value={form.monthRange || ''} 
-                      onChange={e => setForm({ ...form, monthRange: e.target.value })} 
-                      style={{ ...inputStyle, cursor: 'pointer' }}
-                      required
-                    >
-                      {getBillingPeriodOptions(form.frequency).map(opt => (
-                        <option key={opt} value={opt} style={optionStyle}>{opt}</option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-                {[
-                  ['Tuition Fee', 'tuitionFee'],
-                  ['Transport Fee', 'transportFee'],
-                  ['Other Charges', 'otherCharges']
-                ].map(([label, key]) => (
-                  <div key={key}>
-                    <label style={labelStyle}>{label} (₹)</label>
-                    <input type="number" value={form[key]} onChange={e => setForm({ ...form, [key]: e.target.value })} style={inputStyle} />
-                  </div>
-                ))}
               </div>
-              <div style={{ padding: '12px 16px', background: 'rgba(16,185,129,0.06)', borderRadius: '10px', border: '1px solid rgba(16,185,129,0.1)', display: 'flex', justifyContent: 'space-between' }}>
-                <span style={{ fontWeight: 700, color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-                  {form.frequency === 'Quarterly' || form.frequency === 'Half-Yearly' ? `Total Fee for ${form.monthRange || 'Selected Period'}` : 'Total Annual Fee'}
-                </span>
-                <span style={{ fontWeight: 800, color: '#10b981', fontSize: '1.1rem' }}>₹{total.toLocaleString()}</span>
+
+              {/* Month Ranges List inputs */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginTop: '8px' }}>
+                <h4 style={{ fontSize: '0.8rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', margin: '0 0 4px 0' }}>
+                  Configure amounts for each period
+                </h4>
+                {getBillingPeriodOptions(form.frequency || 'Yearly').map(opt => {
+                  const data = rangesData[opt] || { tuitionFee: '0', transportFee: '0', otherCharges: '0' };
+                  const subTotal = (Number(data.tuitionFee) || 0) + (Number(data.transportFee) || 0) + (Number(data.otherCharges) || 0);
+                  return (
+                    <div key={opt} style={{ 
+                      display: 'grid', 
+                      gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', 
+                      gap: '14px', 
+                      alignItems: 'end',
+                      padding: '16px',
+                      background: 'rgba(255, 255, 255, 0.02)',
+                      border: '1px solid var(--border-glass)',
+                      borderRadius: '12px'
+                    }}>
+                      <div style={{ gridColumn: '1 / -1', fontWeight: 800, color: 'var(--text-main)', fontSize: '0.85rem', borderBottom: '1px solid var(--border-glass)', paddingBottom: '6px', marginBottom: '4px' }}>
+                        {opt}
+                      </div>
+                      <div>
+                        <label style={labelStyle}>Tuition Fee (₹)</label>
+                        <input 
+                          type="number" 
+                          value={data.tuitionFee} 
+                          onChange={e => handleRangeFieldChange(opt, 'tuitionFee', e.target.value)} 
+                          style={inputStyle} 
+                          placeholder="0"
+                        />
+                      </div>
+                      <div>
+                        <label style={labelStyle}>Transport Fee (₹)</label>
+                        <input 
+                          type="number" 
+                          value={data.transportFee} 
+                          onChange={e => handleRangeFieldChange(opt, 'transportFee', e.target.value)} 
+                          style={inputStyle} 
+                          placeholder="0"
+                        />
+                      </div>
+                      <div>
+                        <label style={labelStyle}>Other Charges (₹)</label>
+                        <input 
+                          type="number" 
+                          value={data.otherCharges} 
+                          onChange={e => handleRangeFieldChange(opt, 'otherCharges', e.target.value)} 
+                          style={inputStyle} 
+                          placeholder="0"
+                        />
+                      </div>
+                      <div style={{ paddingBottom: '10px', fontSize: '0.85rem', fontWeight: 700, color: '#10b981', textAlign: 'right' }}>
+                        Total: ₹{subTotal.toLocaleString()}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
+
+              {(() => {
+                const overallTotal = Object.values(rangesData).reduce((sum, item) => {
+                  return sum + (Number(item.tuitionFee) || 0) + (Number(item.transportFee) || 0) + (Number(item.otherCharges) || 0);
+                }, 0);
+                return (
+                  <div style={{ padding: '12px 16px', background: 'rgba(16,185,129,0.06)', borderRadius: '10px', border: '1px solid rgba(16,185,129,0.1)', display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ fontWeight: 700, color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                      Overall Total Fee
+                    </span>
+                    <span style={{ fontWeight: 800, color: '#10b981', fontSize: '1.1rem' }}>₹{overallTotal.toLocaleString()}</span>
+                  </div>
+                );
+              })()}
               <div style={{ display: 'flex', gap: '12px', marginTop: '10px' }}>
                 <button type="submit" style={{
                   padding: '12px 24px', background: 'linear-gradient(135deg, #3b82f6, #2563eb)', border: 'none',
@@ -1613,7 +3216,6 @@ export function FeeStructureView({ showToast }) {
                 <select value={newPeriodFreq} onChange={e => setNewPeriodFreq(e.target.value)} style={{ ...inputStyle, cursor: 'pointer', minWidth: '140px' }}>
                   <option value="Quarterly" style={optionStyle}>Quarterly</option>
                   <option value="Half-Yearly" style={optionStyle}>Half-Yearly</option>
-                  <option value="Yearly" style={optionStyle}>Yearly</option>
                 </select>
               </div>
               <div style={{ flex: 1, minWidth: '150px' }}>
@@ -1658,7 +3260,7 @@ export function FeeStructureView({ showToast }) {
             </div>
 
             {/* List periods grouped by frequency */}
-            {['Quarterly', 'Half-Yearly', 'Yearly'].map(freq => {
+            {['Quarterly', 'Half-Yearly'].map(freq => {
               const items = feePeriods.filter(fp => fp.frequency === freq);
               if (items.length === 0) return null;
               return (
@@ -1723,77 +3325,131 @@ export function FeeStructureView({ showToast }) {
             No fee structures configured yet. Click "Add/Edit Fee Structure" to create one.
           </div>
         ) : (
-          structures.map((s, i) => (
-            <div key={i} className="glass-panel" style={{ 
-              padding: '24px', 
-              borderRadius: '16px', 
-              display: 'flex', 
-              flexDirection: 'column', 
-              gap: '12px',
-              maxWidth: '420px',
-              width: '100%',
-              background: '#ffffff',
-              border: '1px solid rgba(0, 0, 0, 0.08)',
-              boxShadow: '0 4px 20px rgba(0, 0, 0, 0.08)'
-            }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(0,0,0,0.06)', paddingBottom: '10px' }}>
-                <h4 style={{ fontSize: '1rem', fontWeight: 800, color: '#3b82f6' }}>Grade {s.studentClass}</h4>
-                <span style={{ 
-                  fontSize: '0.7rem', fontWeight: 800, color: '#3b82f6', 
-                  background: 'rgba(59, 130, 246, 0.08)', padding: '2px 8px', borderRadius: '12px',
-                  textTransform: 'uppercase', letterSpacing: '0.04em'
-                }}>
-                  {s.frequency || 'Yearly'}{s.monthRange ? ` - ${s.monthRange}` : ''}
-                </span>
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                {[
-                  ['Tuition Fee', s.tuitionFee],
-                  ['Transport Fee', s.transportFee],
-                  ['Other Charges', s.otherCharges]
-                ].map(([l, v], idx) => (
-                  <div key={l} style={{ 
-                    display: 'flex', 
-                    justifyContent: 'space-between', 
-                    fontSize: '0.82rem',
-                    padding: '8px 0',
-                    borderBottom: idx === 2 ? 'none' : '1px solid rgba(0,0,0,0.04)'
+          groupedStructures.map((group, i) => {
+            const activeOpts = getBillingPeriodOptions(group.frequency);
+            const totalTuition = activeOpts.reduce((sum, opt) => {
+              const match = group.items.find(item => (item.monthRange || 'Full Year') === opt);
+              return sum + (match ? (match.tuitionFee || 0) : 0);
+            }, 0);
+            const totalTransport = activeOpts.reduce((sum, opt) => {
+              const match = group.items.find(item => (item.monthRange || 'Full Year') === opt);
+              return sum + (match ? (match.transportFee || 0) : 0);
+            }, 0);
+            const totalOther = activeOpts.reduce((sum, opt) => {
+              const match = group.items.find(item => (item.monthRange || 'Full Year') === opt);
+              return sum + (match ? (match.otherCharges || 0) : 0);
+            }, 0);
+            const overallTotal = totalTuition + totalTransport + totalOther;
+
+            return (
+              <div key={i} className="glass-panel" style={{ 
+                padding: '24px', 
+                borderRadius: '16px', 
+                display: 'flex', 
+                flexDirection: 'column', 
+                gap: '16px',
+                maxWidth: '420px',
+                width: '100%',
+                background: '#ffffff',
+                border: '1px solid rgba(0, 0, 0, 0.08)',
+                boxShadow: '0 4px 20px rgba(0, 0, 0, 0.08)'
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(0,0,0,0.06)', paddingBottom: '10px' }}>
+                  <h4 style={{ fontSize: '1rem', fontWeight: 800, color: '#3b82f6' }}>Grade {group.studentClass}</h4>
+                  <span style={{ 
+                    fontSize: '0.7rem', fontWeight: 800, color: '#3b82f6', 
+                    background: 'rgba(59, 130, 246, 0.08)', padding: '4px 10px', borderRadius: '12px',
+                    textTransform: 'uppercase', letterSpacing: '0.04em'
                   }}>
-                    <span style={{ color: 'var(--text-muted)' }}>{l}</span>
-                    <span style={{ color: 'var(--text-main)', fontWeight: 600 }}>₹{(v || 0).toLocaleString()}</span>
-                  </div>
-                ))}
-              </div>
-              <div style={{ borderTop: '1px solid rgba(0,0,0,0.08)', paddingTop: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div style={{ display: 'flex', flexDirection: 'column' }}>
-                  <span style={{ fontWeight: 700, color: 'var(--text-muted)', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.02em' }}>
-                    {s.frequency === 'Quarterly' || s.frequency === 'Half-Yearly' ? 'Total Period Fee' : 'Total Annual Fee'}
+                    {group.frequency}
                   </span>
-                  <span style={{ fontWeight: 800, color: '#10b981', fontSize: '1.15rem' }}>₹{((s.tuitionFee || 0) + (s.transportFee || 0) + (s.otherCharges || 0)).toLocaleString()}</span>
                 </div>
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  <button onClick={() => handleEdit(s)} style={{
-                    background: 'rgba(0,0,0,0.03)', border: '1px solid rgba(0,0,0,0.08)', color: '#3b82f6', cursor: 'pointer',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '6px', borderRadius: '6px',
-                    transition: 'all 0.2s'
-                  }} onMouseEnter={e => { e.currentTarget.style.background = 'rgba(59,130,246,0.12)'; }}
-                     onMouseLeave={e => { e.currentTarget.style.background = 'rgba(0,0,0,0.03)'; }}
-                     title="Edit Structure">
-                    <Pencil size={15} />
-                  </button>
-                  <button onClick={() => handleDelete(s.id)} style={{
-                    background: 'rgba(0,0,0,0.03)', border: '1px solid rgba(0,0,0,0.08)', color: '#ef4444', cursor: 'pointer',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '6px', borderRadius: '6px',
-                    transition: 'all 0.2s'
-                  }} onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.12)'; }}
-                     onMouseLeave={e => { e.currentTarget.style.background = 'rgba(0,0,0,0.03)'; }}
-                     title="Delete Structure">
-                    <Trash2 size={15} />
-                  </button>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxHeight: '175px', overflowY: 'auto', paddingRight: '4px' }}>
+                  {activeOpts.map(opt => {
+                    const match = group.items.find(item => (item.monthRange || 'Full Year') === opt);
+                    const tuition = match ? (match.tuitionFee || 0) : 0;
+                    const transport = match ? (match.transportFee || 0) : 0;
+                    const other = match ? (match.otherCharges || 0) : 0;
+                    const itemTotal = tuition + transport + other;
+                    return (
+                      <div key={opt} style={{ 
+                        background: 'rgba(0,0,0,0.02)', 
+                        borderRadius: '8px', 
+                        padding: '10px 14px',
+                        border: '1px solid rgba(0,0,0,0.04)' 
+                      }}>
+                        <div style={{ fontWeight: 800, color: 'var(--text-main)', fontSize: '0.8rem', borderBottom: '1px solid rgba(0,0,0,0.04)', paddingBottom: '4px', marginBottom: '6px' }}>
+                          {opt}
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '0.78rem' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-muted)' }}>
+                            <span>Tuition Fee</span>
+                            <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>₹{tuition.toLocaleString()}</span>
+                          </div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-muted)' }}>
+                            <span>Transport Fee</span>
+                            <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>₹{transport.toLocaleString()}</span>
+                          </div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-muted)' }}>
+                            <span>Other Charges</span>
+                            <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>₹{other.toLocaleString()}</span>
+                          </div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', color: '#10b981', fontWeight: 700, borderTop: '1px dashed rgba(0,0,0,0.06)', paddingTop: '4px', marginTop: '2px' }}>
+                            <span>Total</span>
+                            <span>₹{itemTotal.toLocaleString()}</span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                <div style={{ borderTop: '1px solid rgba(0,0,0,0.08)', paddingTop: '12px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem' }}>
+                    <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}>Total Tuition Fee</span>
+                    <span style={{ color: 'var(--text-main)', fontWeight: 700 }}>₹{totalTuition.toLocaleString()}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem' }}>
+                    <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}>Total Transport Fee</span>
+                    <span style={{ color: 'var(--text-main)', fontWeight: 700 }}>₹{totalTransport.toLocaleString()}</span>
+                  </div>
+                  {totalOther > 0 && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem' }}>
+                      <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}>Total Other Charges</span>
+                      <span style={{ color: 'var(--text-main)', fontWeight: 700 }}>₹{totalOther.toLocaleString()}</span>
+                    </div>
+                  )}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid rgba(0,0,0,0.06)', paddingTop: '8px', marginTop: '4px' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                      <span style={{ fontWeight: 700, color: 'var(--text-muted)', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.02em' }}>
+                        Grand Total
+                      </span>
+                      <span style={{ fontWeight: 800, color: '#10b981', fontSize: '1.15rem' }}>₹{overallTotal.toLocaleString()}</span>
+                    </div>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <button onClick={() => handleEdit(group.items[0])} style={{
+                        background: 'rgba(0,0,0,0.03)', border: '1px solid rgba(0,0,0,0.08)', color: '#3b82f6', cursor: 'pointer',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '6px', borderRadius: '6px',
+                        transition: 'all 0.2s'
+                      }} onMouseEnter={e => { e.currentTarget.style.background = 'rgba(59,130,246,0.12)'; }}
+                         onMouseLeave={e => { e.currentTarget.style.background = 'rgba(0,0,0,0.03)'; }}
+                         title="Edit Structure">
+                        <Pencil size={15} />
+                      </button>
+                      <button onClick={() => handleDelete(group.items.map(item => item.id))} style={{
+                        background: 'rgba(0,0,0,0.03)', border: '1px solid rgba(0,0,0,0.08)', color: '#ef4444', cursor: 'pointer',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '6px', borderRadius: '6px',
+                        transition: 'all 0.2s'
+                      }} onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.12)'; }}
+                         onMouseLeave={e => { e.currentTarget.style.background = 'rgba(0,0,0,0.03)'; }}
+                         title="Delete Structure">
+                        <Trash2 size={15} />
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))
+            );
+          })
         )}
       </div>
 
@@ -1802,8 +3458,14 @@ export function FeeStructureView({ showToast }) {
         message="Are you sure you want to delete this fee structure?"
         onConfirm={async () => {
           try {
-            const res = await fetch(`/api/finance/fee-structures/${confirmDelete}`, { method: 'DELETE' });
-            if (res.ok) { showToast('Fee structure deleted'); fetchStructures(); }
+            const ids = Array.isArray(confirmDelete) ? confirmDelete.join(',') : confirmDelete;
+            const res = await fetch(`/api/finance/fee-structures/${ids}`, { method: 'DELETE' });
+            if (res.ok) {
+              showToast('Fee structure deleted');
+              fetchStructures();
+            } else {
+              showToast('Error deleting', 'error');
+            }
           } catch { showToast('Error deleting', 'error'); }
           setConfirmDelete(null);
         }}
@@ -1850,7 +3512,7 @@ export function StaffPaymentStructureView({ showToast, type }) {
   const [editingId, setEditingId] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(null);
   const [form, setForm] = useState({
-    designation: '', basicSalary: '', allowances: '', bonus: '0',
+    designation: '', basicSalary: '', allowances: '0', bonus: '0',
     deductions: '0', pfDeduction: '0', taxDeduction: '0'
   });
 
@@ -1906,7 +3568,7 @@ export function StaffPaymentStructureView({ showToast, type }) {
         showToast(`Salary structure for ${form.designation} saved!`);
         setEditingId(null);
         setForm({
-          designation: '', basicSalary: '', allowances: '', bonus: '0',
+          designation: '', basicSalary: '', allowances: '0', bonus: '0',
           deductions: '0', pfDeduction: '0', taxDeduction: '0'
         });
         setShowForm(false);
@@ -1926,9 +3588,9 @@ export function StaffPaymentStructureView({ showToast, type }) {
     setForm({
       designation: s.designation || '',
       basicSalary: String(s.basicSalary || ''),
-      allowances: String(s.allowances || ''),
-      bonus: String(s.bonus || '0'),
-      deductions: String(s.deductions || '0'),
+      allowances: '0',
+      bonus: '0',
+      deductions: '0',
       pfDeduction: String(s.pfDeduction || '0'),
       taxDeduction: String(s.taxDeduction || '0')
     });
@@ -1936,8 +3598,7 @@ export function StaffPaymentStructureView({ showToast, type }) {
     setShowForm(true);
   };
 
-  const netSalary = Number(form.basicSalary || 0) + Number(form.allowances || 0) + Number(form.bonus || 0)
-    - Number(form.deductions || 0) - Number(form.pfDeduction || 0) - Number(form.taxDeduction || 0);
+  const netSalary = Number(form.basicSalary || 0) - Number(form.pfDeduction || 0) - Number(form.taxDeduction || 0);
 
   const inputStyle = {
     width: '100%', padding: '10px 14px', background: 'var(--bg-form)',
@@ -1994,8 +3655,8 @@ export function StaffPaymentStructureView({ showToast, type }) {
                   </select>
                 </div>
                 {[
-                  ['Basic Salary', 'basicSalary'], ['Allowances', 'allowances'], ['Bonus', 'bonus'],
-                  ['Deductions', 'deductions'], ['PF Deduction', 'pfDeduction'], ['Tax Deduction', 'taxDeduction']
+                  ['Basic Salary', 'basicSalary'],
+                  ['PF Deduction', 'pfDeduction'], ['Tax Deduction', 'taxDeduction']
                 ].map(([label, key]) => (
                   <div key={key}>
                     <label style={labelStyle}>{label} (₹)</label>
@@ -2029,7 +3690,7 @@ export function StaffPaymentStructureView({ showToast, type }) {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '16px' }}>
           {loading ? (
             <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
-              <Loader2 className="animate-spin" size={24} />
+               <Loader2 className="animate-spin" size={24} />
             </div>
           ) : filteredStructures.length === 0 ? (
             <div className="glass-panel" style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '40px', color: 'var(--text-muted)', borderRadius: '16px' }}>
@@ -2054,15 +3715,15 @@ export function StaffPaymentStructureView({ showToast, type }) {
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
                   {[
-                    ['Basic Salary', s.basicSalary], ['Allowances', s.allowances], ['Bonus', s.bonus],
-                    ['Deductions', s.deductions], ['PF Deduction', s.pfDeduction], ['Tax Deduction', s.taxDeduction]
+                    ['Basic Salary', s.basicSalary],
+                    ['PF Deduction', s.pfDeduction], ['Tax Deduction', s.taxDeduction]
                   ].map(([l, v], idx) => (
                     <div key={l} style={{ 
                       display: 'flex', 
                       justifyContent: 'space-between', 
                       fontSize: '0.82rem',
                       padding: '8px 0',
-                      borderBottom: idx === 5 ? 'none' : '1px solid rgba(0,0,0,0.04)'
+                      borderBottom: idx === 2 ? 'none' : '1px solid rgba(0,0,0,0.04)'
                     }}>
                       <span style={{ color: 'var(--text-muted)' }}>{l}</span>
                       <span style={{ color: 'var(--text-main)', fontWeight: 600 }}>₹{(v || 0).toLocaleString()}</span>
@@ -2137,7 +3798,7 @@ export function StaffPaymentsView({ showToast }) {
   const [search, setSearch] = useState('');
   const [form, setForm] = useState({
     staffId: '', staffName: '', staffRole: '', department: '',
-    basicSalary: '30000', allowances: '6000', bonus: '0', deductions: '1500',
+    basicSalary: '30000', allowances: '0', bonus: '0', deductions: '0',
     pfDeduction: '1500', taxDeduction: '1000', paymentMethod: 'Bank Transfer',
     month: `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`
   });
@@ -2204,9 +3865,9 @@ export function StaffPaymentsView({ showToast }) {
             staffRole: s.designation || s.role,
             department: s.department,
             basicSalary: sstr ? String(sstr.basicSalary) : '30000',
-            allowances: sstr ? String(sstr.allowances) : '6000',
-            bonus: sstr ? String(sstr.bonus || 0) : '0',
-            deductions: sstr ? String(sstr.deductions) : '1500',
+            allowances: '0',
+            bonus: '0',
+            deductions: '0',
             pfDeduction: sstr ? String(sstr.pfDeduction) : '1500',
             taxDeduction: sstr ? String(sstr.taxDeduction) : '1000'
           }));
@@ -2241,9 +3902,9 @@ export function StaffPaymentsView({ showToast }) {
             staffRole: s.designation || s.role,
             department: s.department,
             basicSalary: sstr ? String(sstr.basicSalary) : '30000',
-            allowances: sstr ? String(sstr.allowances) : '6000',
-            bonus: sstr ? String(sstr.bonus || 0) : '0',
-            deductions: sstr ? String(sstr.deductions) : '1500',
+            allowances: '0',
+            bonus: '0',
+            deductions: '0',
             pfDeduction: sstr ? String(sstr.pfDeduction) : '1500',
             taxDeduction: sstr ? String(sstr.taxDeduction) : '1000'
           }));
@@ -2252,8 +3913,7 @@ export function StaffPaymentsView({ showToast }) {
     }
   };
 
-  const netSalary = Number(form.basicSalary || 0) + Number(form.allowances || 0) + Number(form.bonus || 0)
-    - Number(form.deductions || 0) - Number(form.pfDeduction || 0) - Number(form.taxDeduction || 0);
+  const netSalary = Number(form.basicSalary || 0) - Number(form.pfDeduction || 0) - Number(form.taxDeduction || 0);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -2271,7 +3931,7 @@ export function StaffPaymentsView({ showToast }) {
         showToast(`Payment of ₹${netSalary.toLocaleString()} processed for ${form.staffName}!`);
         setShowForm(false);
         setForm({ staffId: '', staffName: '', staffRole: '', department: '',
-          basicSalary: '30000', allowances: '6000', bonus: '0', deductions: '1500',
+          basicSalary: '30000', allowances: '0', bonus: '0', deductions: '0',
           pfDeduction: '1500', taxDeduction: '1000', paymentMethod: 'Bank Transfer',
           month: `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}` });
         fetchPayments();
@@ -2449,9 +4109,9 @@ export function StaffPaymentsView({ showToast }) {
                             staffName: '',
                             department: '',
                             basicSalary: sstr ? String(sstr.basicSalary) : '30000',
-                            allowances: sstr ? String(sstr.allowances) : '6000',
-                            bonus: sstr ? String(sstr.bonus || 0) : '0',
-                            deductions: sstr ? String(sstr.deductions) : '1500',
+                            allowances: '0',
+                            bonus: '0',
+                            deductions: '0',
                             pfDeduction: sstr ? String(sstr.pfDeduction) : '1500',
                             taxDeduction: sstr ? String(sstr.taxDeduction) : '1000'
                           }));
@@ -2464,9 +4124,9 @@ export function StaffPaymentsView({ showToast }) {
                             staffName: '',
                             department: '',
                             basicSalary: '30000',
-                            allowances: '6000',
+                            allowances: '0',
                             bonus: '0',
-                            deductions: '1500',
+                            deductions: '0',
                             pfDeduction: '1500',
                             taxDeduction: '1000'
                           }));
@@ -2482,8 +4142,8 @@ export function StaffPaymentsView({ showToast }) {
                   </select>
                 </div>
                 {[
-                  ['Basic Salary', 'basicSalary'], ['Allowances', 'allowances'], ['Bonus', 'bonus'],
-                  ['Deductions', 'deductions'], ['PF Deduction', 'pfDeduction'], ['Tax Deduction', 'taxDeduction']
+                  ['Basic Salary', 'basicSalary'],
+                  ['PF Deduction', 'pfDeduction'], ['Tax Deduction', 'taxDeduction']
                 ].map(([label, key]) => (
                   <div key={key}>
                     <label style={labelStyle}>{label} (₹)</label>
@@ -2536,7 +4196,7 @@ export function StaffPaymentsView({ showToast }) {
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ background: 'rgba(255,255,255,0.02)' }}>
-                {['Payment ID', 'Employee', 'Role', 'Basic', 'Allowances', 'Deductions', 'Net Salary', 'Status', 'Date', 'Actions'].map(h => (
+                {['Payment ID', 'Employee', 'Role', 'Basic', 'PF', 'Tax', 'Net Salary', 'Status', 'Date', 'Actions'].map(h => (
                   <th key={h} style={{ padding: '14px 16px', textAlign: 'left', fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>{h}</th>
                 ))}
               </tr>
@@ -2555,8 +4215,8 @@ export function StaffPaymentsView({ showToast }) {
                     <td style={{ padding: '12px 16px', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-main)' }}>{p.staffName}</td>
                     <td style={{ padding: '12px 16px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>{p.staffRole}</td>
                     <td style={{ padding: '12px 16px', fontSize: '0.8rem', color: 'var(--text-main)' }}>₹{p.basicSalary?.toLocaleString()}</td>
-                    <td style={{ padding: '12px 16px', fontSize: '0.8rem', color: '#10b981' }}>+₹{p.allowances?.toLocaleString()}</td>
-                    <td style={{ padding: '12px 16px', fontSize: '0.8rem', color: '#ef4444' }}>-₹{((p.deductions || 0) + (p.pfDeduction || 0) + (p.taxDeduction || 0))?.toLocaleString()}</td>
+                    <td style={{ padding: '12px 16px', fontSize: '0.8rem', color: '#ef4444' }}>-₹{p.pfDeduction?.toLocaleString()}</td>
+                    <td style={{ padding: '12px 16px', fontSize: '0.8rem', color: '#ef4444' }}>-₹{p.taxDeduction?.toLocaleString()}</td>
                     <td style={{ padding: '12px 16px', fontSize: '0.8rem', fontWeight: 700, color: '#ec4899' }}>₹{p.netSalary?.toLocaleString()}</td>
                     <td style={{ padding: '12px 16px' }}>
                       <span style={{
@@ -2605,7 +4265,7 @@ export function PayrollView({ showToast, type }) {
   const [search, setSearch] = useState('');
   const [form, setForm] = useState({
     teacherId: '', teacherName: '', employeeId: '', role: type === 'Teacher' ? 'Teacher' : '', department: '',
-    basicSalary: '45000', allowances: '5000', bonus: '0', deductions: '2000',
+    basicSalary: '45000', allowances: '0', bonus: '0', deductions: '0',
     pfDeduction: '1800', taxDeduction: '1200', paymentMethod: 'Bank Transfer',
     month: `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`
   });
@@ -2687,16 +4347,16 @@ export function PayrollView({ showToast, type }) {
   const selectTeacher = (t) => {
     if (t) {
       let basicSalary = '45000';
-      let allowances = '5000';
-      let deductions = '2000';
+      let allowances = '0';
+      let deductions = '0';
       let pfDeduction = '1800';
       let taxDeduction = '1200';
 
       const matchingStructure = salaryStructures.find(s => (s.role || s.designation) === t.designation);
       if (matchingStructure) {
         basicSalary = String(matchingStructure.basicSalary || '0');
-        allowances = String(matchingStructure.allowances || '0');
-        deductions = String(matchingStructure.deductions || '0');
+        allowances = '0';
+        deductions = '0';
         pfDeduction = String(matchingStructure.pfDeduction || '0');
         taxDeduction = String(matchingStructure.taxDeduction || '0');
       }
@@ -2725,8 +4385,8 @@ export function PayrollView({ showToast, type }) {
         role: '',
         department: '',
         basicSalary: '45000',
-        allowances: '5000',
-        deductions: '2000',
+        allowances: '0',
+        deductions: '0',
         pfDeduction: '1800',
         taxDeduction: '1200'
       }));
@@ -2746,8 +4406,7 @@ export function PayrollView({ showToast, type }) {
     }
   };
 
-  const netSalary = Number(form.basicSalary || 0) + Number(form.allowances || 0) + Number(form.bonus || 0)
-    - Number(form.deductions || 0) - Number(form.pfDeduction || 0) - Number(form.taxDeduction || 0);
+  const netSalary = Number(form.basicSalary || 0) - Number(form.pfDeduction || 0) - Number(form.taxDeduction || 0);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -2769,7 +4428,7 @@ export function PayrollView({ showToast, type }) {
         showToast(`Salary processed for ${form.teacherName}! Net: ₹${netSalary.toLocaleString()}`);
         setShowForm(false);
         setForm({ teacherId: '', teacherName: '', employeeId: '', role: type === 'Teacher' ? 'Teacher' : '', department: '',
-          basicSalary: '45000', allowances: '5000', bonus: '0', deductions: '2000',
+          basicSalary: '45000', allowances: '0', bonus: '0', deductions: '0',
           pfDeduction: '1800', taxDeduction: '1200', paymentMethod: 'Bank Transfer',
           month: `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}` });
         setSelectedStructureId('');
@@ -2986,8 +4645,8 @@ export function PayrollView({ showToast, type }) {
                           setForm(prev => ({
                             ...prev,
                             basicSalary: String(selectedStr.basicSalary || '0'),
-                            allowances: String(selectedStr.allowances || '0'),
-                            deductions: String(selectedStr.deductions || '0'),
+                            allowances: '0',
+                            deductions: '0',
                             pfDeduction: String(selectedStr.pfDeduction || '0'),
                             taxDeduction: String(selectedStr.taxDeduction || '0')
                           }));
@@ -3005,8 +4664,8 @@ export function PayrollView({ showToast, type }) {
                   </div>
                 )}
                 {[
-                  ['Basic Salary', 'basicSalary'], ['Allowances', 'allowances'], ['Bonus', 'bonus'],
-                  ['Deductions', 'deductions'], ['PF Deduction', 'pfDeduction'], ['Tax Deduction', 'taxDeduction']
+                  ['Basic Salary', 'basicSalary'],
+                  ['PF Deduction', 'pfDeduction'], ['Tax Deduction', 'taxDeduction']
                 ].map(([label, key]) => (
                   <div key={key}>
                     <label style={labelStyle}>{label} (₹)</label>
@@ -3060,7 +4719,7 @@ export function PayrollView({ showToast, type }) {
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ background: 'rgba(255,255,255,0.02)' }}>
-                {['Payroll ID', 'Staff', 'Role', 'Basic', 'Allowances', 'Deductions', 'Net Salary', 'Status', 'Date', 'Actions'].map(h => (
+                {['Payroll ID', 'Staff', 'Role', 'Basic', 'PF', 'Tax', 'Net Salary', 'Status', 'Date', 'Actions'].map(h => (
                   <th key={h} style={{ padding: '14px 16px', textAlign: 'left', fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>{h}</th>
                 ))}
               </tr>
@@ -3079,8 +4738,8 @@ export function PayrollView({ showToast, type }) {
                     <td style={{ padding: '12px 16px', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-main)' }}>{p.teacherName}</td>
                     <td style={{ padding: '12px 16px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>{p.role || p.designation}</td>
                     <td style={{ padding: '12px 16px', fontSize: '0.8rem', color: 'var(--text-main)' }}>₹{p.basicSalary?.toLocaleString()}</td>
-                    <td style={{ padding: '12px 16px', fontSize: '0.8rem', color: '#10b981' }}>+₹{p.allowances?.toLocaleString()}</td>
-                    <td style={{ padding: '12px 16px', fontSize: '0.8rem', color: '#ef4444' }}>-₹{(p.deductions + p.pfDeduction + p.taxDeduction)?.toLocaleString()}</td>
+                    <td style={{ padding: '12px 16px', fontSize: '0.8rem', color: '#ef4444' }}>-₹{p.pfDeduction?.toLocaleString()}</td>
+                    <td style={{ padding: '12px 16px', fontSize: '0.8rem', color: '#ef4444' }}>-₹{p.taxDeduction?.toLocaleString()}</td>
                     <td style={{ padding: '12px 16px', fontSize: '0.8rem', fontWeight: 700, color: '#8b5cf6' }}>₹{p.netSalary?.toLocaleString()}</td>
                     <td style={{ padding: '12px 16px' }}>
                       <span style={{
@@ -3406,7 +5065,11 @@ export function ExpensesView({ showToast }) {
 /* ============================================================
    INCOME VIEW
    ============================================================ */
-export function IncomeView({ showToast, active = true }) {
+export function IncomeView() {
+  return null;
+}
+
+function Disabled_IncomeView({ showToast, active = true }) {
   const [income, setIncome] = useState([]);
   const [fees, setFees] = useState([]);
   const [expenses, setExpenses] = useState([]);
@@ -4384,7 +6047,7 @@ export function TeacherSalaryStructureView({ showToast }) {
   const [editingId, setEditingId] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(null);
   const [form, setForm] = useState({
-    role: 'Teacher', basicSalary: '', allowances: '',
+    role: 'Teacher', basicSalary: '', allowances: '0',
     deductions: '0', pfDeduction: '0', taxDeduction: '0'
   });
   const [gradeRange, setGradeRange] = useState('');
@@ -4437,7 +6100,7 @@ export function TeacherSalaryStructureView({ showToast }) {
         showToast(`Salary structure for ${finalRole} saved!`);
         setEditingId(null);
         setForm({
-          role: 'Teacher', basicSalary: '', allowances: '',
+          role: 'Teacher', basicSalary: '', allowances: '0',
           deductions: '0', pfDeduction: '0', taxDeduction: '0'
         });
         setGradeRange('');
@@ -4461,8 +6124,8 @@ export function TeacherSalaryStructureView({ showToast }) {
     setForm({
       role: 'Teacher',
       basicSalary: String(s.basicSalary || ''),
-      allowances: String(s.allowances || ''),
-      deductions: String(s.deductions || '0'),
+      allowances: '0',
+      deductions: '0',
       pfDeduction: String(s.pfDeduction || '0'),
       taxDeduction: String(s.taxDeduction || '0')
     });
@@ -4470,8 +6133,7 @@ export function TeacherSalaryStructureView({ showToast }) {
     setShowForm(true);
   };
 
-  const netSalary = Number(form.basicSalary || 0) + Number(form.allowances || 0)
-    - Number(form.deductions || 0) - Number(form.pfDeduction || 0) - Number(form.taxDeduction || 0);
+  const netSalary = Number(form.basicSalary || 0) - Number(form.pfDeduction || 0) - Number(form.taxDeduction || 0);
 
   const inputStyle = {
     width: '100%', padding: '10px 14px', background: 'var(--bg-form)',
@@ -4480,6 +6142,8 @@ export function TeacherSalaryStructureView({ showToast }) {
   };
   const labelStyle = { fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '6px', display: 'block' };
   const optionStyle = { background: 'var(--bg-form)', color: 'var(--text-main)' };
+
+  const filteredTeacherStructures = structures;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
@@ -4529,8 +6193,8 @@ export function TeacherSalaryStructureView({ showToast }) {
                   />
                 </div>
                 {[
-                  ['Basic Salary', 'basicSalary'], ['Allowances', 'allowances'],
-                  ['Deductions', 'deductions'], ['PF Deduction', 'pfDeduction'], ['Tax Deduction', 'taxDeduction']
+                  ['Basic Salary', 'basicSalary'],
+                  ['PF Deduction', 'pfDeduction'], ['Tax Deduction', 'taxDeduction']
                 ].map(([label, key]) => (
                   <div key={key}>
                     <label style={labelStyle}>{label} (₹)</label>
@@ -4591,15 +6255,15 @@ export function TeacherSalaryStructureView({ showToast }) {
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
                   {[
-                    ['Basic Salary', s.basicSalary], ['Allowances', s.allowances],
-                    ['Deductions', s.deductions], ['PF Deduction', s.pfDeduction], ['Tax Deduction', s.taxDeduction]
+                    ['Basic Salary', s.basicSalary],
+                    ['PF Deduction', s.pfDeduction], ['Tax Deduction', s.taxDeduction]
                   ].map(([l, v], idx) => (
                     <div key={l} style={{ 
                       display: 'flex', 
                       justifyContent: 'space-between', 
                       fontSize: '0.82rem',
                       padding: '8px 0',
-                      borderBottom: idx === 4 ? 'none' : '1px solid rgba(0,0,0,0.04)'
+                      borderBottom: idx === 2 ? 'none' : '1px solid rgba(0,0,0,0.04)'
                     }}>
                       <span style={{ color: 'var(--text-muted)' }}>{l}</span>
                       <span style={{ color: 'var(--text-main)', fontWeight: 600 }}>₹{(v || 0).toLocaleString()}</span>
@@ -4672,40 +6336,10 @@ export function FeesHistoryView({ showToast }) {
   const [filterClass, setFilterClass] = useState('All');
   const [filterSection, setFilterSection] = useState('All');
   const [filterDept, setFilterDept] = useState('All');
-  const [selectedStudentHistory, setSelectedStudentHistory] = useState(null);
-  const [confirmDeleteAllStudentFees, setConfirmDeleteAllStudentFees] = useState(null);
+  const [expandedStudents, setExpandedStudents] = useState({});
   const [activeGrades, setActiveGrades] = useState([]);
   const [activeSections, setActiveSections] = useState([]);
-
-  const [dismissedStudentIds, setDismissedStudentIds] = useState(() => {
-    const tenantSubdomain = localStorage.getItem('tenant_subdomain') || 'default';
-    const hiddenKey = `hidden_fees_history_${tenantSubdomain}`;
-    try {
-      const stored = localStorage.getItem(hiddenKey);
-      return stored ? JSON.parse(stored) : [];
-    } catch {
-      return [];
-    }
-  });
-
-  const handleHideStudentCard = (studentId) => {
-    const tenantSubdomain = localStorage.getItem('tenant_subdomain') || 'default';
-    const hiddenKey = `hidden_fees_history_${tenantSubdomain}`;
-    setDismissedStudentIds(prev => {
-      const updated = [...new Set([...prev, studentId])];
-      localStorage.setItem(hiddenKey, JSON.stringify(updated));
-      return updated;
-    });
-    if (showToast) showToast('Student card hidden from history view.');
-  };
-
-  const handleResetHiddenCards = () => {
-    const tenantSubdomain = localStorage.getItem('tenant_subdomain') || 'default';
-    const hiddenKey = `hidden_fees_history_${tenantSubdomain}`;
-    localStorage.removeItem(hiddenKey);
-    setDismissedStudentIds([]);
-    if (showToast) showToast('All hidden student cards restored.');
-  };
+  const [sectionTab, setSectionTab] = useState('due'); // 'due', 'completed'
 
   useEffect(() => {
     const loadGradesAndSections = async () => {
@@ -4723,7 +6357,6 @@ export function FeesHistoryView({ showToast }) {
     loadGradesAndSections();
   }, []);
 
-  // Sync selected section when class selection shifts
   useEffect(() => {
     if (filterClass !== 'All') {
       const matchedGrades = activeGrades.filter(g => parseGradeName(g.name).baseGrade === filterClass);
@@ -4737,6 +6370,23 @@ export function FeesHistoryView({ showToast }) {
   }, [filterClass, activeGrades, filterSection]);
 
   const uniqueBaseGrades = [...new Set(activeGrades.map(g => parseGradeName(g.name).baseGrade))];
+
+  const allowedSectionsForFilter = React.useMemo(() => {
+    if (filterClass === 'All') {
+      return activeSections.map(s => s.name);
+    }
+    const matchingGrades = activeGrades.filter(g => {
+      const parsed = parseGradeName(g.name);
+      return parsed.baseGrade === filterClass;
+    });
+    const sectionsUnion = new Set();
+    matchingGrades.forEach(g => {
+      if (g.sections) {
+        g.sections.forEach(sec => sectionsUnion.add(sec));
+      }
+    });
+    return Array.from(sectionsUnion);
+  }, [filterClass, activeGrades, activeSections]);
 
   const fetchData = async () => {
     try {
@@ -4768,7 +6418,6 @@ export function FeesHistoryView({ showToast }) {
 
   useEffect(() => {
     fetchData();
-
     const handleCacheUpdate = (e) => {
       const updatedUrl = e.detail?.url || '';
       if (
@@ -4780,617 +6429,423 @@ export function FeesHistoryView({ showToast }) {
         fetchData();
       }
     };
-
     window.addEventListener('api-cache-updated', handleCacheUpdate);
     return () => {
       window.removeEventListener('api-cache-updated', handleCacheUpdate);
     };
   }, []);
 
-  const studentCardsData = React.useMemo(() => {
-    const getBillingPeriodOptions = (frequency) => {
-      if (frequency === 'Monthly') {
-        return [
-          'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December', 'January', 'February', 'March'
-        ];
-      }
-      const customPeriods = feePeriods.filter(fp => fp.frequency === frequency).map(fp => fp.name);
-      if (customPeriods.length > 0) return customPeriods;
-      if (frequency === 'Quarterly') {
-        return ['Q1 (Apr-Jun)', 'Q2 (Jul-Sep)', 'Q3 (Oct-Dec)', 'Q4 (Jan-Mar)'];
-      } else if (frequency === 'Half-Yearly') {
-        return ['First Half (H1)', 'Second Half (H2)'];
-      } else {
-        return ['Full Year'];
-      }
-    };
+  const getCalculatedAmount = (baseAmount, frequency, hasMonthRange = false) => {
+    const amt = Number(baseAmount) || 0;
+    if (hasMonthRange) return amt;
+    if (frequency === 'Monthly') return Math.round(amt / 12);
+    if (frequency === 'Quarterly') return Math.round(amt / 4);
+    if (frequency === 'Half-Yearly') return Math.round(amt / 2);
+    return amt;
+  };
 
-    const getCalculatedAmount = (baseAmount, frequency, hasMonthRange = false) => {
-      const amt = Number(baseAmount) || 0;
-      if (hasMonthRange) return amt;
-      if (frequency === 'Monthly') return Math.round(amt / 12);
-      if (frequency === 'Quarterly') return Math.round(amt / 4);
-      if (frequency === 'Half-Yearly') return Math.round(amt / 2);
-      return amt;
-    };
+  const groupFeesByStudent = (feesArray) => {
+    if (filterClass === 'All' || filterSection === 'All') {
+      return [];
+    }
 
-    const isPeriodDueTillNow = (period, freq) => {
-      const now = new Date();
-      const currentMonth = now.getMonth(); // 0 = Jan, 11 = Dec
-      // Academic year starts in April. Months order: Apr(3), May(4), Jun(5), Jul(6), Aug(7), Sep(8), Oct(9), Nov(10), Dec(11), Jan(0), Feb(1), Mar(2)
-      const academicMonthOrder = [3, 4, 5, 6, 7, 8, 9, 10, 11, 0, 1, 2];
-      const currentMonthOrderIdx = academicMonthOrder.indexOf(currentMonth);
+    const matchingStudents = students.filter(student => {
+      const parsed = parseGradeName(student.studentClass);
+      const matchesClass = parsed.baseGrade === filterClass && (!isGrade11or12(filterClass) || filterDept === 'All' || parsed.department === filterDept);
+      const matchesSection = student.section === filterSection;
+      const matchesSearch = !search || (student.fullName || student.name || '').toLowerCase().includes(search.toLowerCase());
+      return matchesClass && matchesSection && matchesSearch;
+    });
 
-      if (freq === 'Monthly') {
-        const monthNames = [
-          'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December', 'January', 'February', 'March'
-        ];
-        const periodIdx = monthNames.indexOf(period);
-        if (periodIdx === -1) return false;
-        return periodIdx <= currentMonthOrderIdx;
-      }
+    return matchingStudents.map(student => {
+      const studentFees = (feesArray || []).filter(f => 
+        f.studentId === student.id || f.admissionNumber === student.admissionNumber
+      );
 
-      // Check if there are custom periods for this frequency
-      const customPeriodsForFreq = feePeriods.filter(fp => fp.frequency === freq).map(fp => fp.name);
-      if (customPeriodsForFreq.length > 0) {
-        const periodIdx = customPeriodsForFreq.indexOf(period);
-        if (periodIdx !== -1) {
-          const expectedMonthThreshold = Math.floor(periodIdx * (12 / customPeriodsForFreq.length));
-          return currentMonthOrderIdx >= expectedMonthThreshold;
-        }
-      }
-
-      if (freq === 'Quarterly') {
-        // Q1 (Apr-Jun) -> ends June (index 2 in academic order)
-        // Q2 (Jul-Sep) -> ends Sept (index 5 in academic order)
-        // Q3 (Oct-Dec) -> ends Dec (index 8 in academic order)
-        // Q4 (Jan-Mar) -> ends Mar (index 11 in academic order)
-        const quarterMaxMonthOrder = {
-          'Q1 (Apr-Jun)': 2,
-          'Q2 (Jul-Sep)': 5,
-          'Q3 (Oct-Dec)': 8,
-          'Q4 (Jan-Mar)': 11
-        };
-        const maxIdx = quarterMaxMonthOrder[period];
-        if (maxIdx === undefined) return false;
-        return currentMonthOrderIdx >= maxIdx - 2; // quarter is due if current month has reached the start of the quarter
-      }
-
-      if (freq === 'Half-Yearly') {
-        // H1 starts April (idx 0), H2 starts October (idx 6)
-        if (period === 'First Half (H1)') return true;
-        if (period === 'Second Half (H2)') return currentMonthOrderIdx >= 6;
-      }
-
-      return true; // Yearly is always due
-    };
-
-    return students.map(student => {
-      const studentFees = fees.filter(f => f.studentId === student.id);
-      
       const classStructures = feeStructures.filter(fs => fs.studentClass === student.studentClass);
-      const firstStructure = classStructures[0];
-      
-      // Dynamic frequency resolution
-      let frequency = 'Yearly';
-      if (firstStructure) {
-        frequency = firstStructure.frequency || 'Yearly';
-      } else {
-        const hasQuarterly = studentFees.some(f => f.billingPeriod && (f.billingPeriod.startsWith('Q') || f.billingPeriod.includes('Quarter')));
-        const hasMonthly = studentFees.some(f => f.billingPeriod && [
-          'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December', 'January', 'February', 'March'
-        ].includes(f.billingPeriod));
-        const hasHalfYearly = studentFees.some(f => f.billingPeriod && (f.billingPeriod.includes('Half') || f.billingPeriod.includes('H1') || f.billingPeriod.includes('H2')));
-        
-        if (hasQuarterly) frequency = 'Quarterly';
-        else if (hasMonthly) frequency = 'Monthly';
-        else if (hasHalfYearly) frequency = 'Half-Yearly';
+      const periodNames = [...new Set(classStructures.map(fs => fs.monthRange || 'Full Year'))];
+      if (periodNames.length === 0) {
+        periodNames.push('Full Year');
       }
 
-      const periods = getBillingPeriodOptions(frequency);
-
-      const feeTypesConfig = [
-        { type: 'Tuition Fee', field: 'tuitionFee' },
-        { type: 'Transport Fee', field: 'transportFee' },
-        { type: 'Other Charges', field: 'otherCharges' }
-      ];
-
-      const feeStatusDetails = feeTypesConfig.map(cfg => {
-        const feeType = cfg.type;
-        const field = cfg.field;
-        const typePayments = studentFees.filter(f => f.feeType === feeType);
-
-        let typeDue = 0;
-        
-        if (typePayments.length === 0) {
-          // If no payments collected for this type initially, show Not Paid.
-          // Dues are sum of expected amounts for periods due till now.
-          periods.forEach(period => {
-            if (isPeriodDueTillNow(period, frequency)) {
-              const matchedFs = classStructures.find(fs => fs.monthRange === period) || firstStructure;
-              const expectedAmt = matchedFs ? getCalculatedAmount(Number(matchedFs[field] || 0), frequency, !!(matchedFs && matchedFs.monthRange)) : 0;
-              typeDue += expectedAmt;
-            }
-          });
-          return {
-            feeType,
-            status: 'Not Paid',
-            dueAmount: typeDue
-          };
-        } else {
-          // Calculate dues for periods that have started OR have transaction entries
-          periods.forEach(period => {
-            const hasRecord = typePayments.some(f => f.billingPeriod === period);
-            const isDue = isPeriodDueTillNow(period, frequency) || hasRecord;
-            
-            if (isDue) {
-              const periodPayments = typePayments.filter(f => f.billingPeriod === period);
-              if (periodPayments.length > 0) {
-                const latestPayment = periodPayments.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt))[periodPayments.length - 1];
-                typeDue += Number(latestPayment.dueAmount || 0);
-              } else {
-                const matchedFs = classStructures.find(fs => fs.monthRange === period) || firstStructure;
-                const expectedAmt = matchedFs ? getCalculatedAmount(Number(matchedFs[field] || 0), frequency, !!(matchedFs && matchedFs.monthRange)) : 0;
-                typeDue += expectedAmt;
-              }
-            }
-          });
-
-          return {
-            feeType,
-            status: typeDue > 0 ? 'Has Due' : 'No Due',
-            dueAmount: typeDue
-          };
+      const periodsList = periodNames.map(periodName => {
+        let matchedFs = classStructures.find(fs => (fs.monthRange || 'Full Year') === periodName);
+        if (!matchedFs && classStructures.length > 0) {
+          matchedFs = classStructures[0];
         }
+
+        const freq = matchedFs ? (matchedFs.frequency || 'Yearly') : 'Yearly';
+        const hasMonthRange = !!(matchedFs && matchedFs.monthRange);
+
+        const configTuition = matchedFs ? getCalculatedAmount(matchedFs.tuitionFee || 0, freq, hasMonthRange) : 0;
+        const configTransport = matchedFs ? getCalculatedAmount(matchedFs.transportFee || 0, freq, hasMonthRange) : 0;
+        const configOther = matchedFs ? getCalculatedAmount(matchedFs.otherCharges || 0, freq, hasMonthRange) : 0;
+
+        const configMap = {
+          'Tuition Fee': configTuition,
+          'Transport Fee': configTransport,
+          'Other Charges': configOther
+        };
+
+        const studentPeriodFees = studentFees.filter(f => f.billingPeriod === periodName);
+        const alignedComponents = [];
+        const standardTypes = ['Tuition Fee', 'Transport Fee', 'Other Charges'];
+
+        standardTypes.forEach(type => {
+          const configAmt = configMap[type] || 0;
+          const pay = studentPeriodFees.find(f => f.feeType === type);
+
+          if (configAmt > 0 || pay) {
+            const paid = pay ? pay.paidAmount : 0;
+            const fine = pay ? pay.fine : 0;
+            const due = Math.max(0, (configAmt + fine) - paid);
+
+            alignedComponents.push({
+              feeType: type,
+              amount: configAmt,
+              fine,
+              paidAmount: paid,
+              dueAmount: due,
+              status: pay ? pay.paymentStatus : 'Pending',
+              rawFee: pay ? pay : {
+                studentId: student.id,
+                studentName: student.fullName || student.name,
+                admissionNumber: student.admissionNumber,
+                studentClass: student.studentClass,
+                section: student.section,
+                feeType: type,
+                amount: configAmt,
+                discount: 0,
+                fine: 0,
+                paidAmount: 0,
+                dueAmount: configAmt,
+                paymentStatus: 'Pending',
+                paymentMethod: 'N/A',
+                paymentDate: 'N/A',
+                billingPeriod: periodName
+              }
+            });
+          }
+        });
+
+        let totalFee = 0;
+        let paidAmount = 0;
+        let dueAmount = 0;
+
+        alignedComponents.forEach(comp => {
+          totalFee += comp.amount + comp.fine;
+          paidAmount += comp.paidAmount;
+          dueAmount += comp.dueAmount;
+        });
+
+        let status = 'Pending';
+        if (dueAmount <= 0) {
+          status = 'Paid';
+        } else if (paidAmount > 0) {
+          status = 'Partial';
+        }
+
+        const firstPay = studentPeriodFees[0] || {};
+
+        return {
+          name: periodName,
+          components: alignedComponents,
+          totalPeriodFee: totalFee,
+          paidPeriodAmount: paidAmount,
+          duePeriodAmount: dueAmount,
+          status,
+          paymentMethod: firstPay.paymentMethod || 'N/A',
+          paymentDate: firstPay.paymentDate || 'N/A',
+          receiptNumber: firstPay.receiptNumber || 'N/A'
+        };
       });
 
-      const totalDue = feeStatusDetails.reduce((sum, item) => sum + item.dueAmount, 0);
+      let overallTotal = 0;
+      let overallPaid = 0;
+      let overallDue = 0;
+
+      periodsList.forEach(p => {
+        overallTotal += p.totalPeriodFee;
+        overallPaid += p.paidPeriodAmount;
+        overallDue += p.duePeriodAmount;
+      });
+
+      let overallStatus = 'Pending';
+      if (overallDue <= 0) {
+        overallStatus = 'Paid';
+      } else if (overallPaid > 0) {
+        overallStatus = 'Partial';
+      }
 
       return {
-        ...student,
-        structures: feeStatusDetails,
-        totalDue,
-        allFees: studentFees,
-        feeStatusDetails
+        studentId: student.id,
+        studentName: student.fullName || student.name,
+        admissionNumber: student.admissionNumber,
+        studentClass: student.studentClass,
+        section: student.section,
+        periods: periodsList,
+        overallTotal,
+        overallPaid,
+        overallDue,
+        overallStatus
       };
     });
-  }, [students, fees, feeStructures, feePeriods]);
-
-  const filteredCards = studentCardsData.filter(card => {
-    // Only show students who have at least one collected fee transaction
-    if (!card.allFees || card.allFees.length === 0) return false;
-
-    // Filter out dismissed student IDs
-    if (dismissedStudentIds.includes(card.id)) return false;
-
-    const name = (card.fullName || card.name || '').toLowerCase();
-    const roll = (card.rollNumber || card.roll || '').toLowerCase();
-    const admNo = (card.admissionNumber || '').toLowerCase();
-    const q = search.toLowerCase();
-    const matchesSearch = !search || name.includes(q) || roll.includes(q) || admNo.includes(q);
-
-    const parsed = parseGradeName(card.studentClass);
-    const matchesClass = filterClass === 'All' || (
-      parsed.baseGrade === filterClass &&
-      (!isGrade11or12(filterClass) || filterDept === 'All' || parsed.department === filterDept)
-    );
-    const matchesSection = filterSection === 'All' || card.section === filterSection;
-
-    return matchesSearch && matchesClass && matchesSection;
-  });
-
-  const inputStyle = {
-    padding: '10px 14px', background: 'var(--bg-form)',
-    border: '1.5px solid var(--border-glass)', borderRadius: '10px', color: 'var(--text-main)',
-    fontSize: '0.85rem', outline: 'none', boxSizing: 'border-box'
   };
+
+  const groupedStudents = groupFeesByStudent(fees);
+  const filteredGroupedStudents = groupedStudents;
+
+  const toggleStudentExpand = (studentId) => { setExpandedStudents(prev => ({ ...prev, [studentId]: !prev[studentId] })); };
+
+  const inputStyle = { padding: '10px 14px', background: 'var(--bg-form)', border: '1.5px solid var(--border-glass)', borderRadius: '10px', color: 'var(--text-main)', fontSize: '0.85rem', outline: 'none', boxSizing: 'border-box' };
   const optionStyle = { background: 'var(--bg-form)', color: 'var(--text-main)' };
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-      
-      {/* Search and Filters Toolbar */}
-      <div className="glass-panel" style={{ padding: '20px', display: 'flex', gap: '16px', flexWrap: 'wrap', alignItems: 'center', borderRadius: '16px' }}>
-        
-        {/* Search */}
-        <div style={{ position: 'relative', flex: '1', minWidth: '220px' }}>
-          <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-          <input 
-            type="text"
-            placeholder="Search student, roll number, adm..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            style={{ ...inputStyle, paddingLeft: '36px', width: '100%' }}
-          />
+      {/* Grade and Section Selection Panel */}
+      <div className="glass-panel animate-scale-up" style={{ padding: '20px', display: 'flex', gap: '16px', flexWrap: 'wrap', alignItems: 'center', borderRadius: '16px' }}>
+        <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', alignItems: 'center', flex: 1 }}>
+          <div style={{ minWidth: '150px' }}>
+            <label style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '6px', display: 'block' }}>Class / Grade</label>
+            <select 
+              value={filterClass} 
+              onChange={e => {
+                setFilterClass(e.target.value);
+                setFilterDept('All');
+                setFilterSection('All');
+              }} 
+              style={{ ...inputStyle, background: 'var(--bg-card-subtle)', cursor: 'pointer' }}
+            >
+              <option value="All" style={optionStyle}>Select Grade</option>
+              {uniqueBaseGrades.map(c => <option key={c} value={c} style={optionStyle}>Grade {c}</option>)}
+            </select>
+          </div>
+
+          {isGrade11or12(filterClass) && (
+            <div style={{ minWidth: '150px' }}>
+              <label style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '6px', display: 'block' }}>Department</label>
+              <select 
+                value={filterDept} 
+                onChange={e => setFilterDept(e.target.value)} 
+                style={{ ...inputStyle, background: 'var(--bg-card-subtle)', cursor: 'pointer' }}
+              >
+                <option value="All" style={optionStyle}>All Departments</option>
+                {[...new Set(activeGrades
+                  .filter(g => parseGradeName(g.name).baseGrade === filterClass)
+                  .map(g => parseGradeName(g.name).department)
+                  .filter(Boolean)
+                )].map(d => (
+                  <option key={d} value={d} style={optionStyle}>{d}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          <div style={{ minWidth: '150px' }}>
+            <label style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '6px', display: 'block' }}>Section</label>
+            <select
+              value={filterSection}
+              onChange={e => setFilterSection(e.target.value)}
+              style={{ ...inputStyle, background: 'var(--bg-card-subtle)', cursor: 'pointer' }}
+            >
+              <option value="All" style={optionStyle}>Select Section</option>
+              {allowedSectionsForFilter.map(sec => (
+                <option key={sec} value={sec} style={optionStyle}>Section {sec}</option>
+              ))}
+            </select>
+          </div>
         </div>
-
-        {/* Grade Filter */}
-        <select 
-          value={filterClass} 
-          onChange={(e) => {
-            setFilterClass(e.target.value);
-            setFilterDept('All');
-          }}
-          style={{ ...inputStyle, width: '130px', cursor: 'pointer' }}
-        >
-          <option value="All" style={optionStyle}>All Grades</option>
-          {uniqueBaseGrades.map(g => (
-            <option key={g} value={g} style={optionStyle}>Grade {g}</option>
-          ))}
-        </select>
-
-        {/* Department Filter (conditional for Grade 11 & 12) */}
-        {isGrade11or12(filterClass) && (
-          <select 
-            value={filterDept} 
-            onChange={(e) => setFilterDept(e.target.value)} 
-            style={{ ...inputStyle, width: '150px', cursor: 'pointer' }}
-          >
-            <option value="All" style={optionStyle}>All Departments</option>
-            {[...new Set(activeGrades
-              .filter(g => parseGradeName(g.name).baseGrade === filterClass)
-              .map(g => parseGradeName(g.name).department)
-              .filter(Boolean)
-            )].map(d => (
-              <option key={d} value={d} style={optionStyle}>{d}</option>
-            ))}
-          </select>
-        )}
-
-        {/* Section Filter */}
-        <select 
-          value={filterSection} 
-          onChange={(e) => setFilterSection(e.target.value)}
-          style={{ ...inputStyle, width: '120px', cursor: 'pointer' }}
-        >
-          <option value="All" style={optionStyle}>All Sections</option>
-          {(() => {
-            const matchedGrades = activeGrades.filter(g => parseGradeName(g.name).baseGrade === filterClass);
-            const allowedSections = filterClass !== 'All'
-              ? [...new Set(matchedGrades.flatMap(g => g.sections || []))].sort()
-              : [];
-            return allowedSections.map(secName => (
-              <option key={secName} value={secName} style={optionStyle}>Section {secName}</option>
-            ));
-          })()}
-        </select>
-
-        <button 
-          onClick={fetchData}
-          style={{
-            display: 'flex', alignItems: 'center', gap: '6px',
-            padding: '10px 16px', borderRadius: '10px', fontSize: '0.85rem', fontWeight: 600,
-            border: '1px solid var(--border-glass)', background: 'var(--bg-card)',
-            color: 'var(--text-muted)', cursor: 'pointer', transition: 'all 0.2s'
-          }}
-          onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-main)'; }}
-          onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted)'; }}
-        >
-          <RefreshCw size={14} className={loading ? 'animate-spin' : ''} /> Refresh
-        </button>
-
-        {dismissedStudentIds.length > 0 && (
-          <button 
-            onClick={handleResetHiddenCards}
-            style={{
-              display: 'flex', alignItems: 'center', gap: '6px',
-              padding: '10px 16px', borderRadius: '10px', fontSize: '0.85rem', fontWeight: 600,
-              border: '1px solid rgba(59, 130, 246, 0.2)', background: 'rgba(59, 130, 246, 0.05)',
-              color: '#3b82f6', cursor: 'pointer', transition: 'all 0.2s'
-            }}
-            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(59, 130, 246, 0.15)'; }}
-            onMouseLeave={e => { e.currentTarget.style.background = 'rgba(59, 130, 246, 0.05)'; }}
-          >
-            <Eye size={14} /> Restore Hidden ({dismissedStudentIds.length})
-          </button>
-        )}
       </div>
 
-      {/* Grid of Student Fee History Cards */}
-      {loading ? (
-        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '280px', flexDirection: 'column', gap: '12px' }}>
-          <Loader2 className="animate-spin" size={32} style={{ color: '#10b981' }} />
-          <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Analyzing database fee structures...</p>
+      {(filterClass === 'All' || filterSection === 'All') ? (
+        <div className="glass-panel animate-scale-up" style={{ padding: '60px 20px', textAlign: 'center', borderRadius: '16px', color: 'var(--text-muted)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
+          <Search size={32} style={{ color: 'var(--text-muted)', opacity: 0.5 }} />
+          <div style={{ fontSize: '0.95rem', fontWeight: 600 }}>Select Grade and Section to view payment history</div>
         </div>
-      ) : filteredCards.length === 0 ? (
-        <div className="glass-panel" style={{ padding: '60px', textAlign: 'center', borderRadius: '16px' }}>
-          <AlertCircle size={40} style={{ color: 'var(--text-muted)', marginBottom: '12px' }} />
-          <h3 style={{ fontSize: '1.05rem', fontWeight: 700, color: 'var(--text-main)', margin: '0 0 4px 0' }}>No Fee Histories Found</h3>
-          <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', margin: 0 }}>Try refining your search query or filters above</p>
-        </div>
+      ) : loading ? (
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '280px' }}><Loader2 className="animate-spin" size={32} /></div>
+      ) : filteredGroupedStudents.length === 0 ? (
+        <div className="glass-panel animate-scale-up" style={{ padding: '60px 20px', textAlign: 'center', borderRadius: '16px', color: 'var(--text-muted)' }}>No student records found in this Grade and Section.</div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(310px, 1fr))', gap: '20px' }}>
-          {filteredCards.map(card => {
-            const hasDue = card.totalDue > 0;
+        (() => {
+          const renderStudentTable = (list) => {
             return (
-              <div 
-                key={card.id} 
-                className="glass-panel" 
-                style={{
-                  padding: '24px', borderRadius: '16px', display: 'flex', flexDirection: 'column', gap: '16px',
-                  background: 'var(--bg-card)', border: '1px solid var(--border-glass)',
-                  transition: 'all 0.22s ease'
-                }}
-                onMouseEnter={e => {
-                  e.currentTarget.style.transform = 'translateY(-2px)';
-                  e.currentTarget.style.boxShadow = 'var(--shadow-md)';
-                  e.currentTarget.style.borderColor = hasDue ? 'rgba(239, 68, 68, 0.2)' : 'rgba(16, 185, 129, 0.2)';
-                }}
-                onMouseLeave={e => {
-                  e.currentTarget.style.transform = 'translateY(0)';
-                  e.currentTarget.style.boxShadow = '';
-                  e.currentTarget.style.borderColor = 'var(--border-glass)';
-                }}
-              >
-                {/* Student info */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <div style={{
-                    width: '44px', height: '44px', borderRadius: '50%', flexShrink: 0,
-                    background: card.photoBg || 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    color: '#ffffff', fontWeight: 800, fontSize: '1rem', border: '1.5px solid var(--border-glass)'
-                  }}>
-                    {card.photo ? (
-                      <img src={card.photo} alt={card.fullName || card.name} style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
-                    ) : (
-                      (card.fullName || card.name || 'ST').substring(0, 2).toUpperCase()
-                    )}
+              <div className="glass-panel animate-scale-up" style={{ borderRadius: '16px', padding: 0, border: '1px solid var(--border-glass)', overflow: 'hidden' }}>
+                {/* Embedded Filters Toolbar inside the glass panel header */}
+                <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center', padding: '16px 20px', borderBottom: '1px solid var(--border-glass)', background: 'rgba(255,255,255,0.015)' }}>
+                  <div style={{ position: 'relative', flex: 1, minWidth: '220px' }}>
+                    <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                    <input type="text" placeholder="Search by student name..." value={search} onChange={(e) => setSearch(e.target.value)} style={{ ...inputStyle, paddingLeft: '36px', width: '100%', background: 'var(--bg-card-subtle)' }} />
                   </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <h4 style={{ fontSize: '0.92rem', fontWeight: 800, color: 'var(--text-main)', margin: '0 0 2px 0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {card.fullName || card.name}
-                    </h4>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-                      <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 600 }}>
-                        Grade {card.studentClass || '—'}-{card.section || '—'}
-                      </span>
-                      <span style={{ width: '3px', height: '3px', borderRadius: '50%', background: 'var(--text-muted)', opacity: 0.5 }} />
-                      <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 600 }}>
-                        Roll No: {card.rollNumber || card.roll || '—'}
-                      </span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600 }}>
+                      Class: <span style={{ color: 'var(--text-main)' }}>{filterClass}-{filterSection}</span> ({list.length} Student{list.length !== 1 ? 's' : ''})
                     </div>
-                  </div>
-                </div>
-
-                <div style={{ height: '1px', background: 'var(--border-glass)' }} />
-
-                {/* Fees Status Breakdown */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', flex: 1 }}>
-                  <span style={{ fontSize: '0.68rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                    Fees Status
-                  </span>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    {card.feeStatusDetails.map((statusDetail, idx) => {
-                      const statusColor = statusDetail.status === 'Not Paid' ? 'var(--text-muted)' : (statusDetail.status === 'Has Due' ? '#ef4444' : '#10b981');
-                      const statusBg = statusDetail.status === 'Not Paid' ? 'rgba(255, 255, 255, 0.015)' : (statusDetail.status === 'Has Due' ? 'rgba(239, 68, 68, 0.03)' : 'rgba(16, 185, 129, 0.03)');
-                      const statusBorder = statusDetail.status === 'Not Paid' ? 'var(--border-glass)' : (statusDetail.status === 'Has Due' ? 'rgba(239, 68, 68, 0.08)' : 'rgba(16, 185, 129, 0.08)');
-                      return (
-                        <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.8rem', background: statusBg, padding: '6px 10px', borderRadius: '8px', border: `1px solid ${statusBorder}` }}>
-                          <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}>{statusDetail.feeType}</span>
-                          <span style={{ color: statusColor, fontWeight: 700 }}>
-                            {statusDetail.status === 'Not Paid' ? 'Not Paid' : (statusDetail.status === 'Has Due' ? `₹${statusDetail.dueAmount.toLocaleString()} due` : 'No Due')}
-                          </span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                <div style={{ height: '1px', background: 'var(--border-glass)' }} />
-
-                {/* Card Footer: Total Due & Details Button */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div>
-                    {hasDue ? (
-                      <>
-                        <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>Total Due</div>
-                        <div style={{ fontSize: '1.2rem', fontWeight: 800, color: '#ef4444', marginTop: '2px' }}>₹{card.totalDue.toLocaleString()}</div>
-                      </>
-                    ) : (
-                      <>
-                        <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>Status</div>
-                        <div style={{ fontSize: '1rem', fontWeight: 800, color: '#10b981', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '3px' }}>
-                          Clear
-                        </div>
-                      </>
-                    )}
-                  </div>
-
-                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                    <button 
-                      onClick={() => setSelectedStudentHistory(card)}
-                      style={{
-                        padding: '8px 14px', borderRadius: '8px', fontSize: '0.8rem', fontWeight: 700,
-                        border: '1px solid var(--border-glass)', background: 'var(--bg-card-subtle)',
-                        color: 'var(--text-main)', cursor: 'pointer', transition: 'all 0.15s ease'
-                      }}
-                      onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; }}
-                      onMouseLeave={e => { e.currentTarget.style.background = 'var(--bg-card-subtle)'; }}
-                    >
-                      View History
+                    <button onClick={fetchData} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '10px 16px', borderRadius: '10px', fontSize: '0.85rem', fontWeight: 600, border: '1px solid var(--border-glass)', background: 'var(--bg-card-subtle)', color: 'var(--text-muted)', cursor: 'pointer' }}>
+                      <RefreshCw size={14} className={loading ? 'animate-spin' : ''} /> Refresh
                     </button>
-                    {card.allFees && card.allFees.length > 0 && (
-                      <button 
-                        onClick={() => setConfirmDeleteAllStudentFees(card)}
-                        style={{
-                          padding: '8px', borderRadius: '8px', fontSize: '0.8rem',
-                          border: '1px solid rgba(239, 68, 68, 0.2)', background: 'rgba(239, 68, 68, 0.05)',
-                          color: '#ef4444', cursor: 'pointer', transition: 'all 0.15s ease',
-                          display: 'flex', alignItems: 'center', justifyContent: 'center'
-                        }}
-                        onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239, 68, 68, 0.15)'; }}
-                        onMouseLeave={e => { e.currentTarget.style.background = 'rgba(239, 68, 68, 0.05)'; }}
-                        title="Hide Student Card"
-                      >
-                        <Trash2 size={15} />
-                      </button>
-                    )}
                   </div>
                 </div>
 
+                <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                    <tbody>
+                      {list.flatMap((student, sIdx) => {
+                        const id = student.studentId || `${student.admissionNumber}_${student.studentName}`;
+                        const isExpanded = !!expandedStudents[id];
+                        const statusColors = {
+                          Paid: { text: '#10b981', bg: 'rgba(16,185,129,0.08)', border: 'rgba(16,185,129,0.15)' },
+                          Partial: { text: '#f59e0b', bg: 'rgba(245,158,11,0.08)', border: 'rgba(245,158,11,0.15)' },
+                          Pending: { text: '#ef4444', bg: 'rgba(239,68,68,0.08)', border: 'rgba(239,68,68,0.15)' }
+                        };
+                        const colors = statusColors[student.overallStatus] || statusColors.Paid;
+                        
+                        const mainRow = (
+                          <tr 
+                            key={`main-${sIdx}`}
+                            style={{ borderBottom: isExpanded ? 'none' : '1px solid var(--border-glass)', transition: 'background 0.2s', cursor: 'pointer' }}
+                            onClick={() => toggleStudentExpand(id)}
+                            onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.015)'}
+                            onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                          >
+                            <td style={{ padding: '14px 20px' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                <div style={{ 
+                                  width: '38px', 
+                                  height: '38px', 
+                                  borderRadius: '50%', 
+                                  background: colors.bg, 
+                                  border: `1.5px solid ${colors.border}`, 
+                                  display: 'flex', 
+                                  alignItems: 'center', 
+                                  justifyContent: 'center', 
+                                  color: colors.text, 
+                                  fontWeight: 700, 
+                                  fontSize: '0.85rem' 
+                                }}>
+                                  {student.studentName ? student.studentName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() : 'ST'}
+                                </div>
+                                <div>
+                                  <div style={{ fontSize: '0.9rem', fontWeight: 800, color: 'var(--text-main)' }}>{student.studentName}</div>
+                                  <div style={{ display: 'flex', gap: '8px', fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px', fontWeight: 500 }}>
+                                    <span>Adm: <strong style={{ color: 'var(--text-main)' }}>{student.admissionNumber}</strong></span>
+                                    <span>•</span>
+                                    <span>Class: <strong style={{ color: 'var(--text-main)' }}>{student.studentClass}-{student.section}</strong></span>
+                                    <span>•</span>
+                                    <span>Session: <strong style={{ color: 'var(--text-main)' }}>{student.periods[0]?.rawFee?.academicSession || '2026-2027'}</strong></span>
+                                  </div>
+                                </div>
+                              </div>
+                            </td>
+                            <td style={{ padding: '14px 20px', textAlign: 'right', fontSize: '0.88rem', fontWeight: 700, color: 'var(--text-main)' }}>
+                              ₹{student.overallTotal.toLocaleString()}
+                            </td>
+                            <td style={{ padding: '14px 20px', textAlign: 'right', fontSize: '0.88rem', fontWeight: 700, color: '#10b981' }}>
+                              ₹{student.overallPaid.toLocaleString()}
+                            </td>
+                            <td style={{ padding: '14px 20px', textAlign: 'right', fontSize: '0.88rem', fontWeight: 700, color: student.overallDue > 0 ? '#ef4444' : 'var(--text-muted)' }}>
+                              ₹{student.overallDue.toLocaleString()}
+                            </td>
+                            <td style={{ padding: '14px 20px', textAlign: 'center' }}>
+                              <span style={{
+                                padding: '4px 10px', borderRadius: '20px', fontSize: '0.68rem', fontWeight: 800, textTransform: 'uppercase',
+                                color: colors.text, background: colors.bg, border: `1px solid ${colors.border}`, display: 'inline-block', minWidth: '70px'
+                              }}>{student.overallStatus}</span>
+                            </td>
+                            <td style={{ padding: '14px 20px', textAlign: 'center' }}>
+                              <ChevronDown size={18} style={{ color: 'var(--text-muted)', transform: isExpanded ? 'rotate(180deg)' : 'none', transition: 'transform 0.25s' }} />
+                            </td>
+                          </tr>
+                        );
+                        
+                        if (!isExpanded) return [mainRow];
+                        
+                        const detailsRow = (
+                          <tr key={`details-${sIdx}`} style={{ background: 'rgba(0,0,0,0.06)', borderBottom: '1px solid var(--border-glass)' }}>
+                            <td colSpan={6} style={{ padding: '20px' }}>
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                                {student.periods.map((period, pIdx) => {
+                                  const pColors = statusColors[period.status] || statusColors.Paid;
+                                  return (
+                                    <div key={pIdx} style={{ padding: '16px', background: 'var(--bg-card)', border: '1px solid var(--border-glass)', borderRadius: '12px' }}>
+                                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                          <Calendar size={14} style={{ color: '#10b981' }} />
+                                          <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-main)' }}>{period.name} Period</span>
+                                          <span style={{
+                                            padding: '2px 8px', borderRadius: '12px', fontSize: '0.65rem', fontWeight: 700,
+                                            color: pColors.text, background: pColors.bg, border: `1px solid ${pColors.border}`
+                                          }}>{period.status}</span>
+                                        </div>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                                          <div style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-muted)' }}>
+                                            Period Total: <span style={{ color: 'var(--text-main)' }}>₹{period.totalPeriodFee.toLocaleString()}</span>
+                                            {period.duePeriodAmount > 0 && (
+                                              <>
+                                                {' '}| Due: <span style={{ color: '#ef4444' }}>₹{period.duePeriodAmount.toLocaleString()}</span>
+                                              </>
+                                            )}
+                                          </div>
+                                        </div>
+                                      </div>
+                                      <div style={{ overflowX: 'auto' }}>
+                                        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                                          <thead>
+                                            <tr style={{ borderBottom: '1px solid var(--border-glass)' }}>
+                                              <th style={{ padding: '8px 10px', fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', width: '22%', textAlign: 'left' }}>Fee Component</th>
+                                              <th style={{ padding: '8px 10px', fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', width: '13%', textAlign: 'right' }}>Amount</th>
+                                              <th style={{ padding: '8px 10px', fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', width: '13%', textAlign: 'right' }}>Fine</th>
+                                              <th style={{ padding: '8px 10px', fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', width: '13%', textAlign: 'right' }}>Paid</th>
+                                              <th style={{ padding: '8px 10px', fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', width: '13%', textAlign: 'right' }}>Due</th>
+                                              <th style={{ padding: '8px 10px', fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', width: '10%', textAlign: 'right' }}>Receipt #</th>
+                                              <th style={{ padding: '8px 10px', fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', width: '11%', textAlign: 'right' }}>Date</th>
+                                              <th style={{ padding: '8px 10px', fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', width: '11%', textAlign: 'right' }}>Method</th>
+                                            </tr>
+                                          </thead>
+                                          <tbody>
+                                            {period.components.map((comp, cIdx) => (
+                                              <tr key={cIdx} style={{ borderBottom: '1px solid rgba(255,255,255,0.01)', fontSize: '0.8rem' }}>
+                                                <td style={{ padding: '10px 10px', fontWeight: 700, color: 'var(--text-main)', width: '22%', textAlign: 'left' }}>{comp.feeType}</td>
+                                                <td style={{ padding: '10px 10px', color: 'var(--text-main)', width: '13%', textAlign: 'right' }}>₹{comp.amount.toLocaleString()}</td>
+                                                <td style={{ padding: '10px 10px', color: comp.fine > 0 ? '#ef4444' : 'var(--text-muted)', width: '12%', textAlign: 'right' }}>+ ₹{comp.fine.toLocaleString()}</td>
+                                                <td style={{ padding: '10px 10px', color: '#10b981', fontWeight: 600, width: '12%', textAlign: 'right' }}>₹{comp.paidAmount.toLocaleString()}</td>
+                                                <td style={{ padding: '10px 10px', color: comp.dueAmount > 0 ? '#ef4444' : 'var(--text-muted)', fontWeight: 600, width: '12%', textAlign: 'right' }}>₹{comp.dueAmount.toLocaleString()}</td>
+                                                <td style={{ padding: '10px 10px', color: '#10b981', fontWeight: 600, width: '10%', textAlign: 'right' }}>{comp.rawFee?.receiptNumber || '—'}</td>
+                                                <td style={{ padding: '10px 10px', color: 'var(--text-muted)', fontSize: '0.75rem', width: '11%', textAlign: 'right' }}>
+                                                  {comp.rawFee?.paymentDate ? comp.rawFee.paymentDate.split('T')[0] : '—'}
+                                                </td>
+                                                <td style={{ padding: '10px 10px', color: 'var(--text-muted)', fontSize: '0.75rem', width: '11%', textAlign: 'right', fontWeight: 500 }}>
+                                                  {comp.rawFee?.paymentDate ? (comp.rawFee.paymentMethod || '—') : '—'}
+                                                </td>
+                                              </tr>
+                                            ))}
+                                          </tbody>
+                                        </table>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                        
+                        return [mainRow, detailsRow];
+                      })}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             );
-          })}
-        </div>
+          };
+
+          return (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              {renderStudentTable(filteredGroupedStudents)}
+            </div>
+          );
+        })()
       )}
-
-      {/* Transaction History Modal */}
-      {selectedStudentHistory && createPortal(
-        <div className="modal-overlay" onClick={() => setSelectedStudentHistory(null)}>
-          <div onClick={e => e.stopPropagation()} className="animate-scale-up" style={{
-            width: '100%', maxWidth: '780px', background: 'var(--bg-elevated)', borderRadius: '20px',
-            border: '1px solid var(--border-glass)', padding: '32px', boxShadow: 'var(--shadow-lg)',
-            maxHeight: '85vh', display: 'flex', flexDirection: 'column', gap: '20px'
-          }}>
-            {/* Header */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-glass)', paddingBottom: '16px' }}>
-              <div>
-                <h3 style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--text-main)', margin: 0 }}>
-                  Fee Payment History
-                </h3>
-                <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', margin: '4px 0 0 0' }}>
-                  Detailed log for <strong style={{ color: 'var(--text-main)' }}>{selectedStudentHistory.fullName || selectedStudentHistory.name}</strong> (Grade {selectedStudentHistory.studentClass || '—'}-{selectedStudentHistory.section || '—'})
-                </p>
-              </div>
-              <button 
-                onClick={() => setSelectedStudentHistory(null)}
-                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
-              >
-                <X size={20} />
-              </button>
-            </div>
-
-            {/* Scrollable table */}
-            <div style={{ overflowY: 'auto', flex: 1, maxHeight: '50vh', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-              {selectedStudentHistory.allFees.length === 0 ? (
-                <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.88rem', border: '1px solid var(--border-glass)', borderRadius: '12px' }}>
-                  No fee transactions recorded for this student.
-                </div>
-              ) : (
-                (() => {
-                  const groupedFees = {};
-                  selectedStudentHistory.allFees.forEach(fee => {
-                    const period = fee.billingPeriod || 'Yearly';
-                    if (!groupedFees[period]) groupedFees[period] = [];
-                    groupedFees[period].push(fee);
-                  });
-
-                  const sortedPeriods = Object.keys(groupedFees).sort((a, b) => {
-                    const periodA = feePeriods.find(fp => fp.name === a);
-                    const periodB = feePeriods.find(fp => fp.name === b);
-                    if (periodA && periodB) return (periodA.sortOrder || 0) - (periodB.sortOrder || 0);
-                    if (periodA) return -1;
-                    if (periodB) return 1;
-                    return a.localeCompare(b);
-                  });
-
-                  return sortedPeriods.map(periodName => {
-                    const periodFees = groupedFees[periodName];
-                    return (
-                      <div key={periodName} style={{ border: '1px solid var(--border-glass)', borderRadius: '12px', overflow: 'hidden' }}>
-                        <div style={{
-                          background: 'rgba(59, 130, 246, 0.08)',
-                          padding: '10px 16px',
-                          fontWeight: 700,
-                          fontSize: '0.85rem',
-                          color: '#3b82f6',
-                          borderBottom: '1px solid var(--border-glass)',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '8px'
-                        }}>
-                          <Calendar size={15} /> Billing Period: {periodName}
-                        </div>
-                        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.82rem' }}>
-                          <thead>
-                            <tr style={{ background: 'var(--bg-card-subtle)', borderBottom: '1px solid var(--border-glass)' }}>
-                              <th style={{ padding: '12px 16px', color: 'var(--text-muted)', fontWeight: 700 }}>Date</th>
-                              <th style={{ padding: '12px 16px', color: 'var(--text-muted)', fontWeight: 700 }}>Receipt</th>
-                              <th style={{ padding: '12px 16px', color: 'var(--text-muted)', fontWeight: 700 }}>Fee Type</th>
-                              <th style={{ padding: '12px 16px', color: 'var(--text-muted)', fontWeight: 700 }}>Total</th>
-                              <th style={{ padding: '12px 16px', color: 'var(--text-muted)', fontWeight: 700 }}>Paid</th>
-                              <th style={{ padding: '12px 16px', color: 'var(--text-muted)', fontWeight: 700 }}>Due</th>
-                              <th style={{ padding: '12px 16px', color: 'var(--text-muted)', fontWeight: 700 }}>Status</th>
-                              <th style={{ padding: '12px 16px', color: 'var(--text-muted)', fontWeight: 700 }}>Method</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {periodFees.map((fee, idx) => {
-                              const statusColor = fee.paymentStatus === 'Paid' ? '#10b981' : (fee.paymentStatus === 'Partial' ? '#f59e0b' : '#ef4444');
-                              return (
-                                <tr key={idx} style={{ borderBottom: idx < periodFees.length - 1 ? '1px solid var(--border-glass)' : 'none' }}>
-                                  <td style={{ padding: '12px 16px', color: 'var(--text-main)', fontWeight: 500 }}>{fee.paymentDate}</td>
-                                  <td style={{ padding: '12px 16px', color: 'var(--text-muted)', fontFamily: 'monospace' }}>{fee.receiptNumber}</td>
-                                  <td style={{ padding: '12px 16px', color: 'var(--text-main)', fontWeight: 600 }}>{fee.feeType}</td>
-                                  <td style={{ padding: '12px 16px', color: 'var(--text-main)' }}>₹{(fee.totalAmount || fee.amount || 0).toLocaleString()}</td>
-                                  <td style={{ padding: '12px 16px', color: '#10b981', fontWeight: 600 }}>₹{(fee.paidAmount || 0).toLocaleString()}</td>
-                                  <td style={{ padding: '12px 16px', color: fee.dueAmount > 0 ? '#ef4444' : 'var(--text-muted)', fontWeight: 600 }}>
-                                    {fee.dueAmount > 0 ? `₹${fee.dueAmount.toLocaleString()}` : '₹0'}
-                                  </td>
-                                  <td style={{ padding: '12px 16px' }}>
-                                    <span style={{ fontSize: '0.72rem', fontWeight: 700, padding: '2px 8px', borderRadius: '12px', background: `${statusColor}15`, color: statusColor }}>
-                                      {fee.paymentStatus}
-                                    </span>
-                                  </td>
-                                  <td style={{ padding: '12px 16px', color: 'var(--text-muted)' }}>{fee.paymentMethod}</td>
-
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
-                      </div>
-                    );
-                  });
-                })()
-              )}
-            </div>
-
-            {/* Footer summary */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-card-subtle)', padding: '16px 20px', borderRadius: '12px', border: '1px solid var(--border-glass)' }}>
-              <div>
-                <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>Transactions Count</span>
-                <span style={{ display: 'block', fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-main)', marginTop: '2px' }}>
-                  {selectedStudentHistory.allFees.length}
-                </span>
-              </div>
-              <div style={{ textAlign: 'right' }}>
-                <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>Aggregate Due Balance</span>
-                <span style={{ display: 'block', fontSize: '1.25rem', fontWeight: 800, color: selectedStudentHistory.totalDue > 0 ? '#ef4444' : '#10b981', marginTop: '2px' }}>
-                  {selectedStudentHistory.totalDue > 0 ? `₹${selectedStudentHistory.totalDue.toLocaleString()}` : 'Clear (No Due)'}
-                </span>
-              </div>
-            </div>
-
-            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '4px' }}>
-              <button 
-                onClick={() => setSelectedStudentHistory(null)}
-                style={{
-                  padding: '10px 24px', background: 'linear-gradient(135deg, #10b981, #059669)',
-                  border: 'none', borderRadius: '10px', color: '#fff', fontWeight: 700, cursor: 'pointer', fontSize: '0.85rem'
-                }}
-              >
-                Close Portal
-              </button>
-            </div>
-
-          </div>
-        </div>,
-        document.body
-      )}
-
-      <ConfirmDialog
-        show={!!confirmDeleteAllStudentFees}
-        message={`Are you sure you want to hide the fee history card for ${confirmDeleteAllStudentFees?.fullName || confirmDeleteAllStudentFees?.name}? This will not delete their collected fee records.`}
-        onConfirm={() => {
-          if (confirmDeleteAllStudentFees) {
-            handleHideStudentCard(confirmDeleteAllStudentFees.id);
-          }
-          setConfirmDeleteAllStudentFees(null);
-        }}
-        onCancel={() => setConfirmDeleteAllStudentFees(null)}
-      />
-
     </div>
   );
 }
@@ -5587,7 +7042,7 @@ export function PayrollHistoryView({ showToast }) {
               <>
                 <thead>
                   <tr style={{ background: 'rgba(255,255,255,0.02)' }}>
-                    {['Payroll ID', activeTab === 'staff' ? 'Staff' : 'Teacher', 'Role', 'Basic', 'Allowances', 'Deductions', 'Net Salary', 'Status', 'Date', 'Actions'].map(h => (
+                    {['Payroll ID', activeTab === 'staff' ? 'Staff' : 'Teacher', 'Role', 'Basic', 'PF', 'Tax', 'Net Salary', 'Status', 'Date', 'Actions'].map(h => (
                       <th key={h} style={{ padding: '14px 16px', fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>{h}</th>
                     ))}
                   </tr>
@@ -5606,8 +7061,8 @@ export function PayrollHistoryView({ showToast }) {
                         <td style={{ padding: '12px 16px', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-main)' }}>{p.teacherName}</td>
                         <td style={{ padding: '12px 16px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>{p.role || p.designation}</td>
                         <td style={{ padding: '12px 16px', fontSize: '0.8rem', color: 'var(--text-main)' }}>₹{p.basicSalary?.toLocaleString()}</td>
-                        <td style={{ padding: '12px 16px', fontSize: '0.8rem', color: '#10b981' }}>+₹{p.allowances?.toLocaleString()}</td>
-                        <td style={{ padding: '12px 16px', fontSize: '0.8rem', color: '#ef4444' }}>-₹{((p.deductions || 0) + (p.pfDeduction || 0) + (p.taxDeduction || 0))?.toLocaleString()}</td>
+                        <td style={{ padding: '12px 16px', fontSize: '0.8rem', color: '#ef4444' }}>-₹{p.pfDeduction?.toLocaleString()}</td>
+                        <td style={{ padding: '12px 16px', fontSize: '0.8rem', color: '#ef4444' }}>-₹{p.taxDeduction?.toLocaleString()}</td>
                         <td style={{ padding: '12px 16px', fontSize: '0.8rem', fontWeight: 700, color: activeTab === 'staff' ? '#8b5cf6' : '#3b82f6' }}>₹{p.netSalary?.toLocaleString()}</td>
                         <td style={{ padding: '12px 16px' }}>
                           <span style={{
@@ -5642,7 +7097,7 @@ export function PayrollHistoryView({ showToast }) {
               <>
                 <thead>
                   <tr style={{ background: 'rgba(255,255,255,0.02)' }}>
-                    {['Payment ID', 'Employee', 'Role', 'Basic', 'Allowances', 'Deductions', 'Net Salary', 'Status', 'Date', 'Actions'].map(h => (
+                    {['Payment ID', 'Employee', 'Role', 'Basic', 'PF', 'Tax', 'Net Salary', 'Status', 'Date', 'Actions'].map(h => (
                       <th key={h} style={{ padding: '14px 16px', fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>{h}</th>
                     ))}
                   </tr>
@@ -5661,8 +7116,8 @@ export function PayrollHistoryView({ showToast }) {
                         <td style={{ padding: '12px 16px', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-main)' }}>{p.staffName}</td>
                         <td style={{ padding: '12px 16px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>{p.staffRole}</td>
                         <td style={{ padding: '12px 16px', fontSize: '0.8rem', color: 'var(--text-main)' }}>₹{p.basicSalary?.toLocaleString()}</td>
-                        <td style={{ padding: '12px 16px', fontSize: '0.8rem', color: '#10b981' }}>+₹{((p.allowances || 0) + (p.bonus || 0))?.toLocaleString()}</td>
-                        <td style={{ padding: '12px 16px', fontSize: '0.8rem', color: '#ef4444' }}>-₹{((p.deductions || 0) + (p.pfDeduction || 0) + (p.taxDeduction || 0))?.toLocaleString()}</td>
+                        <td style={{ padding: '12px 16px', fontSize: '0.8rem', color: '#ef4444' }}>-₹{p.pfDeduction?.toLocaleString()}</td>
+                        <td style={{ padding: '12px 16px', fontSize: '0.8rem', color: '#ef4444' }}>-₹{p.taxDeduction?.toLocaleString()}</td>
                         <td style={{ padding: '12px 16px', fontSize: '0.8rem', fontWeight: 700, color: '#ec4899' }}>₹{p.netSalary?.toLocaleString()}</td>
                         <td style={{ padding: '12px 16px' }}>
                           <span style={{
@@ -5700,3 +7155,80 @@ export function PayrollHistoryView({ showToast }) {
     </div>
   );
 }
+
+export function PayrollHub({ title, type, showToast }) {
+  const [activeTab, setActiveTab] = useState('payroll');
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+      {/* Segmented Tab Selector */}
+      <div style={{ display: 'flex', gap: '10px', borderBottom: '1px solid var(--border-glass)', paddingBottom: '14px' }}>
+        <button
+          onClick={() => setActiveTab('payroll')}
+          className="btn-payroll-row"
+          style={{
+            padding: '10px 20px',
+            borderRadius: '10px',
+            fontSize: '0.85rem',
+            fontWeight: 700,
+            cursor: 'pointer',
+            border: 'none',
+            background: activeTab === 'payroll' ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)' : 'rgba(255,255,255,0.03)',
+            color: activeTab === 'payroll' ? '#ffffff' : 'var(--text-muted)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            boxShadow: activeTab === 'payroll' ? '0 4px 12px rgba(16,185,129,0.2)' : 'none',
+            transition: 'all 0.2s ease'
+          }}
+        >
+          <Banknote size={16} /> Process Payroll
+        </button>
+        <button
+          onClick={() => setActiveTab('structure')}
+          className="btn-payroll-row"
+          style={{
+            padding: '10px 20px',
+            borderRadius: '10px',
+            fontSize: '0.85rem',
+            fontWeight: 700,
+            cursor: 'pointer',
+            border: 'none',
+            background: activeTab === 'structure' ? 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)' : 'rgba(255,255,255,0.03)',
+            color: activeTab === 'structure' ? '#ffffff' : 'var(--text-muted)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            boxShadow: activeTab === 'structure' ? '0 4px 12px rgba(139,92,246,0.2)' : 'none',
+            transition: 'all 0.2s ease'
+          }}
+        >
+          <Calculator size={16} /> Pay Structure
+        </button>
+      </div>
+
+      {/* Tab Content Area */}
+      <div style={{ marginTop: '10px' }}>
+        {type === 'Staff' && (
+          <>
+            {activeTab === 'payroll' && <PayrollView showToast={showToast} type="Staff" />}
+            {activeTab === 'structure' && <StaffPaymentStructureView showToast={showToast} type="Staff" />}
+          </>
+        )}
+        {type === 'Teacher' && (
+          <>
+            {activeTab === 'payroll' && <PayrollView showToast={showToast} type="Teacher" />}
+            {activeTab === 'structure' && <TeacherSalaryStructureView showToast={showToast} />}
+          </>
+        )}
+        {type === 'Employee' && (
+          <>
+            {activeTab === 'payroll' && <StaffPaymentsView showToast={showToast} />}
+            {activeTab === 'structure' && <StaffPaymentStructureView showToast={showToast} type="Employee" />}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+

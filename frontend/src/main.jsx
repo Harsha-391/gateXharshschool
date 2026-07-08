@@ -2,43 +2,7 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.jsx'
-// Auth Session tab isolation: redirect authentication keys from localStorage to sessionStorage
-const SESSION_KEYS = [
-  'token',
-  'role',
-  'portal_role',
-  'username',
-  'name',
-  'permissions',
-  'overrides',
-  'dev_token',
-  'from_dev_admin'
-];
 
-const originalGetItem = localStorage.getItem.bind(localStorage);
-const originalSetItem = localStorage.setItem.bind(localStorage);
-const originalRemoveItem = localStorage.removeItem.bind(localStorage);
-
-localStorage.getItem = function(key) {
-  if (SESSION_KEYS.includes(key)) {
-    return sessionStorage.getItem(key);
-  }
-  return originalGetItem(key);
-};
-
-localStorage.setItem = function(key, value) {
-  if (SESSION_KEYS.includes(key)) {
-    return sessionStorage.setItem(key, value);
-  }
-  return originalSetItem(key, value);
-};
-
-localStorage.removeItem = function(key) {
-  if (SESSION_KEYS.includes(key)) {
-    return sessionStorage.removeItem(key);
-  }
-  return originalRemoveItem(key);
-};
 
 // Intercept, cache, deduplicate, and redirect all relative /api and /uploads fetch requests
 const getCache = new Map();
@@ -170,6 +134,59 @@ window.fetch = (input, init) => {
 
   activeRequests.set(cacheKey, fetchPromise);
   return fetchPromise.then(res => res.clone());
+};
+
+// Intercept session and auth reads/writes to redirect to sessionStorage
+const sessionKeys = [
+  'token',
+  'refreshToken',
+  'role',
+  'portal_role',
+  'permissions',
+  'overrides',
+  'username',
+  'name',
+  'lastActive',
+  'userType',
+  'photo',
+  'admin_view',
+  'school_name',
+  'school_subdomain',
+  'tenant_subdomain',
+  'from_dev_admin',
+  'dev_token'
+];
+
+const originalGetItem = localStorage.getItem;
+localStorage.getItem = function(key) {
+  if (sessionKeys.includes(key)) {
+    return sessionStorage.getItem(key);
+  }
+  return originalGetItem.apply(this, arguments);
+};
+
+const originalSetItem = localStorage.setItem;
+localStorage.setItem = function(key, value) {
+  if (sessionKeys.includes(key)) {
+    sessionStorage.setItem(key, value);
+    return;
+  }
+  return originalSetItem.apply(this, arguments);
+};
+
+const originalRemoveItem = localStorage.removeItem;
+localStorage.removeItem = function(key) {
+  if (sessionKeys.includes(key)) {
+    sessionStorage.removeItem(key);
+    return;
+  }
+  return originalRemoveItem.apply(this, arguments);
+};
+
+const originalClear = localStorage.clear;
+localStorage.clear = function() {
+  sessionStorage.clear();
+  return originalClear.apply(this, arguments);
 };
 
 createRoot(document.getElementById('root')).render(

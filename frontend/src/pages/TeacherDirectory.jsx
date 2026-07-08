@@ -56,6 +56,7 @@ export default function TeacherDirectory({ readOnly = true, onAddClick, onEditCl
   const [departmentFilter, setDepartmentFilter] = useState('All');
   const [typeFilter, setTypeFilter] = useState('All');
   const [statusFilter, setStatusFilter] = useState('All');
+  const [classTeacherFilter, setClassTeacherFilter] = useState('');
   const [sortBy, setSortBy] = useState('name');
   const [sortOrder, setSortOrder] = useState('asc');
   
@@ -150,6 +151,13 @@ export default function TeacherDirectory({ readOnly = true, onAddClick, onEditCl
   // DATA FETCHING
   // ==========================================
   const fetchTeachers = async () => {
+    if (!classTeacherFilter) {
+      setTeachers([]);
+      setTotalCount(0);
+      setTotalPages(1);
+      setLoading(false);
+      return;
+    }
     try {
       setLoading(true);
       const res = await fetch('/api/teachers');
@@ -158,15 +166,18 @@ export default function TeacherDirectory({ readOnly = true, onAddClick, onEditCl
         if (!Array.isArray(list)) list = list.teachers || [];
 
         // Client-side filtering
+        if (classTeacherFilter === 'Yes') {
+          list = list.filter(t => t.isClassTeacher === true || t.isClassTeacher === 'Yes' || t.isClassTeacher === 1);
+        } else if (classTeacherFilter === 'No') {
+          list = list.filter(t => !t.isClassTeacher || t.isClassTeacher === 'No' || t.isClassTeacher === 0);
+        }
+
         if (searchQuery) {
           const q = searchQuery.toLowerCase();
           list = list.filter(t => 
-            (t.fullName || t.name || '').toLowerCase().includes(q) ||
-            (t.employeeId || t.id || '').toLowerCase().includes(q)
+            (t.fullName || t.name || '').toLowerCase().startsWith(q) ||
+            (t.employeeId || t.id || '').toLowerCase().startsWith(q)
           );
-        }
-        if (departmentFilter !== 'All') {
-          list = list.filter(t => t.department === departmentFilter);
         }
         if (typeFilter !== 'All') {
           list = list.filter(t => t.employmentType === typeFilter);
@@ -200,8 +211,8 @@ export default function TeacherDirectory({ readOnly = true, onAddClick, onEditCl
     }
   };
 
-  useEffect(() => { fetchTeachers(); }, [searchQuery, departmentFilter, typeFilter, statusFilter, sortBy, sortOrder, page]);
-  useEffect(() => { setPage(1); }, [searchQuery, departmentFilter, typeFilter, statusFilter]);
+  useEffect(() => { fetchTeachers(); }, [searchQuery, departmentFilter, typeFilter, statusFilter, classTeacherFilter, sortBy, sortOrder, page]);
+  useEffect(() => { setPage(1); }, [searchQuery, departmentFilter, typeFilter, statusFilter, classTeacherFilter]);
 
   // ==========================================
   // DELETE TEACHER
@@ -338,10 +349,10 @@ export default function TeacherDirectory({ readOnly = true, onAddClick, onEditCl
             <Search size={18} className="search-bar-icon" />
             <input 
               type="text" 
-              placeholder="Search by name or Teacher ID..."
+              placeholder="Search by teacher name..."
               className="search-bar-input"
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => setSearchQuery(e.target.value.replace(/[^A-Za-z\s]/g, ''))}
               style={{ width: '100%' }}
             />
           </div>
@@ -351,13 +362,12 @@ export default function TeacherDirectory({ readOnly = true, onAddClick, onEditCl
               <Filter size={14} /> Filters:
             </span>
 
-            {/* Department filter */}
-            <select className="select-custom" value={departmentFilter} onChange={(e) => setDepartmentFilter(e.target.value)}
-              style={{ padding: '8px 12px', borderRadius: '8px', fontSize: '0.85rem' }}>
-              <option value="All">All Departments</option>
-              {departments.map(d => (
-                <option key={d.id || d.name} value={d.name}>{d.name}</option>
-              ))}
+            {/* Class Teacher filter */}
+            <select className="select-custom" value={classTeacherFilter} onChange={(e) => setClassTeacherFilter(e.target.value)}
+              style={{ padding: '8px 12px', borderRadius: '8px', fontSize: '0.85rem', fontWeight: 600, borderColor: 'hsl(var(--color-primary))' }}>
+              <option value="">Select Class Teacher Status</option>
+              <option value="Yes">Class Teacher (Yes)</option>
+              <option value="No">Normal Teacher (No)</option>
             </select>
 
             {/* Employment Type filter */}
@@ -410,7 +420,27 @@ export default function TeacherDirectory({ readOnly = true, onAddClick, onEditCl
       {/* TEACHER ROSTER TABLE */}
       <div className="glass-panel" style={{ padding: '24px', position: 'relative' }}>
         
-        {loading ? (
+        {!classTeacherFilter ? (
+          <div style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '100px 24px',
+            textAlign: 'center',
+            gap: '12px'
+          }}>
+            <span style={{
+              fontSize: '1.25rem',
+              fontWeight: 600,
+              color: 'var(--text-muted)',
+              opacity: 0.7,
+              letterSpacing: '0.05em'
+            }}>
+              Please select Class Teacher Status (Yes/No) from the dropdown filter to load teachers.
+            </span>
+          </div>
+        ) : loading ? (
           <div style={{ textAlign: 'center', padding: '60px', color: 'var(--text-muted)', fontSize: '0.9rem' }}>
             Loading teacher directory...
           </div>
@@ -764,8 +794,19 @@ export default function TeacherDirectory({ readOnly = true, onAddClick, onEditCl
 
                 <div className="form-group">
                   <label>Experience (Years)</label>
-                  <input type="number" value={editFormData.experience || ''} onChange={(e) => setEditFormData({ ...editFormData, experience: e.target.value })}
-                    className="form-control" style={{ padding: '10px 14px', borderRadius: '10px' }} min="0" />
+                  <input 
+                    type="text" 
+                    value={editFormData.experience || ''} 
+                    onChange={(e) => {
+                      const v = e.target.value.replace(/[^0-9]/g, '').slice(0, 10);
+                      setEditFormData({ ...editFormData, experience: v });
+                    }}
+                    className="form-control" 
+                    style={{ padding: '10px 14px', borderRadius: '10px' }} 
+                    placeholder="e.g. 5" 
+                    maxLength={10} 
+                    inputMode="numeric" 
+                  />
                 </div>
 
                 <div className="form-group">

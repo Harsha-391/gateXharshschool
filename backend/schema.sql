@@ -403,7 +403,8 @@ CREATE TABLE IF NOT EXISTS fees (
   amount DECIMAL(10,2) DEFAULT 0.00,
   studentClass VARCHAR(100),
   section VARCHAR(50),
-  paymentStatus VARCHAR(50)
+  paymentStatus VARCHAR(50),
+  billingPeriod VARCHAR(100)
 );
 
 -- 16. Expenses Table
@@ -487,6 +488,7 @@ CREATE TABLE IF NOT EXISTS exams (
   endDate VARCHAR(50),
   status VARCHAR(50) DEFAULT 'Draft',
   timetablePublished TINYINT(1) DEFAULT 0,
+  academicSession VARCHAR(100),
   tenantId VARCHAR(100)
 );
 
@@ -852,7 +854,6 @@ CREATE TABLE IF NOT EXISTS grade_departments (
   createdAt VARCHAR(100),
   updatedAt VARCHAR(100),
   sections JSON NULL,
-  FOREIGN KEY (gradeId) REFERENCES grades(id) ON DELETE CASCADE,
   FOREIGN KEY (departmentId) REFERENCES departments(id) ON DELETE CASCADE,
   UNIQUE KEY unique_grade_dept (gradeId, departmentId, tenantId)
 );

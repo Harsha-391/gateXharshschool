@@ -13,18 +13,17 @@ import {
 } from 'lucide-react';
 
 export default function Academics() {
-  const [selectedClass, setSelectedClass] = useState('Grade 10-A');
+  const [selectedClass, setSelectedClass] = useState('');
   const [timetableRecords, setTimetableRecords] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
-
-  const classOptions = ['Grade 9-A', 'Grade 9-B', 'Grade 10-A', 'Grade 10-B'];
-  const timeslots = ['09:00 AM', '10:00 AM', '11:00 AM', '01:00 PM'];
+  const [classOptions, setClassOptions] = useState([]);
+  const [timeslots, setTimeslots] = useState([]);
 
   // Form State
   const [formData, setFormData] = useState({
-    cohort: 'Grade 10-A',
-    time: '09:00 AM',
+    cohort: '',
+    time: '',
     day: 'mon',
     subject: '',
     teacher: '',
@@ -39,6 +38,36 @@ export default function Academics() {
         const data = await res.json();
         setTimetableRecords(data);
       }
+      
+      const gsRes = await fetch('/api/academics/grades-sections');
+      let finalClasses = ['I-A', 'I-B', 'II-A', 'IX-A', 'X-A'];
+      if (gsRes.ok) {
+        const gsData = await gsRes.json();
+        const pairs = gsData.gradeSectionPairs || [];
+        if (pairs.length > 0) {
+          finalClasses = pairs.map(p => `${p.grade}-${p.section}`);
+        }
+      }
+      setClassOptions(finalClasses);
+      if (finalClasses.length > 0 && !selectedClass) {
+        setSelectedClass(finalClasses[0]);
+      }
+
+      const tsRes = await fetch('/api/academics/timeslots');
+      let finalTimeslots = [
+        '09:00 AM - 10:00 AM',
+        '10:00 AM - 11:00 AM',
+        '11:00 AM - 12:00 PM',
+        '01:00 PM - 02:00 PM',
+        '02:00 PM - 03:00 PM'
+      ];
+      if (tsRes.ok) {
+        const tsData = await tsRes.json();
+        if (tsData && tsData.length > 0) {
+          finalTimeslots = tsData;
+        }
+      }
+      setTimeslots(finalTimeslots);
     } catch (err) {
       console.error('Error fetching academic schedules:', err);
     } finally {
@@ -49,6 +78,16 @@ export default function Academics() {
   useEffect(() => {
     fetchTimetables();
   }, []);
+
+  useEffect(() => {
+    if (classOptions.length > 0 && timeslots.length > 0) {
+      setFormData(prev => ({
+        ...prev,
+        cohort: selectedClass || classOptions[0],
+        time: prev.time || timeslots[0]
+      }));
+    }
+  }, [classOptions, timeslots, selectedClass]);
 
   const handleInputChange = (e) => {
     setFormData({

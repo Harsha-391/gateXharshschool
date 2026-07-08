@@ -229,21 +229,26 @@ export default function RegisterTeacher({ setActiveView, editData }) {
   const [existingFiles, setExistingFiles] = useState({});
 
   const genderOptions = [
+    { value: '', label: 'None' },
     { value: 'Male', label: 'Male' }, { value: 'Female', label: 'Female' }, { value: 'Other', label: 'Other' }
   ];
   const bloodGroupOptions = [
+    { value: '', label: 'None' },
     { value: 'A+', label: 'A+' }, { value: 'A-', label: 'A-' }, { value: 'B+', label: 'B+' }, { value: 'B-', label: 'B-' },
     { value: 'AB+', label: 'AB+' }, { value: 'AB-', label: 'AB-' }, { value: 'O+', label: 'O+' }, { value: 'O-', label: 'O-' }
   ];
   const maritalStatusOptions = [
+    { value: '', label: 'None' },
     { value: 'Single', label: 'Single' }, { value: 'Married', label: 'Married' },
     { value: 'Divorced', label: 'Divorced' }, { value: 'Widowed', label: 'Widowed' }, { value: 'Other', label: 'Other' }
   ];
   const employmentTypeOptions = [
+    { value: '', label: 'None' },
     { value: 'Full Time', label: 'Full Time' }, { value: 'Part Time', label: 'Part Time' },
     { value: 'Contract', label: 'Contract' }, { value: 'Visiting Faculty', label: 'Visiting Faculty' }
   ];
   const statusOptions = [
+    { value: '', label: 'None' },
     { value: 'Active', label: 'Active' }, { value: 'Inactive', label: 'Inactive' }
   ];
 
@@ -254,7 +259,7 @@ export default function RegisterTeacher({ setActiveView, editData }) {
       .then(res => res.json())
       .then(data => {
         const activeDepts = data.filter(d => d.status === 'Active' || !d.status);
-        setDepartmentOptions(activeDepts.map(d => ({ value: d.name, label: d.name })));
+        setDepartmentOptions([{ value: '', label: 'None' }, ...activeDepts.map(d => ({ value: d.name, label: d.name }))]);
       })
       .catch(err => console.error('Error fetching departments:', err));
   }, []);
@@ -375,6 +380,7 @@ export default function RegisterTeacher({ setActiveView, editData }) {
       val = val.replace(/[^A-Za-z\s]/g, '').slice(0, 50);
     }
     if (name === 'panNumber') val = val.toUpperCase().slice(0, 10);
+    if (name === 'experience') val = val.replace(/[^0-9]/g, '').slice(0, 10);
     setFormData(prev => {
       const updated = { ...prev, [name]: val };
       if (['firstName', 'middleName', 'lastName'].includes(name)) {
@@ -666,9 +672,8 @@ export default function RegisterTeacher({ setActiveView, editData }) {
                   <div style={{ ...inputStyle, background: 'rgba(99, 102, 241, 0.08)', fontWeight: 700, color: 'hsl(var(--color-primary))' }}>Teacher</div>
                 </div>
                 <div><label style={labelStyle}>Department</label><SearchableSelect options={departmentOptions} value={formData.department} onChange={(v) => handleSelectChange('department', v)} placeholder="Select Department" className="form-control" style={inputStyle} /></div>
-                <div><label style={labelStyle}>Primary Subject</label><input name="primarySubject" value={formData.primarySubject} onChange={handleTextChange} style={inputStyle} placeholder="e.g. Mathematics" /></div>
-                <div><label style={labelStyle}>Secondary Subject</label><input name="secondarySubject" value={formData.secondarySubject} onChange={handleTextChange} style={inputStyle} placeholder="e.g. Physics" /></div>
                 <div><label style={labelStyle}>Status</label><SearchableSelect options={statusOptions} value={formData.status} onChange={(v) => handleSelectChange('status', v)} placeholder="Select" className="form-control" style={inputStyle} /></div>
+                <div><label style={labelStyle}>Subjects</label><input name="primarySubject" value={formData.primarySubject} onChange={handleTextChange} style={inputStyle} placeholder="e.g. Mathematics, Science" /></div>
                 
                 {(() => {
                   const gradeOptions = [
@@ -689,59 +694,59 @@ export default function RegisterTeacher({ setActiveView, editData }) {
                   return (
                     <>
                       <div>
-                        <label style={labelStyle}>Assigned Grade</label>
-                        <SearchableSelect 
-                          options={gradeOptions} 
-                          value={formData.assignedGradeId} 
-                          onChange={(v) => {
-                            setFormData(prev => ({
-                              ...prev,
-                              assignedGradeId: v,
-                              assignedSectionId: '' // reset section
-                            }));
-                          }} 
-                          placeholder="Select Grade" 
-                          className="form-control" 
-                          style={inputStyle} 
-                        />
-                      </div>
-
-                      <div>
-                        <label style={labelStyle}>Assigned Section</label>
-                        <SearchableSelect 
-                          options={sectionOptions} 
-                          value={formData.assignedSectionId} 
-                          onChange={(v) => handleSelectChange('assignedSectionId', v)} 
-                          placeholder={formData.assignedGradeId ? "Select Section" : "Select Grade First"} 
-                          className="form-control" 
-                          style={inputStyle} 
-                          error={!formData.assignedGradeId ? "Select Grade first" : undefined}
-                        />
-                      </div>
-
-                      <div>
                         <label style={labelStyle}>Is Class Teacher?</label>
                         <SearchableSelect 
                           options={yesNoOptions} 
                           value={formData.isClassTeacher} 
-                          onChange={(v) => handleSelectChange('isClassTeacher', v)} 
+                          onChange={(v) => {
+                            setFormData(prev => ({
+                              ...prev,
+                              isClassTeacher: v,
+                              attendancePermission: v, // Match attendance permission to isClassTeacher status
+                              assignedGradeId: v ? prev.assignedGradeId : '',
+                              assignedSectionId: v ? prev.assignedSectionId : ''
+                            }));
+                          }} 
                           placeholder="Select" 
                           className="form-control" 
                           style={inputStyle} 
                         />
                       </div>
 
-                      <div>
-                        <label style={labelStyle}>Student Attendance Permission</label>
-                        <SearchableSelect 
-                          options={yesNoOptions} 
-                          value={formData.attendancePermission} 
-                          onChange={(v) => handleSelectChange('attendancePermission', v)} 
-                          placeholder="Select" 
-                          className="form-control" 
-                          style={inputStyle} 
-                        />
-                      </div>
+                      {formData.isClassTeacher && (
+                        <>
+                          <div>
+                            <label style={labelStyle}>Assigned Grade</label>
+                            <SearchableSelect 
+                              options={gradeOptions} 
+                              value={formData.assignedGradeId} 
+                              onChange={(v) => {
+                                setFormData(prev => ({
+                                  ...prev,
+                                  assignedGradeId: v,
+                                  assignedSectionId: '' // reset section
+                                }));
+                              }} 
+                              placeholder="Select Grade" 
+                              className="form-control" 
+                              style={inputStyle} 
+                            />
+                          </div>
+
+                          <div>
+                            <label style={labelStyle}>Assigned Section</label>
+                            <SearchableSelect 
+                              options={sectionOptions} 
+                              value={formData.assignedSectionId} 
+                              onChange={(v) => handleSelectChange('assignedSectionId', v)} 
+                              placeholder={formData.assignedGradeId ? "Select Section" : "Select Grade First"} 
+                              className="form-control" 
+                              style={inputStyle} 
+                              error={!formData.assignedGradeId ? "Select Grade first" : undefined}
+                            />
+                          </div>
+                        </>
+                      )}
                     </>
                   );
                 })()}
@@ -848,7 +853,7 @@ export default function RegisterTeacher({ setActiveView, editData }) {
               <h3 style={{ fontSize: '1.1rem', fontWeight: 800, margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <Clock size={18} style={{ color: 'hsl(var(--color-primary))' }} /> Teaching Experience
               </h3>
-              <div><label style={labelStyle}>Total Teaching Experience</label><input name="experience" value={formData.experience} onChange={handleTextChange} style={inputStyle} placeholder="e.g. 5 Years" /></div>
+              <div><label style={labelStyle}>Total Teaching Experience (in Years)</label><input name="experience" value={formData.experience} onChange={handleTextChange} style={inputStyle} placeholder="e.g. 5" maxLength={10} inputMode="numeric" /></div>
               <h4 style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-muted)', margin: 0 }}>Previous Schools</h4>
               <div className="custom-table-container">
                 <table className="custom-table" style={{ fontSize: '0.8rem' }}>

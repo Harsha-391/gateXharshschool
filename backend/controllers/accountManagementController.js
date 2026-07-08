@@ -226,59 +226,73 @@ export const getFeeStructures = (req, res) => {
 
 export const createFeeStructure = (req, res) => {
   try {
-    const { studentClass, admissionFee, tuitionFee, examFee, transportFee, hostelFee, libraryFee, otherCharges, frequency, monthRange } = req.body;
-
-    if (!studentClass) {
-      return res.status(400).json({ error: 'Student class is required.' });
-    }
-
     const db = readDb();
+    const payloads = Array.isArray(req.body) ? req.body : [req.body];
 
-    const admission = Number(admissionFee) || 0;
-    const tuition = Number(tuitionFee) || 0;
-    const exam = Number(examFee) || 0;
-    const transport = Number(transportFee) || 0;
-    const hostel = Number(hostelFee) || 0;
-    const library = Number(libraryFee) || 0;
-    const other = Number(otherCharges) || 0;
-    const totalFee = admission + tuition + exam + transport + hostel + library + other;
-
-    const isQuarterlyOrHalf = frequency === 'Quarterly' || frequency === 'Half-Yearly';
-    const finalMonthRange = isQuarterlyOrHalf ? monthRange : null;
-
-    // Check if structure for this class already exists (matching studentClass, frequency, and monthRange if quarterly/half-yearly)
-    const existingIndex = db.feeStructures.findIndex(fs => 
-      fs.studentClass === studentClass && 
-      (fs.frequency || 'Yearly') === (frequency || 'Yearly') &&
-      (isQuarterlyOrHalf ? (fs.monthRange === finalMonthRange) : true)
-    );
-
-    const structure = {
-      id: existingIndex > -1 ? db.feeStructures[existingIndex].id : `FSTR-${studentClass}-${frequency || 'Yearly'}-${finalMonthRange || 'All'}`.replace(/\s+/g, '-'),
-      studentClass,
-      admissionFee: admission,
-      tuitionFee: tuition,
-      examFee: exam,
-      transportFee: transport,
-      hostelFee: hostel,
-      libraryFee: library,
-      otherCharges: other,
-      totalFee,
-      frequency: frequency || 'Yearly',
-      monthRange: finalMonthRange,
-      updatedAt: new Date().toISOString()
-    };
-
-    if (existingIndex > -1) {
-      db.feeStructures[existingIndex] = structure;
-    } else {
-      db.feeStructures.push(structure);
+    if (payloads.length === 0) {
+      return res.status(400).json({ error: 'Payload is empty.' });
     }
 
-    addActivity(db, 'account_management', 'Fee Structure Updated', `Fee structure for Grade ${studentClass} set to ₹${totalFee.toLocaleString()}`, 'rgb(var(--color-success-rgb))', 'rgba(var(--color-success-rgb), 0.1)');
-    writeDb(db, req, 'Update Fee Structure', `Grade: ${studentClass}, Total: ₹${totalFee}`);
+    for (const payload of payloads) {
+      if (!payload.studentClass) {
+        return res.status(400).json({ error: 'Student class is required.' });
+      }
+    }
 
-    res.status(201).json(structure);
+    const savedStructures = [];
+
+    for (const payload of payloads) {
+      const { studentClass, admissionFee, tuitionFee, examFee, transportFee, hostelFee, libraryFee, otherCharges, frequency, monthRange } = payload;
+
+      const admission = Number(admissionFee) || 0;
+      const tuition = Number(tuitionFee) || 0;
+      const exam = Number(examFee) || 0;
+      const transport = Number(transportFee) || 0;
+      const hostel = Number(hostelFee) || 0;
+      const library = Number(libraryFee) || 0;
+      const other = Number(otherCharges) || 0;
+      const totalFee = admission + tuition + exam + transport + hostel + library + other;
+
+      const isQuarterlyOrHalf = frequency === 'Quarterly' || frequency === 'Half-Yearly' || frequency === 'Monthly';
+      const finalMonthRange = isQuarterlyOrHalf ? monthRange : null;
+
+      const existingIndex = db.feeStructures.findIndex(fs => 
+        fs.studentClass === studentClass && 
+        (fs.frequency || 'Yearly') === (frequency || 'Yearly') &&
+        (isQuarterlyOrHalf ? (fs.monthRange === finalMonthRange) : true)
+      );
+
+      const id = existingIndex > -1 ? db.feeStructures[existingIndex].id : `FSTR-${studentClass}-${frequency || 'Yearly'}-${finalMonthRange || 'All'}`.replace(/\s+/g, '-');
+
+      const structure = {
+        id,
+        studentClass,
+        admissionFee: admission,
+        tuitionFee: tuition,
+        examFee: exam,
+        transportFee: transport,
+        hostelFee: hostel,
+        libraryFee: library,
+        otherCharges: other,
+        totalFee,
+        frequency: frequency || 'Yearly',
+        monthRange: finalMonthRange,
+        updatedAt: new Date().toISOString()
+      };
+
+      if (existingIndex > -1) {
+        db.feeStructures[existingIndex] = structure;
+      } else {
+        db.feeStructures.push(structure);
+      }
+      savedStructures.push(structure);
+    }
+
+    const firstClass = payloads[0].studentClass;
+    addActivity(db, 'account_management', 'Fee Structure Updated', `Fee structure for Grade ${firstClass} updated`, 'rgb(var(--color-success-rgb))', 'rgba(var(--color-success-rgb), 0.1)');
+    writeDb(db, req, 'Update Fee Structure', `Grade: ${firstClass}`);
+
+    res.status(201).json(Array.isArray(req.body) ? savedStructures : savedStructures[0]);
   } catch (err) {
     console.error('Error creating fee structure:', err);
     res.status(500).json({ error: 'Server error saving fee structure.' });
@@ -288,14 +302,28 @@ export const createFeeStructure = (req, res) => {
 export const deleteFeeStructure = (req, res) => {
   try {
     const db = readDb();
-    const idx = db.feeStructures.findIndex(fs => fs.id === req.params.id);
-    if (idx === -1) return res.status(404).json({ error: 'Fee structure not found.' });
+    const ids = req.params.id.split(',');
+    
+    let deletedAny = false;
+    let targetClass = '';
+    
+    ids.forEach(id => {
+      const idx = db.feeStructures.findIndex(fs => fs.id === id);
+      if (idx !== -1) {
+        const removed = db.feeStructures.splice(idx, 1)[0];
+        targetClass = removed.studentClass;
+        deletedAny = true;
+      }
+    });
 
-    const removed = db.feeStructures.splice(idx, 1)[0];
-    addActivity(db, 'alert', 'Fee Structure Removed', `Removed fee structure for Grade ${removed.studentClass}`, 'rgb(var(--color-danger-rgb))', 'rgba(var(--color-danger-rgb), 0.1)');
-    writeDb(db, req, 'Delete Fee Structure', `Grade: ${removed.studentClass}`);
+    if (!deletedAny) {
+      return res.status(404).json({ error: 'Fee structure(s) not found.' });
+    }
 
-    res.json({ success: true, message: `Removed fee structure for ${removed.studentClass}` });
+    addActivity(db, 'alert', 'Fee Structure Removed', `Removed fee structure for Grade ${targetClass}`, 'rgb(var(--color-danger-rgb))', 'rgba(var(--color-danger-rgb), 0.1)');
+    writeDb(db, req, 'Delete Fee Structure', `Grade: ${targetClass}`);
+
+    res.json({ success: true, message: `Removed fee structure for ${targetClass}` });
   } catch (err) {
     console.error('Error deleting fee structure:', err);
     res.status(500).json({ error: 'Server error deleting fee structure.' });

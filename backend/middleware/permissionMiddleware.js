@@ -24,7 +24,7 @@ const LEGACY_MODULE_MAP = {
   'notices': 'academic-activities',
   'holidays': 'academic-activities',
   'academic-calendar': 'academic-activities',
-  'results': 'results-manager',
+  'results-marks-entry': 'results-marks-entry',
   'results-history': 'results-manager',
   'academic-history': 'results-manager',
   'register-teacher': 'registry-admissions',
@@ -35,6 +35,11 @@ const LEGACY_MODULE_MAP = {
   'employee-payroll': 'finance',
   'employee-pay-structure': 'finance',
   'payroll-history': 'finance',
+  'income': 'finance',
+  'fee-structures': 'finance',
+  'fee-periods': 'finance',
+  'financial-reports': 'finance',
+  'auxiliary-income': 'finance',
   'expense-dashboard': 'expenses',
   'expense-all-expenses': 'expenses',
   'expense-tracker': 'expenses',
@@ -42,6 +47,41 @@ const LEGACY_MODULE_MAP = {
   'settings': 'employee-attendance',
   'leave-settings': 'teacher-leave-management'
 };
+
+const MATRIX_CONFIGURABLE_MODULES = [
+  'overview',
+  'student-directory',
+  'teacher-directory',
+  'staff-directory',
+  'employee-directory',
+  'grade-management',
+  'register-student',
+  'register-teacher',
+  'add-staff',
+  'add-employee',
+  'designation-manager',
+  'student-manager',
+  'employee-attendance',
+  'attendance',
+  'attendance-history',
+  'academic-manager',
+  'published-timetable',
+  'published-exam',
+  'academic-activities',
+  'academic-calendar',
+  'results-manager',
+  'results-marks-entry',
+  'results-history',
+  'finance',
+  'expense-dashboard',
+  'expense-all-expenses',
+  'expense-history',
+  'financial-reports',
+  'auxiliary-income',
+  'security-audit',
+  'roles-permissions',
+  'settings'
+];
 
 export const checkPermission = (module, action) => {
   return (req, res, next) => {
@@ -141,14 +181,94 @@ export const checkPermission = (module, action) => {
       return next();
     }
 
+    // Teachers are always permitted to view timetable, exam, and calendar schedules
+    if (action === 'view') {
+      if (
+        user.userType === 'Teacher' || 
+        (roleName && roleName.toLowerCase() === 'teacher')
+      ) {
+        const allowedTeacherViewModules = [
+          'class-timetable',
+          'teacher-timetable',
+          'published-timetable',
+          'exam-timetable',
+          'academic-manager',
+          'academic-calendar'
+        ];
+        if (allowedTeacherViewModules.includes(module)) {
+          return next();
+        }
+      }
+    }
+
     const permissions = roleRecord ? (typeof roleRecord.permissions === 'string' ? JSON.parse(roleRecord.permissions) : roleRecord.permissions) : {};
 
     const hasPerm = (mod) => {
+      if (mod === 'results') {
+        const hasManager = permissions['results-manager'] && permissions['results-manager'][action] !== undefined && !!permissions['results-manager'][action];
+        const hasMarks = permissions['results-marks-entry'] && permissions['results-marks-entry'][action] !== undefined && !!permissions['results-marks-entry'][action];
+        return hasManager || hasMarks;
+      }
+
+      if (mod === 'expenses') {
+        const hasAllExpenses = permissions['expense-all-expenses'] && permissions['expense-all-expenses'][action] !== undefined && !!permissions['expense-all-expenses'][action];
+        const hasTracker = permissions['expense-tracker'] && permissions['expense-tracker'][action] !== undefined && !!permissions['expense-tracker'][action];
+        const hasDashboard = permissions['expense-dashboard'] && permissions['expense-dashboard'][action] !== undefined && !!permissions['expense-dashboard'][action];
+        const hasHistory = permissions['expense-history'] && permissions['expense-history'][action] !== undefined && !!permissions['expense-history'][action];
+        return hasAllExpenses || hasTracker || hasDashboard || hasHistory;
+      }
+
+      if (permissions[mod] && permissions[mod][action] === true) {
+        return true;
+      }
+
+      if (MATRIX_CONFIGURABLE_MODULES.includes(mod)) {
+        if (permissions[mod] && permissions[mod][action] !== undefined) {
+          return !!permissions[mod][action];
+        }
+      }
+
+      // Backward compatibility mappings (takes priority if true)
+      if (mod === 'staff-directory') {
+        if (permissions['teacher-directory'] && permissions['teacher-directory'][action] === true) {
+          return true;
+        }
+      }
+      if (mod === 'employee-directory') {
+        if (permissions['staff-directory'] && permissions['staff-directory'][action] === true) {
+          return true;
+        }
+      }
+      if (mod === 'add-staff') {
+        if (permissions['add-teacher'] && permissions['add-teacher'][action] === true) {
+          return true;
+        }
+      }
+      if (mod === 'add-employee') {
+        if (permissions['add-staff'] && permissions['add-staff'][action] === true) {
+          return true;
+        }
+      }
+
+      if (mod === 'teacher-leave-management' || mod === 'leave-settings') {
+        if (
+          roleName === 'Academic Coordinator' ||
+          role === 'Academic Coordinator' ||
+          (permissions['academic-manager'] && permissions['academic-manager'][action] !== undefined && !!permissions['academic-manager'][action])
+        ) {
+          return true;
+        }
+      }
+
+      const legacyModule = LEGACY_MODULE_MAP[mod];
+      if (legacyModule && permissions[legacyModule] && permissions[legacyModule][action] !== undefined) {
+        return !!permissions[legacyModule][action];
+      }
+
+      // Default to explicit specific false values if no legacy check succeeded
       if (permissions[mod] && permissions[mod][action] !== undefined) {
         return !!permissions[mod][action];
       }
-
-      // Backward compatibility mappings
       if (mod === 'staff-directory') {
         if (permissions['teacher-directory'] && permissions['teacher-directory'][action] !== undefined) {
           return !!permissions['teacher-directory'][action];
@@ -170,10 +290,6 @@ export const checkPermission = (module, action) => {
         }
       }
 
-      const legacyModule = LEGACY_MODULE_MAP[mod];
-      if (legacyModule && permissions[legacyModule] && permissions[legacyModule][action] !== undefined) {
-        return !!permissions[legacyModule][action];
-      }
       return false;
     };
 

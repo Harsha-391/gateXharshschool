@@ -56,6 +56,9 @@ export default function Header({
     'teacher-pay-structure': { title: 'Staff Pay Structure', desc: 'Define salary structures for staff.' },
     'staff-pay': { title: 'Pay Employee', desc: 'Manage administrative and support employee payouts.' },
     'staff-pay-structure': { title: 'Employee Pay Structure', desc: 'Define salary structures for support employees.' },
+    'staff-payroll-hub': { title: 'Staff Payroll Hub', desc: 'Manage payroll and basic remuneration structures for school staff.' },
+    'teacher-payroll-hub': { title: 'Teacher Payroll Hub', desc: 'Manage payroll and basic remuneration structures for school teachers.' },
+    'employee-payroll-hub': { title: 'Employee Payroll Hub', desc: 'Manage payroll and basic remuneration structures for school employees.' },
     expenses: { title: 'School Expenses', desc: 'Review, file, and audit expenditures.' },
     income: { title: 'Income Tracker', desc: 'Monitor additional revenue channels and non-fee inflows.' },
     reports: { title: 'Financial Reports', desc: 'Generate visual balance sheets, statement lists, and profit/loss reports.' },
@@ -88,7 +91,7 @@ export default function Header({
     'results-manager': { title: 'Results Manager', desc: 'Manage exam scores, analyze class performance, and print report cards.' },
 
     // Expense Control subviews
-    'expense-dashboard': { title: 'Expense Dashboard', desc: 'Monitor expense totals, approval queues, budget usage, and recent ledger activity.' },
+    'expense-dashboard': { title: 'Expense Panel', desc: 'Analyze expenditures per day, month, or year with custom comparative filters.' },
     'expense-add-expense': { title: 'Record Expense', desc: 'Record utility bills, administrative supplies, renovation costs, or payroll expenses.' },
     'expense-all-expenses': { title: 'Expenses', desc: 'Search, filter, paginate, sort, and export the complete academy expense history.' },
     'expense-tracker': { title: 'Expense Tracker', desc: 'Analyze expenditures per day, month, or year with custom comparative filters.' }
@@ -149,7 +152,6 @@ export default function Header({
           <button 
             onClick={() => {
               setShowNotifications(!showNotifications);
-              setShowProfileMenu(false);
             }} 
             className="action-btn"
             title="Notifications"
@@ -168,7 +170,9 @@ export default function Header({
               zIndex: 999,
               display: 'flex',
               flexDirection: 'column',
-              gap: '12px'
+              gap: '12px',
+              background: 'var(--bg-elevated)',
+              boxShadow: 'var(--shadow-lg)'
             }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-glass)', paddingBottom: '8px' }}>
                 <span style={{ fontWeight: 700, fontSize: '0.9rem' }}>Notifications</span>

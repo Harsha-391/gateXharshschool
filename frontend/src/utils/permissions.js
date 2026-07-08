@@ -46,8 +46,9 @@ const LEGACY_MODULE_MAP = {
   'results': 'results-manager',
   'results-history': 'results-manager',
   'academic-history': 'results-manager',
+  'results-marks-entry': 'results-marks-entry',
 
-  // Payroll fallback
+  // Payroll and Fees fallback
   'staff-payroll': 'finance',
   'staff-pay-structure': 'finance',
   'teacher-payroll': 'finance',
@@ -55,6 +56,11 @@ const LEGACY_MODULE_MAP = {
   'employee-payroll': 'finance',
   'employee-pay-structure': 'finance',
   'payroll-history': 'finance',
+  'income': 'finance',
+  'fee-structures': 'finance',
+  'fee-periods': 'finance',
+  'financial-reports': 'finance',
+  'auxiliary-income': 'finance',
 
   // Expenses
   'expense-dashboard': 'expenses',
@@ -62,6 +68,41 @@ const LEGACY_MODULE_MAP = {
   'expense-tracker': 'expenses',
   'expense-history': 'expenses'
 };
+
+const MATRIX_CONFIGURABLE_MODULES = [
+  'overview',
+  'student-directory',
+  'teacher-directory',
+  'staff-directory',
+  'employee-directory',
+  'grade-management',
+  'register-student',
+  'register-teacher',
+  'add-staff',
+  'add-employee',
+  'designation-manager',
+  'student-manager',
+  'employee-attendance',
+  'attendance',
+  'attendance-history',
+  'academic-manager',
+  'published-timetable',
+  'published-exam',
+  'academic-activities',
+  'academic-calendar',
+  'results-manager',
+  'results-marks-entry',
+  'results-history',
+  'finance',
+  'expense-dashboard',
+  'expense-all-expenses',
+  'expense-history',
+  'financial-reports',
+  'auxiliary-income',
+  'security-audit',
+  'roles-permissions',
+  'settings'
+];
 
 const COMPATIBILITY_MAP = {
   'staff-directory': 'teacher-directory',
@@ -117,24 +158,34 @@ export function hasPermission(module, action) {
     console.error('Failed to parse overrides from localStorage:', e);
   }
 
-  // 1. Check specific granular module override first (takes priority)
-  if (overrides && overrides[module] && overrides[module][action] !== undefined) {
-    return !!overrides[module][action];
+  // 1. Check specific granular module override first (takes priority if true)
+  if (overrides && overrides[module] && overrides[module][action] === true) {
+    return true;
   }
 
-  // 2. Check specific granular module permission
-  if (permissions && permissions[module] && permissions[module][action] !== undefined) {
-    return !!permissions[module][action];
+  // 2. Check specific granular module permission (takes priority if true)
+  if (permissions && permissions[module] && permissions[module][action] === true) {
+    return true;
   }
 
-  // Compatibility fallback for renamed modules (e.g. staff-directory -> teacher-directory)
+  // If the module is explicitly configured in the matrix, we respect its value directly and bypass fallbacks
+  if (MATRIX_CONFIGURABLE_MODULES.includes(module)) {
+    if (overrides && overrides[module] && overrides[module][action] !== undefined) {
+      return !!overrides[module][action];
+    }
+    if (permissions && permissions[module] && permissions[module][action] !== undefined) {
+      return !!permissions[module][action];
+    }
+  }
+
+  // Compatibility fallback for renamed modules (e.g. staff-directory -> teacher-directory) (takes priority if true)
   const compatModule = COMPATIBILITY_MAP[module];
   if (compatModule) {
-    if (overrides && overrides[compatModule] && overrides[compatModule][action] !== undefined) {
-      return !!overrides[compatModule][action];
+    if (overrides && overrides[compatModule] && overrides[compatModule][action] === true) {
+      return true;
     }
-    if (permissions && permissions[compatModule] && permissions[compatModule][action] !== undefined) {
-      return !!permissions[compatModule][action];
+    if (permissions && permissions[compatModule] && permissions[compatModule][action] === true) {
+      return true;
     }
   }
 
@@ -159,6 +210,22 @@ export function hasPermission(module, action) {
       if (permissions && permissions[fb] && permissions[fb][action] !== undefined) {
         if (permissions[fb][action]) return true;
       }
+    }
+  }
+
+  // 4. Default to explicit specific false values if no legacy check succeeded
+  if (overrides && overrides[module] && overrides[module][action] !== undefined) {
+    return !!overrides[module][action];
+  }
+  if (permissions && permissions[module] && permissions[module][action] !== undefined) {
+    return !!permissions[module][action];
+  }
+  if (compatModule) {
+    if (overrides && overrides[compatModule] && overrides[compatModule][action] !== undefined) {
+      return !!overrides[compatModule][action];
+    }
+    if (permissions && permissions[compatModule] && permissions[compatModule][action] !== undefined) {
+      return !!permissions[compatModule][action];
     }
   }
 
