@@ -13,6 +13,7 @@ import {
 import StudentDirectory from './StudentDirectory';
 import { fetchActiveGrades, fetchActiveSections } from '../utils/grades';
 import { hasPermission } from '../utils/permissions';
+import { PayrollHubRedesign, PayrollHistoryViewRedesign } from './PayrollRedesign';
 
 function ConfirmDialog({ show, message, onConfirm, onCancel }) {
   if (!show) return null;
@@ -63,18 +64,19 @@ export default function AccountantPanel({ setActiveView, onLogout, accountantVie
       case 'collect-fees': return <CollectFeesView showToast={showToast} />;
       case 'fee-structure': return <FeeStructureView showToast={showToast} />;
       case 'fees-history': return <CollectFeesView showToast={showToast} readOnly={true} />;
-      case 'staff-payroll-hub': return <PayrollHub title="Staff" type="Staff" showToast={showToast} />;
-      case 'teacher-payroll-hub': return <PayrollHub title="Teacher" type="Teacher" showToast={showToast} />;
-      case 'employee-payroll-hub': return <PayrollHub title="Employee" type="Employee" showToast={showToast} />;
-      case 'staff-payroll': return <PayrollView showToast={showToast} type="Staff" />;
-      case 'staff-pay-structure': return <StaffPaymentStructureView showToast={showToast} type="Staff" />;
-      case 'teacher-payroll': return <PayrollView showToast={showToast} type="Teacher" />;
-      case 'teacher-pay-structure': return <TeacherSalaryStructureView showToast={showToast} />;
-      case 'employee-payroll': return <StaffPaymentsView showToast={showToast} />;
-      case 'employee-pay-structure': return <StaffPaymentStructureView showToast={showToast} type="Employee" />;
+      case 'staff-payroll-hub': return <PayrollHubRedesign type="Staff" showToast={showToast} />;
+      case 'teacher-payroll-hub': return <PayrollHubRedesign type="Teacher" showToast={showToast} />;
+      case 'employee-payroll-hub': return <PayrollHubRedesign type="Employee" showToast={showToast} />;
+      case 'staff-payroll': return <PayrollHubRedesign type="Staff" showToast={showToast} />;
+      case 'staff-pay-structure': return <PayrollHubRedesign type="Staff" showToast={showToast} />;
+      case 'teacher-payroll': return <PayrollHubRedesign type="Teacher" showToast={showToast} />;
+      case 'teacher-pay-structure': return <PayrollHubRedesign type="Teacher" showToast={showToast} />;
+      case 'employee-payroll': return <PayrollHubRedesign type="Employee" showToast={showToast} />;
+      case 'employee-pay-structure': return <PayrollHubRedesign type="Employee" showToast={showToast} />;
+      case 'payroll-history': return <PayrollHistoryViewRedesign showToast={showToast} />;
 
       case 'expenses': return <ExpensesView showToast={showToast} />;
-      case 'reports': return <ReportsView showToast={showToast} />;
+      case 'reports': return <ReportsView showToast={showToast} setAccountantView={setAccountantView} />;
       case 'students': return <StudentDirectory />;
       case 'staff-directory': return <StaffDirectory setActiveView={setActiveView} readOnly={true} />;
       case 'employees': return <EmployeeDirectory readOnly={true} />;
@@ -5678,7 +5680,7 @@ function Disabled_IncomeView({ showToast, active = true }) {
 /* ============================================================
    REPORTS VIEW
    ============================================================ */
-export function ReportsView({ showToast }) {
+export function ReportsView({ showToast, setAccountantView }) {
   const [overview, setOverview] = useState(null);
   const [loading, setLoading] = useState(true);
   const [fees, setFees] = useState([]);
@@ -5687,9 +5689,11 @@ export function ReportsView({ showToast }) {
   const [expenses, setExpenses] = useState([]);
   const [income, setIncome] = useState([]);
 
-  // States
+  // Dashboard states
   const [breakdownType, setBreakdownType] = useState('inflow'); // 'inflow' | 'outflow'
-  const [trendPeriod, setTrendPeriod] = useState('daily'); // 'daily' | 'monthly' | 'yearly'
+  const [trendPeriod, setTrendPeriod] = useState('monthly'); // 'daily' | 'monthly' | 'yearly'
+  const [ledgerSearch, setLedgerSearch] = useState('');
+  const [ledgerTypeFilter, setLedgerTypeFilter] = useState('all'); // 'all' | 'inflow' | 'outflow'
 
   useEffect(() => {
     Promise.all([
@@ -5713,20 +5717,127 @@ export function ReportsView({ showToast }) {
     });
   }, []);
 
-  if (loading) return (
-    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '300px' }}>
-      <Loader2 className="animate-spin" size={32} style={{ color: '#10b981' }} />
-    </div>
-  );
+
 
   // Real-time calculations
   const totalFeeCollections = fees.reduce((sum, f) => sum + (f.paidAmount || 0), 0);
   const totalPayrollPaid = expenses.filter(e => !e.deleted && e.category === 'Salary').reduce((sum, e) => sum + (e.amount || 0), 0);
   const totalOperationalExpenses = expenses.filter(e => !e.deleted && e.category !== 'Salary').reduce((sum, e) => sum + (e.amount || 0), 0);
   const totalPendingFees = fees.reduce((sum, f) => sum + (f.dueAmount || 0), 0);
+  const totalAuxiliaryIncome = income.reduce((sum, i) => sum + (i.amount || 0), 0);
 
-  const totalInflow = totalFeeCollections + income.reduce((sum, i) => sum + (i.amount || 0), 0);
+  const totalInflow = totalFeeCollections + totalAuxiliaryIncome;
   const totalOutflow = totalPayrollPaid + totalOperationalExpenses;
+  const netProfit = totalInflow - totalOutflow;
+  const profitMargin = totalInflow > 0 ? Math.round((netProfit / totalInflow) * 100) : 0;
+
+  // 1. Advanced Core Financial Ratios
+  const collectionEfficiency = (totalFeeCollections + totalPendingFees) > 0 
+    ? Math.round((totalFeeCollections / (totalFeeCollections + totalPendingFees)) * 100) 
+    : 0;
+
+  const payrollRatio = totalOutflow > 0 ? Math.round((totalPayrollPaid / totalOutflow) * 100) : 0;
+  const oerRatio = totalInflow > 0 ? Math.round((totalOperationalExpenses / totalInflow) * 100) : 0;
+  const savingsRate = totalInflow > 0 && netProfit > 0 ? Math.round((netProfit / totalInflow) * 100) : 0;
+
+  // Weighted health score calculation (out of 100)
+  let healthScore = 50; 
+  if (totalInflow > 0) {
+    const marginScore = Math.max(0, Math.min(100, profitMargin + 50)); // margin centered at 50%
+    const efficiencyScore = collectionEfficiency;
+    const outflowCoverage = totalOutflow === 0 ? 100 : Math.min(100, Math.round((totalInflow / totalOutflow) * 50));
+    healthScore = Math.max(0, Math.min(100, Math.round((marginScore * 0.4) + (efficiencyScore * 0.4) + (outflowCoverage * 0.2))));
+  }
+
+  // 2. Quarterly performance data
+  const getQuarterData = (monthsList) => {
+    let inflow = 0;
+    let outflow = 0;
+    monthsList.forEach(mIdx => {
+      const yearMonth = `2026-${String(mIdx + 1).padStart(2, '0')}`;
+      inflow += fees.filter(f => f.paymentDate?.startsWith(yearMonth)).reduce((sum, f) => sum + (f.paidAmount || 0), 0);
+      inflow += income.filter(i => i.date?.startsWith(yearMonth)).reduce((sum, i) => sum + (i.amount || 0), 0);
+      outflow += expenses.filter(e => !e.deleted && e.date?.startsWith(yearMonth)).reduce((sum, e) => sum + (e.amount || 0), 0);
+    });
+    return { inflow, outflow, net: inflow - outflow };
+  };
+
+  const q1Data = getQuarterData([0, 1, 2]); // Jan-Mar
+  const q2Data = getQuarterData([3, 4, 5]); // Apr-Jun
+  const q3Data = getQuarterData([6, 7, 8]); // Jul-Sep
+  const q4Data = getQuarterData([9, 10, 11]); // Oct-Dec
+
+  // 3. Dynamic Health Insights Feed
+  const financialInsights = [];
+  
+  if (collectionEfficiency >= 85) {
+    financialInsights.push({
+      type: 'success',
+      title: 'Strong Fee Collection',
+      desc: `Your collection efficiency is at ${collectionEfficiency}%. Outstanding dues are under control.`
+    });
+  } else if (collectionEfficiency >= 60) {
+    financialInsights.push({
+      type: 'warning',
+      title: 'Moderate Fee Collection Dues',
+      desc: `Collection efficiency is ${collectionEfficiency}%. Active follow-ups on ₹${totalPendingFees.toLocaleString()} unpaid invoices could improve liquid cash.`
+    });
+  } else {
+    financialInsights.push({
+      type: 'danger',
+      title: 'Urgent Action: High Fee Arrears',
+      desc: `Collection efficiency is low at ${collectionEfficiency}%. Outstanding dues stand at ₹${totalPendingFees.toLocaleString()}.`
+    });
+  }
+
+  if (profitMargin > 20) {
+    financialInsights.push({
+      type: 'success',
+      title: 'Excellent Operating Margin',
+      desc: `Operating surplus margin is at healthy ${profitMargin}%, reflecting strong operational health.`
+    });
+  } else if (profitMargin >= 0) {
+    financialInsights.push({
+      type: 'warning',
+      title: 'Slim Operating Surplus',
+      desc: `Current operating margin is ${profitMargin}%. Consider reducing auxiliary administrative overheads.`
+    });
+  } else {
+    financialInsights.push({
+      type: 'danger',
+      title: 'Operating Loss Position',
+      desc: `The school is running at a net deficit. Expenditures exceed total collected fees and auxiliary inflow by ₹${Math.abs(netProfit).toLocaleString()}.`
+    });
+  }
+
+  if (payrollRatio > 60) {
+    financialInsights.push({
+      type: 'warning',
+      title: 'High Payroll Concentration',
+      desc: `Staff payroll accounts for ${payrollRatio}% of total outflows. Monitor hiring pipeline closely.`
+    });
+  } else if (payrollRatio > 25) {
+    financialInsights.push({
+      type: 'success',
+      title: 'Optimized Staff Costs',
+      desc: `Payroll is well-balanced at ${payrollRatio}% of operating cash outflows, indicating stable administrative leverage.`
+    });
+  }
+
+  const auxShare = totalInflow > 0 ? Math.round((totalAuxiliaryIncome / totalInflow) * 100) : 0;
+  if (auxShare > 15) {
+    financialInsights.push({
+      type: 'success',
+      title: 'Diversified Income Channels',
+      desc: `Non-fee auxiliary sources contribute ${auxShare}% to total inflows, mitigating pupil collection dependency.`
+    });
+  } else {
+    financialInsights.push({
+      type: 'info',
+      title: 'Income Diversification Opportunity',
+      desc: `Other auxiliary sources contribute only ${auxShare}% of inflows. Consider school property leasing or sponsor activities.`
+    });
+  }
 
   // Breakdown Calculations
   const inflowBreakdown = {
@@ -5779,9 +5890,8 @@ export function ReportsView({ showToast }) {
   };
 
   // Dynamic Trend calculations
-  // 1. Daily cash flow trend (June 2026)
   const currentYearMonth = '2026-06';
-  const daysInMonth = 30; // June has 30 days
+  const daysInMonth = 30;
   const dailyData = [];
   for (let d = 1; d <= daysInMonth; d++) {
     const dayStr = String(d).padStart(2, '0');
@@ -5811,7 +5921,6 @@ export function ReportsView({ showToast }) {
     }
   }
 
-  // 2. Monthly cash flow trend (Current Year 2026)
   const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   const monthlyData = months.map((mName, mIdx) => {
     const yearMonth = `2026-${String(mIdx + 1).padStart(2, '0')}`;
@@ -5835,7 +5944,6 @@ export function ReportsView({ showToast }) {
     };
   }).filter(m => m.inflow > 0 || m.outflow > 0);
 
-  // 3. Yearly cash flow trend
   const yearlyMap = {};
   fees.forEach(f => {
     const year = f.paymentDate ? f.paymentDate.substring(0, 4) : '2026';
@@ -5854,7 +5962,6 @@ export function ReportsView({ showToast }) {
   });
   const yearlyData = Object.values(yearlyMap).sort((a, b) => a.label.localeCompare(b.label));
 
-  // Determine active trend list
   let trendData = [];
   if (trendPeriod === 'daily') {
     trendData = dailyData;
@@ -5864,44 +5971,358 @@ export function ReportsView({ showToast }) {
     trendData = yearlyData;
   }
 
-  // Calculate scaling max
   const maxInflow = Math.max(...trendData.map(t => t.inflow), 1);
   const maxOutflow = Math.max(...trendData.map(t => t.outflow), 1);
   const maxOverall = Math.max(maxInflow, maxOutflow, 1);
 
+  // Unified live transactions ledger
+  const allTransactions = React.useMemo(() => {
+    const list = [];
+    
+    fees.forEach(f => {
+      if (f.paidAmount > 0) {
+        list.push({
+          id: `FEE-${f.id}`,
+          date: f.paymentDate || '2026-06-01',
+          type: 'inflow',
+          category: f.feeType || 'Tuition Fee',
+          description: `Student Fee - ID: ${f.studentId || 'N/A'}`,
+          amount: f.paidAmount,
+          reference: f.invoiceNo || 'N/A'
+        });
+      }
+    });
 
+    income.forEach(i => {
+      list.push({
+        id: `INC-${i.id}`,
+        date: i.date || '2026-06-01',
+        type: 'inflow',
+        category: `Auxiliary: ${i.source || 'Other'}`,
+        description: i.description || 'Auxiliary income source',
+        amount: i.amount,
+        reference: i.referenceNo || 'N/A'
+      });
+    });
+
+    expenses.filter(e => !e.deleted).forEach(e => {
+      list.push({
+        id: `EXP-${e.id}`,
+        date: e.date || '2026-06-01',
+        type: 'outflow',
+        category: e.category || 'Operations',
+        description: e.description || e.subcategory || 'Operational Expense',
+        amount: e.amount,
+        reference: e.voucherNo || 'N/A'
+      });
+    });
+
+    return list.sort((a, b) => b.date.localeCompare(a.date));
+  }, [fees, income, expenses]);
+
+  const filteredTransactions = React.useMemo(() => {
+    return allTransactions.filter(tx => {
+      const matchesType = ledgerTypeFilter === 'all' || tx.type === ledgerTypeFilter;
+      const matchesSearch = 
+        tx.description.toLowerCase().includes(ledgerSearch.toLowerCase()) ||
+        tx.category.toLowerCase().includes(ledgerSearch.toLowerCase()) ||
+        tx.reference.toLowerCase().includes(ledgerSearch.toLowerCase()) ||
+        tx.id.toLowerCase().includes(ledgerSearch.toLowerCase());
+      return matchesType && matchesSearch;
+    });
+  }, [allTransactions, ledgerSearch, ledgerTypeFilter]);
+
+  if (loading) return (
+    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '400px', flexDirection: 'column', gap: '16px' }}>
+      <Loader2 className="animate-spin" size={36} style={{ color: '#10b981' }} />
+      <p style={{ fontSize: '0.88rem', color: 'var(--text-muted)', fontWeight: 500 }}>Loading SaaS Financial Cockpit...</p>
+    </div>
+  );
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}>
       
-      {/* KPI Cards Grid */}
+      {/* 1. SaaS Financial Header Metrics */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '20px' }}>
-        <div className="glass-panel" style={{ padding: '20px 24px', borderRadius: '14px', borderLeft: '4px solid #3b82f6' }}>
-          <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Student Fee Collections</p>
-          <h3 style={{ fontSize: '1.6rem', fontWeight: 800, color: '#3b82f6', marginTop: '6px' }}>₹{totalFeeCollections.toLocaleString()}</h3>
-          <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Real-time student fee receipts</span>
+        {/* Total Fees Income */}
+        <div className="glass-panel animate-scale-up" style={{ 
+          padding: '24px', 
+          borderRadius: '16px', 
+          borderLeft: '5px solid #3b82f6',
+          background: 'rgba(255,255,255,0.015)'
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Total Fees Income</span>
+            <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: 'rgba(59,130,246,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <ArrowUpRight size={14} style={{ color: '#3b82f6' }} />
+            </div>
+          </div>
+          <h3 style={{ fontSize: '1.7rem', fontWeight: 800, color: '#3b82f6', marginTop: '10px' }}>
+            ₹{totalFeeCollections.toLocaleString()}
+          </h3>
+          <p style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+            Real-time student fee receipts
+          </p>
         </div>
-        <div className="glass-panel" style={{ padding: '20px 24px', borderRadius: '14px', borderLeft: '4px solid #8b5cf6' }}>
-          <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Payroll Payouts</p>
-          <h3 style={{ fontSize: '1.6rem', fontWeight: 800, color: '#8b5cf6', marginTop: '6px' }}>₹{totalPayrollPaid.toLocaleString()}</h3>
-          <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Salaries paid to teachers & staff</span>
+
+        {/* Total Auxiliary Income */}
+        <div className="glass-panel animate-scale-up" style={{ 
+          padding: '24px', 
+          borderRadius: '16px', 
+          borderLeft: '5px solid #06b6d4',
+          background: 'rgba(255,255,255,0.015)'
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Total Auxiliary Income</span>
+            <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: 'rgba(6,182,212,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <TrendingUp size={14} style={{ color: '#06b6d4' }} />
+            </div>
+          </div>
+          <h3 style={{ fontSize: '1.7rem', fontWeight: 800, color: '#06b6d4', marginTop: '10px' }}>
+            ₹{totalAuxiliaryIncome.toLocaleString()}
+          </h3>
+          <p style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+            Non-fee auxiliary incomes
+          </p>
         </div>
-        <div className="glass-panel" style={{ padding: '20px 24px', borderRadius: '14px', borderLeft: '4px solid #ef4444' }}>
-          <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Operational Expenses</p>
-          <h3 style={{ fontSize: '1.6rem', fontWeight: 800, color: '#ef4444', marginTop: '6px' }}>₹{totalOperationalExpenses.toLocaleString()}</h3>
-          <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Non-salary operations costs</span>
+
+        {/* Total Payroll */}
+        <div className="glass-panel animate-scale-up" style={{ 
+          padding: '24px', 
+          borderRadius: '16px', 
+          borderLeft: '5px solid #8b5cf6',
+          background: 'rgba(255,255,255,0.015)'
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Total Payroll</span>
+            <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: 'rgba(139,92,246,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <ArrowDownRight size={14} style={{ color: '#8b5cf6' }} />
+            </div>
+          </div>
+          <h3 style={{ fontSize: '1.7rem', fontWeight: 800, color: '#8b5cf6', marginTop: '10px' }}>
+            ₹{totalPayrollPaid.toLocaleString()}
+          </h3>
+          <p style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+            Salaries paid to staff
+          </p>
         </div>
-        <div className="glass-panel" style={{ padding: '20px 24px', borderRadius: '14px', borderLeft: '4px solid #f59e0b' }}>
-          <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Outstanding Receivables</p>
-          <h3 style={{ fontSize: '1.6rem', fontWeight: 800, color: '#f59e0b', marginTop: '6px' }}>₹{totalPendingFees.toLocaleString()}</h3>
-          <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Pending student fee balances</span>
+
+        {/* Total Expense */}
+        <div className="glass-panel animate-scale-up" style={{ 
+          padding: '24px', 
+          borderRadius: '16px', 
+          borderLeft: '5px solid #ef4444',
+          background: 'rgba(255,255,255,0.015)'
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Total Expense</span>
+            <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: 'rgba(239,68,68,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <AlertCircle size={14} style={{ color: '#ef4444' }} />
+            </div>
+          </div>
+          <h3 style={{ fontSize: '1.7rem', fontWeight: 800, color: '#ef4444', marginTop: '10px' }}>
+            ₹{totalOperationalExpenses.toLocaleString()}
+          </h3>
+          <p style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+            Non-salary operational costs
+          </p>
+        </div>
+
+        {/* Total Revenue */}
+        <div className="glass-panel animate-scale-up" style={{ 
+          padding: '24px', 
+          borderRadius: '16px', 
+          borderLeft: `5px solid ${netProfit >= 0 ? '#10b981' : '#ef4444'}`,
+          background: 'rgba(255,255,255,0.015)',
+          boxShadow: netProfit >= 0 ? '0 8px 32px rgba(16, 185, 129, 0.05)' : '0 8px 32px rgba(239, 68, 68, 0.05)'
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Total Revenue</span>
+            <span style={{ 
+              fontSize: '0.72rem', 
+              color: netProfit >= 0 ? '#10b981' : '#ef4444', 
+              background: netProfit >= 0 ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)',
+              padding: '3px 8px', 
+              borderRadius: '20px',
+              fontWeight: 700
+            }}>
+              Margin: {profitMargin}%
+            </span>
+          </div>
+          <h3 style={{ fontSize: '1.7rem', fontWeight: 800, color: netProfit >= 0 ? '#10b981' : '#ef4444', marginTop: '10px' }}>
+            ₹{netProfit.toLocaleString()}
+          </h3>
+          <p style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+            Net Revenue (Inflow - Outflow)
+          </p>
         </div>
       </div>
 
-      {/* Analytics Section */}
+      {/* 2. SaaS Shortcuts & Quick Actions Navigation */}
+      <div className="glass-panel animate-scale-up" style={{ padding: '20px', borderRadius: '16px' }}>
+        <h4 style={{ fontSize: '0.82rem', fontWeight: 800, color: 'var(--text-main)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '14px' }}>
+          Quick Modules Cockpit
+        </h4>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '14px' }}>
+          <button 
+            onClick={() => setAccountantView('collect-fees')} 
+            className="btn-payroll-row" 
+            style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', background: 'rgba(59,130,246,0.03)', border: '1px solid var(--border-glass)', borderRadius: '12px', cursor: 'pointer', textAlign: 'left' }}
+          >
+            <div style={{ padding: '8px', borderRadius: '8px', background: '#3b82f6', color: '#fff' }}><Receipt size={16} /></div>
+            <div>
+              <span style={{ fontSize: '0.76rem', fontWeight: 700, display: 'block', color: 'var(--text-main)' }}>Fee Collection</span>
+              <span style={{ fontSize: '0.66rem', color: 'var(--text-muted)' }}>Collect & track student dues</span>
+            </div>
+          </button>
+
+          <button 
+            onClick={() => setAccountantView('expenses')} 
+            className="btn-payroll-row" 
+            style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', background: 'rgba(139,92,246,0.03)', border: '1px solid var(--border-glass)', borderRadius: '12px', cursor: 'pointer', textAlign: 'left' }}
+          >
+            <div style={{ padding: '8px', borderRadius: '8px', background: '#8b5cf6', color: '#fff' }}><CreditCard size={16} /></div>
+            <div>
+              <span style={{ fontSize: '0.76rem', fontWeight: 700, display: 'block', color: 'var(--text-main)' }}>Record Expense</span>
+              <span style={{ fontSize: '0.66rem', color: 'var(--text-muted)' }}>Log school utility payouts</span>
+            </div>
+          </button>
+
+          <button 
+            onClick={() => setAccountantView('staff-payroll-hub')} 
+            className="btn-payroll-row" 
+            style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', background: 'rgba(16,185,129,0.03)', border: '1px solid var(--border-glass)', borderRadius: '12px', cursor: 'pointer', textAlign: 'left' }}
+          >
+            <div style={{ padding: '8px', borderRadius: '8px', background: '#10b981', color: '#fff' }}><Users size={16} /></div>
+            <div>
+              <span style={{ fontSize: '0.76rem', fontWeight: 700, display: 'block', color: 'var(--text-main)' }}>Staff Payroll Hub</span>
+              <span style={{ fontSize: '0.66rem', color: 'var(--text-muted)' }}>Salary structures & payments</span>
+            </div>
+          </button>
+
+          <button 
+            onClick={() => setAccountantView('fee-structure')} 
+            className="btn-payroll-row" 
+            style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', background: 'rgba(245,158,11,0.03)', border: '1px solid var(--border-glass)', borderRadius: '12px', cursor: 'pointer', textAlign: 'left' }}
+          >
+            <div style={{ padding: '8px', borderRadius: '8px', background: '#f59e0b', color: '#fff' }}><Calculator size={16} /></div>
+            <div>
+              <span style={{ fontSize: '0.76rem', fontWeight: 700, display: 'block', color: 'var(--text-main)' }}>Fee Structures</span>
+              <span style={{ fontSize: '0.66rem', color: 'var(--text-muted)' }}>Setup grade templates</span>
+            </div>
+          </button>
+        </div>
+      </div>
+
+      {/* 3. Circular SVG Gauges & Ratios Row */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '24px' }}>
+        
+        {/* SVG Gauge 1: Financial Health Score */}
+        <div className="glass-panel" style={{ padding: '24px', borderRadius: '16px', display: 'flex', alignItems: 'center', gap: '20px' }}>
+          <div style={{ position: 'relative', width: '100px', height: '100px' }}>
+            <svg width="100" height="100" viewBox="0 0 100 100">
+              <circle cx="50" cy="50" r="40" stroke="rgba(255,255,255,0.03)" strokeWidth="8" fill="transparent" />
+              <circle cx="50" cy="50" r="40" 
+                stroke={healthScore > 80 ? '#10b981' : healthScore > 50 ? '#f59e0b' : '#ef4444'} 
+                strokeWidth="8" 
+                fill="transparent" 
+                strokeDasharray="251.2"
+                strokeDashoffset={251.2 - (251.2 * healthScore) / 100}
+                strokeLinecap="round"
+                style={{ transition: 'stroke-dashoffset 0.8s ease-in-out' }}
+              />
+            </svg>
+            <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', textAlign: 'center' }}>
+              <span style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-main)' }}>{healthScore}</span>
+              <span style={{ fontSize: '0.55rem', display: 'block', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>Index</span>
+            </div>
+          </div>
+          <div style={{ flex: 1 }}>
+            <h4 style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--text-main)', margin: '0 0 4px 0' }}>Financial Health Score</h4>
+            <span style={{ 
+              fontSize: '0.7rem', 
+              fontWeight: 700, 
+              color: healthScore > 80 ? '#10b981' : healthScore > 50 ? '#f59e0b' : '#ef4444',
+              background: healthScore > 80 ? 'rgba(16,185,129,0.08)' : healthScore > 50 ? 'rgba(245,158,11,0.08)' : 'rgba(239,68,68,0.08)',
+              padding: '2px 8px',
+              borderRadius: '12px',
+              display: 'inline-block'
+            }}>
+              {healthScore > 80 ? 'Excellent Status' : healthScore > 50 ? 'Moderate Health' : 'Needs Optimization'}
+            </span>
+            <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', margin: '8px 0 0 0', lineHeight: '1.4' }}>
+              Aggregate index computed from margins, collection rates, and overhead safety.
+            </p>
+          </div>
+        </div>
+
+        {/* SVG Gauge 2: Collection Efficiency */}
+        <div className="glass-panel" style={{ padding: '24px', borderRadius: '16px', display: 'flex', alignItems: 'center', gap: '20px' }}>
+          <div style={{ position: 'relative', width: '100px', height: '100px' }}>
+            <svg width="100" height="100" viewBox="0 0 100 100">
+              <circle cx="50" cy="50" r="40" stroke="rgba(255,255,255,0.03)" strokeWidth="8" fill="transparent" />
+              <circle cx="50" cy="50" r="40" 
+                stroke="#3b82f6" 
+                strokeWidth="8" 
+                fill="transparent" 
+                strokeDasharray="251.2"
+                strokeDashoffset={251.2 - (251.2 * collectionEfficiency) / 100}
+                strokeLinecap="round"
+                style={{ transition: 'stroke-dashoffset 0.8s ease-in-out' }}
+              />
+            </svg>
+            <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', textAlign: 'center' }}>
+              <span style={{ fontSize: '1.25rem', fontWeight: 800, color: '#3b82f6' }}>{collectionEfficiency}%</span>
+              <span style={{ fontSize: '0.55rem', display: 'block', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>Rate</span>
+            </div>
+          </div>
+          <div style={{ flex: 1 }}>
+            <h4 style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--text-main)', margin: '0 0 4px 0' }}>Collection Efficiency</h4>
+            <span style={{ 
+              fontSize: '0.7rem', 
+              fontWeight: 700, 
+              color: '#3b82f6',
+              background: 'rgba(59,130,246,0.08)',
+              padding: '2px 8px',
+              borderRadius: '12px',
+              display: 'inline-block'
+            }}>
+              ₹{totalFeeCollections.toLocaleString()} collected
+            </span>
+            <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', margin: '8px 0 0 0', lineHeight: '1.4' }}>
+              Ratio of collected tuition fees to total invoiced dues.
+            </p>
+          </div>
+        </div>
+
+        {/* Detailed Financial Ratios Grid */}
+        <div className="glass-panel" style={{ padding: '20px 24px', borderRadius: '16px', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: '10px' }}>
+          <h4 style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-main)', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 2px 0' }}>Operating Ratios</h4>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+            <div style={{ background: 'rgba(0,0,0,0.015)', padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--border-glass)' }}>
+              <span style={{ display: 'block', fontSize: '0.64rem', color: 'var(--text-muted)', fontWeight: 600 }}>Operating Margin</span>
+              <strong style={{ fontSize: '0.85rem', color: profitMargin >= 0 ? '#10b981' : '#ef4444' }}>{profitMargin}%</strong>
+            </div>
+            <div style={{ background: 'rgba(0,0,0,0.015)', padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--border-glass)' }}>
+              <span style={{ display: 'block', fontSize: '0.64rem', color: 'var(--text-muted)', fontWeight: 600 }}>Savings Rate</span>
+              <strong style={{ fontSize: '0.85rem', color: '#06b6d4' }}>{savingsRate}%</strong>
+            </div>
+            <div style={{ background: 'rgba(0,0,0,0.015)', padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--border-glass)' }}>
+              <span style={{ display: 'block', fontSize: '0.64rem', color: 'var(--text-muted)', fontWeight: 600 }}>Payroll Share</span>
+              <strong style={{ fontSize: '0.85rem', color: '#8b5cf6' }}>{payrollRatio}%</strong>
+            </div>
+            <div style={{ background: 'rgba(0,0,0,0.015)', padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--border-glass)' }}>
+              <span style={{ display: 'block', fontSize: '0.64rem', color: 'var(--text-muted)', fontWeight: 600 }}>OpEx Leverage</span>
+              <strong style={{ fontSize: '0.85rem', color: '#f59e0b' }}>{oerRatio}%</strong>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* 4. Analytics Charts */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: '24px' }}>
         
-        {/* Cash Flow Trend Chart */}
+        {/* Cash Flow Analytics Trend */}
         <div className="glass-panel" style={{ padding: '24px', borderRadius: '16px', display: 'flex', flexDirection: 'column' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '10px' }}>
             <h3 style={{ fontSize: '0.92rem', fontWeight: 700, color: 'var(--text-main)', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -5909,17 +6330,22 @@ export function ReportsView({ showToast }) {
             </h3>
             <div style={{ display: 'flex', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-glass)', borderRadius: '8px', padding: '2px' }}>
               {[
-                { key: 'daily', label: 'Daily (Jun 2026)' },
-                { key: 'monthly', label: 'Monthly (2026)' },
+                { key: 'daily', label: 'Daily' },
+                { key: 'monthly', label: 'Monthly' },
                 { key: 'yearly', label: 'Yearly' }
               ].map(p => (
                 <button 
                   key={p.key}
                   onClick={() => setTrendPeriod(p.key)} 
                   style={{
-                    border: 'none', background: trendPeriod === p.key ? 'rgba(16,185,129,0.12)' : 'none',
+                    border: 'none', 
+                    background: trendPeriod === p.key ? 'rgba(16,185,129,0.12)' : 'none',
                     color: trendPeriod === p.key ? '#10b981' : 'var(--text-muted)',
-                    fontSize: '0.75rem', fontWeight: 700, padding: '4px 10px', borderRadius: '6px', cursor: 'pointer'
+                    fontSize: '0.74rem', 
+                    fontWeight: 700, 
+                    padding: '4px 10px', 
+                    borderRadius: '6px', 
+                    cursor: 'pointer'
                   }}
                 >
                   {p.label}
@@ -5963,32 +6389,42 @@ export function ReportsView({ showToast }) {
           </div>
         </div>
 
-        {/* Real-Time Category Breakdown */}
+        {/* Real-Time Category Distribution */}
         <div className="glass-panel" style={{ padding: '24px', borderRadius: '16px', display: 'flex', flexDirection: 'column' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
             <h3 style={{ fontSize: '0.92rem', fontWeight: 700, color: 'var(--text-main)', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <PieChart size={18} style={{ color: breakdownType === 'inflow' ? '#10b981' : '#ef4444' }} /> Category Wise Distribution
+              <PieChart size={18} style={{ color: breakdownType === 'inflow' ? '#3b82f6' : '#8b5cf6' }} /> Category Wise Distribution
             </h3>
             <div style={{ display: 'flex', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-glass)', borderRadius: '8px', padding: '2px' }}>
               <button 
                 onClick={() => setBreakdownType('inflow')} 
                 style={{
-                  border: 'none', background: breakdownType === 'inflow' ? 'rgba(16,185,129,0.12)' : 'none',
-                  color: breakdownType === 'inflow' ? '#10b981' : 'var(--text-muted)',
-                  fontSize: '0.75rem', fontWeight: 700, padding: '4px 10px', borderRadius: '6px', cursor: 'pointer'
+                  border: 'none', 
+                  background: breakdownType === 'inflow' ? 'rgba(59,130,246,0.12)' : 'none',
+                  color: breakdownType === 'inflow' ? '#3b82f6' : 'var(--text-muted)',
+                  fontSize: '0.74rem', 
+                  fontWeight: 700, 
+                  padding: '4px 10px', 
+                  borderRadius: '6px', 
+                  cursor: 'pointer'
                 }}
               >
-                Inflows
+                Inflow Breakdown
               </button>
               <button 
                 onClick={() => setBreakdownType('outflow')} 
                 style={{
-                  border: 'none', background: breakdownType === 'outflow' ? 'rgba(239,68,68,0.12)' : 'none',
-                  color: breakdownType === 'outflow' ? '#ef4444' : 'var(--text-muted)',
-                  fontSize: '0.75rem', fontWeight: 700, padding: '4px 10px', borderRadius: '6px', cursor: 'pointer'
+                  border: 'none', 
+                  background: breakdownType === 'outflow' ? 'rgba(139,92,246,0.12)' : 'none',
+                  color: breakdownType === 'outflow' ? '#8b5cf6' : 'var(--text-muted)',
+                  fontSize: '0.74rem', 
+                  fontWeight: 700, 
+                  padding: '4px 10px', 
+                  borderRadius: '6px', 
+                  cursor: 'pointer'
                 }}
               >
-                Outflows
+                Outflow Breakdown
               </button>
             </div>
           </div>
@@ -6018,10 +6454,95 @@ export function ReportsView({ showToast }) {
             )}
           </div>
         </div>
-
       </div>
 
+      {/* 5. Quarterly Performance & Insights Grid */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: '24px' }}>
+        
+        {/* Quarterly Performance */}
+        <div className="glass-panel" style={{ padding: '24px', borderRadius: '16px', display: 'flex', flexDirection: 'column' }}>
+          <h3 style={{ fontSize: '0.92rem', fontWeight: 700, color: 'var(--text-main)', margin: '0 0 16px 0', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Calendar size={18} style={{ color: 'hsl(var(--color-primary))' }} /> Quarterly Cash Flow Analysis (2026)
+          </h3>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', flex: 1 }}>
+            {[
+              { label: 'Q1 (Jan - Mar)', data: q1Data, border: '#3b82f6' },
+              { label: 'Q2 (Apr - Jun)', data: q2Data, border: '#06b6d4' },
+              { label: 'Q3 (Jul - Sep)', data: q3Data, border: '#8b5cf6' },
+              { label: 'Q4 (Oct - Dec)', data: q4Data, border: '#10b981' }
+            ].map((q, idx) => (
+              <div key={idx} style={{ 
+                background: 'rgba(0,0,0,0.01)', 
+                border: '1px solid var(--border-glass)', 
+                borderLeft: `4px solid ${q.border}`,
+                borderRadius: '12px', 
+                padding: '12px 14px',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'space-between'
+              }}>
+                <span style={{ fontSize: '0.74rem', fontWeight: 700, color: 'var(--text-muted)' }}>{q.label}</span>
+                <div style={{ margin: '8px 0' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.68rem', marginBottom: '2px' }}>
+                    <span style={{ color: 'var(--text-muted)' }}>Inflow:</span>
+                    <strong style={{ color: '#10b981' }}>₹{q.data.inflow.toLocaleString()}</strong>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.68rem' }}>
+                    <span style={{ color: 'var(--text-muted)' }}>Outflow:</span>
+                    <strong style={{ color: '#ef4444' }}>₹{q.data.outflow.toLocaleString()}</strong>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid rgba(0,0,0,0.03)', paddingTop: '6px', fontSize: '0.72rem' }}>
+                  <span style={{ color: 'var(--text-main)', fontWeight: 600 }}>Net position:</span>
+                  <strong style={{ color: q.data.net >= 0 ? '#10b981' : '#ef4444' }}>
+                    {q.data.net >= 0 ? '+' : '-'}₹{Math.abs(q.data.net).toLocaleString()}
+                  </strong>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
 
+        {/* Dynamic Financial Insights & Audit Feed */}
+        <div className="glass-panel" style={{ padding: '24px', borderRadius: '16px', display: 'flex', flexDirection: 'column' }}>
+          <h3 style={{ fontSize: '0.92rem', fontWeight: 700, color: 'var(--text-main)', margin: '0 0 16px 0', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <FileText size={18} style={{ color: '#10b981' }} /> Dynamic Audit & Financial Insights
+          </h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', overflowY: 'auto', maxHeight: '300px', paddingRight: '4px', flex: 1 }}>
+            {financialInsights.length === 0 ? (
+              <p style={{ fontSize: '0.76rem', color: 'var(--text-muted)', textAlign: 'center', margin: 'auto' }}>
+                Generating real-time insights... Please record payments or bills.
+              </p>
+            ) : (
+              financialInsights.map((insight, idx) => (
+                <div key={idx} style={{ 
+                  display: 'flex', 
+                  gap: '12px', 
+                  padding: '12px 14px', 
+                  borderRadius: '10px', 
+                  background: insight.type === 'success' ? 'rgba(16,185,129,0.04)' 
+                            : insight.type === 'warning' ? 'rgba(245,158,11,0.04)' 
+                            : 'rgba(239,68,68,0.04)',
+                  border: `1px solid ${insight.type === 'success' ? 'rgba(16,185,129,0.1)' 
+                            : insight.type === 'warning' ? 'rgba(245,158,11,0.1)' 
+                            : 'rgba(239,68,68,0.1)'}`
+                }}>
+                  <div style={{ marginTop: '2px' }}>
+                    {insight.type === 'success' ? <CheckCircle size={15} style={{ color: '#10b981' }} />
+                      : insight.type === 'warning' ? <AlertCircle size={15} style={{ color: '#f59e0b' }} />
+                      : <AlertCircle size={15} style={{ color: '#ef4444' }} />}
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                    <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-main)' }}>{insight.title}</span>
+                    <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', lineHeight: '1.4' }}>{insight.desc}</span>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+
+      </div>
 
     </div>
   );

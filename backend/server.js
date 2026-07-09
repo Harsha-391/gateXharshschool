@@ -43,6 +43,7 @@ import academicRoutes from './routes/academicRoutes.js';
 import rbacRoutes from './routes/rbacRoutes.js';
 import gradeRoutes from './routes/gradeRoutes.js';
 import designationRoutes from './routes/designationRoutes.js';
+import payrollRoutes from './routes/payrollRoutes.js';
 import teacherLeaveRoutes from './routes/teacherLeaveRoutes.js';
 import staffLeaveRoutes from './routes/staffLeaveRoutes.js';
 import teacherReportRoutes from './routes/teacherReportRoutes.js';
@@ -121,12 +122,13 @@ const allowedOrigins = [
 
 app.use(cors({
   origin: (origin, callback) => {
-    if (!origin) return callback(null, true);
+    if (!origin || origin === 'null') return callback(null, true);
     try {
       const originUrl = new URL(origin);
       const host = originUrl.hostname;
       
       const isLocalhost = host === 'localhost' || host === '127.0.0.1';
+      const isPrivateIp = /^(?:127\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|172\.(?:1[6-9]|2\d|3[0-1])\.\d+\.\d+)$/.test(host);
       const isAdminDomain = host === 'admin.acadmay.in' || host === 'admin.myschoolerp.com';
       const isSchoolDomain = host.endsWith('.myschoolerp.com') || host.endsWith('.localhost') || host.endsWith('.acadmay.in');
       
@@ -149,7 +151,7 @@ app.use(cors({
         return false;
       });
 
-      if (isLocalhost || isAdminDomain || isSchoolDomain || isRegisteredSchool || allowedOrigins.includes(origin)) {
+      if (isLocalhost || isPrivateIp || isAdminDomain || isSchoolDomain || isRegisteredSchool || allowedOrigins.includes(origin)) {
         callback(null, true);
       } else {
         callback(new Error('Not allowed by CORS'));
@@ -163,7 +165,8 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization', 'x-tenant-id']
 }));
 
-app.use(express.json());
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 app.use(sanitizeInput);
 
 // Multi-Tenant context middleware
@@ -1606,6 +1609,7 @@ app.use('/api/rbac', rbacRoutes);
 // ==========================================
 app.use('/api/grades', gradeRoutes);
 app.use('/api/designations', designationRoutes);
+app.use('/api/payroll', payrollRoutes);
 
 // ==========================================
 // 2B. EMPLOYEES ENDPOINTS (Complete Module)

@@ -332,11 +332,34 @@ export const compileTemplate = (html, data) => {
       <span style="font-size: 0.55rem; color: #64748b; font-family: monospace;">VERIFIED</span>
     </div>`,
 
-    '{{subjectMarksTable}}': data.subjectMarksTableHtml
+    '{{subjectMarksTable}}': data.subjectMarksTableHtml,
+    '{{subjects_table}}': data.subjectMarksTableHtml,
+
+    // Extra aliases for PDF-generated templates
+    '{{schoolPhone}}': data.schoolContact,
+    '{{schoolEmail}}': data.schoolEmail || data.schoolContact,
+    '{{date}}': data.generatedDate,
+    '{{classTeacher}}': data.classTeacherName,
+    '{{studentFullName}}': data.studentName,
+    '{{studentId}}': data.admissionNo,
+    '{{academicYear}}': data.session,
+    '{{examTitle}}': data.examName,
+    '{{finalGrade}}': data.grade,
+    '{{finalResult}}': data.result,
+    '{{totalObtained}}': data.obtainedMarks,
+    '{{totalMax}}': data.totalMarks,
+    '{{pct}}': data.percentage + '%'
   };
 
   for (const [placeholder, val] of Object.entries(replacements)) {
     compiled = compiled.replaceAll(placeholder, val !== undefined && val !== null ? val : '');
+  }
+
+  // Replace any dynamic placeholders (e.g., subject-specific scores)
+  for (const [key, val] of Object.entries(data)) {
+    if (key.startsWith('{{') && key.endsWith('}}')) {
+      compiled = compiled.replaceAll(key, val !== undefined && val !== null ? val : '');
+    }
   }
 
   return compiled;

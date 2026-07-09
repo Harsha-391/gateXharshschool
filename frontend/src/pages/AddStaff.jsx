@@ -235,7 +235,7 @@ export default function AddStaff({ setActiveView, editData }) {
     // Step 2: Professional Information
     joiningDate: new Date().toISOString().split('T')[0],
     employmentType: '',
-    designation: '',
+    role: '',
     department: '',
     primarySubject: '',
     secondarySubject: '',
@@ -476,7 +476,7 @@ export default function AddStaff({ setActiveView, editData }) {
         panNumber: editData.panNumber || '',
         joiningDate: editData.joiningDate ? editData.joiningDate.split(/[ T]/)[0] : '',
         employmentType: editData.employmentType || '',
-        designation: editData.designation || '',
+        role: editData.role || editData.designation || '',
         department: editData.department || '',
         primarySubject: editData.primarySubject || editData.subject || '',
         secondarySubject: editData.secondarySubject || '',
@@ -579,11 +579,11 @@ export default function AddStaff({ setActiveView, editData }) {
   const handleSelectChange = (fieldName, value) => {
     setFormData(prev => {
       const updated = { ...prev, [fieldName]: value };
-      if (fieldName === 'designation' && value !== 'Staff') {
+      if (fieldName === 'role' && value !== 'Staff') {
         updated.department = '';
         updated.primarySubject = '';
         updated.secondarySubject = '';
-      } else if (fieldName === 'designation') {
+      } else if (fieldName === 'role') {
         updated.department = '';
       }
       return updated;
@@ -714,7 +714,7 @@ export default function AddStaff({ setActiveView, editData }) {
       firstName: '', middleName: '', lastName: '', fullName: '', gender: '', dob: '', bloodGroup: '',
       nationality: 'Indian', maritalStatus: '', aadhaarNumber: '', panNumber: '',
       joiningDate: new Date().toISOString().split('T')[0],
-      employmentType: '', designation: '', department: '', primarySubject: '', secondarySubject: '', status: 'Active',
+      employmentType: '', role: '', department: '', primarySubject: '', secondarySubject: '', status: 'Active',
       mobile: '', alternateMobile: '', email: '', password: '', emergencyContactNumber: '',
       currentAddress: '', currentCity: '', currentState: '', currentCountry: 'India', currentPostalCode: '',
       permanentAddress: '', permanentCity: '', permanentState: '', permanentCountry: 'India', permanentPostalCode: '', sameAsPermanent: false,
@@ -785,6 +785,10 @@ export default function AddStaff({ setActiveView, editData }) {
           dataObj.append(key, formData[key]);
         }
       });
+      // Also send designation as alias for role for backend compatibility
+      if (formData.role) {
+        dataObj.append('designation', formData.role);
+      }
 
       // Files attachment
       Object.keys(files).forEach(key => {
@@ -1185,14 +1189,14 @@ export default function AddStaff({ setActiveView, editData }) {
                 <label>Role *</label>
                 <SearchableSelect 
                   options={roleOptions}
-                  value={formData.designation}
-                  onChange={(val) => handleSelectChange('designation', val)}
+                  value={formData.role}
+                  onChange={(val) => handleSelectChange('role', val)}
                   placeholder="Choose Role"
                   className="form-control"
                 />
               </div>
 
-              {(formData.designation === 'Teacher' || formData.designation === 'Staff') && (
+              {(formData.role === 'Teacher' || formData.role === 'Staff') && (
                 <>
                   <div className="form-group animate-slide-down">
                     <label>Primary Subject</label>
@@ -1780,8 +1784,8 @@ export default function AddStaff({ setActiveView, editData }) {
                   <button type="button" onClick={() => setActiveStep(2)} style={{ background: 'none', border: 'none', color: 'hsl(var(--color-primary))', fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer' }}>Edit</button>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '0.85rem' }}>
-                  <div><strong>Role:</strong> {formData.designation || 'N/A'}</div>
-                  {(formData.designation === 'Teacher' || formData.designation === 'Staff') && (
+                  <div><strong>Role:</strong> {formData.role || 'N/A'}</div>
+                  {(formData.role === 'Teacher' || formData.role === 'Staff') && (
                     <>
                       <div><strong>Subjects:</strong> {formData.primarySubject || 'N/A'} {formData.secondarySubject ? `, ${formData.secondarySubject}` : ''}</div>
                     </>

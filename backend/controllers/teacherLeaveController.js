@@ -174,7 +174,7 @@ export const adminGetLeaves = async (req, res) => {
     const { search, status, fromDate, toDate } = req.query;
 
     let queryStr = `
-      SELECT tl.*, t.fullName AS teacherName, t.id AS teacherEmployeeId, t.photo AS teacherPhoto, t.department AS teacherDepartment, t.designation AS teacherDesignation
+      SELECT tl.*, t.fullName AS teacherName, t.id AS teacherEmployeeId, t.photo AS teacherPhoto, t.department AS teacherDepartment, t.role AS teacherDesignation
       FROM teacher_leaves tl
       JOIN teachers t ON tl.teacherId = t.id
       WHERE tl.tenantId = ?
@@ -230,7 +230,7 @@ export const adminApproveLeave = async (req, res) => {
     const timestamp = new Date().toISOString();
 
     const leaves = await sqlDb.query(
-      `SELECT tl.*, t.fullName, t.department, t.designation 
+      `SELECT tl.*, t.fullName, t.department, t.role AS designation 
        FROM teacher_leaves tl 
        JOIN teachers t ON tl.teacherId = t.id 
        WHERE tl.id = ? AND tl.tenantId = ?`, 

@@ -111,7 +111,7 @@ export const adminGetReports = async (req, res) => {
     const { search, status, reportType, fromDate, toDate } = req.query;
 
     let queryStr = `
-      SELECT sr.*, s.fullName AS staffName, s.id AS staffEmployeeId, s.photo AS staffPhoto, s.department AS staffDepartment, s.designation AS staffDesignation
+      SELECT sr.*, s.fullName AS staffName, s.id AS staffEmployeeId, s.photo AS staffPhoto, s.department AS staffDepartment, s.role AS staffDesignation
       FROM staff_reports sr
       JOIN staff s ON sr.staffId = s.id
       WHERE sr.tenantId = ?

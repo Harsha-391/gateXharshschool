@@ -266,7 +266,7 @@ CREATE TABLE IF NOT EXISTS staff (
   panNumber VARCHAR(100),
   joiningDate VARCHAR(50),
   employmentType VARCHAR(50),
-  designation VARCHAR(100),
+  role VARCHAR(100),
   department VARCHAR(100),
   primarySubject VARCHAR(100),
   secondarySubject VARCHAR(100),
@@ -326,7 +326,7 @@ CREATE TABLE IF NOT EXISTS teachers (
   panNumber VARCHAR(100),
   joiningDate VARCHAR(50),
   employmentType VARCHAR(50),
-  designation VARCHAR(100),
+  role VARCHAR(100),
   department VARCHAR(100),
   primarySubject VARCHAR(100),
   secondarySubject VARCHAR(100),
@@ -1067,6 +1067,101 @@ CREATE TABLE IF NOT EXISTS staff_reports (
   INDEX idx_sr_date (reportDate),
   INDEX idx_sr_tenant (tenantId),
   INDEX idx_sr_status (status)
+);
+
+-- 58. Salary Masters Table
+CREATE TABLE IF NOT EXISTS salary_masters (
+  id VARCHAR(50) PRIMARY KEY,
+  employeeId VARCHAR(50) NOT NULL,
+  employeeType VARCHAR(50) NOT NULL,
+  basicSalary DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+  hra DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+  da DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+  ta DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+  medical DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+  specialAllowance DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+  otherAllowances DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+  pf DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+  esi DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+  profTax DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+  loan DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+  advance DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+  otherDeductions DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+  grossSalary DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+  totalDeductions DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+  netSalary DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+  effectiveDate VARCHAR(50) NOT NULL,
+  salaryCycle VARCHAR(50) NOT NULL DEFAULT 'Monthly',
+  status VARCHAR(50) NOT NULL DEFAULT 'Active',
+  createdAt VARCHAR(100) NOT NULL,
+  tenantId VARCHAR(100) NOT NULL,
+  UNIQUE KEY unique_employee_salary (employeeId)
+);
+
+-- 59. Salary Payments Table
+CREATE TABLE IF NOT EXISTS salary_payments (
+  id VARCHAR(50) PRIMARY KEY,
+  receiptNo VARCHAR(100) NOT NULL,
+  employeeId VARCHAR(50) NOT NULL,
+  employeeType VARCHAR(50) NOT NULL,
+  month VARCHAR(20) NOT NULL,
+  year VARCHAR(10) NOT NULL,
+  paymentDate VARCHAR(50) NOT NULL,
+  paymentMethod VARCHAR(100) NOT NULL,
+  transactionId VARCHAR(255),
+  basicSalary DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+  hra DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+  da DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+  ta DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+  medical DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+  specialAllowance DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+  otherAllowances DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+  pf DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+  esi DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+  profTax DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+  loan DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+  advance DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+  otherDeductions DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+  bonus DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+  incentive DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+  overtime DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+  fine DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+  loanAdjustment DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+  advanceAdjustment DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+  grossSalary DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+  totalDeductions DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+  netSalary DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+  finalPayable DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+  paidAmount DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+  balance DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+  status VARCHAR(50) NOT NULL DEFAULT 'Paid',
+  remarks TEXT,
+  tenantId VARCHAR(100) NOT NULL,
+  UNIQUE KEY unique_employee_period (employeeId, month, year)
+);
+
+-- 60. Salary Revision History Table
+CREATE TABLE IF NOT EXISTS salary_revision_history (
+  id VARCHAR(50) PRIMARY KEY,
+  employeeId VARCHAR(50) NOT NULL,
+  employeeType VARCHAR(50) NOT NULL,
+  previousSalary DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+  newSalary DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+  revisedDate VARCHAR(50) NOT NULL,
+  reason TEXT,
+  tenantId VARCHAR(100) NOT NULL
+);
+
+-- 61. Report Card Templates Table
+CREATE TABLE IF NOT EXISTS report_card_templates (
+  id VARCHAR(50) PRIMARY KEY,
+  name VARCHAR(255) NOT NULL,
+  html LONGTEXT NOT NULL,
+  pdfUrl VARCHAR(255),
+  fields JSON,
+  createdAt VARCHAR(100) NOT NULL,
+  updatedAt VARCHAR(100) NOT NULL,
+  tenantId VARCHAR(100) NOT NULL
 );
 
 -- Re-enable foreign key checks

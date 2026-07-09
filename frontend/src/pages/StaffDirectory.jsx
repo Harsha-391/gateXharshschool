@@ -189,7 +189,7 @@ export default function StaffDirectory({ setActiveView, readOnly = true, onAddCl
             <div class="name">${teacher.fullName || teacher.name}</div>
             <div class="id">${teacher.employeeId || teacher.id}</div>
             <div><img class="qr-image" src="${qrUrl}" /></div>
-            <div style="font-weight: 600; font-size: 0.9rem;">${teacher.designation || 'Faculty'}</div>
+            <div style="font-weight: 600; font-size: 0.9rem;">${teacher.role || 'Staff'}</div>
             <div style="font-size: 0.85rem; color: #475569; margin-top: 2px;">${teacher.department || 'Aether Academy'}</div>
             <div class="footer">Scan to record Attendance</div>
           </div>
@@ -229,6 +229,7 @@ export default function StaffDirectory({ setActiveView, readOnly = true, onAddCl
         employmentType: typeFilter,
         status: statusFilter,
         designation: roleFilter,
+        role: roleFilter,
         sortBy,
         sortOrder,
         page,
@@ -326,7 +327,7 @@ export default function StaffDirectory({ setActiveView, readOnly = true, onAddCl
       fullName: teacher.fullName || teacher.name || '',
       mobile: teacher.mobile || teacher.phone || '',
       email: teacher.email || '',
-      designation: teacher.designation || '',
+      role: teacher.role || '',
       department: teacher.department || '',
       subjectSpecialization: teacher.subjectSpecialization || teacher.subject || '',
       qualification: Array.isArray(teacher.qualification) ? teacher.qualification.map(q => q.degree).filter(Boolean).join(', ') : (teacher.qualification || ''),
@@ -679,7 +680,7 @@ export default function StaffDirectory({ setActiveView, readOnly = true, onAddCl
               {[
                 { label: 'Employee ID', value: selectedTeacher.employeeId || selectedTeacher.id },
                 { label: 'Department', value: selectedTeacher.department || 'N/A' },
-                { label: 'Role', value: selectedTeacher.designation || 'N/A' },
+                { label: 'Role', value: selectedTeacher.role || 'N/A' },
                 { label: 'Primary Subject', value: selectedTeacher.primarySubject || selectedTeacher.subjectSpecialization || selectedTeacher.subject || 'N/A' },
                 { label: 'Secondary Subject', value: selectedTeacher.secondarySubject || 'N/A' },
                 { label: 'Total Experience', value: selectedTeacher.experience ? `${selectedTeacher.experience}` : 'N/A' },
@@ -856,14 +857,14 @@ export default function StaffDirectory({ setActiveView, readOnly = true, onAddCl
                  <div className="form-group">
                   <label>Role</label>
                   <select 
-                    value={editFormData.designation || ''} 
+                    value={editFormData.role || ''} 
                     onChange={(e) => {
-                      const newDesignation = e.target.value;
+                      const newRole = e.target.value;
                       setEditFormData({ 
                         ...editFormData, 
-                        designation: newDesignation,
-                        department: (newDesignation === 'Teacher' || newDesignation === 'Staff') ? editFormData.department : '',
-                        subjectSpecialization: (newDesignation === 'Teacher' || newDesignation === 'Staff') ? editFormData.subjectSpecialization : ''
+                        role: newRole,
+                        department: (newRole === 'Teacher' || newRole === 'Staff') ? editFormData.department : '',
+                        subjectSpecialization: (newRole === 'Teacher' || newRole === 'Staff') ? editFormData.subjectSpecialization : ''
                       });
                     }}
                     className="form-control" 
@@ -876,7 +877,7 @@ export default function StaffDirectory({ setActiveView, readOnly = true, onAddCl
                   </select>
                 </div>
 
-                {(editFormData.designation === 'Teacher' || editFormData.designation === 'Staff') && (
+                {(editFormData.role === 'Teacher' || editFormData.role === 'Staff') && (
                   <>
                     <div className="form-group animate-slide-down">
                       <label>Department</label>

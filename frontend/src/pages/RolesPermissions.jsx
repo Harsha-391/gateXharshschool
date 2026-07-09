@@ -235,7 +235,7 @@ export default function RolesPermissions({ initialTab = 'dashboard', hideTabs = 
         modules.forEach(m => {
           initialMatrix[m.id] = {};
           actions.forEach(a => {
-            initialMatrix[m.id][a.id] = false;
+            initialMatrix[m.id][a.id] = (m.id === 'overview');
           });
         });
         payload.permissions = initialMatrix;

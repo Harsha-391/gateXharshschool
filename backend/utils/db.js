@@ -1056,7 +1056,7 @@ const applySchemaUpdates = async (pool, isMaster = false, tenantId = null) => {
       "ALTER TABLE student_accounts DROP FOREIGN KEY student_accounts_ibfk_1",
       "ALTER TABLE parent_accounts DROP FOREIGN KEY parent_accounts_ibfk_1",
       "CREATE TABLE IF NOT EXISTS attendance_settings (id VARCHAR(50) PRIMARY KEY, checkInStart VARCHAR(50) DEFAULT '08:00 AM', lateTime VARCHAR(50) DEFAULT '09:00 AM', halfDayTime VARCHAR(50) DEFAULT '11:00 AM', checkOutTime VARCHAR(50) DEFAULT '05:00 PM', minWorkingHours DECIMAL(5,2) DEFAULT 8.00, gracePeriod INT DEFAULT 15, tenantId VARCHAR(100) NOT NULL, createdAt VARCHAR(100), updatedAt VARCHAR(100), INDEX idx_att_sett_tenant (tenantId))",
-      "CREATE TABLE IF NOT EXISTS teachers (id VARCHAR(50) PRIMARY KEY, name VARCHAR(255) NOT NULL, email VARCHAR(255) NOT NULL, phone VARCHAR(50), username VARCHAR(255) UNIQUE, password VARCHAR(255), gender VARCHAR(50), qualification TEXT, experience TEXT, dateOfJoining VARCHAR(50), salaryGrade VARCHAR(100), address TEXT, city VARCHAR(100), state VARCHAR(100), pincode VARCHAR(50), emergencyContact VARCHAR(255), emergencyPhone VARCHAR(50), photo TEXT, aadharFile TEXT, certificateFile TEXT, status VARCHAR(50) DEFAULT 'Active', avatarBg TEXT, tenantId VARCHAR(100), firstName VARCHAR(100), middleName VARCHAR(100), lastName VARCHAR(100), fullName VARCHAR(255), dob VARCHAR(50), bloodGroup VARCHAR(20), nationality VARCHAR(100) DEFAULT 'Indian', maritalStatus VARCHAR(50), aadhaarNumber VARCHAR(100), panNumber VARCHAR(100), joiningDate VARCHAR(50), employmentType VARCHAR(50), designation VARCHAR(100), department VARCHAR(100), primarySubject VARCHAR(100), secondarySubject VARCHAR(100), alternateMobile VARCHAR(50), currentAddress TEXT, currentCity VARCHAR(100), currentState VARCHAR(100), currentCountry VARCHAR(100) DEFAULT 'India', currentPostalCode VARCHAR(50), permanentAddress TEXT, permanentCity VARCHAR(100), permanentState VARCHAR(100), permanentCountry VARCHAR(100) DEFAULT 'India', permanentPostalCode VARCHAR(50), sameAsPermanent VARCHAR(10) DEFAULT 'No', panFile TEXT, resumeFile TEXT, joiningLetterFile TEXT, otherFile TEXT, experiences TEXT)"
+      "CREATE TABLE IF NOT EXISTS teachers (id VARCHAR(50) PRIMARY KEY, name VARCHAR(255) NOT NULL, email VARCHAR(255) NOT NULL, phone VARCHAR(50), username VARCHAR(255) UNIQUE, password VARCHAR(255), gender VARCHAR(50), qualification TEXT, experience TEXT, dateOfJoining VARCHAR(50), salaryGrade VARCHAR(100), address TEXT, city VARCHAR(100), state VARCHAR(100), pincode VARCHAR(50), emergencyContact VARCHAR(255), emergencyPhone VARCHAR(50), photo TEXT, aadharFile TEXT, certificateFile TEXT, status VARCHAR(50) DEFAULT 'Active', avatarBg TEXT, tenantId VARCHAR(100), firstName VARCHAR(100), middleName VARCHAR(100), lastName VARCHAR(100), fullName VARCHAR(255), dob VARCHAR(50), bloodGroup VARCHAR(20), nationality VARCHAR(100) DEFAULT 'Indian', maritalStatus VARCHAR(50), aadhaarNumber VARCHAR(100), panNumber VARCHAR(100), joiningDate VARCHAR(50), employmentType VARCHAR(50), role VARCHAR(100), department VARCHAR(100), primarySubject VARCHAR(100), secondarySubject VARCHAR(100), alternateMobile VARCHAR(50), currentAddress TEXT, currentCity VARCHAR(100), currentState VARCHAR(100), currentCountry VARCHAR(100) DEFAULT 'India', currentPostalCode VARCHAR(50), permanentAddress TEXT, permanentCity VARCHAR(100), permanentState VARCHAR(100), permanentCountry VARCHAR(100) DEFAULT 'India', permanentPostalCode VARCHAR(50), sameAsPermanent VARCHAR(10) DEFAULT 'No', panFile TEXT, resumeFile TEXT, joiningLetterFile TEXT, otherFile TEXT, experiences TEXT)"
     ];
     for (const sql of masterAlters) {
       try {
@@ -1088,7 +1088,9 @@ const applySchemaUpdates = async (pool, isMaster = false, tenantId = null) => {
       "ALTER TABLE staff ADD COLUMN panNumber VARCHAR(100)",
       "ALTER TABLE staff ADD COLUMN joiningDate VARCHAR(50)",
       "ALTER TABLE staff ADD COLUMN employmentType VARCHAR(50)",
-      "ALTER TABLE staff ADD COLUMN designation VARCHAR(100)",
+      "ALTER TABLE staff ADD COLUMN role VARCHAR(100)",
+      "ALTER TABLE staff CHANGE COLUMN designation role VARCHAR(100)",
+      "ALTER TABLE teachers CHANGE COLUMN designation role VARCHAR(100)",
       "ALTER TABLE staff ADD COLUMN department VARCHAR(100)",
       "ALTER TABLE staff ADD COLUMN primarySubject VARCHAR(100)",
       "ALTER TABLE staff ADD COLUMN secondarySubject VARCHAR(100)",
@@ -1204,7 +1206,11 @@ const applySchemaUpdates = async (pool, isMaster = false, tenantId = null) => {
       "ALTER TABLE fees ADD COLUMN studentClass VARCHAR(100)",
       "ALTER TABLE fees ADD COLUMN section VARCHAR(50)",
       "ALTER TABLE fees ADD COLUMN paymentStatus VARCHAR(50)",
-      "ALTER TABLE fees ADD COLUMN billingPeriod VARCHAR(100)"
+      "ALTER TABLE fees ADD COLUMN billingPeriod VARCHAR(100)",
+      "CREATE TABLE IF NOT EXISTS salary_masters (id VARCHAR(50) PRIMARY KEY, employeeId VARCHAR(50) NOT NULL, employeeType VARCHAR(50) NOT NULL, basicSalary DECIMAL(10,2) NOT NULL DEFAULT 0.00, hra DECIMAL(10,2) NOT NULL DEFAULT 0.00, da DECIMAL(10,2) NOT NULL DEFAULT 0.00, ta DECIMAL(10,2) NOT NULL DEFAULT 0.00, medical DECIMAL(10,2) NOT NULL DEFAULT 0.00, specialAllowance DECIMAL(10,2) NOT NULL DEFAULT 0.00, otherAllowances DECIMAL(10,2) NOT NULL DEFAULT 0.00, pf DECIMAL(10,2) NOT NULL DEFAULT 0.00, esi DECIMAL(10,2) NOT NULL DEFAULT 0.00, profTax DECIMAL(10,2) NOT NULL DEFAULT 0.00, loan DECIMAL(10,2) NOT NULL DEFAULT 0.00, advance DECIMAL(10,2) NOT NULL DEFAULT 0.00, otherDeductions DECIMAL(10,2) NOT NULL DEFAULT 0.00, grossSalary DECIMAL(10,2) NOT NULL DEFAULT 0.00, totalDeductions DECIMAL(10,2) NOT NULL DEFAULT 0.00, netSalary DECIMAL(10,2) NOT NULL DEFAULT 0.00, effectiveDate VARCHAR(50) NOT NULL, salaryCycle VARCHAR(50) NOT NULL DEFAULT 'Monthly', status VARCHAR(50) NOT NULL DEFAULT 'Active', createdAt VARCHAR(100) NOT NULL, tenantId VARCHAR(100) NOT NULL, UNIQUE KEY unique_employee_salary (employeeId))",
+      "CREATE TABLE IF NOT EXISTS salary_payments (id VARCHAR(50) PRIMARY KEY, receiptNo VARCHAR(100) NOT NULL, employeeId VARCHAR(50) NOT NULL, employeeType VARCHAR(50) NOT NULL, month VARCHAR(20) NOT NULL, year VARCHAR(10) NOT NULL, paymentDate VARCHAR(50) NOT NULL, paymentMethod VARCHAR(100) NOT NULL, transactionId VARCHAR(255), basicSalary DECIMAL(10,2) NOT NULL DEFAULT 0.00, hra DECIMAL(10,2) NOT NULL DEFAULT 0.00, da DECIMAL(10,2) NOT NULL DEFAULT 0.00, ta DECIMAL(10,2) NOT NULL DEFAULT 0.00, medical DECIMAL(10,2) NOT NULL DEFAULT 0.00, specialAllowance DECIMAL(10,2) NOT NULL DEFAULT 0.00, otherAllowances DECIMAL(10,2) NOT NULL DEFAULT 0.00, pf DECIMAL(10,2) NOT NULL DEFAULT 0.00, esi DECIMAL(10,2) NOT NULL DEFAULT 0.00, profTax DECIMAL(10,2) NOT NULL DEFAULT 0.00, loan DECIMAL(10,2) NOT NULL DEFAULT 0.00, advance DECIMAL(10,2) NOT NULL DEFAULT 0.00, otherDeductions DECIMAL(10,2) NOT NULL DEFAULT 0.00, bonus DECIMAL(10,2) NOT NULL DEFAULT 0.00, incentive DECIMAL(10,2) NOT NULL DEFAULT 0.00, overtime DECIMAL(10,2) NOT NULL DEFAULT 0.00, fine DECIMAL(10,2) NOT NULL DEFAULT 0.00, loanAdjustment DECIMAL(10,2) NOT NULL DEFAULT 0.00, advanceAdjustment DECIMAL(10,2) NOT NULL DEFAULT 0.00, grossSalary DECIMAL(10,2) NOT NULL DEFAULT 0.00, totalDeductions DECIMAL(10,2) NOT NULL DEFAULT 0.00, netSalary DECIMAL(10,2) NOT NULL DEFAULT 0.00, finalPayable DECIMAL(10,2) NOT NULL DEFAULT 0.00, paidAmount DECIMAL(10,2) NOT NULL DEFAULT 0.00, balance DECIMAL(10,2) NOT NULL DEFAULT 0.00, status VARCHAR(50) NOT NULL DEFAULT 'Paid', remarks TEXT, tenantId VARCHAR(100) NOT NULL, UNIQUE KEY unique_employee_period (employeeId, month, year))",
+      "CREATE TABLE IF NOT EXISTS salary_revision_history (id VARCHAR(50) PRIMARY KEY, employeeId VARCHAR(50) NOT NULL, employeeType VARCHAR(50) NOT NULL, previousSalary DECIMAL(10,2) NOT NULL DEFAULT 0.00, newSalary DECIMAL(10,2) NOT NULL DEFAULT 0.00, revisedDate VARCHAR(50) NOT NULL, reason TEXT, tenantId VARCHAR(100) NOT NULL)",
+      "CREATE TABLE IF NOT EXISTS report_card_templates (id VARCHAR(50) PRIMARY KEY, name VARCHAR(255) NOT NULL, html LONGTEXT NOT NULL, pdfUrl VARCHAR(255), fields JSON, createdAt VARCHAR(100) NOT NULL, updatedAt VARCHAR(100) NOT NULL, tenantId VARCHAR(100) NOT NULL)"
     ];
     for (const sql of schoolAlters) {
       try {
@@ -1636,6 +1642,18 @@ export const startSqlDbInit = () => {
 };
 startSqlDbInit();
 
+export const ensureOverviewPermissions = (roles) => {
+  if (!roles || !Array.isArray(roles)) return;
+  const actionsList = ['view', 'create', 'edit', 'delete', 'approve', 'publish', 'export', 'import', 'manage-settings'];
+  roles.forEach(r => {
+    if (!r.permissions) r.permissions = {};
+    if (!r.permissions.overview) r.permissions.overview = {};
+    actionsList.forEach(act => {
+      r.permissions.overview[act] = true;
+    });
+  });
+};
+
 // Default roles and permissions seeder data
 export const getDefaultRoles = () => {
   const modules = [
@@ -1694,7 +1712,7 @@ export const getDefaultRoles = () => {
     return matrix;
   };
 
-  return [
+  const defaultRoles = [
     // ===== STAFF ROLES =====
     {
       id: 'role-academic-coordinator',
@@ -1737,6 +1755,8 @@ export const getDefaultRoles = () => {
       permissions: createEmptyMatrix()
     }
   ];
+  ensureOverviewPermissions(defaultRoles);
+  return defaultRoles;
 };
 
 const repairGradesAndMappings = async (tId) => {
@@ -1861,6 +1881,7 @@ export const loadTenantSqlIntoMemory = async (tenantId) => {
       gradeDepartments: [],
       designations: [],
       sections: [],
+      reportCardTemplates: [],
       publishedClassTimetables: [],
       publishedTeacherTimetables: [],
       teacherTimetables: []
@@ -1920,7 +1941,8 @@ export const loadTenantSqlIntoMemory = async (tenantId) => {
       dbGradeDepts,
       dbFeePeriods,
       dbDesignations,
-      dbAttSettings
+      dbAttSettings,
+      dbReportCardTemplates
     ] = await Promise.all([
       !isGlobal ? sqlDb.query('SELECT * FROM sections WHERE tenantId = ?', [tId]) : Promise.resolve([]),
       !isGlobal ? sqlDb.query('SELECT * FROM published_timetables WHERE tenantId = ?', [tId]) : Promise.resolve([]),
@@ -1974,7 +1996,8 @@ export const loadTenantSqlIntoMemory = async (tenantId) => {
       sqlDb.query('SELECT * FROM grade_departments WHERE tenantId = ?', [tId]),
       sqlDb.query('SELECT * FROM fee_periods WHERE tenantId = ? ORDER BY sortOrder', [tId]),
       !isGlobal ? sqlDb.query('SELECT * FROM designations WHERE tenantId = ?', [tId]) : Promise.resolve([]),
-      sqlDb.query('SELECT * FROM attendance_settings WHERE tenantId = ?', [tId])
+      sqlDb.query('SELECT * FROM attendance_settings WHERE tenantId = ?', [tId]),
+      !isGlobal ? sqlDb.query('SELECT * FROM report_card_templates WHERE tenantId = ?', [tId]) : Promise.resolve([])
     ]);
 
     // Load custom fields
@@ -2109,6 +2132,7 @@ export const loadTenantSqlIntoMemory = async (tenantId) => {
       }
       return {
         ...s,
+        role: s.role || s.designation || '',
         qualification: qual,
         experiences: exp,
         sameAsPermanent: s.sameAsPermanent === 'Yes' ? true : (s.sameAsPermanent === 'No' ? false : s.sameAsPermanent)
@@ -2476,6 +2500,8 @@ export const loadTenantSqlIntoMemory = async (tenantId) => {
       }
     });
 
+    ensureOverviewPermissions(data.roles);
+
     data.userAccess = dbUserAccess.map(ua => ({
       ...ua,
       overrides: typeof ua.overrides === 'string' ? JSON.parse(ua.overrides) : (ua.overrides || {})
@@ -2606,6 +2632,16 @@ export const loadTenantSqlIntoMemory = async (tenantId) => {
       ...gd,
       status: gd.status || 'Active',
       sections: gd.sections ? (typeof gd.sections === 'string' ? JSON.parse(gd.sections) : gd.sections) : []
+    }));
+
+    data.reportCardTemplates = dbReportCardTemplates.map(t => ({
+      id: t.id,
+      name: t.name,
+      html: t.html,
+      pdfUrl: t.pdfUrl,
+      fields: t.fields ? (typeof t.fields === 'string' ? JSON.parse(t.fields) : t.fields) : [],
+      createdAt: t.createdAt,
+      updatedAt: t.updatedAt
     }));
 
       dbCache[queryTenantId] = data;
@@ -2906,7 +2942,7 @@ export const saveMemoryDbToSql = async (tenantId, db, changedKeys, newUpdatedAt)
             'salaryGrade', 'address', 'city', 'state', 'pincode', 'emergencyContact', 'emergencyPhone', 'photo', 'aadharFile', 
             'certificateFile', 'status', 'avatarBg', 'tenantId',
             'firstName', 'middleName', 'lastName', 'fullName', 'dob', 'bloodGroup', 'nationality', 'maritalStatus',
-            'aadhaarNumber', 'panNumber', 'joiningDate', 'employmentType', 'designation', 'department', 'primarySubject',
+            'aadhaarNumber', 'panNumber', 'joiningDate', 'employmentType', 'role', 'department', 'primarySubject',
             'secondarySubject', 'alternateMobile', 'currentAddress', 'currentCity', 'currentState', 'currentCountry',
             'currentPostalCode', 'permanentAddress', 'permanentCity', 'permanentState', 'permanentCountry',
             'permanentPostalCode', 'sameAsPermanent', 'panFile', 'resumeFile', 'joiningLetterFile', 'otherFile', 'experiences',
@@ -2915,7 +2951,7 @@ export const saveMemoryDbToSql = async (tenantId, db, changedKeys, newUpdatedAt)
           const updateColumns = [
             'name', 'email', 'phone', 'username', 'password', 'status', 'address', 'qualification', 'experience',
             'firstName', 'middleName', 'lastName', 'fullName', 'dob', 'bloodGroup', 'nationality', 'maritalStatus',
-            'aadhaarNumber', 'panNumber', 'joiningDate', 'employmentType', 'designation', 'department', 'primarySubject',
+            'aadhaarNumber', 'panNumber', 'joiningDate', 'employmentType', 'role', 'department', 'primarySubject',
             'secondarySubject', 'alternateMobile', 'currentAddress', 'currentCity', 'currentState', 'currentCountry',
             'currentPostalCode', 'permanentAddress', 'permanentCity', 'permanentState', 'permanentCountry',
             'permanentPostalCode', 'sameAsPermanent', 'panFile', 'resumeFile', 'joiningLetterFile', 'otherFile', 'experiences',
@@ -2930,7 +2966,7 @@ export const saveMemoryDbToSql = async (tenantId, db, changedKeys, newUpdatedAt)
             t.emergencyContact || '', t.emergencyContactNumber || t.emergencyPhone || '', t.photo || '', t.aadharFile || '', 
             t.qualificationFile || t.certificateFile || '', t.status || 'Active', t.avatarBg || '', tId,
             t.firstName || '', t.middleName || '', t.lastName || '', t.fullName || '', t.dob || '', t.bloodGroup || '', t.nationality || '', t.maritalStatus || '',
-            t.aadhaarNumber || '', t.panNumber || '', t.joiningDate || '', t.employmentType || '', t.designation || '', t.department || '', t.primarySubject || '',
+            t.aadhaarNumber || '', t.panNumber || '', t.joiningDate || '', t.employmentType || '', t.role || t.designation || 'Teacher', t.department || '', t.primarySubject || '',
             t.secondarySubject || '', t.alternateMobile || '', t.currentAddress || '', t.currentCity || '', t.currentState || '', t.currentCountry || '',
             t.currentPostalCode || '', t.permanentAddress || '', t.permanentCity || '', t.permanentState || '', t.permanentCountry || '',
             t.permanentPostalCode || '', typeof t.sameAsPermanent === 'boolean' ? (t.sameAsPermanent ? 'Yes' : 'No') : (t.sameAsPermanent || 'No'),
@@ -2958,7 +2994,7 @@ export const saveMemoryDbToSql = async (tenantId, db, changedKeys, newUpdatedAt)
             'salaryGrade', 'address', 'city', 'state', 'pincode', 'emergencyContact', 'emergencyPhone', 'photo', 'aadharFile', 
             'certificateFile', 'status', 'avatarBg', 'tenantId',
             'firstName', 'middleName', 'lastName', 'fullName', 'dob', 'bloodGroup', 'nationality', 'maritalStatus',
-            'aadhaarNumber', 'panNumber', 'joiningDate', 'employmentType', 'designation', 'department', 'primarySubject',
+            'aadhaarNumber', 'panNumber', 'joiningDate', 'employmentType', 'role', 'department', 'primarySubject',
             'secondarySubject', 'alternateMobile', 'currentAddress', 'currentCity', 'currentState', 'currentCountry',
             'currentPostalCode', 'permanentAddress', 'permanentCity', 'permanentState', 'permanentCountry',
             'permanentPostalCode', 'sameAsPermanent', 'panFile', 'resumeFile', 'joiningLetterFile', 'otherFile', 'experiences'
@@ -2966,7 +3002,7 @@ export const saveMemoryDbToSql = async (tenantId, db, changedKeys, newUpdatedAt)
           const updateColumns = [
             'name', 'email', 'phone', 'username', 'password', 'status', 'address', 'qualification', 'experience',
             'firstName', 'middleName', 'lastName', 'fullName', 'dob', 'bloodGroup', 'nationality', 'maritalStatus',
-            'aadhaarNumber', 'panNumber', 'joiningDate', 'employmentType', 'designation', 'department', 'primarySubject',
+            'aadhaarNumber', 'panNumber', 'joiningDate', 'employmentType', 'role', 'department', 'primarySubject',
             'secondarySubject', 'alternateMobile', 'currentAddress', 'currentCity', 'currentState', 'currentCountry',
             'currentPostalCode', 'permanentAddress', 'permanentCity', 'permanentState', 'permanentCountry',
             'permanentPostalCode', 'sameAsPermanent', 'panFile', 'resumeFile', 'joiningLetterFile', 'otherFile', 'experiences'
@@ -2980,7 +3016,7 @@ export const saveMemoryDbToSql = async (tenantId, db, changedKeys, newUpdatedAt)
             s.emergencyContact || '', s.emergencyContactNumber || s.emergencyPhone || '', s.photo || '', s.aadharFile || '', 
             s.qualificationFile || s.certificateFile || '', s.status || 'Active', s.avatarBg || '', tId,
             s.firstName || '', s.middleName || '', s.lastName || '', s.fullName || '', s.dob || '', s.bloodGroup || '', s.nationality || '', s.maritalStatus || '',
-            s.aadhaarNumber || '', s.panNumber || '', s.joiningDate || '', s.employmentType || '', s.designation || '', s.department || '', s.primarySubject || '',
+            s.aadhaarNumber || '', s.panNumber || '', s.joiningDate || '', s.employmentType || '', s.role || s.designation || '', s.department || '', s.primarySubject || '',
             s.secondarySubject || '', s.alternateMobile || '', s.currentAddress || '', s.currentCity || '', s.currentState || '', s.currentCountry || '',
             s.currentPostalCode || '', s.permanentAddress || '', s.permanentCity || '', s.permanentState || '', s.permanentCountry || '',
             s.permanentPostalCode || '', typeof s.sameAsPermanent === 'boolean' ? (s.sameAsPermanent ? 'Yes' : 'No') : (s.sameAsPermanent || 'No'),
@@ -4149,6 +4185,31 @@ export const saveMemoryDbToSql = async (tenantId, db, changedKeys, newUpdatedAt)
         })());
       }
 
+      if (hasTableChanged('reportCardTemplates')) {
+        tasks.push((async () => {
+          const valueRows = [];
+          if (db.reportCardTemplates && Array.isArray(db.reportCardTemplates)) {
+            db.reportCardTemplates.forEach(t => {
+              valueRows.push([
+                t.id,
+                t.name || '',
+                t.html || '',
+                t.pdfUrl || '',
+                typeof t.fields === 'object' ? JSON.stringify(t.fields) : (t.fields || '[]'),
+                t.createdAt || new Date().toISOString(),
+                t.updatedAt || new Date().toISOString(),
+                tId
+              ]);
+            });
+          }
+          if (valueRows.length > 0) {
+            const columns = ['id', 'name', 'html', 'pdfUrl', 'fields', 'createdAt', 'updatedAt', 'tenantId'];
+            const updateColumns = ['name', 'html', 'pdfUrl', 'fields', 'updatedAt'];
+            await bulkInsertOrUpdate('report_card_templates', columns, valueRows, updateColumns);
+          }
+        })());
+      }
+
       // Execute all synchronization tasks concurrently!
       await Promise.all(tasks);
 
@@ -4232,159 +4293,29 @@ export const readDb = () => {
     return JSON.parse(JSON.stringify(dbCache[activeTenant]));
   }
 
-  // Fallback to synchronous local file read
-  if (activeTenant !== 'platform') {
-    // Instead of crashing the entire server, return a safe empty database object.
-    // The ensureTenantSqlLoaded middleware should have loaded the cache, but if it
-    // failed (e.g. race condition, missing DB, connection timeout), we gracefully
-    // degrade rather than killing the process with an unhandled exception.
-    console.warn(`[readDb] WARNING: SQL cache miss for tenant '${activeTenant}'. Returning empty safe database. The cache will be populated on the next request.`);
-    return {
-      school: {}, schools: [], roles: [], activities: [], students: [], teachers: [],
-      staff: [], employees: [], timetables: [], teacherTimetables: [], invoices: [],
-      fees: [], expenses: [], payroll: [], staffPayments: [], exams: [],
-      examTimetables: [], notices: [], holidays: [], events: [], results: [],
-      overallResults: [], subjects: [], timeslots: [], feeStructures: [],
-      feePeriods: [], salaryStructures: [], staffSalaryStructures: [], income: [],
-      attendance: [], userAccess: [], auditLogs: [], employeeQrCodes: [],
-      attendanceRecords: [], attendanceLogs: [], attendanceReports: [],
-      academicCalendarEvents: [], academicCalendarImports: [], publishedCalendarEvents: [],
-      grades: [], departments: [], designations: [], gradeDepartments: [],
-      sections: [], publishedClassTimetables: [], publishedTeacherTimetables: [],
-      attendanceSettings: []
-    };
-  }
-
-  const dbFile = getDbPath();
-  try {
-    const data = fs.readFileSync(dbFile, 'utf8');
-    const db = JSON.parse(data);
-    if (runThreeTableMigration(db)) {
-      fs.writeFileSync(dbFile, JSON.stringify(db, null, 2), 'utf8');
-    }
-    
-    // Ensure all standard collections exist defensively
-    if (!db.schools) db.schools = [];
-    if (!db.roles) db.roles = [];
-    // Auto-seed default roles if roles array is empty
-    if (db.roles.length === 0) {
-      db.roles = getDefaultRoles();
-    }
-    if (!db.subscriptionPlans) db.subscriptionPlans = [];
-    if (!db.activities) db.activities = [];
-    if (!db.students) db.students = [];
-    if (!db.teachers) db.teachers = [];
-    if (!db.staff) db.staff = [];
-    if (!db.employees) db.employees = [];
-    if (!db.timetables) db.timetables = [];
-    if (!db.teacherTimetables) db.teacherTimetables = [];
-    if (!db.invoices) db.invoices = [];
-    if (!db.fees) db.fees = [];
-    if (!db.expenses) db.expenses = [];
-    if (!db.payroll) db.payroll = [];
-    if (!db.staffPayments) db.staffPayments = [];
-    if (!db.exams) db.exams = [];
-    if (!db.examTimetables) db.examTimetables = [];
-    if (!db.notices) db.notices = [];
-    if (!db.holidays) db.holidays = [];
-    if (!db.events) db.events = [];
-    if (!db.results) db.results = [];
-    if (!db.academicCalendarEvents) db.academicCalendarEvents = [];
-    if (!db.academicCalendarImports) db.academicCalendarImports = [];
-    if (!db.overallResults) db.overallResults = [];
-    if (!db.publishedCalendarEvents) db.publishedCalendarEvents = [];
-    if (!db.subjects) db.subjects = [];
-    if (!db.employeeQrCodes) db.employeeQrCodes = [];
-    if (!db.attendanceRecords) db.attendanceRecords = [];
-    if (!db.attendanceLogs) db.attendanceLogs = [];
-    if (!db.attendanceReports) db.attendanceReports = [];
-    if (!db.grades) db.grades = [];
-    if (db.grades && Array.isArray(db.grades)) {
-      db.grades.forEach(g => {
-        if (!g.sections) g.sections = [];
-      });
-    }
-    if (!db.departments) db.departments = [];
-    if (!db.designations) db.designations = [];
-    if (!db.gradeDepartments) db.gradeDepartments = [];
-    if (!db.sections) {
-      db.sections = [];
-    }
-    if (!db.timeslots) {
-      db.timeslots = [
-        '09:00 AM - 10:00 AM',
-        '10:00 AM - 11:00 AM',
-        '11:00 AM - 12:00 PM',
-        '01:00 PM - 02:00 PM',
-        '02:00 PM - 03:00 PM'
-      ];
-    }
-    // Clean up Parent, Student, and Librarian roles from local JSON DB
-    if (db.roles) {
-      db.roles = db.roles.filter(r => r.name !== 'Parent' && r.name !== 'Student' && r.name !== 'Librarian' && r.id !== 'role-parent' && r.id !== 'role-student' && r.id !== 'role-librarian');
-      db.roles.forEach(r => {
-        if (r.id === 'role-subject-teacher' || r.name === 'Subject Teacher') {
-          r.id = 'role-teacher';
-          r.name = 'Teacher';
-          r.description = 'Teacher. Records attendance, enters marks, manages academic activities, and views student profiles.';
-        }
-      });
-    }
-    if (db.userAccess) {
-      db.userAccess.forEach(ua => {
-        if (ua.roleId === 'role-subject-teacher') {
-          ua.roleId = 'role-teacher';
-        }
-      });
-    }
-    return db;
-  } catch (error) {
-    const defaultDb = {
-      schools: [],
-      roles: [],
-      activities: [],
-      students: [],
-      teachers: [],
-      staff: [],
-      timetables: [],
-      invoices: [],
-      fees: [],
-      expenses: [],
-      payroll: [],
-      staffPayments: [],
-      exams: [],
-      examTimetables: [],
-      notices: [],
-      holidays: [],
-      events: [],
-      results: [],
-      academicCalendarEvents: [],
-      academicCalendarImports: [],
-      publishedCalendarEvents: [],
-      overallResults: [],
-      employeeQrCodes: [],
-      attendanceRecords: [],
-      attendanceLogs: [],
-      attendanceReports: [],
-      grades: [],
-      departments: [],
-      designations: [],
-      gradeDepartments: [],
-      sections: [],
-      timeslots: [
-        '09:00 AM - 10:00 AM',
-        '10:00 AM - 11:00 AM',
-        '11:00 AM - 12:00 PM',
-        '01:00 PM - 02:00 PM',
-        '02:00 PM - 03:00 PM'
-      ]
-    };
-    return defaultDb;
-  }
+  // SQL cache miss — return safe empty defaults.
+  // Cache hydration will happen asynchronously on the next request cycle.
+  return {
+    school: {}, schools: [], roles: [], activities: [], students: [], teachers: [],
+    staff: [], employees: [], timetables: [], teacherTimetables: [], invoices: [],
+    fees: [], expenses: [], payroll: [], staffPayments: [], exams: [],
+    examTimetables: [], notices: [], holidays: [], events: [], results: [],
+    overallResults: [], subjects: [], timeslots: [], feeStructures: [],
+    feePeriods: [], salaryStructures: [], staffSalaryStructures: [], income: [],
+    attendance: [], userAccess: [], auditLogs: [], employeeQrCodes: [],
+    attendanceRecords: [], attendanceLogs: [], attendanceReports: [],
+    academicCalendarEvents: [], academicCalendarImports: [], publishedCalendarEvents: [],
+    grades: [], departments: [], designations: [], gradeDepartments: [],
+    sections: [], publishedClassTimetables: [], publishedTeacherTimetables: [],
+    attendanceSettings: [], reportCardTemplates: [], subscriptionPlans: []
+  };
 };
 
 // Central Database Writer (Preserves synchronous signature)
 export const writeDb = (data) => {
+  if (data && data.roles) {
+    ensureOverviewPermissions(data.roles);
+  }
   const tenantId = tenantStorage.getStore();
   let activeTenant = tenantId ? slugify(tenantId) : 'platform';
   if (activeTenant === 'default') {
@@ -4463,22 +4394,8 @@ export const writeDb = (data) => {
     }
   }
 
-  // Backup to JSON file asynchronously to avoid blocking (always for platform owner)
-  if (activeTenant === 'platform') {
-    const dbFile = getDbPath();
-    if (!isSqlActive() && !fs.existsSync(TENANTS_DIR)) {
-      try {
-        fs.mkdirSync(TENANTS_DIR, { recursive: true });
-      } catch (err) {
-        console.error('Failed to create tenants directory:', err);
-      }
-    }
-    fs.writeFile(dbFile, JSON.stringify(data, null, 2), 'utf8', (err) => {
-      if (err) {
-        console.error(`[JSON Backup ERROR] Failed writing local backup:`, err);
-      }
-    });
-  }
+  // db.json backup removed — system is fully SQL-driven.
+  // All writes (platform + tenant) are persisted exclusively via saveMemoryDbToSql().
 };
 
 // Helper to log system activities

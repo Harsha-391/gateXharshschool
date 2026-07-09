@@ -28,7 +28,6 @@ import {
   Share2,
   Trash2,
   RotateCcw,
-  Upload,
   Code,
   SlidersHorizontal
 } from 'lucide-react';
@@ -286,42 +285,8 @@ export default function ResultManagementPanel({ activeTab: propActiveTab = 'anal
   const [reportTemplateId, setReportTemplateId] = useState(() => {
     return localStorage.getItem(`report_card_template_id_${localStorage.getItem('tenant_subdomain') || 'default'}`) || 'classic';
   });
-  const [customTemplateHtml, setCustomTemplateHtml] = useState(() => {
-    return localStorage.getItem(`report_card_custom_html_${localStorage.getItem('tenant_subdomain') || 'default'}`) || '';
-  });
-  const [pdfTemplateBase64, setPdfTemplateBase64] = useState(() => {
-    return localStorage.getItem(`report_card_pdf_template_${localStorage.getItem('tenant_subdomain') || 'default'}`) || '';
-  });
-  const [pdfFields, setPdfFields] = useState(() => {
-    try {
-      const stored = localStorage.getItem(`report_card_pdf_fields_${localStorage.getItem('tenant_subdomain') || 'default'}`);
-      return stored ? JSON.parse(stored) : [];
-    } catch (e) {
-      return [];
-    }
-  });
-  const [filledPdfUrl, setFilledPdfUrl] = useState('');
-  const [pdfEngineLoaded, setPdfEngineLoaded] = useState(false);
   const [isBulkExporting, setIsBulkExporting] = useState(false);
   const [bulkExportProgress, setBulkExportProgress] = useState(0);
-
-  useEffect(() => {
-    if (window.PDFLib) {
-      setPdfEngineLoaded(true);
-      return;
-    }
-    const script = document.createElement('script');
-    script.src = 'https://cdn.jsdelivr.net/npm/pdf-lib/dist/pdf-lib.min.js';
-    script.async = true;
-    script.onload = () => {
-      setPdfEngineLoaded(true);
-    };
-    document.body.appendChild(script);
-  }, []);
-
-  const [isEditingTemplate, setIsEditingTemplate] = useState(false);
-  const [showPlaceholderCheatSheet, setShowPlaceholderCheatSheet] = useState(false);
-  const [showHtmlCodeEditor, setShowHtmlCodeEditor] = useState(false);
 
   // School profile & staff list states for dynamic data populating
   const [schoolInfo, setSchoolInfo] = useState({ name: 'Green Valley Public School', address: 'Khimel Rani Station Road, Bali, Rajasthan', email: 'contact@gmail.com', phone: '', logo: '' });
@@ -1219,315 +1184,10 @@ export default function ResultManagementPanel({ activeTab: propActiveTab = 'anal
     return getStudentReportCardData(reportStudentId);
   }, [reportStudentId, reportSession, reportExamId, students, exams, overallResults, results]);
 
-  const handleFileUpload = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    const extension = file.name.split('.').pop().toLowerCase();
-    
-    // Size check (max 5MB for PDF/Image binary types, 1MB for text text/html templates)
-    const isBinary = extension === 'pdf' || file.type.startsWith('image/');
-    const maxSize = isBinary ? 5 * 1024 * 1024 : 1 * 1024 * 1024;
-    
-    if (file.size > maxSize) {
-      showToast(`File is too large! Maximum allowed size is ${isBinary ? '5MB' : '1MB'}.`, 'error');
-      e.target.value = '';
-      return;
-    }
-
-    if (extension === 'pdf') {
-      const reader = new FileReader();
-      reader.onload = async (event) => {
-        try {
-          if (!window.PDFLib) {
-            showToast('Loading PDF engine, please wait a second and re-upload.', 'info');
-            return;
-          }
-          const base64 = event.target.result.split(',')[1];
-          const { PDFDocument } = window.PDFLib;
-          const pdfDoc = await PDFDocument.load(event.target.result);
-          const form = pdfDoc.getForm();
-          const fields = form.getFields();
-          const fieldNames = fields.map(f => f.getName());
-          
-          localStorage.setItem(`report_card_template_id_${localStorage.getItem('tenant_subdomain') || 'default'}`, 'pdf_form');
-          localStorage.setItem(`report_card_pdf_template_${localStorage.getItem('tenant_subdomain') || 'default'}`, base64);
-          localStorage.setItem(`report_card_pdf_fields_${localStorage.getItem('tenant_subdomain') || 'default'}`, JSON.stringify(fieldNames));
-          
-          setReportTemplateId('pdf_form');
-          setPdfTemplateBase64(base64);
-          setPdfFields(fieldNames);
-          
-          showToast(`PDF template uploaded successfully! Found ${fields.length} form fields.`, 'success');
-        } catch (err) {
-          console.error(err);
-          showToast('Error parsing PDF form: ' + err.message, 'error');
-        }
-      };
-      reader.readAsDataURL(file);
-    } else if (file.type.startsWith('image/') || ['png', 'jpg', 'jpeg', 'webp', 'gif'].includes(extension)) {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const dataUrl = event.target.result;
-        
-        // Save background image base64
-        localStorage.setItem(`report_card_bg_image_${localStorage.getItem('tenant_subdomain') || 'default'}`, dataUrl);
-        
-        // Update custom template HTML to use this image as background
-        const customHtml = `<div style="background-image: url('${dataUrl}'); background-size: cover; background-position: center; width: 100%; min-height: 800px; padding: 40px; box-sizing: border-box; position: relative;">
-  <!-- School Info -->
-  <div style="text-align: center; margin-bottom: 30px;">
-    {{schoolLogo}}
-    <h1 style="color: #1e3a8a; margin: 5px 0;">{{schoolName}}</h1>
-    <p>{{schoolAddress}}</p>
-  </div>
-
-  <!-- Student Details Grid -->
-  <div style="display: grid; grid-template-columns: 100px 1fr; gap: 20px; background: rgba(255,255,255,0.9); padding: 15px; border-radius: 8px; margin-bottom: 30px;">
-    {{studentPhoto}}
-    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 0.9rem;">
-      <div><strong>Student Name:</strong> {{studentName}}</div>
-      <div><strong>Admission No:</strong> {{admissionNo}}</div>
-      <div><strong>Class & Section:</strong> Class {{class}} - {{section}}</div>
-      <div><strong>Roll Number:</strong> {{rollNo}}</div>
-    </div>
-  </div>
-
-  <!-- Marks Breakdown -->
-  <div style="background: rgba(255,255,255,0.9); padding: 15px; border-radius: 8px; margin-bottom: 30px;">
-    <h3 style="margin-top: 0;">Academic Performance - {{examName}}</h3>
-    {{subjectMarksTable}}
-  </div>
-
-  <!-- Footer Summary -->
-  <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; background: #f0f4f8; padding: 15px; border-radius: 8px; text-align: center;">
-    <div>Obtained: <strong>{{obtainedMarks}} / {{totalMarks}}</strong></div>
-    <div>Percentage: <strong>{{percentage}}</strong></div>
-    <div>Grade: <strong>{{grade}} ({{result}})</strong></div>
-  </div>
-</div>`;
-        setCustomTemplateHtml(customHtml);
-        setReportTemplateId('custom');
-        localStorage.setItem(`report_card_template_id_${localStorage.getItem('tenant_subdomain') || 'default'}`, 'custom');
-        localStorage.setItem(`report_card_custom_html_${localStorage.getItem('tenant_subdomain') || 'default'}`, customHtml);
-        
-        showToast('Background image uploaded and loaded into custom template!', 'success');
-      };
-      reader.readAsDataURL(file);
-    } else {
-      // Read as text (HTML / TXT / DOC / XML etc.)
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const text = event.target.result;
-        setCustomTemplateHtml(text);
-        setReportTemplateId('custom');
-        localStorage.setItem(`report_card_template_id_${localStorage.getItem('tenant_subdomain') || 'default'}`, 'custom');
-        localStorage.setItem(`report_card_custom_html_${localStorage.getItem('tenant_subdomain') || 'default'}`, text);
-        showToast('Template file loaded as custom HTML text!', 'success');
-      };
-      reader.readAsText(file);
-    }
-    e.target.value = ''; // Reset input element so uploader works on subsequent selections of the same file name
-  };
-
-  const generateFilledPdf = async () => {
-    if (!pdfTemplateBase64 || !activeReportCardData) return;
-    try {
-      if (!window.PDFLib) {
-        return;
-      }
-      const { PDFDocument } = window.PDFLib;
-      // Load template
-      const binaryString = atob(pdfTemplateBase64);
-      const len = binaryString.length;
-      const bytes = new Uint8Array(len);
-      for (let i = 0; i < len; i++) {
-        bytes[i] = binaryString.charCodeAt(i);
-      }
-      const pdfDoc = await PDFDocument.load(bytes);
-      const form = pdfDoc.getForm();
-      const fields = form.getFields();
-
-      const { student, examSections, grandTotalObtained, grandTotalMax, grandPercentage } = activeReportCardData;
-      const { grade: gradeBase } = parseStudentClass(student.studentClass);
-
-      // Determine final grade and remarks
-      const finalGrade = grandPercentage >= 90 ? 'A+' : grandPercentage >= 80 ? 'A' : grandPercentage >= 70 ? 'B+' : grandPercentage >= 60 ? 'B' : grandPercentage >= 50 ? 'C' : grandPercentage >= 40 ? 'D' : 'F';
-      const finalResult = grandPercentage >= 40 ? 'Pass' : 'Fail';
-      
-      let finalRemarks = 'Keep up the good work!';
-      if (reportExamId !== 'All') {
-        const overall = overallResults.find(o => o.studentId === student.id && o.examId === reportExamId);
-        if (overall && overall.remarks) {
-          finalRemarks = overall.remarks;
-        } else {
-          const studentExamResults = results.filter(sr => sr.studentId === student.id && sr.examId === reportExamId);
-          const firstWithRemarks = studentExamResults.find(sr => sr.remarks);
-          if (firstWithRemarks) finalRemarks = firstWithRemarks.remarks;
-        }
-      } else {
-        const overallRemarksList = overallResults
-          .filter(o => o.studentId === student.id)
-          .map(o => o.remarks)
-          .filter(Boolean);
-        if (overallRemarksList.length > 0) {
-          finalRemarks = overallRemarksList.join(' | ');
-        }
-      }
-
-      // Gather subject marks
-      const subjectMarksList = [];
-      examSections.forEach(sec => {
-        sec.subjectMarks.forEach(m => {
-          subjectMarksList.push(m);
-        });
-      });
-
-      // Map subjects
-      const marksMap = {};
-      subjectMarksList.forEach(m => {
-        marksMap[m.subject.toLowerCase()] = m;
-      });
-      const subjectsSorted = Object.keys(marksMap).sort();
-
-      fields.forEach(field => {
-        const type = field.constructor.name;
-        if (type !== 'PDFTextField' && typeof field.setText !== 'function') return;
-
-        const fname = field.getName().toLowerCase();
-        
-        // Match standard fields
-        if (fname.includes('student') && (fname.includes('name') || fname.includes('studentname'))) {
-          field.setText(student.name);
-        } else if (fname === 'name' || fname === 'student_name') {
-          field.setText(student.name);
-        } else if (fname.includes('roll')) {
-          field.setText(String(student.rollNumber || student.roll || ''));
-        } else if (fname.includes('class') || fname.includes('grade')) {
-          field.setText(gradeBase);
-        } else if (fname.includes('section')) {
-          field.setText(student.section || 'A');
-        } else if (fname.includes('father')) {
-          field.setText(student.fatherName || 'N/A');
-        } else if (fname.includes('mother')) {
-          field.setText(student.motherName || 'N/A');
-        } else if (fname.includes('session')) {
-          field.setText(reportSession);
-        } else if (fname.includes('admission') || fname.includes('adm')) {
-          field.setText(student.admissionNumber || '');
-        } else if (fname.includes('percentage') || fname.includes('percent')) {
-          field.setText(grandPercentage + '%');
-        } else if (fname.includes('totalobtained') || fname === 'obtained' || fname.includes('obtainedmarks')) {
-          field.setText(String(grandTotalObtained));
-        } else if (fname.includes('totalmax') || fname === 'total' || fname.includes('maxmarks')) {
-          field.setText(String(grandTotalMax));
-        } else if (fname.includes('finalgrade') || fname === 'grade') {
-          field.setText(finalGrade);
-        } else if (fname.includes('result') || fname.includes('status')) {
-          field.setText(finalResult);
-        } else if (fname.includes('remarks')) {
-          field.setText(finalRemarks);
-        } else if (fname.includes('teacher')) {
-          field.setText(reportClassTeacherName);
-        } else {
-          // Try matching subjects
-          // 1. Direct name match
-          let matched = false;
-          for (const subName of Object.keys(marksMap)) {
-            if (fname.includes(subName)) {
-              matched = true;
-              const subData = marksMap[subName];
-              if (fname.includes('max') || fname.includes('total')) {
-                field.setText(String(subData.totalMarks));
-              } else if (fname.includes('grade')) {
-                field.setText(subData.grade);
-              } else if (fname.includes('percent') || fname.includes('pct')) {
-                field.setText(subData.percentage + '%');
-              } else {
-                field.setText(String(subData.obtainedMarks));
-              }
-              break;
-            }
-          }
-          // 2. Index match fallback (Subject1, Subject2...)
-          if (!matched) {
-            const indexMatch = fname.match(/(?:subject|subj|sub|s)(\d+)/);
-            if (indexMatch) {
-              const index = parseInt(indexMatch[1]) - 1;
-              if (index >= 0 && index < subjectsSorted.length) {
-                const subName = subjectsSorted[index];
-                const subData = marksMap[subName];
-                if (fname.includes('name')) {
-                  field.setText(subData.subject);
-                } else if (fname.includes('max') || fname.includes('total')) {
-                  field.setText(String(subData.totalMarks));
-                } else if (fname.includes('grade')) {
-                  field.setText(subData.grade);
-                } else if (fname.includes('percent') || fname.includes('pct')) {
-                  field.setText(subData.percentage + '%');
-                } else {
-                  field.setText(String(subData.obtainedMarks));
-                }
-              }
-            }
-          }
-        }
-      });
-
-      // Save filled PDF
-      const pdfBytes = await pdfDoc.save();
-      const blob = new Blob([pdfBytes], { type: 'application/pdf' });
-      
-      // Cleanup previous ObjectURL if any to avoid memory leaks
-      setFilledPdfUrl(prev => {
-        if (prev) URL.revokeObjectURL(prev);
-        return URL.createObjectURL(blob);
-      });
-    } catch (err) {
-      console.error('Error generating filled PDF:', err);
-      showToast('Error generating filled PDF: ' + err.message, 'error');
-    }
-  };
-
-  useEffect(() => {
-    if (reportTemplateId === 'pdf_form' && pdfEngineLoaded) {
-      generateFilledPdf();
-    }
-  }, [activeReportCardData, reportTemplateId, pdfTemplateBase64, pdfEngineLoaded, reportSession, reportExamId]);
-
-  const handleSaveCustomTemplate = () => {
-    localStorage.setItem(`report_card_template_id_${localStorage.getItem('tenant_subdomain') || 'default'}`, reportTemplateId);
-    if (reportTemplateId === 'custom') {
-      localStorage.setItem(`report_card_custom_html_${localStorage.getItem('tenant_subdomain') || 'default'}`, customTemplateHtml);
-    }
-    showToast('Report card template saved successfully!', 'success');
-  };
-
-  const handleClearUploadedTemplate = () => {
-    const tenant = localStorage.getItem('tenant_subdomain') || 'default';
-    localStorage.removeItem(`report_card_template_id_${tenant}`);
-    localStorage.removeItem(`report_card_custom_html_${tenant}`);
-    localStorage.removeItem(`report_card_pdf_template_${tenant}`);
-    localStorage.removeItem(`report_card_pdf_fields_${tenant}`);
-    localStorage.removeItem(`report_card_bg_image_${tenant}`);
-
-    setReportTemplateId('classic');
-    setCustomTemplateHtml('');
-    setPdfTemplateBase64('');
-    setPdfFields([]);
-    setFilledPdfUrl('');
-    setShowHtmlCodeEditor(false);
-    
-    showToast('Uploaded template removed. Reverted to default template.', 'success');
-  };
-
   const activeTemplateHtml = useMemo(() => {
-    if (reportTemplateId === 'custom') {
-      return customTemplateHtml || DEFAULT_TEMPLATES[0].html;
-    }
     const template = DEFAULT_TEMPLATES.find(t => t.id === reportTemplateId);
     return template ? template.html : DEFAULT_TEMPLATES[0].html;
-  }, [reportTemplateId, customTemplateHtml]);
+  }, [reportTemplateId]);
 
   // Get class teacher name helper
   const getTeacherNameForStudent = (student) => {
@@ -1678,7 +1338,7 @@ export default function ResultManagementPanel({ activeTab: propActiveTab = 'anal
   // Reusable helper to compile full report card HTML for a student
   const compileReportCardHtmlForStudent = (studentReportData) => {
     if (!studentReportData) return '';
-    const { student, grandTotalObtained, grandTotalMax, grandPercentage } = studentReportData;
+    const { student, examSections, grandTotalObtained, grandTotalMax, grandPercentage } = studentReportData;
     
     // Determine exam name display
     let examNameDisplay = 'Consolidated Evaluation';
@@ -1756,6 +1416,48 @@ export default function ResultManagementPanel({ activeTab: propActiveTab = 'anal
       }
     }
 
+    // 1. Gather all subject marks
+    const subjectMarksList = [];
+    examSections.forEach(sec => {
+      sec.subjectMarks.forEach(m => {
+        subjectMarksList.push(m);
+      });
+    });
+
+    // 2. Create marks mapping by lowercased subject name
+    const marksMap = {};
+    subjectMarksList.forEach(m => {
+      marksMap[m.subject.toLowerCase()] = m;
+    });
+    const subjectsSorted = Object.keys(marksMap).sort();
+
+    // 3. Inject dynamic subject key placeholders (e.g. {{english_obt}}, {{english_max}}, etc.)
+    Object.entries(marksMap).forEach(([subName, subData]) => {
+      const cleanSubName = subName.replace(/[^a-z0-9]/g, '');
+      
+      dataToCompile[`{{subject_${cleanSubName}_obt}}`] = subData.obtainedMarks;
+      dataToCompile[`{{subject_${cleanSubName}_max}}`] = subData.totalMarks;
+      dataToCompile[`{{subject_${cleanSubName}_grade}}`] = subData.grade || '';
+      dataToCompile[`{{subject_${cleanSubName}_pct}}`] = (subData.percentage || '') + '%';
+
+      // Shorthand versions
+      dataToCompile[`{{${cleanSubName}_obt}}`] = subData.obtainedMarks;
+      dataToCompile[`{{${cleanSubName}_max}}`] = subData.totalMarks;
+      dataToCompile[`{{${cleanSubName}_grade}}`] = subData.grade || '';
+      dataToCompile[`{{${cleanSubName}_pct}}`] = (subData.percentage || '') + '%';
+    });
+
+    // 4. Inject dynamic index-based placeholders (e.g. {{subject1_name}}, {{subject1_obt}})
+    subjectsSorted.forEach((subName, i) => {
+      const idx = i + 1;
+      const subData = marksMap[subName];
+      dataToCompile[`{{subject${idx}_name}}`] = subData.subject;
+      dataToCompile[`{{subject${idx}_obt}}`] = subData.obtainedMarks;
+      dataToCompile[`{{subject${idx}_max}}`] = subData.totalMarks;
+      dataToCompile[`{{subject${idx}_grade}}`] = subData.grade || '';
+      dataToCompile[`{{subject${idx}_pct}}`] = (subData.percentage || '') + '%';
+    });
+
     return compileTemplate(activeTemplateHtml, dataToCompile);
   };
 
@@ -1829,389 +1531,12 @@ export default function ResultManagementPanel({ activeTab: propActiveTab = 'anal
     document.body.removeChild(link);
   };
 
-  // Download filled PDF for a single student client-side directly
-  const downloadPdfForSingleStudent = async (studentId) => {
-    if (!pdfTemplateBase64) return;
-    try {
-      if (!window.PDFLib) {
-        showToast('PDF engine not loaded yet. Please wait.', 'error');
-        return;
-      }
-      const { PDFDocument } = window.PDFLib;
 
-      const studentReportData = getStudentReportCardData(studentId);
-      if (!studentReportData) {
-        showToast('No report card data found for student.', 'error');
-        return;
-      }
 
-      const { student, examSections, grandTotalObtained, grandTotalMax, grandPercentage } = studentReportData;
-      const { grade: gradeBase } = parseStudentClass(student.studentClass);
-
-      const templateBinaryString = atob(pdfTemplateBase64);
-      const templateLen = templateBinaryString.length;
-      const templateBytes = new Uint8Array(templateLen);
-      for (let i = 0; i < templateLen; i++) {
-        templateBytes[i] = templateBinaryString.charCodeAt(i);
-      }
-
-      const pdfDoc = await PDFDocument.load(templateBytes);
-      const form = pdfDoc.getForm();
-      const fields = form.getFields();
-
-      const finalGrade = grandPercentage >= 90 ? 'A+' : grandPercentage >= 80 ? 'A' : grandPercentage >= 70 ? 'B+' : grandPercentage >= 60 ? 'B' : grandPercentage >= 50 ? 'C' : grandPercentage >= 40 ? 'D' : 'F';
-      const finalResult = grandPercentage >= 40 ? 'Pass' : 'Fail';
-      
-      let finalRemarks = 'Keep up the good work!';
-      if (reportExamId !== 'All') {
-        const overall = overallResults.find(o => o.studentId === student.id && o.examId === reportExamId);
-        if (overall && overall.remarks) {
-          finalRemarks = overall.remarks;
-        } else {
-          const studentExamResults = results.filter(sr => sr.studentId === student.id && sr.examId === reportExamId);
-          const firstWithRemarks = studentExamResults.find(sr => sr.remarks);
-          if (firstWithRemarks) finalRemarks = firstWithRemarks.remarks;
-        }
-      } else {
-        const overallRemarksList = overallResults
-          .filter(o => o.studentId === student.id)
-          .map(o => o.remarks)
-          .filter(Boolean);
-        if (overallRemarksList.length > 0) {
-          finalRemarks = overallRemarksList.join(' | ');
-        }
-      }
-
-      const teacherName = getTeacherNameForStudent(student);
-
-      const subjectMarksList = [];
-      examSections.forEach(sec => {
-        sec.subjectMarks.forEach(m => {
-          subjectMarksList.push(m);
-        });
-      });
-
-      const marksMap = {};
-      subjectMarksList.forEach(m => {
-        marksMap[m.subject.toLowerCase()] = m;
-      });
-      const subjectsSorted = Object.keys(marksMap).sort();
-
-      fields.forEach(field => {
-        const type = field.constructor.name;
-        if (type !== 'PDFTextField' && typeof field.setText !== 'function') return;
-
-        const fname = field.getName().toLowerCase();
-        
-        if (fname.includes('student') && (fname.includes('name') || fname.includes('studentname'))) {
-          field.setText(student.name);
-        } else if (fname === 'name' || fname === 'student_name') {
-          field.setText(student.name);
-        } else if (fname.includes('roll')) {
-          field.setText(String(student.rollNumber || student.roll || ''));
-        } else if (fname.includes('class') || fname.includes('grade')) {
-          field.setText(gradeBase);
-        } else if (fname.includes('section')) {
-          field.setText(student.section || 'A');
-        } else if (fname.includes('father')) {
-          field.setText(student.fatherName || 'N/A');
-        } else if (fname.includes('mother')) {
-          field.setText(student.motherName || 'N/A');
-        } else if (fname.includes('session')) {
-          field.setText(reportSession);
-        } else if (fname.includes('admission') || fname.includes('adm')) {
-          field.setText(student.admissionNumber || '');
-        } else if (fname.includes('percentage') || fname.includes('percent')) {
-          field.setText(grandPercentage + '%');
-        } else if (fname.includes('totalobtained') || fname === 'obtained' || fname.includes('obtainedmarks')) {
-          field.setText(String(grandTotalObtained));
-        } else if (fname.includes('totalmax') || fname === 'total' || fname.includes('maxmarks')) {
-          field.setText(String(grandTotalMax));
-        } else if (fname.includes('finalgrade') || fname === 'grade') {
-          field.setText(finalGrade);
-        } else if (fname.includes('result') || fname.includes('status')) {
-          field.setText(finalResult);
-        } else if (fname.includes('remarks')) {
-          field.setText(finalRemarks);
-        } else if (fname.includes('teacher')) {
-          field.setText(teacherName);
-        } else {
-          let matched = false;
-          for (const subName of Object.keys(marksMap)) {
-            if (fname.includes(subName)) {
-              matched = true;
-              const subData = marksMap[subName];
-              if (fname.includes('max') || fname.includes('total')) {
-                field.setText(String(subData.totalMarks));
-              } else if (fname.includes('grade')) {
-                field.setText(subData.grade);
-              } else if (fname.includes('percent') || fname.includes('pct')) {
-                field.setText(subData.percentage + '%');
-              } else {
-                field.setText(String(subData.obtainedMarks));
-              }
-              break;
-            }
-          }
-          if (!matched) {
-            const indexMatch = fname.match(/(?:subject|subj|sub|s)(\d+)/);
-            if (indexMatch) {
-              const index = parseInt(indexMatch[1]) - 1;
-              if (index >= 0 && index < subjectsSorted.length) {
-                const subName = subjectsSorted[index];
-                const subData = marksMap[subName];
-                if (fname.includes('name')) {
-                  field.setText(subData.subject);
-                } else if (fname.includes('max') || fname.includes('total')) {
-                  field.setText(String(subData.totalMarks));
-                } else if (fname.includes('grade')) {
-                  field.setText(subData.grade);
-                } else if (fname.includes('percent') || fname.includes('pct')) {
-                  field.setText(subData.percentage + '%');
-                } else {
-                  field.setText(String(subData.obtainedMarks));
-                }
-              }
-            }
-          }
-        }
-      });
-
-      const pdfBytes = await pdfDoc.save();
-      const blob = new Blob([pdfBytes], { type: 'application/pdf' });
-      const downloadUrl = URL.createObjectURL(blob);
-
-      const link = document.createElement('a');
-      link.href = downloadUrl;
-      link.download = `Report_Card_${student.name.replace(/\s+/g, '_')}.pdf`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-
-      setTimeout(() => URL.revokeObjectURL(downloadUrl), 5000);
-    } catch (err) {
-      console.error(err);
-      showToast('Error generating PDF: ' + err.message, 'error');
-    }
-  };
-
-  // Bulk PDF fill and merge function for fillable PDF form templates
-  const handleBulkPdfFormExport = async () => {
-    if (!pdfTemplateBase64) {
-      showToast('No PDF template uploaded.', 'warning');
-      return;
-    }
-    if (!window.PDFLib) {
-      showToast('PDF engine not loaded yet. Please try again.', 'error');
-      return;
-    }
-
-    setIsBulkExporting(true);
-    setBulkExportProgress(0);
-
-    try {
-      const { PDFDocument } = window.PDFLib;
-      const mergedPdfDoc = await PDFDocument.create();
-      
-      const templateBinaryString = atob(pdfTemplateBase64);
-      const templateLen = templateBinaryString.length;
-      const templateBytes = new Uint8Array(templateLen);
-      for (let i = 0; i < templateLen; i++) {
-        templateBytes[i] = templateBinaryString.charCodeAt(i);
-      }
-
-      let successfullyFilledCount = 0;
-
-      for (let index = 0; index < reportFilteredStudents.length; index++) {
-        const student = reportFilteredStudents[index];
-        setBulkExportProgress(Math.round(((index + 1) / reportFilteredStudents.length) * 100));
-
-        const studentReportData = getStudentReportCardData(student.id);
-        if (!studentReportData) continue;
-
-        const { examSections, grandTotalObtained, grandTotalMax, grandPercentage } = studentReportData;
-        const { grade: gradeBase } = parseStudentClass(student.studentClass);
-
-        // Fill individual PDF form
-        const pdfDoc = await PDFDocument.load(templateBytes);
-        const form = pdfDoc.getForm();
-        const fields = form.getFields();
-
-        // Determine final grade and remarks
-        const finalGrade = grandPercentage >= 90 ? 'A+' : grandPercentage >= 80 ? 'A' : grandPercentage >= 70 ? 'B+' : grandPercentage >= 60 ? 'B' : grandPercentage >= 50 ? 'C' : grandPercentage >= 40 ? 'D' : 'F';
-        const finalResult = grandPercentage >= 40 ? 'Pass' : 'Fail';
-        
-        let finalRemarks = 'Keep up the good work!';
-        if (reportExamId !== 'All') {
-          const overall = overallResults.find(o => o.studentId === student.id && o.examId === reportExamId);
-          if (overall && overall.remarks) {
-            finalRemarks = overall.remarks;
-          } else {
-            const studentExamResults = results.filter(sr => sr.studentId === student.id && sr.examId === reportExamId);
-            const firstWithRemarks = studentExamResults.find(sr => sr.remarks);
-            if (firstWithRemarks) finalRemarks = firstWithRemarks.remarks;
-          }
-        } else {
-          const overallRemarksList = overallResults
-            .filter(o => o.studentId === student.id)
-            .map(o => o.remarks)
-            .filter(Boolean);
-          if (overallRemarksList.length > 0) {
-            finalRemarks = overallRemarksList.join(' | ');
-          }
-        }
-
-        const teacherName = getTeacherNameForStudent(student);
-
-        // Gather subject marks
-        const subjectMarksList = [];
-        examSections.forEach(sec => {
-          sec.subjectMarks.forEach(m => {
-            subjectMarksList.push(m);
-          });
-        });
-
-        // Map subjects
-        const marksMap = {};
-        subjectMarksList.forEach(m => {
-          marksMap[m.subject.toLowerCase()] = m;
-        });
-        const subjectsSorted = Object.keys(marksMap).sort();
-
-        fields.forEach(field => {
-          const type = field.constructor.name;
-          if (type !== 'PDFTextField' && typeof field.setText !== 'function') return;
-
-          const fname = field.getName().toLowerCase();
-          
-          if (fname.includes('student') && (fname.includes('name') || fname.includes('studentname'))) {
-            field.setText(student.name);
-          } else if (fname === 'name' || fname === 'student_name') {
-            field.setText(student.name);
-          } else if (fname.includes('roll')) {
-            field.setText(String(student.rollNumber || student.roll || ''));
-          } else if (fname.includes('class') || fname.includes('grade')) {
-            field.setText(gradeBase);
-          } else if (fname.includes('section')) {
-            field.setText(student.section || 'A');
-          } else if (fname.includes('father')) {
-            field.setText(student.fatherName || 'N/A');
-          } else if (fname.includes('mother')) {
-            field.setText(student.motherName || 'N/A');
-          } else if (fname.includes('session')) {
-            field.setText(reportSession);
-          } else if (fname.includes('admission') || fname.includes('adm')) {
-            field.setText(student.admissionNumber || '');
-          } else if (fname.includes('percentage') || fname.includes('percent')) {
-            field.setText(grandPercentage + '%');
-          } else if (fname.includes('totalobtained') || fname === 'obtained' || fname.includes('obtainedmarks')) {
-            field.setText(String(grandTotalObtained));
-          } else if (fname.includes('totalmax') || fname === 'total' || fname.includes('maxmarks')) {
-            field.setText(String(grandTotalMax));
-          } else if (fname.includes('finalgrade') || fname === 'grade') {
-            field.setText(finalGrade);
-          } else if (fname.includes('result') || fname.includes('status')) {
-            field.setText(finalResult);
-          } else if (fname.includes('remarks')) {
-            field.setText(finalRemarks);
-          } else if (fname.includes('teacher')) {
-            field.setText(teacherName);
-          } else {
-            // Subject match
-            let matched = false;
-            for (const subName of Object.keys(marksMap)) {
-              if (fname.includes(subName)) {
-                matched = true;
-                const subData = marksMap[subName];
-                if (fname.includes('max') || fname.includes('total')) {
-                  field.setText(String(subData.totalMarks));
-                } else if (fname.includes('grade')) {
-                  field.setText(subData.grade);
-                } else if (fname.includes('percent') || fname.includes('pct')) {
-                  field.setText(subData.percentage + '%');
-                } else {
-                  field.setText(String(subData.obtainedMarks));
-                }
-                break;
-              }
-            }
-            if (!matched) {
-              const indexMatch = fname.match(/(?:subject|subj|sub|s)(\d+)/);
-              if (indexMatch) {
-                const index = parseInt(indexMatch[1]) - 1;
-                if (index >= 0 && index < subjectsSorted.length) {
-                  const subName = subjectsSorted[index];
-                  const subData = marksMap[subName];
-                  if (fname.includes('name')) {
-                    field.setText(subData.subject);
-                  } else if (fname.includes('max') || fname.includes('total')) {
-                    field.setText(String(subData.totalMarks));
-                  } else if (fname.includes('grade')) {
-                    field.setText(subData.grade);
-                  } else if (fname.includes('percent') || fname.includes('pct')) {
-                    field.setText(subData.percentage + '%');
-                  } else {
-                    field.setText(String(subData.obtainedMarks));
-                  }
-                }
-              }
-            }
-          }
-        });
-
-        try {
-          form.flatten();
-        } catch (e) {
-          console.warn("Could not flatten form, continuing with unflattened page", e);
-        }
-
-        const filledPdfBytes = await pdfDoc.save();
-
-        const tempDoc = await PDFDocument.load(filledPdfBytes);
-        const copiedPages = await mergedPdfDoc.copyPages(tempDoc, tempDoc.getPageIndices());
-        copiedPages.forEach((page) => mergedPdfDoc.addPage(page));
-
-        successfullyFilledCount++;
-      }
-
-      if (successfullyFilledCount === 0) {
-        showToast('No PDF report cards could be filled.', 'error');
-        setIsBulkExporting(false);
-        return;
-      }
-
-      const mergedPdfBytes = await mergedPdfDoc.save();
-      const blob = new Blob([mergedPdfBytes], { type: 'application/pdf' });
-      const downloadUrl = URL.createObjectURL(blob);
-
-      const link = document.createElement('a');
-      link.href = downloadUrl;
-      link.download = `Bulk_Report_Cards_${reportClass.replace(/\s+/g, '_')}_Section_${reportSection}.pdf`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-
-      setTimeout(() => URL.revokeObjectURL(downloadUrl), 5000);
-
-      showToast(`Successfully exported ${successfullyFilledCount} report cards in a single PDF!`, 'success');
-    } catch (err) {
-      console.error('Error generating bulk PDF:', err);
-      showToast('Error generating bulk PDF: ' + err.message, 'error');
-    } finally {
-      setIsBulkExporting(false);
-      setBulkExportProgress(0);
-    }
-  };
-
-  // Bulk HTML print or bulk PDF merge depending on selected template type
+  // Bulk HTML print function
   const handleBulkPrintPDF = () => {
     if (reportFilteredStudents.length === 0) {
       showToast('No students to print report cards for.', 'warning');
-      return;
-    }
-
-    if (reportTemplateId === 'pdf_form') {
-      handleBulkPdfFormExport();
       return;
     }
 
@@ -2278,85 +1603,7 @@ export default function ResultManagementPanel({ activeTab: propActiveTab = 'anal
   };
 
   // Bulk CSV export function
-  const handleBulkExportCSV = () => {
-    if (reportFilteredStudents.length === 0) {
-      showToast('No student entries available for bulk CSV export.', 'warning');
-      return;
-    }
 
-    const csvRows = [];
-    csvRows.push([
-      'Roll Number',
-      'Admission No',
-      'Student Name',
-      'Class',
-      'Section',
-      'Father Name',
-      'Exam Name',
-      'Subject',
-      'Max Marks',
-      'Obtained Marks',
-      'Subject Grade',
-      'Subject Remarks',
-      'Overall Obtained',
-      'Overall Max',
-      'Overall Percentage',
-      'Overall Grade',
-      'Rank',
-      'Remarks'
-    ]);
-
-    reportFilteredStudents.forEach(student => {
-      const studentReportData = getStudentReportCardData(student.id);
-      if (!studentReportData) return;
-
-      const { examSections, grandTotalObtained, grandTotalMax, grandPercentage } = studentReportData;
-      const { grade: gradeBase } = parseStudentClass(student.studentClass);
-
-      const overallGrade = grandPercentage >= 90 ? 'A+' : grandPercentage >= 80 ? 'A' : grandPercentage >= 70 ? 'B+' : grandPercentage >= 60 ? 'B' : grandPercentage >= 50 ? 'C' : grandPercentage >= 40 ? 'D' : 'F';
-      
-      examSections.forEach(section => {
-        const overallRank = section.overall?.rank || 'N/A';
-        const overallRemarks = section.overall?.remarks || '';
-        
-        section.subjectMarks.forEach(m => {
-          csvRows.push([
-            student.rollNumber || student.roll || '',
-            student.admissionNumber || '',
-            student.name,
-            gradeBase,
-            student.section || 'A',
-            student.fatherName || '',
-            section.exam.examName,
-            m.subject,
-            m.totalMarks,
-            m.obtainedMarks,
-            m.grade,
-            m.remarks || '',
-            section.overall?.totalObtained || '',
-            section.overall?.totalMax || '',
-            `${section.overall?.percentage || ''}%`,
-            section.overall?.grade || '',
-            overallRank,
-            overallRemarks
-          ]);
-        });
-      });
-    });
-
-    const csvContent = "data:text/csv;charset=utf-8,\uFEFF"
-      + csvRows.map(row => row.map(val => `"${String(val).replace(/"/g, '""')}"`).join(',')).join('\n');
-      
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement('a');
-    link.setAttribute('href', encodedUri);
-    const fileName = `Bulk_Report_Cards_${reportClass.replace(/\s+/g, '_')}_Section_${reportSection}.csv`;
-    link.setAttribute('download', fileName);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    showToast('Consolidated CSV exported successfully!', 'success');
-  };
 
   const filteredHistoryEntries = useMemo(() => {
     // Start with overallResults entries
@@ -3112,16 +2359,10 @@ export default function ResultManagementPanel({ activeTab: propActiveTab = 'anal
                   <strong style={{ fontSize: '0.9rem', color: 'var(--text-main)', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
                     <Code size={16} /> Template Configuration
                   </strong>
-                  <button 
-                    onClick={() => setShowPlaceholderCheatSheet(!showPlaceholderCheatSheet)}
-                    style={{ fontSize: '0.75rem', background: 'transparent', border: 'none', color: 'hsl(var(--color-primary))', cursor: 'pointer', fontWeight: 600 }}
-                  >
-                    {showPlaceholderCheatSheet ? 'Hide Tags' : 'Show Tags'}
-                  </button>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px' }}>
-                  <div className="form-group">
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '16px' }}>
+                  <div className="form-group" style={{ maxWidth: '400px' }}>
                     <label style={{ fontSize: '0.75rem', fontWeight: 600, display: 'block', marginBottom: '4px' }}>Select Template</label>
                     <select 
                       className="select-custom" 
@@ -3136,180 +2377,9 @@ export default function ResultManagementPanel({ activeTab: propActiveTab = 'anal
                       {DEFAULT_TEMPLATES.map(t => (
                         <option key={t.id} value={t.id}>{t.name}</option>
                       ))}
-                      <option value="custom">Custom HTML Template</option>
-                      {pdfTemplateBase64 && (
-                        <option value="pdf_form">Fillable PDF Template</option>
-                      )}
                     </select>
                   </div>
-
-                  <div className="form-group">
-                    <label style={{ fontSize: '0.75rem', fontWeight: 600, display: 'block', marginBottom: '4px' }}>Upload HTML or PDF Template</label>
-                    <label className="btn-secondary" style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '8px',
-                      padding: '10px 14px',
-                      borderRadius: '8px',
-                      cursor: 'pointer',
-                      fontSize: '0.8rem',
-                      textAlign: 'center',
-                      width: '100%',
-                      boxSizing: 'border-box',
-                      background: 'var(--bg-glass-active, #f1f5f9)',
-                      border: '1px solid var(--border-glass, #e2e8f0)',
-                      color: 'var(--text-main)',
-                      justifyContent: 'center',
-                      fontWeight: 600
-                    }}>
-                      <Upload size={14} /> Upload Template File
-                      <input type="file" accept="*" onChange={handleFileUpload} style={{ display: 'none' }} />
-                    </label>
-                  </div>
                 </div>
-
-                {(reportTemplateId === 'custom' || reportTemplateId === 'pdf_form') && (
-                  <div style={{
-                    background: 'rgba(239, 68, 68, 0.08)',
-                    border: '1px solid rgba(239, 68, 68, 0.2)',
-                    borderRadius: '8px',
-                    padding: '12px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    margin: '10px 0'
-                  }} className="animate-scale-up">
-                    <div style={{ fontSize: '0.78rem', color: 'var(--text-main)' }}>
-                      <strong>Active:</strong> {reportTemplateId === 'pdf_form' ? 'Uploaded PDF Form' : (customTemplateHtml.startsWith('<div style="background-image:') ? 'Uploaded Image Background' : 'Uploaded Custom Layout')}
-                    </div>
-                    <button
-                      onClick={handleClearUploadedTemplate}
-                      title="Remove Template"
-                      style={{
-                        background: '#ef4444',
-                        color: '#ffffff',
-                        border: 'none',
-                        borderRadius: '4px',
-                        padding: '2px 8px',
-                        cursor: 'pointer',
-                        fontWeight: 700,
-                        fontSize: '0.85rem',
-                        lineHeight: '1.2'
-                      }}
-                    >
-                      Remove X
-                    </button>
-                  </div>
-                )}
-
-                {reportTemplateId === 'pdf_form' && (
-                  <div className="form-group animate-scale-up" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    <strong style={{ fontSize: '0.8rem', color: 'var(--text-main)' }}>PDF Form Fields Detected:</strong>
-                    <div style={{
-                      background: '#1e293b',
-                      color: '#38bdf8',
-                      borderRadius: '8px',
-                      padding: '12px',
-                      fontSize: '0.75rem',
-                      fontFamily: 'monospace',
-                      maxHeight: '180px',
-                      overflowY: 'auto'
-                    }}>
-                      {pdfFields.length > 0 ? (
-                        pdfFields.map(f => (
-                          <div key={f} style={{ padding: '2px 0' }}>• {f}</div>
-                        ))
-                      ) : (
-                        <div style={{ color: '#94a3b8' }}>No form fields detected. Ensure it is a fillable PDF form.</div>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {reportTemplateId === 'custom' && (
-                  <div className="form-group animate-scale-up" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    {customTemplateHtml.startsWith('<div style="background-image:') && (
-                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', background: 'var(--bg-glass-active, #f8fafc)', padding: '10px', borderRadius: '6px', border: '1px solid var(--border-glass)' }}>
-                        ✨ Background image loaded! Report card parameters are automatically overlaid.
-                      </div>
-                    )}
-                    
-                    <button
-                      className="btn-secondary"
-                      style={{ padding: '8px 12px', fontSize: '0.76rem', width: '100%', justifyContent: 'center', fontWeight: 600 }}
-                      onClick={() => setShowHtmlCodeEditor(!showHtmlCodeEditor)}
-                    >
-                      {showHtmlCodeEditor ? 'Hide raw HTML editor' : 'Show raw HTML code'}
-                    </button>
-
-                    {showHtmlCodeEditor && (
-                      <div className="animate-scale-up" style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '4px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <label style={{ fontSize: '0.75rem', fontWeight: 600 }}>Raw HTML Editor</label>
-                          <button 
-                            className="btn-primary" 
-                            style={{ padding: '4px 10px', fontSize: '0.72rem', borderRadius: '6px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
-                            onClick={handleSaveCustomTemplate}
-                          >
-                            <Save size={12} /> Save HTML
-                          </button>
-                        </div>
-                        <textarea
-                          className="form-control"
-                          rows={10}
-                          style={{
-                            fontFamily: 'Consolas, Monaco, Courier New, monospace',
-                            fontSize: '0.75rem',
-                            lineHeight: '1.4',
-                            background: '#1e293b',
-                            color: '#38bdf8',
-                            borderRadius: '8px',
-                            padding: '12px',
-                            width: '100%',
-                            boxSizing: 'border-box',
-                            resize: 'vertical'
-                          }}
-                          value={customTemplateHtml}
-                          onChange={e => setCustomTemplateHtml(e.target.value)}
-                          placeholder="Write your custom HTML here..."
-                        />
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {showPlaceholderCheatSheet && (
-                  <div className="animate-scale-up" style={{
-                    background: 'var(--bg-glass-active, #f8fafc)',
-                    border: '1px solid var(--border-glass, #cbd5e1)',
-                    borderRadius: '8px',
-                    padding: '12px',
-                    fontSize: '0.74rem',
-                    maxHeight: '260px',
-                    overflowY: 'auto',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '8px'
-                  }}>
-                    <strong style={{ color: 'var(--text-main)' }}>Placeholders Cheat Sheet</strong>
-                    <div>
-                      <strong style={{ color: 'hsl(var(--color-primary))' }}>School:</strong>
-                      <div style={{ paddingLeft: '8px' }}><code>{"{{schoolLogo}}"}</code>, <code>{"{{schoolName}}"}</code>, <code>{"{{schoolAddress}}"}</code>, <code>{"{{schoolContact}}"}</code></div>
-                    </div>
-                    <div>
-                      <strong style={{ color: 'hsl(var(--color-primary))' }}>Student:</strong>
-                      <div style={{ paddingLeft: '8px' }}><code>{"{{studentPhoto}}"}</code>, <code>{"{{studentName}}"}</code>, <code>{"{{admissionNo}}"}</code>, <code>{"{{rollNo}}"}</code>, <code>{"{{class}}"}</code>, <code>{"{{section}}"}</code>, <code>{"{{fatherName}}"}</code>, <code>{"{{motherName}}"}</code></div>
-                    </div>
-                    <div>
-                      <strong style={{ color: 'hsl(var(--color-primary))' }}>Academic:</strong>
-                      <div style={{ paddingLeft: '8px' }}><code>{"{{examName}}"}</code>, <code>{"{{session}}"}</code>, <code>{"{{subjectMarksTable}}"}</code>, <code>{"{{obtainedMarks}}"}</code>, <code>{"{{totalMarks}}"}</code>, <code>{"{{percentage}}"}</code>, <code>{"{{grade}}"}</code>, <code>{"{{result}}"}</code>, <code>{"{{remarks}}"}</code>, <code>{"{{rank}}"}</code></div>
-                    </div>
-                    <div>
-                      <strong style={{ color: 'hsl(var(--color-primary))' }}>Metadata:</strong>
-                      <div style={{ paddingLeft: '8px' }}><code>{"{{classTeacherName}}"}</code>, <code>{"{{principalSignature}}"}</code>, <code>{"{{schoolStamp}}"}</code>, <code>{"{{generatedDate}}"}</code>, <code>{"{{qrCode}}"}</code></div>
-                    </div>
-                  </div>
-                )}
               </div>
 
               {/* Selectors Bar */}
@@ -3526,26 +2596,6 @@ export default function ResultManagementPanel({ activeTab: propActiveTab = 'anal
                           </>
                         )}
                       </button>
-                      <button
-                        className="btn-primary"
-                        style={{
-                          padding: '8px 14px',
-                          fontSize: '0.78rem',
-                          borderRadius: '8px',
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '6px',
-                          background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                          border: 'none',
-                          color: '#ffffff',
-                          cursor: 'pointer',
-                          fontWeight: 600,
-                          boxShadow: '0 2px 8px rgba(16, 185, 129, 0.2)'
-                        }}
-                        onClick={handleBulkExportCSV}
-                      >
-                        <Download size={13} /> Bulk Export CSV
-                      </button>
                     </div>
                   </div>
 
@@ -3650,15 +2700,11 @@ export default function ResultManagementPanel({ activeTab: propActiveTab = 'anal
                                         fontWeight: 600
                                       }}
                                       onClick={() => {
-                                        if (reportTemplateId === 'pdf_form') {
-                                          downloadPdfForSingleStudent(student.id);
-                                        } else {
-                                          setReportStudentId(student.id);
-                                          setReportSearchQuery(student.name);
-                                          setTimeout(() => {
-                                            handlePrint('printable-dynamic-report');
-                                          }, 200);
-                                        }
+                                        setReportStudentId(student.id);
+                                        setReportSearchQuery(student.name);
+                                        setTimeout(() => {
+                                          handlePrint('printable-dynamic-report');
+                                        }, 200);
                                       }}
                                     >
                                       <Download size={11} /> PDF
@@ -3732,13 +2778,7 @@ export default function ResultManagementPanel({ activeTab: propActiveTab = 'anal
                             fontWeight: 600,
                             boxShadow: '0 2px 8px rgba(99, 102, 241, 0.2)'
                           }}
-                          onClick={() => {
-                            if (reportTemplateId === 'pdf_form') {
-                              if (filledPdfUrl) window.open(filledPdfUrl);
-                            } else {
-                              handlePrint('printable-dynamic-report');
-                            }
-                          }}
+                          onClick={() => handlePrint('printable-dynamic-report')}
                         >
                           <Printer size={13} /> Print
                         </button>
@@ -3759,18 +2799,7 @@ export default function ResultManagementPanel({ activeTab: propActiveTab = 'anal
                             boxShadow: '0 2px 8px rgba(16, 185, 129, 0.2)'
                           }}
                           onClick={() => {
-                            if (reportTemplateId === 'pdf_form') {
-                              if (filledPdfUrl) {
-                                const link = document.createElement('a');
-                                link.href = filledPdfUrl;
-                                link.download = `Report_Card_${activeReportCardData.student.name.replace(/\s+/g, '_')}.pdf`;
-                                document.body.appendChild(link);
-                                link.click();
-                                document.body.removeChild(link);
-                              }
-                            } else {
-                              handlePrint('printable-dynamic-report');
-                            }
+                            handlePrint('printable-dynamic-report');
                           }}
                         >
                           <Download size={13} /> Export PDF
@@ -3799,36 +2828,22 @@ export default function ResultManagementPanel({ activeTab: propActiveTab = 'anal
                     </div>
 
                     {/* Real-time Compiled Frame */}
-                    {reportTemplateId === 'pdf_form' ? (
-                      <iframe 
-                        src={filledPdfUrl ? `${filledPdfUrl}#toolbar=0&navpanes=0&view=FitH` : ''} 
-                        title="PDF Preview"
-                        style={{
-                          width: '100%',
-                          height: '650px',
-                          border: '1px solid #cbd5e1',
-                          borderRadius: '8px',
-                          background: '#f8fafc'
-                        }}
-                      />
-                    ) : (
-                      <div 
-                        id="printable-dynamic-report"
-                        className="compiled-report-html-frame"
-                        style={{
-                          background: '#ffffff',
-                          borderRadius: '8px',
-                          boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
-                          overflow: 'auto',
-                          padding: '24px',
-                          border: '1px solid #cbd5e1',
-                          display: 'flex',
-                          justifyContent: 'center',
-                          alignItems: 'center'
-                        }}
-                        dangerouslySetInnerHTML={{ __html: compiledReportCardHtml }}
-                      />
-                    )}
+                    <div 
+                      id="printable-dynamic-report"
+                      className="compiled-report-html-frame"
+                      style={{
+                        background: '#ffffff',
+                        borderRadius: '8px',
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+                        overflow: 'auto',
+                        padding: '24px',
+                        border: '1px solid #cbd5e1',
+                        display: 'flex',
+                        justifyContent: 'center',
+                        alignItems: 'center'
+                      }}
+                      dangerouslySetInnerHTML={{ __html: compiledReportCardHtml }}
+                    />
                   </div>
                 ) : (
                   <div className="glass-panel" style={{ padding: '80px', textAlign: 'center', color: 'var(--text-muted)' }}>

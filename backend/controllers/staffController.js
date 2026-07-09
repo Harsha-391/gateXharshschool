@@ -49,11 +49,13 @@ export const registerTeacher = async (req, res) => { // Keep export name registe
   try {
     const {
       firstName, middleName, lastName, email, phone, gender, dob, bloodGroup, nationality, maritalStatus,
-      aadhaarNumber, panNumber, joiningDate, employmentType, designation, department, primarySubject, secondarySubject,
+      aadhaarNumber, panNumber, joiningDate, employmentType, department, primarySubject, secondarySubject,
       alternateMobile, currentAddress, currentCity, currentState, currentCountry, currentPostalCode, permanentAddress,
       permanentCity, permanentState, permanentCountry, permanentPostalCode, sameAsPermanent, qualification, experience,
-      experiences, salary, username, password
+      experiences, salary, username, password, role
     } = req.body;
+
+    const activeRole = role;
 
     const derivedFullName = [firstName, middleName, lastName].filter(Boolean).join(' ');
     if (!derivedFullName) {
@@ -123,7 +125,7 @@ export const registerTeacher = async (req, res) => { // Keep export name registe
       try { parsedExperiences = JSON.parse(experiences); } catch (e) { parsedExperiences = []; }
     }
 
-    const targetRoleId = mapDesignationToRoleId(designation, db.roles || getDefaultRoles());
+    const targetRoleId = mapDesignationToRoleId(activeRole, db.roles || getDefaultRoles());
 
     const newStaff = {
       id: employeeId,
@@ -145,8 +147,7 @@ export const registerTeacher = async (req, res) => { // Keep export name registe
       panNumber: panNumber ? encrypt(panNumber) : '',
       joiningDate: joiningDate || new Date().toISOString().split('T')[0],
       employmentType: employmentType || 'Full-Time',
-      designation: designation || 'Receptionist',
-      role: designation || 'Receptionist',
+      role: activeRole || 'Receptionist',
       department: department || 'Administration',
       primarySubject: primarySubject || '',
       secondarySubject: secondarySubject || '',
@@ -215,7 +216,7 @@ export const registerTeacher = async (req, res) => { // Keep export name registe
       updatedAt: new Date().toISOString()
     });
 
-    addActivity(db, 'registration', 'New Staff Registered', `${derivedFullName} joined the school as ${designation}.`, 'hsl(var(--color-primary))', 'rgba(hsl(var(--color-primary)), 0.1)');
+    addActivity(db, 'registration', 'New Staff Registered', `${derivedFullName} joined the school as ${activeRole}.`, 'hsl(var(--color-primary))', 'rgba(hsl(var(--color-primary)), 0.1)');
     writeDb(db);
     logAudit('Register Staff', `Staff: ${derivedFullName} (ID: ${employeeId})`, `Registered new staff member.`, req);
 
@@ -227,7 +228,7 @@ export const registerTeacher = async (req, res) => { // Keep export name registe
         fullName: derivedFullName,
         username: generatedUsername,
         password: password || 'staff123',
-        role: designation
+        role: activeRole
       }
     });
   } catch (error) {
@@ -262,6 +263,7 @@ export const getTeachers = (req, res) => { // Keep getTeachers naming for compat
       employmentType = 'All',
       status = 'All',
       designation = 'All',
+      role = 'All',
       sortBy = 'name',
       sortOrder = 'asc',
       page = 1,
@@ -290,8 +292,9 @@ export const getTeachers = (req, res) => { // Keep getTeachers naming for compat
       decryptedList = decryptedList.filter(s => s.status === status);
     }
 
-    if (designation && designation !== 'All') {
-      decryptedList = decryptedList.filter(s => s.role === designation || s.designation === designation);
+    const activeRoleFilter = role !== 'All' ? role : designation;
+    if (activeRoleFilter && activeRoleFilter !== 'All') {
+      decryptedList = decryptedList.filter(s => s.role === activeRoleFilter);
     }
 
     // Apply sorting
@@ -427,8 +430,7 @@ export const updateTeacher = async (req, res) => { // Keep updateTeacher naming 
       ifscCode: updateData.ifscCode !== undefined ? encrypt(updateData.ifscCode) : currentStaff.ifscCode,
       accountHolder: updateData.accountHolder !== undefined ? encrypt(updateData.accountHolder) : currentStaff.accountHolder,
       upiId: updateData.upiId !== undefined ? encrypt(updateData.upiId) : currentStaff.upiId,
-      designation: updateData.designation || currentStaff.designation,
-      role: updateData.designation || currentStaff.role,
+      role: updateData.role || currentStaff.role,
       updatedAt: new Date().toISOString()
     };
 
@@ -436,7 +438,7 @@ export const updateTeacher = async (req, res) => { // Keep updateTeacher naming 
 
     if (!db.userAccess) db.userAccess = [];
     const accessIndex = db.userAccess.findIndex(ua => ua.userId === staffId && ua.userType === 'Staff');
-    const targetRoleId = mapDesignationToRoleId(updatedStaff.designation, db.roles || getDefaultRoles());
+    const targetRoleId = mapDesignationToRoleId(updatedStaff.role, db.roles || getDefaultRoles());
     
     if (accessIndex === -1) {
       db.userAccess.push({

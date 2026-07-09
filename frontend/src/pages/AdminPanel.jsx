@@ -65,14 +65,10 @@ const AttendanceHistoryView = lazy(() => import('./AdminAttendanceViews').then(m
 const CollectFeesView = lazy(() => import('./AccountantPanel').then(m => ({ default: m.CollectFeesView })));
 const FeeStructureView = lazy(() => import('./AccountantPanel').then(m => ({ default: m.FeeStructureView })));
 const FeesHistoryView = lazy(() => import('./AccountantPanel').then(m => ({ default: m.FeesHistoryView })));
-const PayrollView = lazy(() => import('./AccountantPanel').then(m => ({ default: m.PayrollView })));
-const TeacherSalaryStructureView = lazy(() => import('./AccountantPanel').then(m => ({ default: m.TeacherSalaryStructureView })));
 const ExpensesView = lazy(() => import('./AccountantPanel').then(m => ({ default: m.ExpensesView })));
 const ReportsView = lazy(() => import('./AccountantPanel').then(m => ({ default: m.ReportsView })));
-const StaffPaymentsView = lazy(() => import('./AccountantPanel').then(m => ({ default: m.StaffPaymentsView })));
-const StaffPaymentStructureView = lazy(() => import('./AccountantPanel').then(m => ({ default: m.StaffPaymentStructureView })));
-const PayrollHistoryView = lazy(() => import('./AccountantPanel').then(m => ({ default: m.PayrollHistoryView })));
-const PayrollHub = lazy(() => import('./AccountantPanel').then(m => ({ default: m.PayrollHub })));
+const PayrollHistoryView = lazy(() => import('./PayrollRedesign').then(m => ({ default: m.PayrollHistoryViewRedesign })));
+const PayrollHub = lazy(() => import('./PayrollRedesign').then(m => ({ default: m.PayrollHubRedesign })));
 
 // ─── Overview Stats Card (Theme-Aware) ──────────────────────────────────────
 function GenderRatioBar({ maleCount, femaleCount, total }) {
@@ -405,7 +401,7 @@ export default function AdminPanel({ setActiveView, onLogout, adminView, setAdmi
 
       if (staffRes.ok) {
         const data = await staffRes.json();
-        const list = Array.isArray(data) ? data : (data.staff || []);
+        const list = Array.isArray(data) ? data : (data.teachers || data.staff || []);
         staffStats = {
           total: list.length,
           male: list.filter(s => (s.gender || '').toLowerCase() === 'male').length,
@@ -1072,39 +1068,15 @@ export default function AdminPanel({ setActiveView, onLogout, adminView, setAdmi
         </KeepAlive>
 
         <KeepAlive active={adminView === 'staff-payroll-hub'}>
-          <PayrollHub title="Staff" type="Staff" onSelectPayroll={() => setAdminView('staff-payroll')} onSelectStructure={() => setAdminView('staff-pay-structure')} />
+          <PayrollHub type="Staff" showToast={showToast} />
         </KeepAlive>
 
         <KeepAlive active={adminView === 'teacher-payroll-hub'}>
-          <PayrollHub title="Teacher" type="Teacher" onSelectPayroll={() => setAdminView('teacher-payroll')} onSelectStructure={() => setAdminView('teacher-pay-structure')} />
+          <PayrollHub type="Teacher" showToast={showToast} />
         </KeepAlive>
 
         <KeepAlive active={adminView === 'employee-payroll-hub'}>
-          <PayrollHub title="Employee" type="Employee" onSelectPayroll={() => setAdminView('employee-payroll')} onSelectStructure={() => setAdminView('employee-pay-structure')} />
-        </KeepAlive>
-
-        <KeepAlive active={adminView === 'staff-payroll'}>
-          <PayrollView showToast={showToast} type="Staff" />
-        </KeepAlive>
-
-        <KeepAlive active={adminView === 'staff-pay-structure'}>
-          <StaffPaymentStructureView showToast={showToast} type="Staff" />
-        </KeepAlive>
-
-        <KeepAlive active={adminView === 'teacher-payroll'}>
-          <PayrollView showToast={showToast} type="Teacher" />
-        </KeepAlive>
-
-        <KeepAlive active={adminView === 'teacher-pay-structure'}>
-          <TeacherSalaryStructureView showToast={showToast} />
-        </KeepAlive>
-
-        <KeepAlive active={adminView === 'employee-payroll'}>
-          <StaffPaymentsView showToast={showToast} />
-        </KeepAlive>
-
-        <KeepAlive active={adminView === 'employee-pay-structure'}>
-          <StaffPaymentStructureView showToast={showToast} type="Employee" />
+          <PayrollHub type="Employee" showToast={showToast} />
         </KeepAlive>
 
         <KeepAlive active={adminView === 'payroll-history'}>

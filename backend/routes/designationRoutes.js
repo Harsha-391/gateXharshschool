@@ -28,7 +28,7 @@ const logAudit = (db, req, action, details) => {
 // Check reference usages before deleting designation
 const checkDesignationUsage = (db, designationName) => {
   // 1. Check Staff table
-  const hasStaff = (db.staff || []).some(s => s.designation === designationName);
+  const hasStaff = (db.staff || []).some(s => s.role === designationName);
   if (hasStaff) return 'This designation is currently assigned to one or more staff members.';
 
   // 2. Check Employees table
@@ -165,7 +165,7 @@ router.put('/:id', checkPermission('designation-manager', 'edit'), (req, res) =>
       
       if (db.staff) {
         db.staff.forEach(s => {
-          if (s.designation === oldName) s.designation = newName;
+          if (s.role === oldName) s.role = newName;
         });
       }
       if (db.employees) {

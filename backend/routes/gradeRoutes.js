@@ -1,4 +1,6 @@
 import express from 'express';
+import fs from 'fs';
+import path from 'path';
 import { readDb, writeDb, slugify, convertToRoman, tenantStorage, restoreTenantContext, ensureTenantSqlLoaded } from '../utils/db.js';
 import { auth } from '../middleware/auth.js';
 import { logAudit as fileLogAudit } from '../utils/logger.js';

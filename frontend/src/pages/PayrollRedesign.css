@@ -1,0 +1,91 @@
+/* Payroll Redesign Styling Overrides for Dark Theme Compatibility */
+
+/* Container and background card overrides */
+[data-theme='dark'] .payroll-module-container,
+[data-theme='dark'] div[style*="background: '#ffffff'"],
+[data-theme='dark'] div[style*='background: "#ffffff"'],
+[data-theme='dark'] div[style*="background: rgb(255, 255, 255)"],
+[data-theme='dark'] div[style*="background-color: rgb(255, 255, 255)"],
+[data-theme='dark'] div[style*="background: '#fff'"],
+[data-theme='dark'] div[style*="background: rgb(255,255,255)"] {
+  background: var(--bg-dropdown) !important;
+  color: var(--text-main) !important;
+  border-color: var(--border-glass) !important;
+}
+
+/* Select inputs, search inputs, and period headers */
+[data-theme='dark'] select,
+[data-theme='dark'] input,
+[data-theme='dark'] div[style*="background: '#f8fafc'"],
+[data-theme='dark'] div[style*='background: "#f8fafc"'],
+[data-theme='dark'] div[style*="background: rgb(248, 250, 252)"],
+[data-theme='dark'] tr[style*="background: '#f8fafc'"],
+[data-theme='dark'] tr[style*='background: "#f8fafc"'],
+[data-theme='dark'] tr[style*="background: rgb(248, 250, 252)"] {
+  background: var(--bg-form) !important;
+  color: var(--text-main) !important;
+  border-color: var(--border-glass) !important;
+}
+
+/* Ensure alternate table rows striped background is dark theme compatible */
+[data-theme='dark'] tr {
+  border-bottom-color: var(--border-glass) !important;
+}
+[data-theme='dark'] tr[style*="background: '#ffffff'"],
+[data-theme='dark'] tr[style*='background: "#ffffff"'],
+[data-theme='dark'] tr[style*="background: rgb(255, 255, 255)"] {
+  background: var(--bg-dropdown) !important;
+}
+[data-theme='dark'] tr[style*="background: '#f8fafc'"],
+[data-theme='dark'] tr[style*='background: "#f8fafc"'],
+[data-theme='dark'] tr[style*="background: rgb(248, 250, 252)"] {
+  background: var(--bg-card-muted) !important;
+}
+
+/* Border overrides */
+[data-theme='dark'] div,
+[data-theme='dark'] td,
+[data-theme='dark'] th,
+[data-theme='dark'] table {
+  border-color: var(--border-glass) !important;
+}
+
+/* Typography color overrides */
+[data-theme='dark'] span[style*="color: '#0f172a'"],
+[data-theme='dark'] span[style*='color: "#0f172a"'],
+[data-theme='dark'] span[style*="color: rgb(15, 23, 42)"],
+[data-theme='dark'] label[style*="color: '#475569'"],
+[data-theme='dark'] label[style*='color: "#475569"'],
+[data-theme='dark'] label[style*="color: rgb(71, 85, 105)"],
+[data-theme='dark'] h2,
+[data-theme='dark'] h3,
+[data-theme='dark'] h4,
+[data-theme='dark'] th,
+[data-theme='dark'] td {
+  color: var(--text-main) !important;
+}
+
+[data-theme='dark'] span[style*="color: '#334155'"],
+[data-theme='dark'] span[style*='color: "#334155"'],
+[data-theme='dark'] span[style*="color: rgb(51, 65, 85)"],
+[data-theme='dark'] td[style*="color: '#334155'"],
+[data-theme='dark'] td[style*='color: "#334155"'],
+[data-theme='dark'] td[style*="color: rgb(51, 65, 85)"] {
+  color: var(--text-muted) !important;
+}
+
+/* Active filter buttons (e.g. Staff Roles buttons) */
+[data-theme='dark'] button[style*="background: '#ffffff'"],
+[data-theme='dark'] button[style*='background: "#ffffff"'],
+[data-theme='dark'] button[style*="background: rgb(255, 255, 255)"] {
+  background: var(--bg-dropdown) !important;
+  color: var(--text-main) !important;
+  border-color: var(--border-glass) !important;
+}
+[data-theme='dark'] button[style*="background: '#0f172a'"],
+[data-theme='dark'] button[style*='background: "#0f172a"'],
+[data-theme='dark'] button[style*="background: rgb(15, 23, 42)"] {
+  background: var(--bg-elevated) !important;
+  color: var(--text-inverse) !important;
+  border-color: var(--text-main) !important;
+}

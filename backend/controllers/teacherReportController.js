@@ -111,7 +111,7 @@ export const adminGetReports = async (req, res) => {
     const { search, status, reportType, fromDate, toDate } = req.query;
 
     let queryStr = `
-      SELECT tr.*, t.fullName AS teacherName, t.id AS teacherEmployeeId, t.photo AS teacherPhoto, t.department AS teacherDepartment, t.designation AS teacherDesignation
+      SELECT tr.*, t.fullName AS teacherName, t.id AS teacherEmployeeId, t.photo AS teacherPhoto, t.department AS teacherDepartment, t.role AS teacherDesignation
       FROM teacher_reports tr
       JOIN teachers t ON tr.teacherId = t.id
       WHERE tr.tenantId = ?
