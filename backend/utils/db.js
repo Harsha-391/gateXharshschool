@@ -1562,6 +1562,74 @@ export const initializeOnboardedSchoolDatabase = async (subdomain) => {
   }
 };
 
+const ensureSubdomainsRegistered = async (masterPool) => {
+  try {
+    const [existingRows] = await masterPool.query("SELECT * FROM schools");
+    if (!existingRows || existingRows.length === 0) {
+      return;
+    }
+    const existing = existingRows[0];
+    const targets = [
+      'gatexharshschool-0udg',
+      'gatexharshschool-8udg',
+      'gatexharshschool-qud',
+      'gatexharshschool-0vd',
+      'gatexharshschool-0ud',
+      'gatexharshschool-8ud',
+      'gatexharshschool-8vd',
+      'gatexharshschool-0vdg',
+      'gatexharshschool'
+    ];
+    for (const sub of targets) {
+      const exists = existingRows.some(s => s.subdomain && s.subdomain.toLowerCase().trim() === sub.toLowerCase().trim());
+      if (!exists) {
+        console.log(`[SQL Init] Auto-registering missing subdomain for Render/Local: ${sub}`);
+        const id = `SCH-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+        const dbName = `school_${sub}`;
+        await masterPool.query(
+          `INSERT INTO schools 
+           (id, name, code, subdomain, logo, principalName, email, phone, address, city, state, country, 
+            academicSession, subscriptionPlan, url, status, adminName, adminEmail, adminUsername, adminPassword, 
+            ratePerStudent, examTypes, eventTypes, noticeCategories, holidayClassifications, createdAt, updatedAt, dbName) 
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            id,
+            `GateXHarshSchool ${sub.split('-')[1] || ''}`,
+            `SCH-${Math.floor(100 + Math.random() * 900)}`,
+            sub,
+            existing.logo,
+            existing.principalName,
+            existing.email,
+            existing.phone,
+            existing.address,
+            existing.city,
+            existing.state,
+            existing.country,
+            existing.academicSession,
+            existing.subscriptionPlan,
+            `https://${sub}.onrender.com`,
+            'Active',
+            existing.adminName,
+            existing.adminEmail,
+            existing.adminUsername,
+            existing.adminPassword,
+            existing.ratePerStudent,
+            existing.examTypes,
+            existing.eventTypes,
+            existing.noticeCategories,
+            existing.holidayClassifications,
+            new Date().toISOString(),
+            new Date().toISOString(),
+            dbName
+          ]
+        );
+      }
+    }
+  } catch (err) {
+    console.error('[SQL Init ERROR] Failed in ensureSubdomainsRegistered:', err.message);
+  }
+};
+
 // Initial database check called on server boot
 export const initSqlDb = async () => {
   const isConnected = await sqlDb.testConnection();
@@ -1608,6 +1676,9 @@ export const initSqlDb = async () => {
     } catch (err) {
       console.warn('[SQL Migration WARNING] Master DB roles/user_access migration warning:', err.message);
     }
+
+    // Auto-register missing subdomains
+    await ensureSubdomainsRegistered(masterPool);
 
     // 2. Fetch all registered schools
     const schools = await sqlDb.query("SELECT id, subdomain, dbName FROM schools", [], 'platform');
@@ -2670,115 +2741,108 @@ export const ensureTenantSqlLoaded = async (req, res, next) => {
     return next(); // Fail-safe fallback to local JSON file operations
   }
 
-  let tenantId = req.headers['x-tenant-id'] || req.query.tenantId;
-  if (!tenantId && req.headers.host) {
-    const host = req.headers.host.split(':')[0]; // Remove port
-    // Skip tenant parsing for IP addresses (e.g. 127.0.0.1, 192.168.x.x)
-    const isIp = /^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$/.test(host);
-    if (!isIp) {
-      const parts = host.split('.');
-      if (parts.length > 2 || (parts.length === 2 && parts[1] === 'localhost')) {
-        tenantId = parts[0];
-      } else if (parts.length === 1 && !['localhost', 'platform', 'www', 'admin'].includes(parts[0].toLowerCase())) {
-        tenantId = parts[0];
-      }
-    }
-  }
-
-  if (tenantId && !isSubdomainRegistered(tenantId)) {
-    tenantId = null;
-  }
-
-  const activeTenant = tenantId ? slugify(tenantId) : 'platform';
-  
-  const now = Date.now();
-  const cachedData = dbCache[activeTenant];
-  const lastCheck = lastCheckTimes[activeTenant];
-  const hasValidCache = cachedData && lastCheck && (now - lastCheck < 30000);
-  const hasValidPlatform = dbCache['platform'] && lastCheckTimes['platform'] && (now - lastCheckTimes['platform'] < 30000);
-
-  if (hasValidCache && (activeTenant === 'platform' || hasValidPlatform)) {
-    return next();
-  }
-
   try {
-    // 1. Validate both platform schools and active tenant context in parallel
-    const promises = [
-      sqlDb.query('SELECT id, subdomain, status, name, code FROM schools')
-    ];
-    if (activeTenant !== 'platform') {
-      promises.push(sqlDb.query('SELECT updatedAt FROM schools WHERE subdomain = ?', [activeTenant]));
-    }
-    const [schoolRows, tenantRows] = await Promise.all(promises);
+    const now = Date.now();
 
-    lastCheckTimes['platform'] = now;
-    if (activeTenant !== 'platform') {
-      lastCheckTimes[activeTenant] = now;
-    }
-
-    const platformSignature = schoolRows.map(s => `${s.id}-${s.subdomain || ''}-${s.status || ''}-${s.name || ''}-${s.code || ''}`).join('|');
-    
-    // Check if platform cache needs invalidation
-    if (!dbCache['platform'] || dbCache['platform']._signature !== platformSignature) {
-      if (activeLoads['platform']) {
-        await activeLoads['platform'];
-      } else {
-        console.log(`[SQL Cache] Invalidating platform cache (Local: ${dbCache['platform']?._signature || 'None'} != SQL: ${platformSignature})`);
-        activeLoads['platform'] = (async () => {
-          const data = await loadTenantSqlIntoMemory('platform');
-          if (data) {
-            data._signature = platformSignature;
-            dbCache['platform'] = data;
-          }
-        })();
-        try {
+    // 1. First, ensure platform cache is loaded and valid so isSubdomainRegistered works reliably
+    const hasValidPlatform = dbCache['platform'] && lastCheckTimes['platform'] && (now - lastCheckTimes['platform'] < 30000);
+    if (!hasValidPlatform) {
+      const schoolRows = await sqlDb.query('SELECT id, subdomain, status, name, code FROM schools');
+      const platformSignature = schoolRows.map(s => `${s.id}-${s.subdomain || ''}-${s.status || ''}-${s.name || ''}-${s.code || ''}`).join('|');
+      
+      if (!dbCache['platform'] || dbCache['platform']._signature !== platformSignature) {
+        if (activeLoads['platform']) {
           await activeLoads['platform'];
-        } finally {
-          delete activeLoads['platform'];
+        } else {
+          console.log(`[SQL Cache] Invalidating platform cache (Local: ${dbCache['platform']?._signature || 'None'} != SQL: ${platformSignature})`);
+          activeLoads['platform'] = (async () => {
+            const data = await loadTenantSqlIntoMemory('platform');
+            if (data) {
+              data._signature = platformSignature;
+              dbCache['platform'] = data;
+            }
+          })();
+          try {
+            await activeLoads['platform'];
+          } finally {
+            delete activeLoads['platform'];
+          }
+        }
+      }
+      lastCheckTimes['platform'] = now;
+    }
+
+    // 2. Parse tenant ID from request headers or query params
+    let tenantId = req.headers['x-tenant-id'] || req.query.tenantId;
+    if (!tenantId && req.headers.host) {
+      const host = req.headers.host.split(':')[0]; // Remove port
+      // Skip tenant parsing for IP addresses (e.g. 127.0.0.1, 192.168.x.x)
+      const isIp = /^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$/.test(host);
+      if (!isIp) {
+        const parts = host.split('.');
+        if (parts.length > 2 || (parts.length === 2 && parts[1] === 'localhost')) {
+          tenantId = parts[0];
+        } else if (parts.length === 1 && !['localhost', 'platform', 'www', 'admin'].includes(parts[0].toLowerCase())) {
+          tenantId = parts[0];
         }
       }
     }
 
-    // 2. Validate and load tenant cache if we are inside a tenant context
-    if (activeTenant !== 'platform') {
-      const dbUpdatedAt = tenantRows[0]?.updatedAt || '';
-      
-      const dbUpdatedAtStr = dbUpdatedAt instanceof Date ? dbUpdatedAt.toISOString() : (dbUpdatedAt || '');
-      const localUpdatedAtStr = (dbCache[activeTenant] && dbCache[activeTenant]._updatedAt)
-        ? (dbCache[activeTenant]._updatedAt instanceof Date ? dbCache[activeTenant]._updatedAt.toISOString() : dbCache[activeTenant]._updatedAt)
-        : '';
+    // 3. Verify registered subdomain status using fresh platform cache
+    if (tenantId && !isSubdomainRegistered(tenantId)) {
+      tenantId = null;
+    }
 
-      if (!dbCache[activeTenant] || localUpdatedAtStr !== dbUpdatedAtStr) {
-        if (activeLoads[activeTenant]) {
-          await activeLoads[activeTenant];
-        } else {
-          console.log(`[SQL Cache] Invalidating cache for tenant: ${activeTenant} (Local: ${localUpdatedAtStr} != SQL: ${dbUpdatedAtStr})`);
-          activeLoads[activeTenant] = (async () => {
-            try {
-              const data = await loadTenantSqlIntoMemory(activeTenant);
-              if (data) {
-                data._updatedAt = dbUpdatedAt;
-                dbCache[activeTenant] = data;
-              }
-            } catch (loadErr) {
-              console.warn(`[SQL Cache] Tenant database '${activeTenant}' failed to load (probably missing or uninitialized). Provisioning database on the fly... Error: ${loadErr.message}`);
+    const activeTenant = tenantId ? slugify(tenantId) : 'platform';
+
+    // 4. Validate and load active tenant cache
+    if (activeTenant !== 'platform') {
+      const cachedData = dbCache[activeTenant];
+      const lastCheck = lastCheckTimes[activeTenant];
+      const hasValidCache = cachedData && lastCheck && (now - lastCheck < 30000);
+
+      if (!hasValidCache) {
+        const tenantRows = await sqlDb.query('SELECT updatedAt FROM schools WHERE subdomain = ?', [activeTenant]);
+        lastCheckTimes[activeTenant] = now;
+
+        const dbUpdatedAt = tenantRows[0]?.updatedAt || '';
+        const dbUpdatedAtStr = dbUpdatedAt instanceof Date ? dbUpdatedAt.toISOString() : (dbUpdatedAt || '');
+        const localUpdatedAtStr = (dbCache[activeTenant] && dbCache[activeTenant]._updatedAt)
+          ? (dbCache[activeTenant]._updatedAt instanceof Date ? dbCache[activeTenant]._updatedAt.toISOString() : dbCache[activeTenant]._updatedAt)
+          : '';
+
+        if (!dbCache[activeTenant] || localUpdatedAtStr !== dbUpdatedAtStr) {
+          if (activeLoads[activeTenant]) {
+            await activeLoads[activeTenant];
+          } else {
+            console.log(`[SQL Cache] Invalidating cache for tenant: ${activeTenant} (Local: ${localUpdatedAtStr} != SQL: ${dbUpdatedAtStr})`);
+            activeLoads[activeTenant] = (async () => {
               try {
-                await initializeOnboardedSchoolDatabase(activeTenant);
                 const data = await loadTenantSqlIntoMemory(activeTenant);
                 if (data) {
                   data._updatedAt = dbUpdatedAt;
                   dbCache[activeTenant] = data;
                 }
-              } catch (provErr) {
-                console.error(`[SQL Cache] On-the-fly provisioning failed for tenant '${activeTenant}':`, provErr.message);
-                throw provErr;
+              } catch (loadErr) {
+                console.warn(`[SQL Cache] Tenant database '${activeTenant}' failed to load (probably missing or uninitialized). Provisioning database on the fly... Error: ${loadErr.message}`);
+                try {
+                  await initializeOnboardedSchoolDatabase(activeTenant);
+                  const data = await loadTenantSqlIntoMemory(activeTenant);
+                  if (data) {
+                    data._updatedAt = dbUpdatedAt;
+                    dbCache[activeTenant] = data;
+                  }
+                } catch (provErr) {
+                  console.error(`[SQL Cache] On-the-fly provisioning failed for tenant '${activeTenant}':`, provErr.message);
+                  throw provErr;
+                }
               }
+            })();
+            try {
+              await activeLoads[activeTenant];
+            } finally {
+              delete activeLoads[activeTenant];
             }
-          })();
-          try {
-            await activeLoads[activeTenant];
-          } finally {
-            delete activeLoads[activeTenant];
           }
         }
       }
