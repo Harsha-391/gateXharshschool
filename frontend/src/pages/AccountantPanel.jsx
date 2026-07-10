@@ -5726,6 +5726,56 @@ export function ReportsView({ showToast, setAccountantView }) {
   const totalPendingFees = fees.reduce((sum, f) => sum + (f.dueAmount || 0), 0);
   const totalAuxiliaryIncome = income.reduce((sum, i) => sum + (i.amount || 0), 0);
 
+  // 1. Fee Collection Breakdown (Tuition Fee & Transport Fee Real-Time)
+  const tuitionCollected = fees.filter(f => f.feeType === 'Tuition Fee').reduce((sum, f) => sum + (f.paidAmount || 0), 0);
+  const tuitionPending = fees.filter(f => f.feeType === 'Tuition Fee').reduce((sum, f) => sum + (f.dueAmount || 0), 0);
+  
+  const transportCollected = fees.filter(f => f.feeType === 'Transport Fee').reduce((sum, f) => sum + (f.paidAmount || 0), 0);
+  const transportPending = fees.filter(f => f.feeType === 'Transport Fee').reduce((sum, f) => sum + (f.dueAmount || 0), 0);
+
+  const otherFeesCollected = fees.filter(f => f.feeType !== 'Tuition Fee' && f.feeType !== 'Transport Fee').reduce((sum, f) => sum + (f.paidAmount || 0), 0);
+  const otherFeesPending = fees.filter(f => f.feeType !== 'Tuition Fee' && f.feeType !== 'Transport Fee').reduce((sum, f) => sum + (f.dueAmount || 0), 0);
+
+  // 2. Category-Wise Expenses
+  const expenseCategories = {};
+  expenses.filter(e => !e.deleted).forEach(e => {
+    const cat = e.category || 'Operations';
+    expenseCategories[cat] = (expenseCategories[cat] || 0) + (e.amount || 0);
+  });
+  const totalExpenseSum = Object.values(expenseCategories).reduce((sum, v) => sum + v, 0);
+
+  // 3. Category-Wise Auxiliary Income
+  const auxiliarySources = {};
+  income.forEach(i => {
+    const src = i.source || 'Other Inflow';
+    auxiliarySources[src] = (auxiliarySources[src] || 0) + (i.amount || 0);
+  });
+  const totalAuxSum = Object.values(auxiliarySources).reduce((sum, v) => sum + v, 0);
+
+  // 4. Payroll segments
+  // - Teacher Payroll (from state 'payroll' which represents processed teacher salary vouchers)
+  const teacherPayrollPaid = payroll.reduce((sum, p) => sum + (p.netSalary || 0), 0);
+  const teacherPayrollBasic = payroll.reduce((sum, p) => sum + (p.basicSalary || 0), 0);
+  const teacherPayrollAllow = payroll.reduce((sum, p) => sum + ((p.allowances || 0) + (p.bonus || 0)), 0);
+  const teacherPayrollDeduct = payroll.reduce((sum, p) => sum + ((p.deductions || 0) + (p.pfDeduction || 0) + (p.taxDeduction || 0)), 0);
+  const teacherPayrollCount = payroll.length;
+
+  // - Staff Payments (from state 'staffPayments')
+  const staffPaymentsList = staffPayments.filter(p => p.staffRole === 'Staff' || p.staffId?.startsWith('STF-'));
+  const staffPayrollPaid = staffPaymentsList.reduce((sum, p) => sum + (p.netSalary || 0), 0);
+  const staffPayrollBasic = staffPaymentsList.reduce((sum, p) => sum + (p.basicSalary || 0), 0);
+  const staffPayrollAllow = staffPaymentsList.reduce((sum, p) => sum + ((p.allowances || 0) + (p.bonus || 0)), 0);
+  const staffPayrollDeduct = staffPaymentsList.reduce((sum, p) => sum + ((p.deductions || 0) + (p.pfDeduction || 0) + (p.taxDeduction || 0)), 0);
+  const staffPayrollCount = staffPaymentsList.length;
+
+  // - Employee Payments (the rest of the staffPaymentsList)
+  const employeePaymentsList = staffPayments.filter(p => p.staffRole !== 'Staff' && !p.staffId?.startsWith('STF-'));
+  const employeePayrollPaid = employeePaymentsList.reduce((sum, p) => sum + (p.netSalary || 0), 0);
+  const employeePayrollBasic = employeePaymentsList.reduce((sum, p) => sum + (p.basicSalary || 0), 0);
+  const employeePayrollAllow = employeePaymentsList.reduce((sum, p) => sum + ((p.allowances || 0) + (p.bonus || 0)), 0);
+  const employeePayrollDeduct = employeePaymentsList.reduce((sum, p) => sum + ((p.deductions || 0) + (p.pfDeduction || 0) + (p.taxDeduction || 0)), 0);
+  const employeePayrollCount = employeePaymentsList.length;
+
   const totalInflow = totalFeeCollections + totalAuxiliaryIncome;
   const totalOutflow = totalPayrollPaid + totalOperationalExpenses;
   const netProfit = totalInflow - totalOutflow;
@@ -6214,173 +6264,121 @@ export function ReportsView({ showToast, setAccountantView }) {
         </div>
       </div>
 
-      {/* 3. Circular SVG Gauges & Ratios Row */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '24px' }}>
+      {/* 3. Professional SaaS Financial Analytics Cockpit */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: '24px' }}>
         
-        {/* SVG Gauge 1: Financial Health Score */}
-        <div className="glass-panel" style={{ padding: '24px', borderRadius: '16px', display: 'flex', alignItems: 'center', gap: '20px' }}>
-          <div style={{ position: 'relative', width: '100px', height: '100px' }}>
-            <svg width="100" height="100" viewBox="0 0 100 100">
-              <circle cx="50" cy="50" r="40" stroke="rgba(255,255,255,0.03)" strokeWidth="8" fill="transparent" />
-              <circle cx="50" cy="50" r="40" 
-                stroke={healthScore > 80 ? '#10b981' : healthScore > 50 ? '#f59e0b' : '#ef4444'} 
-                strokeWidth="8" 
-                fill="transparent" 
-                strokeDasharray="251.2"
-                strokeDashoffset={251.2 - (251.2 * healthScore) / 100}
-                strokeLinecap="round"
-                style={{ transition: 'stroke-dashoffset 0.8s ease-in-out' }}
-              />
-            </svg>
-            <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', textAlign: 'center' }}>
-              <span style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-main)' }}>{healthScore}</span>
-              <span style={{ fontSize: '0.55rem', display: 'block', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>Index</span>
-            </div>
-          </div>
-          <div style={{ flex: 1 }}>
-            <h4 style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--text-main)', margin: '0 0 4px 0' }}>Financial Health Score</h4>
-            <span style={{ 
-              fontSize: '0.7rem', 
-              fontWeight: 700, 
-              color: healthScore > 80 ? '#10b981' : healthScore > 50 ? '#f59e0b' : '#ef4444',
-              background: healthScore > 80 ? 'rgba(16,185,129,0.08)' : healthScore > 50 ? 'rgba(245,158,11,0.08)' : 'rgba(239,68,68,0.08)',
-              padding: '2px 8px',
-              borderRadius: '12px',
-              display: 'inline-block'
-            }}>
-              {healthScore > 80 ? 'Excellent Status' : healthScore > 50 ? 'Moderate Health' : 'Needs Optimization'}
-            </span>
-            <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', margin: '8px 0 0 0', lineHeight: '1.4' }}>
-              Aggregate index computed from margins, collection rates, and overhead safety.
-            </p>
-          </div>
-        </div>
-
-        {/* SVG Gauge 2: Collection Efficiency */}
-        <div className="glass-panel" style={{ padding: '24px', borderRadius: '16px', display: 'flex', alignItems: 'center', gap: '20px' }}>
-          <div style={{ position: 'relative', width: '100px', height: '100px' }}>
-            <svg width="100" height="100" viewBox="0 0 100 100">
-              <circle cx="50" cy="50" r="40" stroke="rgba(255,255,255,0.03)" strokeWidth="8" fill="transparent" />
-              <circle cx="50" cy="50" r="40" 
-                stroke="#3b82f6" 
-                strokeWidth="8" 
-                fill="transparent" 
-                strokeDasharray="251.2"
-                strokeDashoffset={251.2 - (251.2 * collectionEfficiency) / 100}
-                strokeLinecap="round"
-                style={{ transition: 'stroke-dashoffset 0.8s ease-in-out' }}
-              />
-            </svg>
-            <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', textAlign: 'center' }}>
-              <span style={{ fontSize: '1.25rem', fontWeight: 800, color: '#3b82f6' }}>{collectionEfficiency}%</span>
-              <span style={{ fontSize: '0.55rem', display: 'block', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>Rate</span>
-            </div>
-          </div>
-          <div style={{ flex: 1 }}>
-            <h4 style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--text-main)', margin: '0 0 4px 0' }}>Collection Efficiency</h4>
-            <span style={{ 
-              fontSize: '0.7rem', 
-              fontWeight: 700, 
-              color: '#3b82f6',
-              background: 'rgba(59,130,246,0.08)',
-              padding: '2px 8px',
-              borderRadius: '12px',
-              display: 'inline-block'
-            }}>
-              ₹{totalFeeCollections.toLocaleString()} collected
-            </span>
-            <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', margin: '8px 0 0 0', lineHeight: '1.4' }}>
-              Ratio of collected tuition fees to total invoiced dues.
-            </p>
-          </div>
-        </div>
-
-        {/* Detailed Financial Ratios Grid */}
-        <div className="glass-panel" style={{ padding: '20px 24px', borderRadius: '16px', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: '10px' }}>
-          <h4 style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-main)', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 2px 0' }}>Operating Ratios</h4>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-            <div style={{ background: 'rgba(0,0,0,0.015)', padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--border-glass)' }}>
-              <span style={{ display: 'block', fontSize: '0.64rem', color: 'var(--text-muted)', fontWeight: 600 }}>Operating Margin</span>
-              <strong style={{ fontSize: '0.85rem', color: profitMargin >= 0 ? '#10b981' : '#ef4444' }}>{profitMargin}%</strong>
-            </div>
-            <div style={{ background: 'rgba(0,0,0,0.015)', padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--border-glass)' }}>
-              <span style={{ display: 'block', fontSize: '0.64rem', color: 'var(--text-muted)', fontWeight: 600 }}>Savings Rate</span>
-              <strong style={{ fontSize: '0.85rem', color: '#06b6d4' }}>{savingsRate}%</strong>
-            </div>
-            <div style={{ background: 'rgba(0,0,0,0.015)', padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--border-glass)' }}>
-              <span style={{ display: 'block', fontSize: '0.64rem', color: 'var(--text-muted)', fontWeight: 600 }}>Payroll Share</span>
-              <strong style={{ fontSize: '0.85rem', color: '#8b5cf6' }}>{payrollRatio}%</strong>
-            </div>
-            <div style={{ background: 'rgba(0,0,0,0.015)', padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--border-glass)' }}>
-              <span style={{ display: 'block', fontSize: '0.64rem', color: 'var(--text-muted)', fontWeight: 600 }}>OpEx Leverage</span>
-              <strong style={{ fontSize: '0.85rem', color: '#f59e0b' }}>{oerRatio}%</strong>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* 4. Analytics Charts */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: '24px' }}>
-        
-        {/* Cash Flow Analytics Trend */}
-        <div className="glass-panel" style={{ padding: '24px', borderRadius: '16px', display: 'flex', flexDirection: 'column' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '10px' }}>
-            <h3 style={{ fontSize: '0.92rem', fontWeight: 700, color: 'var(--text-main)', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <BarChart3 size={18} style={{ color: '#10b981' }} /> Cash Flow Trend
-            </h3>
-            <div style={{ display: 'flex', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-glass)', borderRadius: '8px', padding: '2px' }}>
-              {[
-                { key: 'daily', label: 'Daily' },
-                { key: 'monthly', label: 'Monthly' },
-                { key: 'yearly', label: 'Yearly' }
-              ].map(p => (
-                <button 
-                  key={p.key}
-                  onClick={() => setTrendPeriod(p.key)} 
-                  style={{
-                    border: 'none', 
-                    background: trendPeriod === p.key ? 'rgba(16,185,129,0.12)' : 'none',
-                    color: trendPeriod === p.key ? '#10b981' : 'var(--text-muted)',
-                    fontSize: '0.74rem', 
-                    fontWeight: 700, 
-                    padding: '4px 10px', 
-                    borderRadius: '6px', 
-                    cursor: 'pointer'
-                  }}
-                >
-                  {p.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', maxHeight: '300px', overflowY: 'auto', paddingRight: '4px' }}>
-            {trendData.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '40px 10px', color: 'var(--text-muted)', fontSize: '0.82rem', display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'center', justifyContent: 'center', flex: 1 }}>
-                <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>No transaction records</span>
-                <span>Trends will populate once data is logged</span>
+        {/* Card 1: Fee Collection Analytics (Tuition & Transport Fees Real-Time) */}
+        <div className="glass-panel animate-scale-up" style={{ padding: '24px', borderRadius: '16px', display: 'flex', flexDirection: 'column', gap: '16px', background: 'var(--bg-glass)', border: '1px solid var(--border-glass)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'rgba(59,130,246,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#3b82f6' }}>
+                <Receipt size={18} />
               </div>
-            ) : (
-              trendData.map((t, idx) => {
-                const inflowPercent = Math.round((t.inflow / maxOverall) * 100);
-                const outflowPercent = Math.round((t.outflow / maxOverall) * 100);
+              <div>
+                <h4 style={{ fontSize: '0.9rem', fontWeight: 800, color: 'var(--text-main)', margin: 0 }}>Fee Collection</h4>
+                <span style={{ fontSize: '0.66rem', color: 'var(--text-muted)' }}>Real-time billing & receipts</span>
+              </div>
+            </div>
+            <span style={{ fontSize: '0.66rem', fontWeight: 700, color: '#3b82f6', background: 'rgba(59,130,246,0.1)', padding: '4px 10px', borderRadius: '20px' }}>
+              Eff: {collectionEfficiency}%
+            </span>
+          </div>
 
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', borderBottom: '1px dashed var(--border-glass)', paddingBottom: '14px' }}>
+            <div>
+              <span style={{ fontSize: '0.64rem', color: 'var(--text-muted)', display: 'block', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Total Invoiced</span>
+              <strong style={{ fontSize: '1.45rem', fontWeight: 800, color: 'var(--text-main)' }}>₹{(totalFeeCollections + totalPendingFees).toLocaleString()}</strong>
+            </div>
+            <div style={{ textAlign: 'right' }}>
+              <span style={{ fontSize: '0.64rem', color: '#10b981', display: 'block', fontWeight: 700 }}>Collected</span>
+              <strong style={{ fontSize: '1.1rem', fontWeight: 800, color: '#10b981' }}>₹{totalFeeCollections.toLocaleString()}</strong>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            {/* Tuition Fee Segment */}
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.74rem', marginBottom: '4px' }}>
+                <span style={{ fontWeight: 700, color: 'var(--text-main)' }}>Tuition Fee</span>
+                <span style={{ color: 'var(--text-muted)' }}>
+                  <strong style={{ color: '#10b981' }}>₹{tuitionCollected.toLocaleString()}</strong> / ₹{(tuitionCollected + tuitionPending).toLocaleString()}
+                </span>
+              </div>
+              <div style={{ width: '100%', height: '6px', background: 'rgba(255,255,255,0.02)', borderRadius: '3px', overflow: 'hidden' }}>
+                <div style={{ width: `${(tuitionCollected + tuitionPending) > 0 ? Math.round((tuitionCollected / (tuitionCollected + tuitionPending)) * 100) : 0}%`, height: '100%', background: '#3b82f6', borderRadius: '3px' }} />
+              </div>
+            </div>
+
+            {/* Transport Fee Segment */}
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.74rem', marginBottom: '4px' }}>
+                <span style={{ fontWeight: 700, color: 'var(--text-main)' }}>Transport Fee</span>
+                <span style={{ color: 'var(--text-muted)' }}>
+                  <strong style={{ color: '#10b981' }}>₹{transportCollected.toLocaleString()}</strong> / ₹{(transportCollected + transportPending).toLocaleString()}
+                </span>
+              </div>
+              <div style={{ width: '100%', height: '6px', background: 'rgba(255,255,255,0.02)', borderRadius: '3px', overflow: 'hidden' }}>
+                <div style={{ width: `${(transportCollected + transportPending) > 0 ? Math.round((transportCollected / (transportCollected + transportPending)) * 100) : 0}%`, height: '100%', background: '#06b6d4', borderRadius: '3px' }} />
+              </div>
+            </div>
+
+            {/* Other Fees Segment */}
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.74rem', marginBottom: '4px' }}>
+                <span style={{ fontWeight: 700, color: 'var(--text-main)' }}>Other Fees</span>
+                <span style={{ color: 'var(--text-muted)' }}>
+                  <strong style={{ color: '#10b981' }}>₹{otherFeesCollected.toLocaleString()}</strong> / ₹{(otherFeesCollected + otherFeesPending).toLocaleString()}
+                </span>
+              </div>
+              <div style={{ width: '100%', height: '6px', background: 'rgba(255,255,255,0.02)', borderRadius: '3px', overflow: 'hidden' }}>
+                <div style={{ width: `${(otherFeesCollected + otherFeesPending) > 0 ? Math.round((otherFeesCollected / (otherFeesCollected + otherFeesPending)) * 100) : 0}%`, height: '100%', background: '#64748b', borderRadius: '3px' }} />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Card 2: Operating Expense Analytics (Category-Wise) */}
+        <div className="glass-panel animate-scale-up" style={{ padding: '24px', borderRadius: '16px', display: 'flex', flexDirection: 'column', gap: '16px', background: 'var(--bg-glass)', border: '1px solid var(--border-glass)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'rgba(239,68,68,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ef4444' }}>
+                <CreditCard size={18} />
+              </div>
+              <div>
+                <h4 style={{ fontSize: '0.9rem', fontWeight: 800, color: 'var(--text-main)', margin: 0 }}>Operating Expenses</h4>
+                <span style={{ fontSize: '0.66rem', color: 'var(--text-muted)' }}>Category-wise payouts</span>
+              </div>
+            </div>
+            <span style={{ fontSize: '0.66rem', fontWeight: 700, color: '#ef4444', background: 'rgba(239,68,68,0.1)', padding: '4px 10px', borderRadius: '20px' }}>
+              OpEx
+            </span>
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', borderBottom: '1px dashed var(--border-glass)', paddingBottom: '14px' }}>
+            <div>
+              <span style={{ fontSize: '0.64rem', color: 'var(--text-muted)', display: 'block', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Total Operating Cost</span>
+              <strong style={{ fontSize: '1.45rem', fontWeight: 800, color: '#ef4444' }}>₹{totalExpenseSum.toLocaleString()}</strong>
+            </div>
+            <div style={{ textAlign: 'right' }}>
+              <span style={{ fontSize: '0.64rem', color: 'var(--text-muted)', display: 'block' }}>Categories</span>
+              <strong style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-main)' }}>{Object.keys(expenseCategories).length}</strong>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxHeight: '180px', overflowY: 'auto', paddingRight: '4px' }}>
+            {Object.keys(expenseCategories).length === 0 ? (
+              <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)', textAlign: 'center', padding: '20px 0' }}>No logged expenses</span>
+            ) : (
+              Object.entries(expenseCategories).sort((a, b) => b[1] - a[1]).map(([cat, val]) => {
+                const pct = totalExpenseSum > 0 ? Math.round((val / totalExpenseSum) * 100) : 0;
                 return (
-                  <div key={idx} style={{ display: 'grid', gridTemplateColumns: '90px 1fr', alignItems: 'center', gap: '12px' }}>
-                    <span style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-muted)' }}>{t.label}</span>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <div style={{ width: '100%', height: '8px', background: 'rgba(255,255,255,0.02)', borderRadius: '4px', overflow: 'hidden' }}>
-                          <div style={{ width: `${inflowPercent}%`, height: '100%', background: 'linear-gradient(90deg, #10b981, #059669)', borderRadius: '4px' }} />
-                        </div>
-                        <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#10b981', minWidth: '60px' }}>₹{t.inflow.toLocaleString()}</span>
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <div style={{ width: '100%', height: '8px', background: 'rgba(255,255,255,0.02)', borderRadius: '4px', overflow: 'hidden' }}>
-                          <div style={{ width: `${outflowPercent}%`, height: '100%', background: 'linear-gradient(90deg, #ef4444, #dc2626)', borderRadius: '4px' }} />
-                        </div>
-                        <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#ef4444', minWidth: '60px' }}>₹{t.outflow.toLocaleString()}</span>
-                      </div>
+                  <div key={cat}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.74rem', marginBottom: '4px' }}>
+                      <span style={{ fontWeight: 700, color: 'var(--text-main)' }}>{cat}</span>
+                      <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}>₹{val.toLocaleString()} ({pct}%)</span>
+                    </div>
+                    <div style={{ width: '100%', height: '6px', background: 'rgba(255,255,255,0.02)', borderRadius: '3px', overflow: 'hidden' }}>
+                      <div style={{ width: `${pct}%`, height: '100%', background: '#ef4444', borderRadius: '3px' }} />
                     </div>
                   </div>
                 );
@@ -6389,64 +6387,48 @@ export function ReportsView({ showToast, setAccountantView }) {
           </div>
         </div>
 
-        {/* Real-Time Category Distribution */}
-        <div className="glass-panel" style={{ padding: '24px', borderRadius: '16px', display: 'flex', flexDirection: 'column' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-            <h3 style={{ fontSize: '0.92rem', fontWeight: 700, color: 'var(--text-main)', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <PieChart size={18} style={{ color: breakdownType === 'inflow' ? '#3b82f6' : '#8b5cf6' }} /> Category Wise Distribution
-            </h3>
-            <div style={{ display: 'flex', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-glass)', borderRadius: '8px', padding: '2px' }}>
-              <button 
-                onClick={() => setBreakdownType('inflow')} 
-                style={{
-                  border: 'none', 
-                  background: breakdownType === 'inflow' ? 'rgba(59,130,246,0.12)' : 'none',
-                  color: breakdownType === 'inflow' ? '#3b82f6' : 'var(--text-muted)',
-                  fontSize: '0.74rem', 
-                  fontWeight: 700, 
-                  padding: '4px 10px', 
-                  borderRadius: '6px', 
-                  cursor: 'pointer'
-                }}
-              >
-                Inflow Breakdown
-              </button>
-              <button 
-                onClick={() => setBreakdownType('outflow')} 
-                style={{
-                  border: 'none', 
-                  background: breakdownType === 'outflow' ? 'rgba(139,92,246,0.12)' : 'none',
-                  color: breakdownType === 'outflow' ? '#8b5cf6' : 'var(--text-muted)',
-                  fontSize: '0.74rem', 
-                  fontWeight: 700, 
-                  padding: '4px 10px', 
-                  borderRadius: '6px', 
-                  cursor: 'pointer'
-                }}
-              >
-                Outflow Breakdown
-              </button>
+        {/* Card 3: Auxiliary Income Analytics */}
+        <div className="glass-panel animate-scale-up" style={{ padding: '24px', borderRadius: '16px', display: 'flex', flexDirection: 'column', gap: '16px', background: 'var(--bg-glass)', border: '1px solid var(--border-glass)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'rgba(16,185,129,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#10b981' }}>
+                <TrendingUp size={18} />
+              </div>
+              <div>
+                <h4 style={{ fontSize: '0.9rem', fontWeight: 800, color: 'var(--text-main)', margin: 0 }}>Auxiliary Income</h4>
+                <span style={{ fontSize: '0.66rem', color: 'var(--text-muted)' }}>Non-fee channel distribution</span>
+              </div>
+            </div>
+            <span style={{ fontSize: '0.66rem', fontWeight: 700, color: '#10b981', background: 'rgba(16,185,129,0.1)', padding: '4px 10px', borderRadius: '20px' }}>
+              Active
+            </span>
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', borderBottom: '1px dashed var(--border-glass)', paddingBottom: '14px' }}>
+            <div>
+              <span style={{ fontSize: '0.64rem', color: 'var(--text-muted)', display: 'block', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Total Auxiliary Inflow</span>
+              <strong style={{ fontSize: '1.45rem', fontWeight: 800, color: '#10b981' }}>₹{totalAuxSum.toLocaleString()}</strong>
+            </div>
+            <div style={{ textAlign: 'right' }}>
+              <span style={{ fontSize: '0.64rem', color: 'var(--text-muted)', display: 'block' }}>Channels</span>
+              <strong style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-main)' }}>{Object.keys(auxiliarySources).length}</strong>
             </div>
           </div>
-          
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxHeight: '300px', overflowY: 'auto', paddingRight: '4px' }}>
-            {sortedBreakdown.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '40px 10px', color: 'var(--text-muted)', fontSize: '0.82rem', display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'center', justifyContent: 'center', flex: 1 }}>
-                <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>No distribution data</span>
-                <span>Values will show once ledger is populated</span>
-              </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxHeight: '180px', overflowY: 'auto', paddingRight: '4px' }}>
+            {Object.keys(auxiliarySources).length === 0 ? (
+              <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)', textAlign: 'center', padding: '20px 0' }}>No auxiliary records</span>
             ) : (
-              sortedBreakdown.map(([cat, val]) => {
-                const pct = totalBreakdownSum > 0 ? Math.round((val / totalBreakdownSum) * 100) : 0;
-                const barColor = categoryColors[cat] || (breakdownType === 'inflow' ? '#10b981' : '#6366f1');
+              Object.entries(auxiliarySources).sort((a, b) => b[1] - a[1]).map(([src, val]) => {
+                const pct = totalAuxSum > 0 ? Math.round((val / totalAuxSum) * 100) : 0;
                 return (
-                  <div key={cat} style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem' }}>
-                      <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>{cat}</span>
-                      <span style={{ fontWeight: 700, color: 'var(--text-muted)' }}>₹{val.toLocaleString()} ({pct}%)</span>
+                  <div key={src}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.74rem', marginBottom: '4px' }}>
+                      <span style={{ fontWeight: 700, color: 'var(--text-main)' }}>{src}</span>
+                      <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}>₹{val.toLocaleString()} ({pct}%)</span>
                     </div>
-                    <div style={{ width: '100%', height: '8px', background: 'rgba(255,255,255,0.03)', borderRadius: '4px', overflow: 'hidden' }}>
-                      <div style={{ width: `${pct}%`, height: '100%', background: barColor, borderRadius: '4px', transition: 'width 0.4s ease' }} />
+                    <div style={{ width: '100%', height: '6px', background: 'rgba(255,255,255,0.02)', borderRadius: '3px', overflow: 'hidden' }}>
+                      <div style={{ width: `${pct}%`, height: '100%', background: '#10b981', borderRadius: '3px' }} />
                     </div>
                   </div>
                 );
@@ -6454,91 +6436,142 @@ export function ReportsView({ showToast, setAccountantView }) {
             )}
           </div>
         </div>
-      </div>
 
-      {/* 5. Quarterly Performance & Insights Grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: '24px' }}>
-        
-        {/* Quarterly Performance */}
-        <div className="glass-panel" style={{ padding: '24px', borderRadius: '16px', display: 'flex', flexDirection: 'column' }}>
-          <h3 style={{ fontSize: '0.92rem', fontWeight: 700, color: 'var(--text-main)', margin: '0 0 16px 0', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Calendar size={18} style={{ color: 'hsl(var(--color-primary))' }} /> Quarterly Cash Flow Analysis (2026)
-          </h3>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', flex: 1 }}>
-            {[
-              { label: 'Q1 (Jan - Mar)', data: q1Data, border: '#3b82f6' },
-              { label: 'Q2 (Apr - Jun)', data: q2Data, border: '#06b6d4' },
-              { label: 'Q3 (Jul - Sep)', data: q3Data, border: '#8b5cf6' },
-              { label: 'Q4 (Oct - Dec)', data: q4Data, border: '#10b981' }
-            ].map((q, idx) => (
-              <div key={idx} style={{ 
-                background: 'rgba(0,0,0,0.01)', 
-                border: '1px solid var(--border-glass)', 
-                borderLeft: `4px solid ${q.border}`,
-                borderRadius: '12px', 
-                padding: '12px 14px',
-                display: 'flex',
-                flexDirection: 'column',
-                justifyContent: 'space-between'
-              }}>
-                <span style={{ fontSize: '0.74rem', fontWeight: 700, color: 'var(--text-muted)' }}>{q.label}</span>
-                <div style={{ margin: '8px 0' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.68rem', marginBottom: '2px' }}>
-                    <span style={{ color: 'var(--text-muted)' }}>Inflow:</span>
-                    <strong style={{ color: '#10b981' }}>₹{q.data.inflow.toLocaleString()}</strong>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.68rem' }}>
-                    <span style={{ color: 'var(--text-muted)' }}>Outflow:</span>
-                    <strong style={{ color: '#ef4444' }}>₹{q.data.outflow.toLocaleString()}</strong>
-                  </div>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid rgba(0,0,0,0.03)', paddingTop: '6px', fontSize: '0.72rem' }}>
-                  <span style={{ color: 'var(--text-main)', fontWeight: 600 }}>Net position:</span>
-                  <strong style={{ color: q.data.net >= 0 ? '#10b981' : '#ef4444' }}>
-                    {q.data.net >= 0 ? '+' : '-'}₹{Math.abs(q.data.net).toLocaleString()}
-                  </strong>
-                </div>
+        {/* Card 4: Teacher Payroll Disbursal */}
+        <div className="glass-panel animate-scale-up" style={{ padding: '24px', borderRadius: '16px', display: 'flex', flexDirection: 'column', gap: '16px', background: 'var(--bg-glass)', border: '1px solid var(--border-glass)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'rgba(139,92,246,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#8b5cf6' }}>
+                <BookOpen size={18} />
               </div>
-            ))}
+              <div>
+                <h4 style={{ fontSize: '0.9rem', fontWeight: 800, color: 'var(--text-main)', margin: 0 }}>Teacher Payroll</h4>
+                <span style={{ fontSize: '0.66rem', color: 'var(--text-muted)' }}>Academic staff payouts</span>
+              </div>
+            </div>
+            <span style={{ fontSize: '0.66rem', fontWeight: 700, color: '#8b5cf6', background: 'rgba(139,92,246,0.1)', padding: '4px 10px', borderRadius: '20px' }}>
+              {teacherPayrollCount} Disbursed
+            </span>
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', borderBottom: '1px dashed var(--border-glass)', paddingBottom: '14px' }}>
+            <div>
+              <span style={{ fontSize: '0.64rem', color: 'var(--text-muted)', display: 'block', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Disbursed Net Pay</span>
+              <strong style={{ fontSize: '1.45rem', fontWeight: 800, color: '#8b5cf6' }}>₹{teacherPayrollPaid.toLocaleString()}</strong>
+            </div>
+            <div style={{ textAlign: 'right' }}>
+              <span style={{ fontSize: '0.64rem', color: 'var(--text-muted)', display: 'block' }}>Basic Total</span>
+              <strong style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-main)' }}>₹{teacherPayrollBasic.toLocaleString()}</strong>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.74rem' }}>
+              <span style={{ color: 'var(--text-muted)', fontWeight: 500 }}>Allowances & Bonuses:</span>
+              <strong style={{ color: '#10b981' }}>+₹{teacherPayrollAllow.toLocaleString()}</strong>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.74rem' }}>
+              <span style={{ color: 'var(--text-muted)', fontWeight: 500 }}>Deductions & Tax:</span>
+              <strong style={{ color: '#ef4444' }}>-₹{teacherPayrollDeduct.toLocaleString()}</strong>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
+              <div style={{ width: '100%', height: '5px', background: 'rgba(255,255,255,0.02)', borderRadius: '2px', overflow: 'hidden', display: 'flex' }}>
+                <div style={{ width: `${teacherPayrollBasic > 0 ? Math.round((teacherPayrollBasic / (teacherPayrollBasic + teacherPayrollAllow)) * 100) : 100}%`, height: '100%', background: '#8b5cf6' }} />
+                <div style={{ width: `${teacherPayrollAllow > 0 ? Math.round((teacherPayrollAllow / (teacherPayrollBasic + teacherPayrollAllow)) * 100) : 0}%`, height: '100%', background: '#10b981' }} />
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* Dynamic Financial Insights & Audit Feed */}
-        <div className="glass-panel" style={{ padding: '24px', borderRadius: '16px', display: 'flex', flexDirection: 'column' }}>
-          <h3 style={{ fontSize: '0.92rem', fontWeight: 700, color: 'var(--text-main)', margin: '0 0 16px 0', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <FileText size={18} style={{ color: '#10b981' }} /> Dynamic Audit & Financial Insights
-          </h3>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', overflowY: 'auto', maxHeight: '300px', paddingRight: '4px', flex: 1 }}>
-            {financialInsights.length === 0 ? (
-              <p style={{ fontSize: '0.76rem', color: 'var(--text-muted)', textAlign: 'center', margin: 'auto' }}>
-                Generating real-time insights... Please record payments or bills.
-              </p>
-            ) : (
-              financialInsights.map((insight, idx) => (
-                <div key={idx} style={{ 
-                  display: 'flex', 
-                  gap: '12px', 
-                  padding: '12px 14px', 
-                  borderRadius: '10px', 
-                  background: insight.type === 'success' ? 'rgba(16,185,129,0.04)' 
-                            : insight.type === 'warning' ? 'rgba(245,158,11,0.04)' 
-                            : 'rgba(239,68,68,0.04)',
-                  border: `1px solid ${insight.type === 'success' ? 'rgba(16,185,129,0.1)' 
-                            : insight.type === 'warning' ? 'rgba(245,158,11,0.1)' 
-                            : 'rgba(239,68,68,0.1)'}`
-                }}>
-                  <div style={{ marginTop: '2px' }}>
-                    {insight.type === 'success' ? <CheckCircle size={15} style={{ color: '#10b981' }} />
-                      : insight.type === 'warning' ? <AlertCircle size={15} style={{ color: '#f59e0b' }} />
-                      : <AlertCircle size={15} style={{ color: '#ef4444' }} />}
-                  </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                    <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-main)' }}>{insight.title}</span>
-                    <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', lineHeight: '1.4' }}>{insight.desc}</span>
-                  </div>
-                </div>
-              ))
-            )}
+        {/* Card 5: Staff Payroll Disbursal */}
+        <div className="glass-panel animate-scale-up" style={{ padding: '24px', borderRadius: '16px', display: 'flex', flexDirection: 'column', gap: '16px', background: 'var(--bg-glass)', border: '1px solid var(--border-glass)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'rgba(99,102,241,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#6366f1' }}>
+                <Users size={18} />
+              </div>
+              <div>
+                <h4 style={{ fontSize: '0.9rem', fontWeight: 800, color: 'var(--text-main)', margin: 0 }}>Staff Payroll</h4>
+                <span style={{ fontSize: '0.66rem', color: 'var(--text-muted)' }}>Administrative disbursals</span>
+              </div>
+            </div>
+            <span style={{ fontSize: '0.66rem', fontWeight: 700, color: '#6366f1', background: 'rgba(99,102,241,0.1)', padding: '4px 10px', borderRadius: '20px' }}>
+              {staffPayrollCount} Disbursed
+            </span>
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', borderBottom: '1px dashed var(--border-glass)', paddingBottom: '14px' }}>
+            <div>
+              <span style={{ fontSize: '0.64rem', color: 'var(--text-muted)', display: 'block', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Disbursed Net Pay</span>
+              <strong style={{ fontSize: '1.45rem', fontWeight: 800, color: '#6366f1' }}>₹{staffPayrollPaid.toLocaleString()}</strong>
+            </div>
+            <div style={{ textAlign: 'right' }}>
+              <span style={{ fontSize: '0.64rem', color: 'var(--text-muted)', display: 'block' }}>Basic Total</span>
+              <strong style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-main)' }}>₹{staffPayrollBasic.toLocaleString()}</strong>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.74rem' }}>
+              <span style={{ color: 'var(--text-muted)', fontWeight: 500 }}>Allowances & Bonuses:</span>
+              <strong style={{ color: '#10b981' }}>+₹{staffPayrollAllow.toLocaleString()}</strong>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.74rem' }}>
+              <span style={{ color: 'var(--text-muted)', fontWeight: 500 }}>Deductions & Tax:</span>
+              <strong style={{ color: '#ef4444' }}>-₹{staffPayrollDeduct.toLocaleString()}</strong>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
+              <div style={{ width: '100%', height: '5px', background: 'rgba(255,255,255,0.02)', borderRadius: '2px', overflow: 'hidden', display: 'flex' }}>
+                <div style={{ width: `${staffPayrollBasic > 0 ? Math.round((staffPayrollBasic / (staffPayrollBasic + staffPayrollAllow)) * 100) : 100}%`, height: '100%', background: '#6366f1' }} />
+                <div style={{ width: `${staffPayrollAllow > 0 ? Math.round((staffPayrollAllow / (staffPayrollBasic + staffPayrollAllow)) * 100) : 0}%`, height: '100%', background: '#10b981' }} />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Card 6: Employee Payroll Disbursal */}
+        <div className="glass-panel animate-scale-up" style={{ padding: '24px', borderRadius: '16px', display: 'flex', flexDirection: 'column', gap: '16px', background: 'var(--bg-glass)', border: '1px solid var(--border-glass)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'rgba(168,85,247,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#a855f7' }}>
+                <Building2 size={18} />
+              </div>
+              <div>
+                <h4 style={{ fontSize: '0.9rem', fontWeight: 800, color: 'var(--text-main)', margin: 0 }}>Employee Payroll</h4>
+                <span style={{ fontSize: '0.66rem', color: 'var(--text-muted)' }}>Other staff disbursals</span>
+              </div>
+            </div>
+            <span style={{ fontSize: '0.66rem', fontWeight: 700, color: '#a855f7', background: 'rgba(168,85,247,0.1)', padding: '4px 10px', borderRadius: '20px' }}>
+              {employeePayrollCount} Disbursed
+            </span>
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', borderBottom: '1px dashed var(--border-glass)', paddingBottom: '14px' }}>
+            <div>
+              <span style={{ fontSize: '0.64rem', color: 'var(--text-muted)', display: 'block', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Disbursed Net Pay</span>
+              <strong style={{ fontSize: '1.45rem', fontWeight: 800, color: '#a855f7' }}>₹{employeePayrollPaid.toLocaleString()}</strong>
+            </div>
+            <div style={{ textAlign: 'right' }}>
+              <span style={{ fontSize: '0.64rem', color: 'var(--text-muted)', display: 'block' }}>Basic Total</span>
+              <strong style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-main)' }}>₹{employeePayrollBasic.toLocaleString()}</strong>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.74rem' }}>
+              <span style={{ color: 'var(--text-muted)', fontWeight: 500 }}>Allowances & Bonuses:</span>
+              <strong style={{ color: '#10b981' }}>+₹{employeePayrollAllow.toLocaleString()}</strong>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.74rem' }}>
+              <span style={{ color: 'var(--text-muted)', fontWeight: 500 }}>Deductions & Tax:</span>
+              <strong style={{ color: '#ef4444' }}>-₹{employeePayrollDeduct.toLocaleString()}</strong>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
+              <div style={{ width: '100%', height: '5px', background: 'rgba(255,255,255,0.02)', borderRadius: '2px', overflow: 'hidden', display: 'flex' }}>
+                <div style={{ width: `${employeePayrollBasic > 0 ? Math.round((employeePayrollBasic / (employeePayrollBasic + employeePayrollAllow)) * 100) : 100}%`, height: '100%', background: '#a855f7' }} />
+                <div style={{ width: `${employeePayrollAllow > 0 ? Math.round((employeePayrollAllow / (employeePayrollBasic + employeePayrollAllow)) * 100) : 0}%`, height: '100%', background: '#10b981' }} />
+              </div>
+            </div>
           </div>
         </div>
 
