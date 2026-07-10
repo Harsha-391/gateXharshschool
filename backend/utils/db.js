@@ -1405,8 +1405,8 @@ export const migrateTenantDataToDedicatedDb = async (subdomain) => {
     // Split teachers and staff tables in tenant database
     try {
       await pool.query("CREATE TABLE IF NOT EXISTS teachers LIKE staff");
-      await pool.query("INSERT IGNORE INTO teachers SELECT * FROM staff WHERE LOWER(designation) = 'teacher'");
-      await pool.query("DELETE FROM staff WHERE LOWER(designation) = 'teacher'");
+      await pool.query("INSERT IGNORE INTO teachers SELECT * FROM staff WHERE LOWER(role) = 'teacher'");
+      await pool.query("DELETE FROM staff WHERE LOWER(role) = 'teacher'");
       console.log(`[SQL Migration] Cleanly split teachers and staff tables for tenant database: ${subdomain}`);
     } catch (splitErr) {
       console.warn(`[SQL Migration WARNING] Splitting teachers and staff tables failed for ${subdomain}:`, splitErr.message);

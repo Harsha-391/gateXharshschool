@@ -62,7 +62,7 @@ export const loadDbMappings = async () => {
         dbMappings[slugify(r.subdomain)] = r.dbName || `school_${slugify(r.subdomain)}`;
       }
     }
-    console.log('[SQL Map] Loaded subdomain database mappings:', dbMappings);
+    // console.log('[SQL Map] Loaded subdomain database mappings:', dbMappings);
   } catch (err) {
     console.error('[SQL Map ERROR] Failed to load database mappings:', err.message);
   }
