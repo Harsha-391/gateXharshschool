@@ -6,6 +6,23 @@ import path from 'path';
 import { execSync } from 'child_process';
 import helmet from 'helmet';
 
+// Global debug log buffer for live diagnostics
+global.debugLogs = [];
+const originalConsoleError = console.error;
+console.error = (...args) => {
+  const msg = args.map(arg => typeof arg === 'object' ? JSON.stringify(arg) : String(arg)).join(' ');
+  global.debugLogs.push(`[${new Date().toISOString()}] ERROR: ${msg}`);
+  if (global.debugLogs.length > 200) global.debugLogs.shift();
+  originalConsoleError.apply(console, args);
+};
+const originalConsoleLog = console.log;
+console.log = (...args) => {
+  const msg = args.map(arg => typeof arg === 'object' ? JSON.stringify(arg) : String(arg)).join(' ');
+  global.debugLogs.push(`[${new Date().toISOString()}] LOG: ${msg}`);
+  if (global.debugLogs.length > 200) global.debugLogs.shift();
+  originalConsoleLog.apply(console, args);
+};
+
 // Trigger nodemon reload for settings updates
 process.on('uncaughtException', (err) => {
   const msg = `\n[${new Date().toISOString()}] UNCAUGHT EXCEPTION:\n${err.stack || err}\n`;
@@ -70,6 +87,10 @@ const GLOBAL_DB_FILE = path.join(__dirname, 'db.json');
 
 const app = express();
 const PORT = 5000;
+
+app.get('/api/debug/logs', (req, res) => {
+  res.json({ logs: global.debugLogs });
+});
 
 app.use((req, res, next) => {
   const start = Date.now();
@@ -2471,4 +2492,4 @@ process.once('SIGUSR2', () => gracefulShutdown('SIGUSR2'));
 process.once('SIGINT', () => gracefulShutdown('SIGINT'));
 process.once('SIGTERM', () => gracefulShutdown('SIGTERM'));
 
-// Trigger restart to sync database cache and reload server state v21
+// Trigger restart to sync database cache and reload server state v22
