@@ -1570,14 +1570,6 @@ const ensureSubdomainsRegistered = async (masterPool) => {
     }
     const existing = existingRows[0];
     const targets = [
-      'gatexharshschool-0udg',
-      'gatexharshschool-8udg',
-      'gatexharshschool-qud',
-      'gatexharshschool-0vd',
-      'gatexharshschool-0ud',
-      'gatexharshschool-8ud',
-      'gatexharshschool-8vd',
-      'gatexharshschool-0vdg',
       'gatexharshschool'
     ];
     for (const sub of targets) {

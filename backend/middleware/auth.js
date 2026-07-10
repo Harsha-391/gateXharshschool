@@ -64,6 +64,20 @@ export const auth = async (req, res, next) => {
     const verified = jwt.verify(token, JWT_SECRET);
     req.admin = verified;
 
+    // Immediate Token Tenant Validation: if tenant no longer exists in platform, reject
+    if (verified.tenantId && verified.tenantId !== 'platform' && verified.tenantId !== 'localhost') {
+      try {
+        const globalDb = readDb();
+        const schoolRecord = (globalDb.schools || []).find(s => slugify(s.subdomain) === slugify(verified.tenantId));
+        if (!schoolRecord) {
+          logSecurity('INVALID_TENANT_SESSION', `Attempted to use session token for non-existent tenant: '${verified.tenantId}'`, req);
+          return res.status(401).json({ error: 'Session invalidated. School tenant does not exist or has been deleted. Please log in again.' });
+        }
+      } catch (dbErr) {
+        // Safe fallback
+      }
+    }
+
     // Immediate Session Invalidation on Password Change for Main Admin
     if (verified.role === 'Main Admin') {
       try {
