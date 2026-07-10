@@ -543,11 +543,78 @@ export const createSalaryStructure = (req, res) => {
 // =============================================
 // 5. PAYROLL
 // =============================================
-export const getPayroll = (req, res) => {
+export const getPayroll = async (req, res) => {
   try {
     const { status, search, month } = req.query;
-    const db = readDb();
-    let payroll = db.payroll || [];
+    let payroll = [];
+
+    if (isSqlActive()) {
+      const tenantId = tenantStorage.getStore();
+      const tId = tenantId ? slugify(tenantId) : 'platform';
+      
+      const queryStr = `
+        SELECT p.*, COALESCE(t.fullName, s.fullName, 'Teacher') as teacherName 
+        FROM salary_payments p 
+        LEFT JOIN teachers t ON p.employeeId = t.id 
+        LEFT JOIN staff s ON p.employeeId = s.id
+        WHERE p.employeeType = 'Teacher' AND p.tenantId = ?
+      `;
+      const rows = await sqlDb.query(queryStr, [tId]);
+      
+      payroll = rows.map(p => {
+        const basic = Number(p.basicSalary) || 0;
+        const hra = Number(p.hra) || 0;
+        const da = Number(p.da) || 0;
+        const ta = Number(p.ta) || 0;
+        const medical = Number(p.medical) || 0;
+        const special = Number(p.specialAllowance) || 0;
+        const otherAllow = Number(p.otherAllowances) || 0;
+        const allowances = hra + da + ta + medical + special + otherAllow;
+
+        const bonus = Number(p.bonus) || 0;
+        const incentive = Number(p.incentive) || 0;
+        const overtime = Number(p.overtime) || 0;
+        const totalBonus = bonus + incentive + overtime;
+
+        const deductions = Number(p.otherDeductions) || 0;
+        const fine = Number(p.fine) || 0;
+        const loanAdj = Number(p.loanAdjustment) || 0;
+        const advAdj = Number(p.advanceAdjustment) || 0;
+        const totalDeductions = deductions + fine + loanAdj + advAdj;
+
+        const pf = Number(p.pf) || 0;
+        const esi = Number(p.esi) || 0;
+        const pfDeduction = pf + esi;
+
+        const taxDeduction = Number(p.profTax) || 0;
+        const netSalary = Number(p.netSalary) || Number(p.paidAmount) || 0;
+
+        return {
+          id: p.id,
+          payrollId: p.id,
+          teacherId: p.employeeId,
+          teacherName: p.teacherName,
+          employeeId: p.employeeId,
+          role: 'Teacher',
+          department: 'Academic',
+          month: p.month,
+          basicSalary: basic,
+          allowances: allowances,
+          bonus: totalBonus,
+          deductions: totalDeductions,
+          pfDeduction: pfDeduction,
+          taxDeduction: taxDeduction,
+          netSalary: netSalary,
+          paymentStatus: p.status || 'Paid',
+          paymentDate: p.paymentDate,
+          paymentMethod: p.paymentMethod || 'Bank Transfer',
+          createdAt: p.paymentDate || new Date().toISOString()
+        };
+      });
+    } else {
+      const db = centralReadDb();
+      payroll = db.payroll || [];
+    }
 
     if (status && status !== 'All') {
       payroll = payroll.filter(p => p.paymentStatus === status);
@@ -565,6 +632,7 @@ export const getPayroll = (req, res) => {
 
     res.json(payroll);
   } catch (err) {
+    console.error('Error in getPayroll:', err);
     res.status(500).json({ error: 'Server error loading payroll.' });
   }
 };
@@ -723,11 +791,78 @@ export const createStaffSalaryStructure = (req, res) => {
 // =============================================
 // 7. STAFF PAYMENTS
 // =============================================
-export const getStaffPayments = (req, res) => {
+export const getStaffPayments = async (req, res) => {
   try {
     const { status, search, month } = req.query;
-    const db = readDb();
-    let payments = db.staffPayments || [];
+    let payments = [];
+
+    if (isSqlActive()) {
+      const tenantId = tenantStorage.getStore();
+      const tId = tenantId ? slugify(tenantId) : 'platform';
+      
+      const queryStr = `
+        SELECT p.*, s.fullName as staffName 
+        FROM salary_payments p 
+        LEFT JOIN staff s ON p.employeeId = s.id 
+        WHERE p.employeeType != 'Teacher' AND p.tenantId = ?
+      `;
+      const rows = await sqlDb.query(queryStr, [tId]);
+      
+      payments = rows.map(p => {
+        const basic = Number(p.basicSalary) || 0;
+        const hra = Number(p.hra) || 0;
+        const da = Number(p.da) || 0;
+        const ta = Number(p.ta) || 0;
+        const medical = Number(p.medical) || 0;
+        const special = Number(p.specialAllowance) || 0;
+        const otherAllow = Number(p.otherAllowances) || 0;
+        const allowances = hra + da + ta + medical + special + otherAllow;
+
+        const bonus = Number(p.bonus) || 0;
+        const incentive = Number(p.incentive) || 0;
+        const overtime = Number(p.overtime) || 0;
+        const totalBonus = bonus + incentive + overtime;
+
+        const deductions = Number(p.otherDeductions) || 0;
+        const fine = Number(p.fine) || 0;
+        const loanAdj = Number(p.loanAdjustment) || 0;
+        const advAdj = Number(p.advanceAdjustment) || 0;
+        const totalDeductions = deductions + fine + loanAdj + advAdj;
+
+        const pf = Number(p.pf) || 0;
+        const esi = Number(p.esi) || 0;
+        const pfDeduction = pf + esi;
+
+        const taxDeduction = Number(p.profTax) || 0;
+        const netSalary = Number(p.netSalary) || Number(p.paidAmount) || 0;
+
+        return {
+          id: p.id,
+          paymentId: p.id,
+          staffId: p.employeeId,
+          staffName: p.staffName,
+          staffRole: p.employeeType || 'Staff',
+          department: 'General',
+          designationLevel: '',
+          employmentType: '',
+          month: p.month,
+          basicSalary: basic,
+          allowances: allowances,
+          bonus: totalBonus,
+          deductions: totalDeductions,
+          pfDeduction: pfDeduction,
+          taxDeduction: taxDeduction,
+          netSalary: netSalary,
+          paymentStatus: p.status || 'Paid',
+          paymentDate: p.paymentDate,
+          paymentMethod: p.paymentMethod || 'Bank Transfer',
+          createdAt: p.paymentDate || new Date().toISOString()
+        };
+      });
+    } else {
+      const db = centralReadDb();
+      payments = db.staffPayments || [];
+    }
 
     if (status && status !== 'All') {
       payments = payments.filter(p => p.paymentStatus === status);
@@ -745,6 +880,7 @@ export const getStaffPayments = (req, res) => {
 
     res.json(payments);
   } catch (err) {
+    console.error('Error in getStaffPayments:', err);
     res.status(500).json({ error: 'Server error loading staff payments.' });
   }
 };

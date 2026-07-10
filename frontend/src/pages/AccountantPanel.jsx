@@ -118,23 +118,23 @@ export default function AccountantPanel({ setActiveView, onLogout, accountantVie
           <div>
             <h2 style={{ fontSize: '1.25rem', fontWeight: 700 }}>{accountantView === 'dashboard' ? 'Finance Panel' :
               accountantView === 'collect-fees' ? 'Student Fee Collection' :
-              accountantView === 'fee-structure' ? 'Fee Structure Configuration' :
-              accountantView === 'fees-history' ? 'Fees Payment History' :
-              accountantView === 'staff-payroll' ? 'Staff Payroll' :
-              accountantView === 'staff-pay-structure' ? 'Staff Pay Structure' :
-              accountantView === 'teacher-payroll' ? 'Teacher Payroll' :
-              accountantView === 'teacher-pay-structure' ? 'Teacher Pay Structure' :
-              accountantView === 'employee-payroll' ? 'Employee Payroll' :
-              accountantView === 'employee-pay-structure' ? 'Employee Pay Structure' :
-              accountantView === 'payroll-history' ? 'Payroll History' :
-              accountantView === 'expenses' ? 'Expense Tracker' :
-              accountantView === 'reports' ? 'Financial Reports' :
-              accountantView === 'students' ? 'Student Directory' :
-              accountantView === 'teacher-list' ? 'Staff Directory' :
-              accountantView === 'staff' ? 'Employee Directory' :
-              accountantView === 'register-student' ? 'Register Student' :
-              accountantView === 'add-teacher' ? 'Add Staff' :
-              accountantView === 'add-staff' ? 'Add Employee' : 'Student Fee Collection'}</h2>
+                accountantView === 'fee-structure' ? 'Fee Structure Configuration' :
+                  accountantView === 'fees-history' ? 'Fees Payment History' :
+                    accountantView === 'staff-payroll' ? 'Staff Payroll' :
+                      accountantView === 'staff-pay-structure' ? 'Staff Pay Structure' :
+                        accountantView === 'teacher-payroll' ? 'Teacher Payroll' :
+                          accountantView === 'teacher-pay-structure' ? 'Teacher Pay Structure' :
+                            accountantView === 'employee-payroll' ? 'Employee Payroll' :
+                              accountantView === 'employee-pay-structure' ? 'Employee Pay Structure' :
+                                accountantView === 'payroll-history' ? 'Payroll History' :
+                                  accountantView === 'expenses' ? 'Expense Tracker' :
+                                    accountantView === 'reports' ? 'Financial Reports' :
+                                      accountantView === 'students' ? 'Student Directory' :
+                                        accountantView === 'teacher-list' ? 'Staff Directory' :
+                                          accountantView === 'staff' ? 'Employee Directory' :
+                                            accountantView === 'register-student' ? 'Register Student' :
+                                              accountantView === 'add-teacher' ? 'Add Staff' :
+                                                accountantView === 'add-staff' ? 'Add Employee' : 'Student Fee Collection'}</h2>
             <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
               Comprehensive financial management and accounting portal
             </p>
@@ -199,8 +199,8 @@ function DashboardView({ setAccountantView }) {
               background: 'rgba(255,255,255,0.015)', border: '1px solid rgba(255,255,255,0.05)',
               transition: 'all 0.25s ease', cursor: 'default'
             }}
-            onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.borderColor = `${card.color}33`; }}
-            onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.05)'; }}
+              onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.borderColor = `${card.color}33`; }}
+              onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.05)'; }}
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <div style={{
@@ -229,7 +229,7 @@ function DashboardView({ setAccountantView }) {
 
       {/* Redesigned Structured Actions Area */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-        
+
         {/* Row 1: Student Fees Management */}
         <div className="glass-panel" style={{ padding: '20px', borderRadius: '16px' }}>
           <h4 style={{ fontSize: '0.85rem', fontWeight: 800, textTransform: 'uppercase', color: '#10b981', letterSpacing: '0.05em', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -452,7 +452,7 @@ export function CollectFeesView({ showToast, readOnly = false }) {
     fetch('/api/school')
       .then(r => r.json())
       .then(d => setSchoolInfo(d))
-      .catch(() => {});
+      .catch(() => { });
   }, []);
   const [feeStructures, setFeeStructures] = useState([]);
   const [feePeriods, setFeePeriods] = useState([]);
@@ -608,7 +608,7 @@ export function CollectFeesView({ showToast, readOnly = false }) {
         }
         if (search && search.trim()) {
           const q = search.trim().toLowerCase();
-          filtered = filtered.filter(f => 
+          filtered = filtered.filter(f =>
             f.studentName?.toLowerCase().startsWith(q)
           );
         }
@@ -625,7 +625,7 @@ export function CollectFeesView({ showToast, readOnly = false }) {
     fetch('/api/students?limit=1000')
       .then(r => r.json())
       .then(d => setStudents(d.students || []))
-      .catch(() => {});
+      .catch(() => { });
 
     fetch('/api/finance/fee-structures')
       .then(r => r.json())
@@ -659,7 +659,7 @@ export function CollectFeesView({ showToast, readOnly = false }) {
         : selectedFormGrade;
 
       if (targetClass) {
-        const classStructures = feeStructures.filter(f => 
+        const classStructures = feeStructures.filter(f =>
           parseGradeName(f.studentClass || '').baseGrade.toLowerCase() === targetClass.toLowerCase()
         );
         const fstr = classStructures[0];
@@ -713,7 +713,7 @@ export function CollectFeesView({ showToast, readOnly = false }) {
   const getBillingPeriodOptions = (frequency) => {
     if (frequency === 'Monthly') {
       return [
-        'January', 'February', 'March', 'April', 'May', 'June', 
+        'January', 'February', 'March', 'April', 'May', 'June',
         'July', 'August', 'September', 'October', 'November', 'December'
       ];
     }
@@ -745,7 +745,7 @@ export function CollectFeesView({ showToast, readOnly = false }) {
       setSelectedFormDept(parsed.department);
 
       const studentBase = parseGradeName(stu.studentClass || '').baseGrade.toLowerCase();
-      const classStructures = feeStructures.filter(f => 
+      const classStructures = feeStructures.filter(f =>
         parseGradeName(f.studentClass || '').baseGrade.toLowerCase() === studentBase
       );
       const fstr = classStructures[0];
@@ -823,7 +823,7 @@ export function CollectFeesView({ showToast, readOnly = false }) {
     let matchedFstr = null;
     if (stu) {
       const studentBase = parseGradeName(stu.studentClass || '').baseGrade.toLowerCase();
-      const classStructures = feeStructures.filter(f => 
+      const classStructures = feeStructures.filter(f =>
         parseGradeName(f.studentClass || '').baseGrade.toLowerCase() === studentBase
       );
       matchedFstr = classStructures.find(f => f.monthRange === newBp) || classStructures[0];
@@ -859,14 +859,14 @@ export function CollectFeesView({ showToast, readOnly = false }) {
       const currentAmount = updates.amount !== undefined ? updates.amount : prev.amount;
       const currentDiscount = updates.discount !== undefined ? updates.discount : prev.discount;
       const currentFine = updates.fine !== undefined ? updates.fine : prev.fine;
-      
+
       const newTotal = (Number(currentAmount) || 0) - (Number(currentDiscount) || 0) + (Number(currentFine) || 0);
-      
+
       let newPaidAmount = prev.paidAmount;
       if (!isPaidAmountEdited || prev.paidAmount === '' || prev.paidAmount === '0') {
         newPaidAmount = String(newTotal);
       }
-      
+
       return {
         ...prev,
         ...updates,
@@ -879,14 +879,14 @@ export function CollectFeesView({ showToast, readOnly = false }) {
     let tAmt = type === 'Tuition Fee' ? val : tuitionAmount;
     let trAmt = type === 'Transport Fee' ? val : transportAmount;
     let oAmt = type === 'Other Charges' ? val : otherAmount;
-    
+
     if (type === 'Tuition Fee') setTuitionAmount(val);
     else if (type === 'Transport Fee') setTransportAmount(val);
     else if (type === 'Other Charges') setOtherAmount(val);
 
     const baseTotal = (Number(tAmt) || 0) + (Number(trAmt) || 0) + (Number(oAmt) || 0);
     const totalAmount = baseTotal + (Number(form.fine) || 0);
-    
+
     setForm(prev => ({
       ...prev,
       amount: String(baseTotal),
@@ -923,7 +923,7 @@ export function CollectFeesView({ showToast, readOnly = false }) {
       remarks: fee.remarks || '',
       billingPeriod: fee.billingPeriod || 'Yearly'
     });
-    
+
     if (fee.feeType === 'Tuition Fee') {
       setTuitionAmount(String(fee.amount || ''));
       setTransportAmount('');
@@ -978,21 +978,21 @@ export function CollectFeesView({ showToast, readOnly = false }) {
 
   const handleEditPeriod = (period) => {
     const firstRaw = period.components[0]?.rawFee || {};
-    
+
     const tuitionComp = period.components.find(c => c.feeType === 'Tuition Fee');
     const transportComp = period.components.find(c => c.feeType === 'Transport Fee');
     const otherComp = period.components.find(c => c.feeType === 'Other Charges');
-    
+
     setTuitionAmount(tuitionComp ? String(tuitionComp.paidAmount) : '');
     setTransportAmount(transportComp ? String(transportComp.paidAmount) : '');
     setOtherAmount(otherComp ? String(otherComp.paidAmount) : '');
-    
+
     const totalFine = period.components.reduce((sum, c) => sum + c.fine, 0);
     const totalPaid = period.components.reduce((sum, c) => sum + c.paidAmount, 0);
-    
+
     setEditingId(`PERIOD_${period.name}_${firstRaw.studentId}`);
     setEditingPeriodComponents(period.components.map(c => c.rawFee).filter(Boolean));
-    
+
     setForm({
       studentId: firstRaw.studentId,
       studentName: firstRaw.studentName,
@@ -1008,7 +1008,7 @@ export function CollectFeesView({ showToast, readOnly = false }) {
       remarks: firstRaw.remarks || '',
       billingPeriod: period.name
     });
-    
+
     setStudentSearchQuery(firstRaw.studentName);
     const parsed = parseGradeName(firstRaw.studentClass);
     setSelectedFormGrade(parsed.baseGrade);
@@ -1174,7 +1174,7 @@ export function CollectFeesView({ showToast, readOnly = false }) {
           }
 
           const studentBase = parseGradeName(form.studentClass || '').baseGrade.toLowerCase();
-          const classStructures = feeStructures.filter(fs => 
+          const classStructures = feeStructures.filter(fs =>
             parseGradeName(fs.studentClass || '').baseGrade.toLowerCase() === studentBase
           );
           const matchedFs = classStructures.find(fs => (fs.monthRange || 'Full Year') === form.billingPeriod) || classStructures[0];
@@ -1392,12 +1392,12 @@ export function CollectFeesView({ showToast, readOnly = false }) {
     });
 
     return matchingStudents.map(student => {
-      const studentFees = (feesArray || []).filter(f => 
+      const studentFees = (feesArray || []).filter(f =>
         f.studentId === student.id || f.admissionNumber === student.admissionNumber
       );
 
       const studentBase = parseGradeName(student.studentClass || '').baseGrade.toLowerCase();
-      const classStructures = feeStructures.filter(fs => 
+      const classStructures = feeStructures.filter(fs =>
         parseGradeName(fs.studentClass || '').baseGrade.toLowerCase() === studentBase
       );
       const periodNames = [...new Set(classStructures.map(fs => fs.monthRange || 'Full Year'))];
@@ -1568,7 +1568,7 @@ export function CollectFeesView({ showToast, readOnly = false }) {
                     <img src={schoolInfo.logo} alt="School Logo" style={{ height: '60px', width: '60px', objectFit: 'contain' }} />
                   ) : (
                     <div style={{
-                      width: '60px', height: '60px', borderRadius: '12px', 
+                      width: '60px', height: '60px', borderRadius: '12px',
                       background: 'rgba(16, 185, 129, 0.1)', color: '#10b981',
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                       fontWeight: 800, fontSize: '1.5rem'
@@ -1730,13 +1730,13 @@ export function CollectFeesView({ showToast, readOnly = false }) {
         <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', alignItems: 'center', flex: 1 }}>
           <div style={{ minWidth: '150px' }}>
             <label style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '6px', display: 'block' }}>Class / Grade</label>
-            <select 
-              value={filterClass} 
+            <select
+              value={filterClass}
               onChange={e => {
                 setFilterClass(e.target.value);
                 setFilterDept('All');
                 setFilterSection('All');
-              }} 
+              }}
               style={{ ...inputStyle, background: 'var(--bg-card-subtle)', cursor: 'pointer' }}
             >
               <option value="All" style={optionStyle}>Select Grade</option>
@@ -1747,9 +1747,9 @@ export function CollectFeesView({ showToast, readOnly = false }) {
           {isGrade11or12(filterClass) && (
             <div style={{ minWidth: '150px' }}>
               <label style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '6px', display: 'block' }}>Department</label>
-              <select 
-                value={filterDept} 
-                onChange={e => setFilterDept(e.target.value)} 
+              <select
+                value={filterDept}
+                onChange={e => setFilterDept(e.target.value)}
                 style={{ ...inputStyle, background: 'var(--bg-card-subtle)', cursor: 'pointer' }}
               >
                 <option value="All" style={optionStyle}>All Departments</option>
@@ -1796,11 +1796,11 @@ export function CollectFeesView({ showToast, readOnly = false }) {
 
             <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '22px' }}>
               {/* Student Header Card inside Modal */}
-              <div style={{ 
-                padding: '16px 20px', 
-                background: 'rgba(255,255,255,0.02)', 
-                borderRadius: '12px', 
-                border: '1px solid var(--border-glass)', 
+              <div style={{
+                padding: '16px 20px',
+                background: 'rgba(255,255,255,0.02)',
+                borderRadius: '12px',
+                border: '1px solid var(--border-glass)',
                 marginBottom: '20px',
                 display: 'flex',
                 flexDirection: 'column',
@@ -1842,24 +1842,24 @@ export function CollectFeesView({ showToast, readOnly = false }) {
                   <>
                     <div>
                       <label style={labelStyle}>Fee Type</label>
-                      <input 
-                        type="text" 
-                        value={form.feeType} 
-                        readOnly 
-                        style={{ ...inputStyle, background: 'var(--bg-form-subtle)', cursor: 'not-allowed', color: 'var(--text-muted)' }} 
+                      <input
+                        type="text"
+                        value={form.feeType}
+                        readOnly
+                        style={{ ...inputStyle, background: 'var(--bg-form-subtle)', cursor: 'not-allowed', color: 'var(--text-muted)' }}
                       />
                     </div>
                     <div>
                       <label style={labelStyle}>Amount (₹)</label>
-                      <input 
-                        type="number" 
-                        value={form.feeType === 'Tuition Fee' ? tuitionAmount : (form.feeType === 'Transport Fee' ? transportAmount : otherAmount)} 
+                      <input
+                        type="number"
+                        value={form.feeType === 'Tuition Fee' ? tuitionAmount : (form.feeType === 'Transport Fee' ? transportAmount : otherAmount)}
                         onChange={e => {
                           const val = e.target.value;
                           if (form.feeType === 'Tuition Fee') setTuitionAmount(val);
                           else if (form.feeType === 'Transport Fee') setTransportAmount(val);
                           else setOtherAmount(val);
-                          
+
                           const baseTotal = Number(val) || 0;
                           const totalAmount = baseTotal + (Number(form.fine) || 0);
                           setForm(prev => ({
@@ -1867,9 +1867,9 @@ export function CollectFeesView({ showToast, readOnly = false }) {
                             amount: String(baseTotal),
                             paidAmount: !isPaidAmountEdited || prev.paidAmount === '' || prev.paidAmount === '0' ? String(totalAmount) : prev.paidAmount
                           }));
-                        }} 
-                        required 
-                        style={inputStyle} 
+                        }}
+                        required
+                        style={inputStyle}
                       />
                     </div>
                   </>
@@ -1877,32 +1877,32 @@ export function CollectFeesView({ showToast, readOnly = false }) {
                   <>
                     <div>
                       <label style={labelStyle}>Tuition Fee (₹)</label>
-                      <input 
-                        type="number" 
-                        value={tuitionAmount} 
-                        onChange={e => handleAmountChange('Tuition Fee', e.target.value)} 
-                        placeholder="0" 
-                        style={inputStyle} 
+                      <input
+                        type="number"
+                        value={tuitionAmount}
+                        onChange={e => handleAmountChange('Tuition Fee', e.target.value)}
+                        placeholder="0"
+                        style={inputStyle}
                       />
                     </div>
                     <div>
                       <label style={labelStyle}>Transport Fee (₹)</label>
-                      <input 
-                        type="number" 
-                        value={transportAmount} 
-                        onChange={e => handleAmountChange('Transport Fee', e.target.value)} 
-                        placeholder="0" 
-                        style={inputStyle} 
+                      <input
+                        type="number"
+                        value={transportAmount}
+                        onChange={e => handleAmountChange('Transport Fee', e.target.value)}
+                        placeholder="0"
+                        style={inputStyle}
                       />
                     </div>
                     <div>
                       <label style={labelStyle}>Other Charges (₹)</label>
-                      <input 
-                        type="number" 
-                        value={otherAmount} 
-                        onChange={e => handleAmountChange('Other Charges', e.target.value)} 
-                        placeholder="0" 
-                        style={inputStyle} 
+                      <input
+                        type="number"
+                        value={otherAmount}
+                        onChange={e => handleAmountChange('Other Charges', e.target.value)}
+                        placeholder="0"
+                        style={inputStyle}
                       />
                     </div>
                   </>
@@ -1927,18 +1927,18 @@ export function CollectFeesView({ showToast, readOnly = false }) {
                 ) : (() => {
                   const selStudent = students.find(s => s.id === form.studentId);
                   let selFs = null;
-                  const targetClass = selStudent 
-                    ? selStudent.studentClass 
+                  const targetClass = selStudent
+                    ? selStudent.studentClass
                     : ((isGrade11or12(selectedFormGrade) && selectedFormDept)
-                        ? `${selectedFormGrade} (${selectedFormDept})`
-                        : selectedFormGrade);
-                  
+                      ? `${selectedFormGrade} (${selectedFormDept})`
+                      : selectedFormGrade);
+
                   if (targetClass) {
                     const classStructures = feeStructures.filter(f => f.studentClass === targetClass);
                     selFs = classStructures.find(f => f.monthRange === form.billingPeriod) || classStructures[0];
                   }
                   const selFreq = selFs ? (selFs.frequency || 'Yearly') : 'Yearly';
-                  
+
                   if (selFreq === 'Yearly') {
                     return (
                       <div>
@@ -1960,9 +1960,9 @@ export function CollectFeesView({ showToast, readOnly = false }) {
                   return (
                     <div>
                       <label style={labelStyle}>Billing Period</label>
-                      <select 
-                        value={form.billingPeriod || 'Yearly'} 
-                        onChange={e => handleBillingPeriodChange(e.target.value)} 
+                      <select
+                        value={form.billingPeriod || 'Yearly'}
+                        onChange={e => handleBillingPeriodChange(e.target.value)}
                         style={{ ...inputStyle, cursor: 'pointer' }}
                       >
                         {getBillingPeriodOptions(selFreq).map(opt => (
@@ -2031,13 +2031,13 @@ export function CollectFeesView({ showToast, readOnly = false }) {
                   borderRadius: '10px', color: 'var(--text-main)', fontWeight: 600, cursor: 'pointer', fontSize: '0.85rem', transition: 'background 0.2s',
                   display: 'flex', alignItems: 'center', gap: '6px'
                 }} onMouseEnter={e => e.currentTarget.style.background = 'var(--border-subtle)'}
-                   onMouseLeave={e => e.currentTarget.style.background = 'var(--bg-card-subtle)'}><X size={16} /> Close</button>
+                  onMouseLeave={e => e.currentTarget.style.background = 'var(--bg-card-subtle)'}><X size={16} /> Close</button>
                 <button type="submit" style={{
                   padding: '12px 28px', background: 'linear-gradient(135deg, #10b981, #059669)',
                   border: 'none', borderRadius: '10px', color: '#fff', fontWeight: 700, cursor: 'pointer',
                   display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem', transition: 'transform 0.15s, opacity 0.2s'
                 }} onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-1px)'}
-                   onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}><CheckCircle size={16} /> {editingId ? 'Update Record' : 'Collect & Generate Receipt'}</button>
+                  onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}><CheckCircle size={16} /> {editingId ? 'Update Record' : 'Collect & Generate Receipt'}</button>
               </div>
             </form>
           </div>
@@ -2050,7 +2050,7 @@ export function CollectFeesView({ showToast, readOnly = false }) {
       {selectedDetailsStudentId && (() => {
         const detailsStudent = groupedStudents.find(s => (s.studentId || s.id) === selectedDetailsStudentId);
         if (!detailsStudent) return null;
-        
+
         return createPortal(
           <div className="modal-overlay" onClick={() => setSelectedDetailsStudentId(null)}>
             <div onClick={e => e.stopPropagation()} className="animate-scale-up" style={{
@@ -2093,7 +2093,7 @@ export function CollectFeesView({ showToast, readOnly = false }) {
                   <X size={18} />
                 </button>
               </div>
-              
+
               <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                 {detailsStudent.periods.map((period, pIdx) => {
                   const hasPayments = period.paidPeriodAmount > 0;
@@ -2102,11 +2102,11 @@ export function CollectFeesView({ showToast, readOnly = false }) {
                     Partial: { text: '#f59e0b', bg: 'rgba(245,158,11,0.08)', border: 'rgba(245,158,11,0.15)' },
                     Pending: { text: '#ef4444', bg: 'rgba(239,68,68,0.08)', border: 'rgba(239,68,68,0.15)' }
                   };
-                  const pColors = hasPayments 
+                  const pColors = hasPayments
                     ? (statusColors[period.status] || statusColors.Paid)
                     : { text: '#ef4444', bg: 'rgba(239,68,68,0.08)', border: 'rgba(239,68,68,0.15)' };
                   const pStatusLabel = hasPayments ? period.status : 'Due';
-                  
+
                   return (
                     <div key={pIdx} style={{ padding: '16px', background: 'var(--bg-card)', border: '1px solid var(--border-glass)', borderRadius: '12px' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
@@ -2431,11 +2431,11 @@ export function CollectFeesView({ showToast, readOnly = false }) {
                   const { type, amt } = dueItems[i];
                   const fn = i === 0 ? fineNum : 0;
                   const payload = { studentId, studentName, admissionNumber, studentClass, section, feeType: type, amount: amt, discount: 0, fine: fn, paidAmount: amt + fn, paymentMethod, remarks: 'DUE_COLLECTION', billingPeriod: cPeriod.name };
-                  
+
                   const existingId = editingDcIds ? editingDcIds[type] : null;
                   const url = existingId ? `/api/finance/fees/${existingId}` : '/api/finance/fees';
                   const method = existingId ? 'PUT' : 'POST';
-                  
+
                   const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
                   if (!res.ok) { const err = await res.json(); throw new Error(err.error || 'Error saving due collection'); }
                   const data = await res.json();
@@ -2539,16 +2539,16 @@ export function CollectFeesView({ showToast, readOnly = false }) {
                 <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center', padding: '16px 20px', borderBottom: '1px solid var(--border-glass)', background: 'rgba(255,255,255,0.015)' }}>
                   <div style={{ position: 'relative', flex: 1, minWidth: '220px' }}>
                     <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-                    <input 
-                      value={search} 
+                    <input
+                      value={search}
                       onChange={e => {
                         const val = e.target.value;
                         if (/^[a-zA-Z\s]*$/.test(val) && val.length <= 50) {
                           setSearch(val);
                         }
-                      }} 
+                      }}
                       placeholder="Search by student name..."
-                      style={{ ...inputStyle, paddingLeft: '36px', width: '100%', background: 'var(--bg-card-subtle)' }} 
+                      style={{ ...inputStyle, paddingLeft: '36px', width: '100%', background: 'var(--bg-card-subtle)' }}
                     />
                   </div>
                   <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600 }}>
@@ -2566,128 +2566,128 @@ export function CollectFeesView({ showToast, readOnly = false }) {
                   ) : (
                     <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                       <tbody>
-                      {list.map((student, sIdx) => {
-                        const statusColors = {
-                          Paid: { text: '#10b981', bg: 'rgba(16,185,129,0.08)', border: 'rgba(16,185,129,0.15)' },
-                          Partial: { text: '#f59e0b', bg: 'rgba(245,158,11,0.08)', border: 'rgba(245,158,11,0.15)' },
-                          Pending: { text: '#ef4444', bg: 'rgba(239,68,68,0.08)', border: 'rgba(239,68,68,0.15)' }
-                        };
-                        const colors = statusColors[student.overallStatus] || statusColors.Paid;
-                        
-                        return (
-                          <tr 
-                            key={`main-${sIdx}`}
-                            style={{ borderBottom: '1px solid var(--border-glass)', transition: 'background 0.2s', cursor: 'pointer' }}
-                            onClick={() => setSelectedDetailsStudentId(student.studentId || student.id)}
-                            onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.015)'}
-                            onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-                          >
-                            <td style={{ padding: '14px 20px', width: '100%' }}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', width: '100%' }}>
-                                <div style={{ 
-                                  width: '38px', 
-                                  height: '38px', 
-                                  borderRadius: '50%', 
-                                  background: colors.bg, 
-                                  border: `1.5px solid ${colors.border}`, 
-                                  display: 'flex', 
-                                  alignItems: 'center', 
-                                  justifyContent: 'center', 
-                                  color: colors.text, 
-                                  fontWeight: 700, 
-                                  fontSize: '0.85rem' 
-                                }}>
-                                  {student.studentName ? student.studentName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() : 'ST'}
-                                </div>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flex: 1, minWidth: 0, flexWrap: 'wrap' }}>
-                                  <div style={{ minWidth: 0 }}>
-                                    <div style={{ fontSize: '0.9rem', fontWeight: 800, color: 'var(--text-main)' }}>{student.studentName}</div>
-                                    <div style={{ display: 'flex', gap: '8px', fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px', fontWeight: 500, flexWrap: 'wrap' }}>
-                                      {student.rollNumber && (
-                                        <>
-                                          <span>Roll No: <strong style={{ color: 'var(--text-main)' }}>{student.rollNumber}</strong></span>
-                                          <span>•</span>
-                                        </>
-                                      )}
-                                      <span>Class: <strong style={{ color: 'var(--text-main)' }}>{student.studentClass}-{student.section}</strong></span>
-                                      <span>•</span>
-                                      <span>Session: <strong style={{ color: 'var(--text-main)' }}>{student.periods[0]?.rawFee?.academicSession || '2026-2027'}</strong></span>
-                                    </div>
-                                  </div>
-                                  {student.periods && student.periods.length > 0 && (
-                                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center', flex: 1 }}>
-                                      {student.periods.map((p, pIdx) => {
-                                        const hasPayments = p.paidPeriodAmount > 0;
-                                        const pStatus = hasPayments ? p.status : 'Pending';
-                                        const statusConfig = {
-                                          Paid: { text: 'Paid', color: '#10b981', bg: 'rgba(16, 185, 129, 0.1)', border: 'rgba(16, 185, 129, 0.25)' },
-                                          Partial: { text: 'Partial', color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.1)', border: 'rgba(245, 158, 11, 0.25)' },
-                                          Pending: { text: 'Due', color: '#ef4444', bg: 'rgba(239, 68, 68, 0.1)', border: 'rgba(239, 68, 68, 0.25)' }
-                                        };
-                                        const cfg = statusConfig[pStatus] || statusConfig.Pending;
-                                        return (
-                                          <div key={pIdx} style={{
-                                            display: 'flex',
-                                            flexDirection: 'column',
-                                            alignItems: 'center',
-                                            background: cfg.bg,
-                                            border: `1px solid ${cfg.border}`,
-                                            borderRadius: '8px',
-                                            padding: '5px 12px',
-                                            textAlign: 'center',
-                                            flexShrink: 0
-                                          }}>
-                                            <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '3px', whiteSpace: 'nowrap' }}>
-                                              {p.name}
-                                            </span>
-                                            <span style={{
-                                              fontSize: '0.65rem',
-                                              fontWeight: 800,
-                                              textTransform: 'uppercase',
-                                              color: cfg.color,
-                                              whiteSpace: 'nowrap'
-                                            }}>
-                                              {cfg.text}
-                                            </span>
-                                          </div>
-                                        );
-                                      })}
-                                    </div>
-                                  )}
-                                  <div style={{ marginLeft: 'auto', flexShrink: 0 }}>
-                                    {!readOnly && !(student.periods.length > 0 && student.overallDue <= 0) && (
-                                      <button 
-                                        onClick={(e) => { 
-                                          e.stopPropagation(); 
-                                          handleNewPeriodCollect(student);
-                                        }} 
-                                        style={{
-                                          padding: '6px 12px',
-                                          background: 'linear-gradient(135deg, #10b981, #059669)',
-                                          border: 'none',
-                                          borderRadius: '6px',
-                                          color: '#fff',
-                                          fontWeight: 700,
-                                          cursor: 'pointer',
-                                          fontSize: '0.75rem',
-                                          boxShadow: '0 2px 8px rgba(16,185,129,0.15)',
-                                          display: 'inline-flex',
-                                          alignItems: 'center',
-                                          gap: '4px',
-                                          whiteSpace: 'nowrap'
-                                        }}
-                                      >
-                                        <Plus size={12} /> Collect Fee
-                                      </button>
-                                    )}
-                                  </div>
-                                </div>
-                              </div>
-                            </td>
+                        {list.map((student, sIdx) => {
+                          const statusColors = {
+                            Paid: { text: '#10b981', bg: 'rgba(16,185,129,0.08)', border: 'rgba(16,185,129,0.15)' },
+                            Partial: { text: '#f59e0b', bg: 'rgba(245,158,11,0.08)', border: 'rgba(245,158,11,0.15)' },
+                            Pending: { text: '#ef4444', bg: 'rgba(239,68,68,0.08)', border: 'rgba(239,68,68,0.15)' }
+                          };
+                          const colors = statusColors[student.overallStatus] || statusColors.Paid;
 
-                          </tr>
-                        );
-                      })}
+                          return (
+                            <tr
+                              key={`main-${sIdx}`}
+                              style={{ borderBottom: '1px solid var(--border-glass)', transition: 'background 0.2s', cursor: 'pointer' }}
+                              onClick={() => setSelectedDetailsStudentId(student.studentId || student.id)}
+                              onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.015)'}
+                              onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                            >
+                              <td style={{ padding: '14px 20px', width: '100%' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', width: '100%' }}>
+                                  <div style={{
+                                    width: '38px',
+                                    height: '38px',
+                                    borderRadius: '50%',
+                                    background: colors.bg,
+                                    border: `1.5px solid ${colors.border}`,
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    color: colors.text,
+                                    fontWeight: 700,
+                                    fontSize: '0.85rem'
+                                  }}>
+                                    {student.studentName ? student.studentName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() : 'ST'}
+                                  </div>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flex: 1, minWidth: 0, flexWrap: 'wrap' }}>
+                                    <div style={{ minWidth: 0 }}>
+                                      <div style={{ fontSize: '0.9rem', fontWeight: 800, color: 'var(--text-main)' }}>{student.studentName}</div>
+                                      <div style={{ display: 'flex', gap: '8px', fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px', fontWeight: 500, flexWrap: 'wrap' }}>
+                                        {student.rollNumber && (
+                                          <>
+                                            <span>Roll No: <strong style={{ color: 'var(--text-main)' }}>{student.rollNumber}</strong></span>
+                                            <span>•</span>
+                                          </>
+                                        )}
+                                        <span>Class: <strong style={{ color: 'var(--text-main)' }}>{student.studentClass}-{student.section}</strong></span>
+                                        <span>•</span>
+                                        <span>Session: <strong style={{ color: 'var(--text-main)' }}>{student.periods[0]?.rawFee?.academicSession || '2026-2027'}</strong></span>
+                                      </div>
+                                    </div>
+                                    {student.periods && student.periods.length > 0 && (
+                                      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center', flex: 1 }}>
+                                        {student.periods.map((p, pIdx) => {
+                                          const hasPayments = p.paidPeriodAmount > 0;
+                                          const pStatus = hasPayments ? p.status : 'Pending';
+                                          const statusConfig = {
+                                            Paid: { text: 'Paid', color: '#10b981', bg: 'rgba(16, 185, 129, 0.1)', border: 'rgba(16, 185, 129, 0.25)' },
+                                            Partial: { text: 'Partial', color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.1)', border: 'rgba(245, 158, 11, 0.25)' },
+                                            Pending: { text: 'Due', color: '#ef4444', bg: 'rgba(239, 68, 68, 0.1)', border: 'rgba(239, 68, 68, 0.25)' }
+                                          };
+                                          const cfg = statusConfig[pStatus] || statusConfig.Pending;
+                                          return (
+                                            <div key={pIdx} style={{
+                                              display: 'flex',
+                                              flexDirection: 'column',
+                                              alignItems: 'center',
+                                              background: cfg.bg,
+                                              border: `1px solid ${cfg.border}`,
+                                              borderRadius: '8px',
+                                              padding: '5px 12px',
+                                              textAlign: 'center',
+                                              flexShrink: 0
+                                            }}>
+                                              <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '3px', whiteSpace: 'nowrap' }}>
+                                                {p.name}
+                                              </span>
+                                              <span style={{
+                                                fontSize: '0.65rem',
+                                                fontWeight: 800,
+                                                textTransform: 'uppercase',
+                                                color: cfg.color,
+                                                whiteSpace: 'nowrap'
+                                              }}>
+                                                {cfg.text}
+                                              </span>
+                                            </div>
+                                          );
+                                        })}
+                                      </div>
+                                    )}
+                                    <div style={{ marginLeft: 'auto', flexShrink: 0 }}>
+                                      {!readOnly && !(student.periods.length > 0 && student.overallDue <= 0) && (
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleNewPeriodCollect(student);
+                                          }}
+                                          style={{
+                                            padding: '6px 12px',
+                                            background: 'linear-gradient(135deg, #10b981, #059669)',
+                                            border: 'none',
+                                            borderRadius: '6px',
+                                            color: '#fff',
+                                            fontWeight: 700,
+                                            cursor: 'pointer',
+                                            fontSize: '0.75rem',
+                                            boxShadow: '0 2px 8px rgba(16,185,129,0.15)',
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            gap: '4px',
+                                            whiteSpace: 'nowrap'
+                                          }}
+                                        >
+                                          <Plus size={12} /> Collect Fee
+                                        </button>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              </td>
+
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   )}
@@ -2705,10 +2705,10 @@ export function CollectFeesView({ showToast, readOnly = false }) {
       })()
       }
 
-      <ConfirmDialog 
-        show={!!showConfirmDelete} 
+      <ConfirmDialog
+        show={!!showConfirmDelete}
         message={
-          showConfirmDelete?.components 
+          showConfirmDelete?.components
             ? `Are you sure you want to delete all fee records for ${showConfirmDelete.components[0]?.rawFee?.studentName} in ${showConfirmDelete.name}?`
             : `Are you sure you want to delete the fee record for ${showConfirmDelete?.studentName}?`
         }
@@ -2798,7 +2798,7 @@ export function FeeStructureView({ showToast }) {
   const getBillingPeriodOptions = (frequency) => {
     if (frequency === 'Monthly') {
       return [
-        'January', 'February', 'March', 'April', 'May', 'June', 
+        'January', 'February', 'March', 'April', 'May', 'June',
         'July', 'August', 'September', 'October', 'November', 'December'
       ];
     }
@@ -2838,7 +2838,7 @@ export function FeeStructureView({ showToast }) {
     fetch('/api/finance/fee-periods')
       .then(r => r.json())
       .then(d => setFeePeriods(d || []))
-      .catch(() => {});
+      .catch(() => { });
   };
 
   useEffect(() => {
@@ -2882,7 +2882,7 @@ export function FeeStructureView({ showToast }) {
 
     if (finalClass && activeOpts.length > 0) {
       const classStructures = structures.filter(s => s.studentClass === finalClass && s.frequency === freq);
-      
+
       const newData = {};
       activeOpts.forEach(opt => {
         const match = classStructures.find(s => (s.monthRange || 'Full Year') === opt);
@@ -2928,8 +2928,8 @@ export function FeeStructureView({ showToast }) {
     }
 
     const activeOpts = getBillingPeriodOptions(form.frequency || 'Yearly');
-    const structuresToDelete = structures.filter(s => 
-      s.studentClass === finalClass && 
+    const structuresToDelete = structures.filter(s =>
+      s.studentClass === finalClass &&
       (s.frequency || 'Yearly') !== (form.frequency || 'Yearly')
     );
 
@@ -3092,9 +3092,9 @@ export function FeeStructureView({ showToast }) {
                 )}
                 <div>
                   <label style={labelStyle}>Fee Frequency</label>
-                  <select 
-                    value={form.frequency || 'Yearly'} 
-                    onChange={e => handleFrequencyChange(e.target.value)} 
+                  <select
+                    value={form.frequency || 'Yearly'}
+                    onChange={e => handleFrequencyChange(e.target.value)}
                     style={{ ...inputStyle, cursor: 'pointer' }}
                   >
                     <option value="Monthly" style={optionStyle}>Monthly</option>
@@ -3114,10 +3114,10 @@ export function FeeStructureView({ showToast }) {
                   const data = rangesData[opt] || { tuitionFee: '0', transportFee: '0', otherCharges: '0' };
                   const subTotal = (Number(data.tuitionFee) || 0) + (Number(data.transportFee) || 0) + (Number(data.otherCharges) || 0);
                   return (
-                    <div key={opt} style={{ 
-                      display: 'grid', 
-                      gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', 
-                      gap: '14px', 
+                    <div key={opt} style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
+                      gap: '14px',
                       alignItems: 'end',
                       padding: '16px',
                       background: 'rgba(255, 255, 255, 0.02)',
@@ -3129,31 +3129,31 @@ export function FeeStructureView({ showToast }) {
                       </div>
                       <div>
                         <label style={labelStyle}>Tuition Fee (₹)</label>
-                        <input 
-                          type="number" 
-                          value={data.tuitionFee} 
-                          onChange={e => handleRangeFieldChange(opt, 'tuitionFee', e.target.value)} 
-                          style={inputStyle} 
+                        <input
+                          type="number"
+                          value={data.tuitionFee}
+                          onChange={e => handleRangeFieldChange(opt, 'tuitionFee', e.target.value)}
+                          style={inputStyle}
                           placeholder="0"
                         />
                       </div>
                       <div>
                         <label style={labelStyle}>Transport Fee (₹)</label>
-                        <input 
-                          type="number" 
-                          value={data.transportFee} 
-                          onChange={e => handleRangeFieldChange(opt, 'transportFee', e.target.value)} 
-                          style={inputStyle} 
+                        <input
+                          type="number"
+                          value={data.transportFee}
+                          onChange={e => handleRangeFieldChange(opt, 'transportFee', e.target.value)}
+                          style={inputStyle}
                           placeholder="0"
                         />
                       </div>
                       <div>
                         <label style={labelStyle}>Other Charges (₹)</label>
-                        <input 
-                          type="number" 
-                          value={data.otherCharges} 
-                          onChange={e => handleRangeFieldChange(opt, 'otherCharges', e.target.value)} 
-                          style={inputStyle} 
+                        <input
+                          type="number"
+                          value={data.otherCharges}
+                          onChange={e => handleRangeFieldChange(opt, 'otherCharges', e.target.value)}
+                          style={inputStyle}
                           placeholder="0"
                         />
                       </div>
@@ -3189,7 +3189,7 @@ export function FeeStructureView({ showToast }) {
                   borderRadius: '10px', color: 'var(--text-main)', fontWeight: 600, cursor: 'pointer', fontSize: '0.85rem', transition: 'background 0.2s',
                   display: 'flex', alignItems: 'center', gap: '6px'
                 }} onMouseEnter={e => e.currentTarget.style.background = 'var(--border-subtle)'}
-                   onMouseLeave={e => e.currentTarget.style.background = 'var(--bg-card-subtle)'}><X size={16} /> Close</button>
+                  onMouseLeave={e => e.currentTarget.style.background = 'var(--bg-card-subtle)'}><X size={16} /> Close</button>
               </div>
             </form>
           </div>
@@ -3344,11 +3344,11 @@ export function FeeStructureView({ showToast }) {
             const overallTotal = totalTuition + totalTransport + totalOther;
 
             return (
-              <div key={i} className="glass-panel" style={{ 
-                padding: '24px', 
-                borderRadius: '16px', 
-                display: 'flex', 
-                flexDirection: 'column', 
+              <div key={i} className="glass-panel" style={{
+                padding: '24px',
+                borderRadius: '16px',
+                display: 'flex',
+                flexDirection: 'column',
                 gap: '16px',
                 maxWidth: '420px',
                 width: '100%',
@@ -3358,8 +3358,8 @@ export function FeeStructureView({ showToast }) {
               }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(0,0,0,0.06)', paddingBottom: '10px' }}>
                   <h4 style={{ fontSize: '1rem', fontWeight: 800, color: '#3b82f6' }}>Grade {group.studentClass}</h4>
-                  <span style={{ 
-                    fontSize: '0.7rem', fontWeight: 800, color: '#3b82f6', 
+                  <span style={{
+                    fontSize: '0.7rem', fontWeight: 800, color: '#3b82f6',
                     background: 'rgba(59, 130, 246, 0.08)', padding: '4px 10px', borderRadius: '12px',
                     textTransform: 'uppercase', letterSpacing: '0.04em'
                   }}>
@@ -3374,11 +3374,11 @@ export function FeeStructureView({ showToast }) {
                     const other = match ? (match.otherCharges || 0) : 0;
                     const itemTotal = tuition + transport + other;
                     return (
-                      <div key={opt} style={{ 
-                        background: 'rgba(0,0,0,0.02)', 
-                        borderRadius: '8px', 
+                      <div key={opt} style={{
+                        background: 'rgba(0,0,0,0.02)',
+                        borderRadius: '8px',
                         padding: '10px 14px',
-                        border: '1px solid rgba(0,0,0,0.04)' 
+                        border: '1px solid rgba(0,0,0,0.04)'
                       }}>
                         <div style={{ fontWeight: 800, color: 'var(--text-main)', fontSize: '0.8rem', borderBottom: '1px solid rgba(0,0,0,0.04)', paddingBottom: '4px', marginBottom: '6px' }}>
                           {opt}
@@ -3433,8 +3433,8 @@ export function FeeStructureView({ showToast }) {
                         display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '6px', borderRadius: '6px',
                         transition: 'all 0.2s'
                       }} onMouseEnter={e => { e.currentTarget.style.background = 'rgba(59,130,246,0.12)'; }}
-                         onMouseLeave={e => { e.currentTarget.style.background = 'rgba(0,0,0,0.03)'; }}
-                         title="Edit Structure">
+                        onMouseLeave={e => { e.currentTarget.style.background = 'rgba(0,0,0,0.03)'; }}
+                        title="Edit Structure">
                         <Pencil size={15} />
                       </button>
                       <button onClick={() => handleDelete(group.items.map(item => item.id))} style={{
@@ -3442,8 +3442,8 @@ export function FeeStructureView({ showToast }) {
                         display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '6px', borderRadius: '6px',
                         transition: 'all 0.2s'
                       }} onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.12)'; }}
-                         onMouseLeave={e => { e.currentTarget.style.background = 'rgba(0,0,0,0.03)'; }}
-                         title="Delete Structure">
+                        onMouseLeave={e => { e.currentTarget.style.background = 'rgba(0,0,0,0.03)'; }}
+                        title="Delete Structure">
                         <Trash2 size={15} />
                       </button>
                     </div>
@@ -3533,7 +3533,7 @@ export function StaffPaymentStructureView({ showToast, type }) {
           const activeRoles = Array.isArray(data) ? data.filter(r => r.active && !['Developer Admin', 'Main Admin', 'Admin Dashboard', 'Teacher'].includes(r.name)).map(r => r.name) : [];
           setDesignationOptions(activeRoles);
         })
-        .catch(() => {});
+        .catch(() => { });
     } else {
       fetch('/api/designations')
         .then(r => r.ok ? r.json() : [])
@@ -3541,7 +3541,7 @@ export function StaffPaymentStructureView({ showToast, type }) {
           const activeDesignations = Array.isArray(data) ? data.filter(d => d.status === 'Active' || !d.status).map(d => d.name) : [];
           setDesignationOptions(activeDesignations);
         })
-        .catch(() => {});
+        .catch(() => { });
     }
   };
 
@@ -3681,7 +3681,7 @@ export function StaffPaymentStructureView({ showToast, type }) {
                   borderRadius: '10px', color: 'var(--text-main)', fontWeight: 600, cursor: 'pointer', fontSize: '0.85rem', transition: 'background 0.2s',
                   display: 'flex', alignItems: 'center', gap: '6px'
                 }} onMouseEnter={e => e.currentTarget.style.background = 'var(--border-subtle)'}
-                   onMouseLeave={e => e.currentTarget.style.background = 'var(--bg-card-subtle)'}><X size={16} /> Close</button>
+                  onMouseLeave={e => e.currentTarget.style.background = 'var(--bg-card-subtle)'}><X size={16} /> Close</button>
               </div>
             </form>
           </div>
@@ -3690,100 +3690,100 @@ export function StaffPaymentStructureView({ showToast, type }) {
       )}
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '16px' }}>
-          {loading ? (
-            <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
-               <Loader2 className="animate-spin" size={24} />
-            </div>
-          ) : filteredStructures.length === 0 ? (
-            <div className="glass-panel" style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '40px', color: 'var(--text-muted)', borderRadius: '16px' }}>
-              No {labelText.toLowerCase()} salary structures configured yet.
-            </div>
-          ) : (
-            filteredStructures.map((s, i) => (
-              <div key={i} className="glass-panel" style={{ 
-                padding: '24px', 
-                borderRadius: '16px', 
-                display: 'flex', 
-                flexDirection: 'column', 
-                gap: '12px',
-                maxWidth: '420px',
-                width: '100%',
-                background: '#ffffff',
-                border: '1px solid rgba(0, 0, 0, 0.08)',
-                boxShadow: '0 4px 20px rgba(0, 0, 0, 0.08)'
-              }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(0,0,0,0.06)', paddingBottom: '10px' }}>
-                  <h4 style={{ fontSize: '1rem', fontWeight: 800, color: '#14b8a6' }}>{s.designation}</h4>
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                  {[
-                    ['Basic Salary', s.basicSalary],
-                    ['PF Deduction', s.pfDeduction], ['Tax Deduction', s.taxDeduction]
-                  ].map(([l, v], idx) => (
-                    <div key={l} style={{ 
-                      display: 'flex', 
-                      justifyContent: 'space-between', 
-                      fontSize: '0.82rem',
-                      padding: '8px 0',
-                      borderBottom: idx === 2 ? 'none' : '1px solid rgba(0,0,0,0.04)'
-                    }}>
-                      <span style={{ color: 'var(--text-muted)' }}>{l}</span>
-                      <span style={{ color: 'var(--text-main)', fontWeight: 600 }}>₹{(v || 0).toLocaleString()}</span>
-                    </div>
-                  ))}
-                </div>
-                <div style={{ borderTop: '1px solid rgba(0,0,0,0.08)', paddingTop: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div style={{ display: 'flex', flexDirection: 'column' }}>
-                    <span style={{ fontWeight: 700, color: 'var(--text-muted)', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.02em' }}>Net Salary</span>
-                    <span style={{ fontWeight: 800, color: '#14b8a6', fontSize: '1.15rem' }}>₹{(s.netSalary || 0).toLocaleString()}</span>
+        {loading ? (
+          <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
+            <Loader2 className="animate-spin" size={24} />
+          </div>
+        ) : filteredStructures.length === 0 ? (
+          <div className="glass-panel" style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '40px', color: 'var(--text-muted)', borderRadius: '16px' }}>
+            No {labelText.toLowerCase()} salary structures configured yet.
+          </div>
+        ) : (
+          filteredStructures.map((s, i) => (
+            <div key={i} className="glass-panel" style={{
+              padding: '24px',
+              borderRadius: '16px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '12px',
+              maxWidth: '420px',
+              width: '100%',
+              background: '#ffffff',
+              border: '1px solid rgba(0, 0, 0, 0.08)',
+              boxShadow: '0 4px 20px rgba(0, 0, 0, 0.08)'
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(0,0,0,0.06)', paddingBottom: '10px' }}>
+                <h4 style={{ fontSize: '1rem', fontWeight: 800, color: '#14b8a6' }}>{s.designation}</h4>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                {[
+                  ['Basic Salary', s.basicSalary],
+                  ['PF Deduction', s.pfDeduction], ['Tax Deduction', s.taxDeduction]
+                ].map(([l, v], idx) => (
+                  <div key={l} style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    fontSize: '0.82rem',
+                    padding: '8px 0',
+                    borderBottom: idx === 2 ? 'none' : '1px solid rgba(0,0,0,0.04)'
+                  }}>
+                    <span style={{ color: 'var(--text-muted)' }}>{l}</span>
+                    <span style={{ color: 'var(--text-main)', fontWeight: 600 }}>₹{(v || 0).toLocaleString()}</span>
                   </div>
-                  <div style={{ display: 'flex', gap: '8px' }}>
-                    {hasPermission(isStaff ? 'staff-pay-structure' : 'employee-pay-structure', 'edit') && (
-                      <button onClick={() => handleEdit(s)} style={{
-                        background: 'rgba(0,0,0,0.03)', border: '1px solid rgba(0,0,0,0.08)', color: '#3b82f6', cursor: 'pointer',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '6px', borderRadius: '6px',
-                        transition: 'all 0.2s'
-                      }} onMouseEnter={e => { e.currentTarget.style.background = 'rgba(59,130,246,0.12)'; }}
-                         onMouseLeave={e => { e.currentTarget.style.background = 'rgba(0,0,0,0.03)'; }}
-                         title="Edit Structure">
-                        <Pencil size={15} />
-                      </button>
-                    )}
-                    {hasPermission(isStaff ? 'staff-pay-structure' : 'employee-pay-structure', 'delete') && (
-                      <button onClick={() => handleDelete(s.id, s.designation)} style={{
-                        background: 'rgba(0,0,0,0.03)', border: '1px solid rgba(0,0,0,0.08)', color: '#ef4444', cursor: 'pointer',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '6px', borderRadius: '6px',
-                        transition: 'all 0.2s'
-                      }} onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.12)'; }}
-                         onMouseLeave={e => { e.currentTarget.style.background = 'rgba(0,0,0,0.03)'; }}
-                         title="Delete Structure">
-                        <Trash2 size={15} />
-                      </button>
-                    )}
-                  </div>
+                ))}
+              </div>
+              <div style={{ borderTop: '1px solid rgba(0,0,0,0.08)', paddingTop: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                  <span style={{ fontWeight: 700, color: 'var(--text-muted)', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.02em' }}>Net Salary</span>
+                  <span style={{ fontWeight: 800, color: '#14b8a6', fontSize: '1.15rem' }}>₹{(s.netSalary || 0).toLocaleString()}</span>
+                </div>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  {hasPermission(isStaff ? 'staff-pay-structure' : 'employee-pay-structure', 'edit') && (
+                    <button onClick={() => handleEdit(s)} style={{
+                      background: 'rgba(0,0,0,0.03)', border: '1px solid rgba(0,0,0,0.08)', color: '#3b82f6', cursor: 'pointer',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '6px', borderRadius: '6px',
+                      transition: 'all 0.2s'
+                    }} onMouseEnter={e => { e.currentTarget.style.background = 'rgba(59,130,246,0.12)'; }}
+                      onMouseLeave={e => { e.currentTarget.style.background = 'rgba(0,0,0,0.03)'; }}
+                      title="Edit Structure">
+                      <Pencil size={15} />
+                    </button>
+                  )}
+                  {hasPermission(isStaff ? 'staff-pay-structure' : 'employee-pay-structure', 'delete') && (
+                    <button onClick={() => handleDelete(s.id, s.designation)} style={{
+                      background: 'rgba(0,0,0,0.03)', border: '1px solid rgba(0,0,0,0.08)', color: '#ef4444', cursor: 'pointer',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '6px', borderRadius: '6px',
+                      transition: 'all 0.2s'
+                    }} onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.12)'; }}
+                      onMouseLeave={e => { e.currentTarget.style.background = 'rgba(0,0,0,0.03)'; }}
+                      title="Delete Structure">
+                      <Trash2 size={15} />
+                    </button>
+                  )}
                 </div>
               </div>
-            ))
-          )}
-        </div>
+            </div>
+          ))
+        )}
+      </div>
 
-        <ConfirmDialog
-          show={!!confirmDelete}
-          message={confirmDelete ? `Are you sure you want to delete the structure for ${confirmDelete.name}?` : ''}
-          onConfirm={async () => {
-            try {
-              const res = await fetch(`/api/finance/staff-salary-structures/${confirmDelete.id}`, { method: 'DELETE' });
-              if (res.ok) {
-                showToast(`Deleted salary structure for ${confirmDelete.name}`);
-                fetchStructures();
-              } else {
-                showToast('Failed to delete structure', 'error');
-              }
-            } catch { showToast('Network error', 'error'); }
-            setConfirmDelete(null);
-          }}
-          onCancel={() => setConfirmDelete(null)}
-        />
+      <ConfirmDialog
+        show={!!confirmDelete}
+        message={confirmDelete ? `Are you sure you want to delete the structure for ${confirmDelete.name}?` : ''}
+        onConfirm={async () => {
+          try {
+            const res = await fetch(`/api/finance/staff-salary-structures/${confirmDelete.id}`, { method: 'DELETE' });
+            if (res.ok) {
+              showToast(`Deleted salary structure for ${confirmDelete.name}`);
+              fetchStructures();
+            } else {
+              showToast('Failed to delete structure', 'error');
+            }
+          } catch { showToast('Network error', 'error'); }
+          setConfirmDelete(null);
+        }}
+        onCancel={() => setConfirmDelete(null)}
+      />
     </div>
   );
 }
@@ -3829,7 +3829,7 @@ export function StaffPaymentsView({ showToast }) {
     fetch('/api/employees')
       .then(r => r.json())
       .then(d => setStaff(d))
-      .catch(() => {});
+      .catch(() => { });
   };
 
   const fetchDesignationOptions = () => {
@@ -3839,12 +3839,12 @@ export function StaffPaymentsView({ showToast }) {
         const activeDesignations = Array.isArray(data) ? data.filter(d => d.status === 'Active' || !d.status).map(d => d.name) : [];
         setDesignationOptions(activeDesignations);
       })
-      .catch(() => {});
+      .catch(() => { });
   };
 
-  useEffect(() => { 
-    fetchPayments(); 
-    fetchStaff(); 
+  useEffect(() => {
+    fetchPayments();
+    fetchStaff();
     fetchDesignationOptions();
   }, [filterStatus, search]);
 
@@ -3874,7 +3874,7 @@ export function StaffPaymentsView({ showToast }) {
             taxDeduction: sstr ? String(sstr.taxDeduction) : '1000'
           }));
         })
-        .catch(() => {});
+        .catch(() => { });
       setStaffSearchQuery(s.name);
       setShowStaffDropdown(false);
     } else {
@@ -3911,7 +3911,7 @@ export function StaffPaymentsView({ showToast }) {
             taxDeduction: sstr ? String(sstr.taxDeduction) : '1000'
           }));
         })
-        .catch(() => {});
+        .catch(() => { });
     }
   };
 
@@ -3932,10 +3932,12 @@ export function StaffPaymentsView({ showToast }) {
       if (res.ok) {
         showToast(`Payment of ₹${netSalary.toLocaleString()} processed for ${form.staffName}!`);
         setShowForm(false);
-        setForm({ staffId: '', staffName: '', staffRole: '', department: '',
+        setForm({
+          staffId: '', staffName: '', staffRole: '', department: '',
           basicSalary: '30000', allowances: '0', bonus: '0', deductions: '0',
           pfDeduction: '1500', taxDeduction: '1000', paymentMethod: 'Bank Transfer',
-          month: `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}` });
+          month: `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`
+        });
         fetchPayments();
       } else {
         const err = await res.json();
@@ -4031,17 +4033,17 @@ export function StaffPaymentsView({ showToast }) {
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '16px' }}>
                 <div style={{ position: 'relative' }}>
                   <label style={labelStyle}>Select Employee</label>
-                  <input 
-                    type="text" 
-                    placeholder="Type employee name to search..." 
-                    value={staffSearchQuery} 
+                  <input
+                    type="text"
+                    placeholder="Type employee name to search..."
+                    value={staffSearchQuery}
                     onChange={(e) => {
                       setStaffSearchQuery(e.target.value);
                       setShowStaffDropdown(true);
                       if (!e.target.value) {
                         selectStaff(null);
                       }
-                    }} 
+                    }}
                     onFocus={() => setShowStaffDropdown(true)}
                     onBlur={() => setTimeout(() => setShowStaffDropdown(false), 250)}
                     style={inputStyle}
@@ -4066,8 +4068,8 @@ export function StaffPaymentsView({ showToast }) {
                         <div style={{ padding: '10px 14px', fontSize: '0.85rem', color: 'var(--text-muted)' }}>No matches found</div>
                       ) : (
                         filteredStaffForSelect.slice(0, 10).map(s => (
-                          <div 
-                            key={s.id} 
+                          <div
+                            key={s.id}
                             onMouseDown={(e) => {
                               e.preventDefault();
                               selectStaff(s);
@@ -4185,7 +4187,7 @@ export function StaffPaymentsView({ showToast }) {
                   borderRadius: '10px', color: 'var(--text-main)', fontWeight: 600, cursor: 'pointer', fontSize: '0.85rem', transition: 'background 0.2s',
                   display: 'flex', alignItems: 'center', gap: '6px'
                 }} onMouseEnter={e => e.currentTarget.style.background = 'var(--border-subtle)'}
-                   onMouseLeave={e => e.currentTarget.style.background = 'var(--bg-card-subtle)'}><X size={16} /> Close</button>
+                  onMouseLeave={e => e.currentTarget.style.background = 'var(--bg-card-subtle)'}><X size={16} /> Close</button>
               </div>
             </form>
           </div>
@@ -4300,12 +4302,12 @@ export function PayrollView({ showToast, type }) {
       fetch('/api/staff?limit=1000')
         .then(r => r.json())
         .then(d => setTeachers((d.teachers || []).map(t => ({ ...t, _source: 'Staff' }))))
-        .catch(() => {});
+        .catch(() => { });
     } else if (type === 'Teacher') {
       fetch('/api/teachers')
         .then(r => r.json())
         .then(d => setTeachers((Array.isArray(d) ? d : []).map(t => ({ ...t, _source: 'Teacher' }))))
-        .catch(() => {});
+        .catch(() => { });
     } else {
       Promise.all([
         fetch('/api/staff?limit=1000').then(r => r.json()).then(d => (d.teachers || []).map(t => ({ ...t, _source: 'Staff' }))).catch(() => []),
@@ -4320,7 +4322,7 @@ export function PayrollView({ showToast, type }) {
     fetch('/api/finance/salary-structures')
       .then(r => r.json())
       .then(d => setSalaryStructures(d || []))
-      .catch(() => {});
+      .catch(() => { });
   };
 
   const fetchRoles = () => {
@@ -4330,7 +4332,7 @@ export function PayrollView({ showToast, type }) {
         const activeRoles = d.filter(r => r.active && !['Developer Admin', 'Main Admin', 'Admin Dashboard'].includes(r.name));
         setRoles(activeRoles);
       })
-      .catch(() => {});
+      .catch(() => { });
   };
 
   useEffect(() => {
@@ -4429,10 +4431,12 @@ export function PayrollView({ showToast, type }) {
       if (res.ok) {
         showToast(`Salary processed for ${form.teacherName}! Net: ₹${netSalary.toLocaleString()}`);
         setShowForm(false);
-        setForm({ teacherId: '', teacherName: '', employeeId: '', role: type === 'Teacher' ? 'Teacher' : '', department: '',
+        setForm({
+          teacherId: '', teacherName: '', employeeId: '', role: type === 'Teacher' ? 'Teacher' : '', department: '',
           basicSalary: '45000', allowances: '0', bonus: '0', deductions: '0',
           pfDeduction: '1800', taxDeduction: '1200', paymentMethod: 'Bank Transfer',
-          month: `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}` });
+          month: `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`
+        });
         setSelectedStructureId('');
         fetchPayroll();
       } else {
@@ -4474,7 +4478,7 @@ export function PayrollView({ showToast, type }) {
       const teacherDesg = (t.designation || '').toLowerCase();
       const teacherRole = (t.role || '').toLowerCase();
       const isMatch = (formRole === 'teacher' && (teacherDesg === 'subject teacher' || teacherDesg === 'teacher')) ||
-                      (formRole === teacherDesg || formRole === teacherRole);
+        (formRole === teacherDesg || formRole === teacherRole);
       if (!isMatch) return false;
     }
     if (teacherSearchQuery.trim()) {
@@ -4546,17 +4550,17 @@ export function PayrollView({ showToast, type }) {
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '16px' }}>
                 <div style={{ position: 'relative' }}>
                   <label style={labelStyle}>Select {labelText}</label>
-                  <input 
-                    type="text" 
-                    placeholder={`Type ${labelText.toLowerCase()} name to search...`} 
-                    value={teacherSearchQuery} 
+                  <input
+                    type="text"
+                    placeholder={`Type ${labelText.toLowerCase()} name to search...`}
+                    value={teacherSearchQuery}
                     onChange={(e) => {
                       setTeacherSearchQuery(e.target.value);
                       setShowTeacherDropdown(true);
                       if (!e.target.value) {
                         selectTeacher(null);
                       }
-                    }} 
+                    }}
                     onFocus={() => setShowTeacherDropdown(true)}
                     onBlur={() => setTimeout(() => setShowTeacherDropdown(false), 250)}
                     style={inputStyle}
@@ -4581,8 +4585,8 @@ export function PayrollView({ showToast, type }) {
                         <div style={{ padding: '10px 14px', fontSize: '0.85rem', color: 'var(--text-muted)' }}>No matches found</div>
                       ) : (
                         filteredTeachersForSelect.slice(0, 10).map(t => (
-                          <div 
-                            key={t.id} 
+                          <div
+                            key={t.id}
                             onMouseDown={(e) => {
                               e.preventDefault();
                               selectTeacher(t);
@@ -4612,11 +4616,11 @@ export function PayrollView({ showToast, type }) {
                 <div>
                   <label style={labelStyle}>Role</label>
                   {type === 'Teacher' ? (
-                    <input 
-                      type="text" 
-                      value="Teacher" 
-                      readOnly 
-                      style={{ ...inputStyle, background: 'var(--bg-form-subtle)', cursor: 'not-allowed', color: 'var(--text-muted)' }} 
+                    <input
+                      type="text"
+                      value="Teacher"
+                      readOnly
+                      style={{ ...inputStyle, background: 'var(--bg-form-subtle)', cursor: 'not-allowed', color: 'var(--text-muted)' }}
                     />
                   ) : (
                     <select
@@ -4707,7 +4711,7 @@ export function PayrollView({ showToast, type }) {
                   borderRadius: '10px', color: 'var(--text-main)', fontWeight: 600, cursor: 'pointer', fontSize: '0.85rem', transition: 'background 0.2s',
                   display: 'flex', alignItems: 'center', gap: '6px'
                 }} onMouseEnter={e => e.currentTarget.style.background = 'var(--border-subtle)'}
-                   onMouseLeave={e => e.currentTarget.style.background = 'var(--bg-card-subtle)'}><X size={16} /> Close</button>
+                  onMouseLeave={e => e.currentTarget.style.background = 'var(--bg-card-subtle)'}><X size={16} /> Close</button>
               </div>
             </form>
           </div>
@@ -4842,9 +4846,9 @@ export function ExpensesView({ showToast }) {
 
   // Filter & Search
   const filteredExpenses = expenses.filter(e => {
-    const matchSearch = e.title?.toLowerCase().includes(search.toLowerCase()) || 
-                        e.expenseId?.toLowerCase().includes(search.toLowerCase()) ||
-                        e.vendor?.name?.toLowerCase().includes(search.toLowerCase());
+    const matchSearch = e.title?.toLowerCase().includes(search.toLowerCase()) ||
+      e.expenseId?.toLowerCase().includes(search.toLowerCase()) ||
+      e.vendor?.name?.toLowerCase().includes(search.toLowerCase());
     const matchCat = filterCat === 'All' || e.category === filterCat;
     return matchSearch && matchCat;
   });
@@ -4874,7 +4878,7 @@ export function ExpensesView({ showToast }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}>
-      
+
       {/* KPI Cards Grid */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '20px' }}>
         <div className="glass-panel" style={{ padding: '24px 28px', borderRadius: '16px', borderLeft: '4px solid #ef4444' }}>
@@ -4891,7 +4895,7 @@ export function ExpensesView({ showToast }) {
 
       {/* Graphs Grid */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: '24px' }}>
-        
+
         {/* Category breakdown */}
         <div className="glass-panel" style={{ padding: '24px', borderRadius: '16px' }}>
           <h3 style={{ fontSize: '0.92rem', fontWeight: 700, color: 'var(--text-main)', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -4905,16 +4909,16 @@ export function ExpensesView({ showToast }) {
               </div>
             ) : (
               Object.entries(categoryGroups)
-                .sort((a,b) => b[1] - a[1])
+                .sort((a, b) => b[1] - a[1])
                 .map(([cat, val]) => {
                   const maxVal = Math.max(...Object.values(categoryGroups), 1);
                   const percent = Math.round((val / maxVal) * 100);
                   const share = calculatedTotalExpenses > 0 ? Math.round((val / calculatedTotalExpenses) * 100) : 0;
-                  const catColors = { 
-                    Maintenance: '#3b82f6', Salary: '#8b5cf6', Stationery: '#f59e0b', 
-                    Utilities: '#06b6d4', Transportation: '#10b981', Events: '#f97316', 
+                  const catColors = {
+                    Maintenance: '#3b82f6', Salary: '#8b5cf6', Stationery: '#f59e0b',
+                    Utilities: '#06b6d4', Transportation: '#10b981', Events: '#f97316',
                     'Furniture & Equipment': '#ec4899', 'Building & Renovation': '#ef4444',
-                    Other: '#6b7280' 
+                    Other: '#6b7280'
                   };
                   const color = catColors[cat] || '#6b7280';
                   return (
@@ -4986,12 +4990,12 @@ export function ExpensesView({ showToast }) {
           </div>
         ) : (
           filteredExpenses.map((exp, i) => (
-            <div key={i} className="glass-panel" style={{ 
+            <div key={i} className="glass-panel" style={{
               padding: '24px', borderRadius: '16px', display: 'flex', flexDirection: 'column', gap: '16px',
               border: '1px solid rgba(255,255,255,0.04)', transition: 'transform 0.2s', position: 'relative'
             }} onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-2px)'}
-               onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}>
-              
+              onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}>
+
               {/* Header block */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <div>
@@ -5150,15 +5154,15 @@ function Disabled_IncomeView({ showToast, active = true }) {
   const feeTypesList = ['Tuition Fee', 'Transport Fee', 'Other Charges'];
 
   const filteredFees = fees.filter(f => {
-    const matchesSearch = !feeSearch || 
+    const matchesSearch = !feeSearch ||
       f.studentName?.toLowerCase().includes(feeSearch.toLowerCase()) ||
       f.admissionNumber?.toLowerCase().includes(feeSearch.toLowerCase()) ||
       f.receiptNumber?.toLowerCase().includes(feeSearch.toLowerCase());
-      
+
     const matchesClass = feeClassFilter === 'All' || f.studentClass === feeClassFilter;
     const matchesType = feeTypeFilter === 'All' || f.feeType === feeTypeFilter;
     const matchesDate = !feeDateFilter || f.paymentDate === feeDateFilter;
-    
+
     return matchesSearch && matchesClass && matchesType && matchesDate;
   });
 
@@ -5220,7 +5224,7 @@ function Disabled_IncomeView({ showToast, active = true }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}>
-      
+
       {/* Receipt Modal */}
       {receiptData && createPortal(
         <div className="modal-overlay" onClick={() => setReceiptData(null)}>
@@ -5298,7 +5302,7 @@ function Disabled_IncomeView({ showToast, active = true }) {
 
       {/* Graph Section */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: '24px' }}>
-        
+
         {/* Monthly Revenue vs Expense trend */}
         <div className="glass-panel" style={{ padding: '24px', borderRadius: '16px' }}>
           <h3 style={{ fontSize: '0.92rem', fontWeight: 700, color: 'var(--text-main)', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -5315,7 +5319,7 @@ function Disabled_IncomeView({ showToast, active = true }) {
                 const maxIncome = Math.max(...(overview?.monthlyData?.map(o => o.fees) || [1]));
                 const maxExpense = Math.max(...(overview?.monthlyData?.map(o => o.expenses) || [1]));
                 const overallMax = Math.max(maxIncome, maxExpense, 1);
-                
+
                 const incomePercent = Math.round((m.fees / overallMax) * 100);
                 const expensePercent = Math.round((m.expenses / overallMax) * 100);
 
@@ -5380,7 +5384,7 @@ function Disabled_IncomeView({ showToast, active = true }) {
                     </div>
                   );
                 })}
-                
+
                 {/* Auxiliary sources */}
                 {Object.entries(sourceTotals).map(([source, val]) => {
                   if (val === 0) return null;
@@ -5411,11 +5415,11 @@ function Disabled_IncomeView({ showToast, active = true }) {
 
       {/* Tabs Switcher for Collections History & Auxiliary entries */}
       <div style={{ display: 'flex', gap: '16px', borderBottom: '1px solid var(--border-glass)', paddingBottom: '10px', marginTop: '20px' }}>
-        <button 
+        <button
           onClick={() => setActiveTab('fees')}
           style={{
             background: 'none', border: 'none', padding: '8px 16px', cursor: 'pointer',
-            fontSize: '0.9rem', fontWeight: 700, 
+            fontSize: '0.9rem', fontWeight: 700,
             color: activeTab === 'fees' ? '#10b981' : 'var(--text-muted)',
             borderBottom: activeTab === 'fees' ? '3px solid #10b981' : 'none',
             display: 'flex', alignItems: 'center', gap: '8px', transition: 'all 0.2s'
@@ -5423,11 +5427,11 @@ function Disabled_IncomeView({ showToast, active = true }) {
         >
           <Receipt size={16} /> Student Fee Collections History
         </button>
-        <button 
+        <button
           onClick={() => setActiveTab('auxiliary')}
           style={{
             background: 'none', border: 'none', padding: '8px 16px', cursor: 'pointer',
-            fontSize: '0.9rem', fontWeight: 700, 
+            fontSize: '0.9rem', fontWeight: 700,
             color: activeTab === 'auxiliary' ? '#10b981' : 'var(--text-muted)',
             borderBottom: activeTab === 'auxiliary' ? '3px solid #10b981' : 'none',
             display: 'flex', alignItems: 'center', gap: '8px', transition: 'all 0.2s'
@@ -5439,21 +5443,21 @@ function Disabled_IncomeView({ showToast, active = true }) {
 
       {activeTab === 'fees' ? (
         <div className="glass-panel" style={{ padding: '24px', borderRadius: '16px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          
+
           {/* Filter Toolbar */}
           <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
             <div style={{ position: 'relative', flex: 1, minWidth: '240px' }}>
               <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-              <input 
-                value={feeSearch} 
-                onChange={e => setFeeSearch(e.target.value)} 
-                placeholder="Search student, receipt number or admission number..." 
+              <input
+                value={feeSearch}
+                onChange={e => setFeeSearch(e.target.value)}
+                placeholder="Search student, receipt number or admission number..."
                 style={{ ...inputStyle, paddingLeft: '38px' }}
               />
             </div>
-            <select 
-              value={feeClassFilter} 
-              onChange={e => setFeeClassFilter(e.target.value)} 
+            <select
+              value={feeClassFilter}
+              onChange={e => setFeeClassFilter(e.target.value)}
               style={{ ...inputStyle, width: 'auto', minWidth: '150px' }}
             >
               <option value="All" style={optionStyle}>All Classes</option>
@@ -5461,9 +5465,9 @@ function Disabled_IncomeView({ showToast, active = true }) {
                 <option key={c} value={c} style={optionStyle}>{c}</option>
               ))}
             </select>
-            <select 
-              value={feeTypeFilter} 
-              onChange={e => setFeeTypeFilter(e.target.value)} 
+            <select
+              value={feeTypeFilter}
+              onChange={e => setFeeTypeFilter(e.target.value)}
               style={{ ...inputStyle, width: 'auto', minWidth: '160px' }}
             >
               <option value="All" style={optionStyle}>All Fee Types</option>
@@ -5471,14 +5475,14 @@ function Disabled_IncomeView({ showToast, active = true }) {
                 <option key={t} value={t} style={optionStyle}>{t}</option>
               ))}
             </select>
-            <input 
+            <input
               type="date"
-              value={feeDateFilter} 
-              onChange={e => setFeeDateFilter(e.target.value)} 
+              value={feeDateFilter}
+              onChange={e => setFeeDateFilter(e.target.value)}
               style={{ ...inputStyle, width: 'auto', minWidth: '150px', cursor: 'pointer' }}
               title="Filter by payment date"
             />
-            <button 
+            <button
               onClick={() => {
                 const rows = filteredFees.map(f => ({
                   'Receipt Number': f.receiptNumber,
@@ -5587,17 +5591,17 @@ function Disabled_IncomeView({ showToast, active = true }) {
           <div className="glass-panel" style={{ padding: '16px 20px', borderRadius: '12px', display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
             <div style={{ position: 'relative', flex: 1, minWidth: '240px' }}>
               <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-              <input 
-                value={auxSearch} 
-                onChange={e => setAuxSearch(e.target.value)} 
-                placeholder="Search category, receipt number, description..." 
+              <input
+                value={auxSearch}
+                onChange={e => setAuxSearch(e.target.value)}
+                placeholder="Search category, receipt number, description..."
                 style={{ ...inputStyle, paddingLeft: '38px' }}
               />
             </div>
-            
-            <select 
-              value={auxCategoryFilter} 
-              onChange={e => setAuxCategoryFilter(e.target.value)} 
+
+            <select
+              value={auxCategoryFilter}
+              onChange={e => setAuxCategoryFilter(e.target.value)}
               style={{ ...inputStyle, width: 'auto', minWidth: '160px', cursor: 'pointer' }}
             >
               <option value="All" style={optionStyle}>All Categories</option>
@@ -5606,7 +5610,7 @@ function Disabled_IncomeView({ showToast, active = true }) {
               ))}
             </select>
 
-            <button 
+            <button
               onClick={handleExportAuxiliaryCSV}
               style={{
                 padding: '10px 18px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)',
@@ -5678,6 +5682,32 @@ function Disabled_IncomeView({ showToast, active = true }) {
 }
 
 /* ============================================================
+   SPARKLINE CHART COMPONENT
+   ============================================================ */
+function Sparkline({ points, color }) {
+  if (!points || points.length < 2) return null;
+  const max = Math.max(...points, 1);
+  const min = Math.min(...points, 0);
+  const range = max - min || 1;
+  const width = 180;
+  const height = 24;
+  
+  const path = points.map((p, idx) => {
+    const x = (idx / (points.length - 1)) * width;
+    const y = height - ((p - min) / range) * height;
+    return `${idx === 0 ? 'M' : 'L'} ${x.toFixed(1)} ${y.toFixed(1)}`;
+  }).join(' ');
+
+  return (
+    <div style={{ width: '100%', height: `${height}px` }}>
+      <svg width="100%" height={height} viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" style={{ overflow: 'visible', display: 'block' }}>
+        <path d={path} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.65 }} />
+      </svg>
+    </div>
+  );
+}
+
+/* ============================================================
    REPORTS VIEW
    ============================================================ */
 export function ReportsView({ showToast, setAccountantView }) {
@@ -5690,10 +5720,11 @@ export function ReportsView({ showToast, setAccountantView }) {
   const [income, setIncome] = useState([]);
 
   // Dashboard states
-  const [breakdownType, setBreakdownType] = useState('inflow'); // 'inflow' | 'outflow'
-  const [trendPeriod, setTrendPeriod] = useState('monthly'); // 'daily' | 'monthly' | 'yearly'
+  const [breakdownType, setBreakdownType] = useState('inflow');
+  const [trendPeriod, setTrendPeriod] = useState('monthly');
   const [ledgerSearch, setLedgerSearch] = useState('');
-  const [ledgerTypeFilter, setLedgerTypeFilter] = useState('all'); // 'all' | 'inflow' | 'outflow'
+  const [ledgerTypeFilter, setLedgerTypeFilter] = useState('all');
+  const [periodFilter, setPeriodFilter] = useState('today'); // 'today' | 'month' | 'year'
 
   useEffect(() => {
     Promise.all([
@@ -5721,7 +5752,8 @@ export function ReportsView({ showToast, setAccountantView }) {
 
   // Real-time calculations
   const totalFeeCollections = fees.reduce((sum, f) => sum + (f.paidAmount || 0), 0);
-  const totalPayrollPaid = expenses.filter(e => !e.deleted && e.category === 'Salary').reduce((sum, e) => sum + (e.amount || 0), 0);
+  const totalPayrollPaid = payroll.reduce((sum, p) => sum + (p.netSalary || 0), 0) +
+                           staffPayments.reduce((sum, p) => sum + (p.netSalary || 0), 0);
   const totalOperationalExpenses = expenses.filter(e => !e.deleted && e.category !== 'Salary').reduce((sum, e) => sum + (e.amount || 0), 0);
   const totalPendingFees = fees.reduce((sum, f) => sum + (f.dueAmount || 0), 0);
   const totalAuxiliaryIncome = income.reduce((sum, i) => sum + (i.amount || 0), 0);
@@ -5729,7 +5761,7 @@ export function ReportsView({ showToast, setAccountantView }) {
   // 1. Fee Collection Breakdown (Tuition Fee & Transport Fee Real-Time)
   const tuitionCollected = fees.filter(f => f.feeType === 'Tuition Fee').reduce((sum, f) => sum + (f.paidAmount || 0), 0);
   const tuitionPending = fees.filter(f => f.feeType === 'Tuition Fee').reduce((sum, f) => sum + (f.dueAmount || 0), 0);
-  
+
   const transportCollected = fees.filter(f => f.feeType === 'Transport Fee').reduce((sum, f) => sum + (f.paidAmount || 0), 0);
   const transportPending = fees.filter(f => f.feeType === 'Transport Fee').reduce((sum, f) => sum + (f.dueAmount || 0), 0);
 
@@ -5781,9 +5813,38 @@ export function ReportsView({ showToast, setAccountantView }) {
   const netProfit = totalInflow - totalOutflow;
   const profitMargin = totalInflow > 0 ? Math.round((netProfit / totalInflow) * 100) : 0;
 
+  // ─── Period-aware filtered totals (Today / This Month / This Year) ───
+  const now = new Date();
+  const todayStr  = now.toISOString().slice(0, 10);                          // 'YYYY-MM-DD'
+  const monthStr  = now.toISOString().slice(0, 7);                           // 'YYYY-MM'
+  const yearStr   = String(now.getFullYear());                               // 'YYYY'
+
+  const inPeriod = (dateField, record) => {
+    const d = record[dateField] || record.date || record.paymentDate || record.createdAt || '';
+    if (periodFilter === 'today')  return d.startsWith(todayStr);
+    if (periodFilter === 'month')  return d.startsWith(monthStr);
+    if (periodFilter === 'year')   return d.startsWith(yearStr);
+    return true;
+  };
+
+  const periodFees     = fees.filter(f => inPeriod('paymentDate', f));
+  const periodExpenses = expenses.filter(e => !e.deleted && inPeriod('date', e));
+  const periodIncome   = income.filter(i => inPeriod('date', i));
+  const periodPayroll  = payroll.filter(p => inPeriod('paymentDate', p));
+  const periodStaffPay = staffPayments.filter(sp => inPeriod('paymentDate', sp));
+
+  const periodFeesTotal    = periodFees.reduce((s, f) => s + (f.paidAmount || 0), 0);
+  const periodIncomeTotal  = periodFeesTotal + periodIncome.reduce((s, i) => s + (i.amount || 0), 0);
+  const periodExpenseTotal = periodExpenses.filter(e => e.category !== 'Salary').reduce((s, e) => s + (e.amount || 0), 0);
+  const periodPayrollTotal = periodPayroll.reduce((s, p) => s + (p.netSalary || 0), 0)
+                           + periodStaffPay.reduce((s, sp) => s + (sp.netSalary || sp.amount || 0), 0);
+  const periodAuxTotal     = periodIncome.reduce((s, i) => s + (i.amount || 0), 0);
+
+  const periodLabel = periodFilter === 'today' ? 'Today' : periodFilter === 'month' ? 'This Month' : 'This Year';
+
   // 1. Advanced Core Financial Ratios
-  const collectionEfficiency = (totalFeeCollections + totalPendingFees) > 0 
-    ? Math.round((totalFeeCollections / (totalFeeCollections + totalPendingFees)) * 100) 
+  const collectionEfficiency = (totalFeeCollections + totalPendingFees) > 0
+    ? Math.round((totalFeeCollections / (totalFeeCollections + totalPendingFees)) * 100)
     : 0;
 
   const payrollRatio = totalOutflow > 0 ? Math.round((totalPayrollPaid / totalOutflow) * 100) : 0;
@@ -5791,12 +5852,54 @@ export function ReportsView({ showToast, setAccountantView }) {
   const savingsRate = totalInflow > 0 && netProfit > 0 ? Math.round((netProfit / totalInflow) * 100) : 0;
 
   // Weighted health score calculation (out of 100)
-  let healthScore = 50; 
+  let healthScore = 50;
   if (totalInflow > 0) {
     const marginScore = Math.max(0, Math.min(100, profitMargin + 50)); // margin centered at 50%
     const efficiencyScore = collectionEfficiency;
     const outflowCoverage = totalOutflow === 0 ? 100 : Math.min(100, Math.round((totalInflow / totalOutflow) * 50));
     healthScore = Math.max(0, Math.min(100, Math.round((marginScore * 0.4) + (efficiencyScore * 0.4) + (outflowCoverage * 0.2))));
+  }
+
+  // Payment modes cash vs online real-time calculations
+  const cashInflow = fees.filter(f => (f.paymentMethod || '').toLowerCase() === 'cash').reduce((sum, f) => sum + (f.paidAmount || 0), 0) +
+                     income.filter(i => (i.paymentMethod || '').toLowerCase() === 'cash').reduce((sum, i) => sum + (i.amount || 0), 0);
+
+  const onlineInflow = fees.filter(f => f.paidAmount > 0 && (f.paymentMethod || '').toLowerCase() !== 'cash').reduce((sum, f) => sum + (f.paidAmount || 0), 0) +
+                       income.filter(i => i.amount > 0 && (i.paymentMethod || '').toLowerCase() !== 'cash').reduce((sum, i) => sum + (i.amount || 0), 0);
+
+  const cashOutflow = expenses.filter(e => !e.deleted && e.category !== 'Salary' && (e.paymentMethod || '').toLowerCase() === 'cash').reduce((sum, e) => sum + (e.amount || 0), 0) +
+                      payroll.filter(p => (p.paymentMethod || '').toLowerCase() === 'cash').reduce((sum, p) => sum + (p.netSalary || 0), 0) +
+                      staffPayments.filter(sp => (sp.paymentMethod || '').toLowerCase() === 'cash').reduce((sum, sp) => sum + (sp.netSalary || sp.amount || 0), 0);
+
+  const onlineOutflow = expenses.filter(e => !e.deleted && e.category !== 'Salary' && (e.paymentMethod || '').toLowerCase() !== 'cash').reduce((sum, e) => sum + (e.amount || 0), 0) +
+                        payroll.filter(p => (p.paymentMethod || '').toLowerCase() !== 'cash').reduce((sum, p) => sum + (p.netSalary || 0), 0) +
+                        staffPayments.filter(sp => (sp.paymentMethod || '').toLowerCase() !== 'cash').reduce((sum, sp) => sum + (sp.netSalary || sp.amount || 0), 0);
+
+  // Daily trend points for sparklines (June 2026 as standard base)
+  const dailyCashInflowPoints = [];
+  const dailyOnlineInflowPoints = [];
+  const dailyCashOutflowPoints = [];
+  const dailyOnlineOutflowPoints = [];
+
+  for (let d = 1; d <= 30; d++) {
+    const dayStr = `2026-06-${String(d).padStart(2, '0')}`;
+    
+    const dayCashIn = fees.filter(f => f.paymentDate === dayStr && (f.paymentMethod || '').toLowerCase() === 'cash').reduce((sum, f) => sum + (f.paidAmount || 0), 0) +
+                     income.filter(i => i.date === dayStr && (i.paymentMethod || '').toLowerCase() === 'cash').reduce((sum, i) => sum + (i.amount || 0), 0);
+    const dayOnlineIn = fees.filter(f => f.paymentDate === dayStr && f.paidAmount > 0 && (f.paymentMethod || '').toLowerCase() !== 'cash').reduce((sum, f) => sum + (f.paidAmount || 0), 0) +
+                       income.filter(i => i.date === dayStr && i.amount > 0 && (i.paymentMethod || '').toLowerCase() !== 'cash').reduce((sum, i) => sum + (i.amount || 0), 0);
+
+    const dayCashOut = expenses.filter(e => !e.deleted && e.date === dayStr && e.category !== 'Salary' && (e.paymentMethod || '').toLowerCase() === 'cash').reduce((sum, e) => sum + (e.amount || 0), 0) +
+                       payroll.filter(p => p.paymentDate === dayStr && (p.paymentMethod || '').toLowerCase() === 'cash').reduce((sum, p) => sum + (p.netSalary || 0), 0) +
+                       staffPayments.filter(sp => sp.paymentDate === dayStr && (sp.paymentMethod || '').toLowerCase() === 'cash').reduce((sum, sp) => sum + (sp.netSalary || sp.amount || 0), 0);
+    const dayOnlineOut = expenses.filter(e => !e.deleted && e.date === dayStr && e.category !== 'Salary' && (e.paymentMethod || '').toLowerCase() !== 'cash').reduce((sum, e) => sum + (e.amount || 0), 0) +
+                         payroll.filter(p => p.paymentDate === dayStr && (p.paymentMethod || '').toLowerCase() !== 'cash').reduce((sum, p) => sum + (p.netSalary || 0), 0) +
+                         staffPayments.filter(sp => sp.paymentDate === dayStr && (sp.paymentMethod || '').toLowerCase() !== 'cash').reduce((sum, sp) => sum + (sp.netSalary || sp.amount || 0), 0);
+
+    dailyCashInflowPoints.push(dayCashIn);
+    dailyOnlineInflowPoints.push(dayOnlineIn);
+    dailyCashOutflowPoints.push(dayCashOut);
+    dailyOnlineOutflowPoints.push(dayOnlineOut);
   }
 
   // 2. Quarterly performance data
@@ -5819,7 +5922,7 @@ export function ReportsView({ showToast, setAccountantView }) {
 
   // 3. Dynamic Health Insights Feed
   const financialInsights = [];
-  
+
   if (collectionEfficiency >= 85) {
     financialInsights.push({
       type: 'success',
@@ -5946,22 +6049,22 @@ export function ReportsView({ showToast, setAccountantView }) {
   for (let d = 1; d <= daysInMonth; d++) {
     const dayStr = String(d).padStart(2, '0');
     const dateStr = `${currentYearMonth}-${dayStr}`;
-    
+
     const dayFees = fees
       .filter(f => f.paymentDate === dateStr)
       .reduce((sum, f) => sum + (f.paidAmount || 0), 0);
-      
+
     const dayIncome = income
       .filter(i => i.date === dateStr)
       .reduce((sum, i) => sum + (i.amount || 0), 0);
-      
+
     const dayExpenses = expenses
       .filter(e => !e.deleted && e.date === dateStr)
       .reduce((sum, e) => sum + (e.amount || 0), 0);
 
     const dayInflow = dayFees + dayIncome;
     const dayOutflow = dayExpenses;
-    
+
     if (dayInflow > 0 || dayOutflow > 0) {
       dailyData.push({
         label: `Jun ${dayStr}`,
@@ -5974,19 +6077,19 @@ export function ReportsView({ showToast, setAccountantView }) {
   const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   const monthlyData = months.map((mName, mIdx) => {
     const yearMonth = `2026-${String(mIdx + 1).padStart(2, '0')}`;
-    
+
     const monthFees = fees
       .filter(f => f.paymentDate?.startsWith(yearMonth))
       .reduce((sum, f) => sum + (f.paidAmount || 0), 0);
-      
+
     const monthIncome = income
       .filter(i => i.date?.startsWith(yearMonth))
       .reduce((sum, i) => sum + (i.amount || 0), 0);
-      
+
     const monthExpenses = expenses
       .filter(e => !e.deleted && e.date?.startsWith(yearMonth))
       .reduce((sum, e) => sum + (e.amount || 0), 0);
-      
+
     return {
       label: `${mName} 2026`,
       inflow: monthFees + monthIncome,
@@ -6028,7 +6131,7 @@ export function ReportsView({ showToast, setAccountantView }) {
   // Unified live transactions ledger
   const allTransactions = React.useMemo(() => {
     const list = [];
-    
+
     fees.forEach(f => {
       if (f.paidAmount > 0) {
         list.push({
@@ -6073,7 +6176,7 @@ export function ReportsView({ showToast, setAccountantView }) {
   const filteredTransactions = React.useMemo(() => {
     return allTransactions.filter(tx => {
       const matchesType = ledgerTypeFilter === 'all' || tx.type === ledgerTypeFilter;
-      const matchesSearch = 
+      const matchesSearch =
         tx.description.toLowerCase().includes(ledgerSearch.toLowerCase()) ||
         tx.category.toLowerCase().includes(ledgerSearch.toLowerCase()) ||
         tx.reference.toLowerCase().includes(ledgerSearch.toLowerCase()) ||
@@ -6091,13 +6194,160 @@ export function ReportsView({ showToast, setAccountantView }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}>
-      
+
+      {/* 0. Period Summary Cards — Today / This Month / This Year */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        {/* Period toggle */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
+          <span style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+            {periodLabel} Summary
+          </span>
+          <div style={{ display: 'flex', background: 'rgba(255,255,255,0.04)', border: '1px solid var(--border-glass)', borderRadius: '10px', padding: '3px', gap: '2px' }}>
+            {[{ key: 'today', label: 'Today' }, { key: 'month', label: 'Month' }, { key: 'year', label: 'Year' }].map(p => (
+              <button
+                key={p.key}
+                onClick={() => setPeriodFilter(p.key)}
+                style={{
+                  border: 'none',
+                  background: periodFilter === p.key ? 'linear-gradient(135deg, #6366f1, #8b5cf6)' : 'transparent',
+                  color: periodFilter === p.key ? '#fff' : 'var(--text-muted)',
+                  fontSize: '0.74rem',
+                  fontWeight: 700,
+                  padding: '5px 14px',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                  boxShadow: periodFilter === p.key ? '0 2px 8px rgba(99,102,241,0.35)' : 'none'
+                }}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Period summary 4-card grid */}
+        <div className="finance-grid-4">
+          {/* Fees Collected */}
+          <div className="glass-panel animate-scale-up" style={{
+            padding: '20px', borderRadius: '16px',
+            borderLeft: '5px solid #3b82f6',
+            background: 'rgba(59,130,246,0.03)',
+            position: 'relative', overflow: 'hidden'
+          }}>
+            <div style={{ position: 'absolute', top: 0, right: 0, width: '80px', height: '80px', background: 'rgba(59,130,246,0.06)', borderRadius: '0 16px 0 80px' }} />
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <div>
+                <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{periodLabel} Fees</span>
+                <h3 style={{ fontSize: '1.6rem', fontWeight: 800, color: '#3b82f6', marginTop: '6px', marginBottom: '4px' }}>₹{periodFeesTotal.toLocaleString()}</h3>
+                <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', margin: 0 }}>Student fee receipts</p>
+              </div>
+              <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'rgba(59,130,246,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <Receipt size={16} style={{ color: '#3b82f6' }} />
+              </div>
+            </div>
+            <div style={{ marginTop: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <div style={{ flex: 1, height: '3px', background: 'rgba(59,130,246,0.1)', borderRadius: '2px', overflow: 'hidden' }}>
+                <div style={{ height: '100%', width: `${totalFeeCollections > 0 ? Math.min(100, Math.round((periodFeesTotal / totalFeeCollections) * 100)) : 0}%`, background: '#3b82f6', borderRadius: '2px', transition: 'width 0.6s ease' }} />
+              </div>
+              <span style={{ fontSize: '0.64rem', color: '#3b82f6', fontWeight: 700, minWidth: '30px' }}>
+                {totalFeeCollections > 0 ? Math.min(100, Math.round((periodFeesTotal / totalFeeCollections) * 100)) : 0}%
+              </span>
+            </div>
+          </div>
+
+          {/* Total Income */}
+          <div className="glass-panel animate-scale-up" style={{
+            padding: '20px', borderRadius: '16px',
+            borderLeft: '5px solid #10b981',
+            background: 'rgba(16,185,129,0.03)',
+            position: 'relative', overflow: 'hidden'
+          }}>
+            <div style={{ position: 'absolute', top: 0, right: 0, width: '80px', height: '80px', background: 'rgba(16,185,129,0.06)', borderRadius: '0 16px 0 80px' }} />
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <div>
+                <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{periodLabel} Income</span>
+                <h3 style={{ fontSize: '1.6rem', fontWeight: 800, color: '#10b981', marginTop: '6px', marginBottom: '4px' }}>₹{periodIncomeTotal.toLocaleString()}</h3>
+                <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', margin: 0 }}>Fees + ₹{periodAuxTotal.toLocaleString()} auxiliary</p>
+              </div>
+              <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'rgba(16,185,129,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <TrendingUp size={16} style={{ color: '#10b981' }} />
+              </div>
+            </div>
+            <div style={{ marginTop: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <div style={{ flex: 1, height: '3px', background: 'rgba(16,185,129,0.1)', borderRadius: '2px', overflow: 'hidden' }}>
+                <div style={{ height: '100%', width: `${totalInflow > 0 ? Math.min(100, Math.round((periodIncomeTotal / totalInflow) * 100)) : 0}%`, background: '#10b981', borderRadius: '2px', transition: 'width 0.6s ease' }} />
+              </div>
+              <span style={{ fontSize: '0.64rem', color: '#10b981', fontWeight: 700, minWidth: '30px' }}>
+                {totalInflow > 0 ? Math.min(100, Math.round((periodIncomeTotal / totalInflow) * 100)) : 0}%
+              </span>
+            </div>
+          </div>
+
+          {/* Total Expense */}
+          <div className="glass-panel animate-scale-up" style={{
+            padding: '20px', borderRadius: '16px',
+            borderLeft: '5px solid #ef4444',
+            background: 'rgba(239,68,68,0.03)',
+            position: 'relative', overflow: 'hidden'
+          }}>
+            <div style={{ position: 'absolute', top: 0, right: 0, width: '80px', height: '80px', background: 'rgba(239,68,68,0.06)', borderRadius: '0 16px 0 80px' }} />
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <div>
+                <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{periodLabel} Expense</span>
+                <h3 style={{ fontSize: '1.6rem', fontWeight: 800, color: '#ef4444', marginTop: '6px', marginBottom: '4px' }}>₹{periodExpenseTotal.toLocaleString()}</h3>
+                <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', margin: 0 }}>Non-salary operational costs</p>
+              </div>
+              <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'rgba(239,68,68,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <AlertCircle size={16} style={{ color: '#ef4444' }} />
+              </div>
+            </div>
+            <div style={{ marginTop: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <div style={{ flex: 1, height: '3px', background: 'rgba(239,68,68,0.1)', borderRadius: '2px', overflow: 'hidden' }}>
+                <div style={{ height: '100%', width: `${totalOperationalExpenses > 0 ? Math.min(100, Math.round((periodExpenseTotal / totalOperationalExpenses) * 100)) : 0}%`, background: '#ef4444', borderRadius: '2px', transition: 'width 0.6s ease' }} />
+              </div>
+              <span style={{ fontSize: '0.64rem', color: '#ef4444', fontWeight: 700, minWidth: '30px' }}>
+                {totalOperationalExpenses > 0 ? Math.min(100, Math.round((periodExpenseTotal / totalOperationalExpenses) * 100)) : 0}%
+              </span>
+            </div>
+          </div>
+
+          {/* Payroll Disbursed */}
+          <div className="glass-panel animate-scale-up" style={{
+            padding: '20px', borderRadius: '16px',
+            borderLeft: '5px solid #8b5cf6',
+            background: 'rgba(139,92,246,0.03)',
+            position: 'relative', overflow: 'hidden'
+          }}>
+            <div style={{ position: 'absolute', top: 0, right: 0, width: '80px', height: '80px', background: 'rgba(139,92,246,0.06)', borderRadius: '0 16px 0 80px' }} />
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <div>
+                <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{periodLabel} Payroll</span>
+                <h3 style={{ fontSize: '1.6rem', fontWeight: 800, color: '#8b5cf6', marginTop: '6px', marginBottom: '4px' }}>₹{periodPayrollTotal.toLocaleString()}</h3>
+                <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', margin: 0 }}>Teacher + Staff + Employee</p>
+              </div>
+              <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'rgba(139,92,246,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <Users size={16} style={{ color: '#8b5cf6' }} />
+              </div>
+            </div>
+            <div style={{ marginTop: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <div style={{ flex: 1, height: '3px', background: 'rgba(139,92,246,0.1)', borderRadius: '2px', overflow: 'hidden' }}>
+                <div style={{ height: '100%', width: `${totalPayrollPaid > 0 ? Math.min(100, Math.round((periodPayrollTotal / totalPayrollPaid) * 100)) : 0}%`, background: '#8b5cf6', borderRadius: '2px', transition: 'width 0.6s ease' }} />
+              </div>
+              <span style={{ fontSize: '0.64rem', color: '#8b5cf6', fontWeight: 700, minWidth: '30px' }}>
+                {totalPayrollPaid > 0 ? Math.min(100, Math.round((periodPayrollTotal / totalPayrollPaid) * 100)) : 0}%
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* 1. SaaS Financial Header Metrics */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '20px' }}>
+      <div className="finance-grid-5">
         {/* Total Fees Income */}
-        <div className="glass-panel animate-scale-up" style={{ 
-          padding: '24px', 
-          borderRadius: '16px', 
+        <div className="glass-panel animate-scale-up" style={{
+          padding: '24px',
+          borderRadius: '16px',
           borderLeft: '5px solid #3b82f6',
           background: 'rgba(255,255,255,0.015)'
         }}>
@@ -6116,9 +6366,9 @@ export function ReportsView({ showToast, setAccountantView }) {
         </div>
 
         {/* Total Auxiliary Income */}
-        <div className="glass-panel animate-scale-up" style={{ 
-          padding: '24px', 
-          borderRadius: '16px', 
+        <div className="glass-panel animate-scale-up" style={{
+          padding: '24px',
+          borderRadius: '16px',
           borderLeft: '5px solid #06b6d4',
           background: 'rgba(255,255,255,0.015)'
         }}>
@@ -6137,9 +6387,9 @@ export function ReportsView({ showToast, setAccountantView }) {
         </div>
 
         {/* Total Payroll */}
-        <div className="glass-panel animate-scale-up" style={{ 
-          padding: '24px', 
-          borderRadius: '16px', 
+        <div className="glass-panel animate-scale-up" style={{
+          padding: '24px',
+          borderRadius: '16px',
           borderLeft: '5px solid #8b5cf6',
           background: 'rgba(255,255,255,0.015)'
         }}>
@@ -6158,9 +6408,9 @@ export function ReportsView({ showToast, setAccountantView }) {
         </div>
 
         {/* Total Expense */}
-        <div className="glass-panel animate-scale-up" style={{ 
-          padding: '24px', 
-          borderRadius: '16px', 
+        <div className="glass-panel animate-scale-up" style={{
+          padding: '24px',
+          borderRadius: '16px',
           borderLeft: '5px solid #ef4444',
           background: 'rgba(255,255,255,0.015)'
         }}>
@@ -6179,20 +6429,20 @@ export function ReportsView({ showToast, setAccountantView }) {
         </div>
 
         {/* Total Revenue */}
-        <div className="glass-panel animate-scale-up" style={{ 
-          padding: '24px', 
-          borderRadius: '16px', 
+        <div className="glass-panel animate-scale-up" style={{
+          padding: '24px',
+          borderRadius: '16px',
           borderLeft: `5px solid ${netProfit >= 0 ? '#10b981' : '#ef4444'}`,
           background: 'rgba(255,255,255,0.015)',
           boxShadow: netProfit >= 0 ? '0 8px 32px rgba(16, 185, 129, 0.05)' : '0 8px 32px rgba(239, 68, 68, 0.05)'
         }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Total Revenue</span>
-            <span style={{ 
-              fontSize: '0.72rem', 
-              color: netProfit >= 0 ? '#10b981' : '#ef4444', 
+            <span style={{
+              fontSize: '0.72rem',
+              color: netProfit >= 0 ? '#10b981' : '#ef4444',
               background: netProfit >= 0 ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)',
-              padding: '3px 8px', 
+              padding: '3px 8px',
               borderRadius: '20px',
               fontWeight: 700
             }}>
@@ -6208,65 +6458,9 @@ export function ReportsView({ showToast, setAccountantView }) {
         </div>
       </div>
 
-      {/* 2. SaaS Shortcuts & Quick Actions Navigation */}
-      <div className="glass-panel animate-scale-up" style={{ padding: '20px', borderRadius: '16px' }}>
-        <h4 style={{ fontSize: '0.82rem', fontWeight: 800, color: 'var(--text-main)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '14px' }}>
-          Quick Modules Cockpit
-        </h4>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '14px' }}>
-          <button 
-            onClick={() => setAccountantView('collect-fees')} 
-            className="btn-payroll-row" 
-            style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', background: 'rgba(59,130,246,0.03)', border: '1px solid var(--border-glass)', borderRadius: '12px', cursor: 'pointer', textAlign: 'left' }}
-          >
-            <div style={{ padding: '8px', borderRadius: '8px', background: '#3b82f6', color: '#fff' }}><Receipt size={16} /></div>
-            <div>
-              <span style={{ fontSize: '0.76rem', fontWeight: 700, display: 'block', color: 'var(--text-main)' }}>Fee Collection</span>
-              <span style={{ fontSize: '0.66rem', color: 'var(--text-muted)' }}>Collect & track student dues</span>
-            </div>
-          </button>
-
-          <button 
-            onClick={() => setAccountantView('expenses')} 
-            className="btn-payroll-row" 
-            style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', background: 'rgba(139,92,246,0.03)', border: '1px solid var(--border-glass)', borderRadius: '12px', cursor: 'pointer', textAlign: 'left' }}
-          >
-            <div style={{ padding: '8px', borderRadius: '8px', background: '#8b5cf6', color: '#fff' }}><CreditCard size={16} /></div>
-            <div>
-              <span style={{ fontSize: '0.76rem', fontWeight: 700, display: 'block', color: 'var(--text-main)' }}>Record Expense</span>
-              <span style={{ fontSize: '0.66rem', color: 'var(--text-muted)' }}>Log school utility payouts</span>
-            </div>
-          </button>
-
-          <button 
-            onClick={() => setAccountantView('staff-payroll-hub')} 
-            className="btn-payroll-row" 
-            style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', background: 'rgba(16,185,129,0.03)', border: '1px solid var(--border-glass)', borderRadius: '12px', cursor: 'pointer', textAlign: 'left' }}
-          >
-            <div style={{ padding: '8px', borderRadius: '8px', background: '#10b981', color: '#fff' }}><Users size={16} /></div>
-            <div>
-              <span style={{ fontSize: '0.76rem', fontWeight: 700, display: 'block', color: 'var(--text-main)' }}>Staff Payroll Hub</span>
-              <span style={{ fontSize: '0.66rem', color: 'var(--text-muted)' }}>Salary structures & payments</span>
-            </div>
-          </button>
-
-          <button 
-            onClick={() => setAccountantView('fee-structure')} 
-            className="btn-payroll-row" 
-            style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', background: 'rgba(245,158,11,0.03)', border: '1px solid var(--border-glass)', borderRadius: '12px', cursor: 'pointer', textAlign: 'left' }}
-          >
-            <div style={{ padding: '8px', borderRadius: '8px', background: '#f59e0b', color: '#fff' }}><Calculator size={16} /></div>
-            <div>
-              <span style={{ fontSize: '0.76rem', fontWeight: 700, display: 'block', color: 'var(--text-main)' }}>Fee Structures</span>
-              <span style={{ fontSize: '0.66rem', color: 'var(--text-muted)' }}>Setup grade templates</span>
-            </div>
-          </button>
-        </div>
-      </div>
-
       {/* 3. Professional SaaS Financial Analytics Cockpit */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: '24px' }}>
-        
+
         {/* Card 1: Fee Collection Analytics (Tuition & Transport Fees Real-Time) */}
         <div className="glass-panel animate-scale-up" style={{ padding: '24px', borderRadius: '16px', display: 'flex', flexDirection: 'column', gap: '16px', background: 'var(--bg-glass)', border: '1px solid var(--border-glass)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -6577,6 +6771,442 @@ export function ReportsView({ showToast, setAccountantView }) {
 
       </div>
 
+      {/* 4. Real-Time Analytics Bar Charts */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '24px' }}>
+
+        {/* Chart 1: Monthly Fee Collection – grouped vertical bars per month */}
+        <div className="glass-panel animate-scale-up" style={{ padding: '24px', borderRadius: '16px', background: 'var(--bg-glass)', border: '1px solid var(--border-glass)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+            <div>
+              <h4 style={{ fontSize: '0.88rem', fontWeight: 800, color: 'var(--text-main)', margin: 0 }}>Monthly Fee Collection</h4>
+              <span style={{ fontSize: '0.66rem', color: 'var(--text-muted)' }}>Collected vs Pending per month</span>
+            </div>
+            <div style={{ display: 'flex', gap: '12px', fontSize: '0.64rem', color: 'var(--text-muted)', fontWeight: 600 }}>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><span style={{ width: 8, height: 8, borderRadius: 2, background: '#3b82f6', display: 'inline-block' }} />Collected</span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><span style={{ width: 8, height: 8, borderRadius: 2, background: 'rgba(239,68,68,0.4)', display: 'inline-block' }} />Pending</span>
+            </div>
+          </div>
+          {(() => {
+            const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+            const year = new Date().getFullYear();
+            const monthData = months.map((label, mIdx) => {
+              const prefix = `${year}-${String(mIdx + 1).padStart(2, '0')}`;
+              const collected = fees.filter(f => (f.paymentDate || '').startsWith(prefix)).reduce((s, f) => s + (f.paidAmount || 0), 0);
+              const pending   = fees.filter(f => (f.paymentDate || '').startsWith(prefix)).reduce((s, f) => s + (f.dueAmount || 0), 0);
+              return { label, collected, pending };
+            });
+            const maxVal = Math.max(...monthData.map(d => d.collected + d.pending), 1);
+            const barH = 120;
+            return (
+              <div style={{ display: 'flex', alignItems: 'flex-end', gap: '6px', height: `${barH + 28}px` }}>
+                {monthData.map((d, i) => {
+                  const cH = Math.round((d.collected / maxVal) * barH);
+                  const pH = Math.round((d.pending   / maxVal) * barH);
+                  return (
+                    <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
+                      <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1px', justifyContent: 'flex-end', height: `${barH}px` }}>
+                        {pH > 0 && <div style={{ width: '70%', height: `${pH}px`, background: 'rgba(239,68,68,0.35)', borderRadius: '3px 3px 0 0', transition: 'height 0.5s ease' }} />}
+                        <div style={{ width: '70%', height: `${Math.max(cH, 2)}px`, background: 'linear-gradient(180deg,#3b82f6,#2563eb)', borderRadius: pH > 0 ? '0' : '3px 3px 0 0', transition: 'height 0.5s ease' }} />
+                      </div>
+                      <span style={{ fontSize: '0.54rem', color: 'var(--text-muted)', fontWeight: 600, textAlign: 'center' }}>{d.label}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })()}
+        </div>
+
+        {/* Chart 2: Income vs Expense – horizontal grouped bars by category */}
+        <div className="glass-panel animate-scale-up" style={{ padding: '24px', borderRadius: '16px', background: 'var(--bg-glass)', border: '1px solid var(--border-glass)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+            <div>
+              <h4 style={{ fontSize: '0.88rem', fontWeight: 800, color: 'var(--text-main)', margin: 0 }}>Income vs Expense</h4>
+              <span style={{ fontSize: '0.66rem', color: 'var(--text-muted)' }}>Horizontal comparison by source</span>
+            </div>
+            <div style={{ display: 'flex', gap: '12px', fontSize: '0.64rem', color: 'var(--text-muted)', fontWeight: 600 }}>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><span style={{ width: 8, height: 8, borderRadius: 2, background: '#10b981', display: 'inline-block' }} />Income</span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><span style={{ width: 8, height: 8, borderRadius: 2, background: '#ef4444', display: 'inline-block' }} />Expense</span>
+            </div>
+          </div>
+          {(() => {
+            const rows = [
+              { label: 'Tuition Fees',  income: tuitionCollected,       expense: 0 },
+              { label: 'Transport',     income: transportCollected,      expense: 0 },
+              { label: 'Auxiliary',     income: totalAuxiliaryIncome,    expense: 0 },
+              { label: 'Payroll',       income: 0,                       expense: totalPayrollPaid },
+              ...Object.entries(expenseCategories).filter(([c]) => c !== 'Salary').map(([cat, val]) => ({ label: cat, income: 0, expense: val })),
+            ];
+            const maxVal = Math.max(...rows.map(r => Math.max(r.income, r.expense)), 1);
+            return (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {rows.slice(0, 7).map((r, i) => (
+                  <div key={i}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.68rem', marginBottom: '3px' }}>
+                      <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>{r.label}</span>
+                      <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}>
+                        {r.income > 0 ? `₹${r.income.toLocaleString()}` : `-₹${r.expense.toLocaleString()}`}
+                      </span>
+                    </div>
+                    <div style={{ width: '100%', height: '8px', background: 'rgba(255,255,255,0.03)', borderRadius: '4px', overflow: 'hidden' }}>
+                      <div style={{
+                        width: `${Math.round((Math.max(r.income, r.expense) / maxVal) * 100)}%`,
+                        height: '100%',
+                        background: r.income > 0 ? 'linear-gradient(90deg,#10b981,#059669)' : 'linear-gradient(90deg,#ef4444,#dc2626)',
+                        borderRadius: '4px',
+                        transition: 'width 0.6s ease'
+                      }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            );
+          })()}
+        </div>
+
+        {/* Chart 3: Payroll Distribution – vertical bars per payroll segment */}
+        <div className="glass-panel animate-scale-up" style={{ padding: '24px', borderRadius: '16px', background: 'var(--bg-glass)', border: '1px solid var(--border-glass)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+            <div>
+              <h4 style={{ fontSize: '0.88rem', fontWeight: 800, color: 'var(--text-main)', margin: 0 }}>Payroll Breakdown</h4>
+              <span style={{ fontSize: '0.66rem', color: 'var(--text-muted)' }}>Basic · Allowances · Deductions</span>
+            </div>
+            <div style={{ display: 'flex', gap: '8px', fontSize: '0.62rem', fontWeight: 600, color: 'var(--text-muted)' }}>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '3px' }}><span style={{ width: 7, height: 7, borderRadius: 1, background: '#6366f1', display: 'inline-block' }} />Basic</span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '3px' }}><span style={{ width: 7, height: 7, borderRadius: 1, background: '#10b981', display: 'inline-block' }} />Allow</span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '3px' }}><span style={{ width: 7, height: 7, borderRadius: 1, background: '#ef4444', display: 'inline-block' }} />Deduct</span>
+            </div>
+          </div>
+          {(() => {
+            const segments = [
+              { label: 'Teacher', basic: teacherPayrollBasic, allow: teacherPayrollAllow, deduct: teacherPayrollDeduct, net: teacherPayrollPaid },
+              { label: 'Staff',   basic: staffPayrollBasic,   allow: staffPayrollAllow,   deduct: staffPayrollDeduct,   net: staffPayrollPaid },
+              { label: 'Employee',basic: employeePayrollBasic,allow: employeePayrollAllow, deduct: employeePayrollDeduct,net: employeePayrollPaid },
+            ];
+            const maxVal = Math.max(...segments.map(s => s.basic + s.allow), 1);
+            const barH = 120;
+            const groupW = 3;
+            return (
+              <div>
+                <div style={{ display: 'flex', alignItems: 'flex-end', gap: '28px', height: `${barH + 28}px`, justifyContent: 'space-around' }}>
+                  {segments.map((s, i) => {
+                    const bH = Math.round((s.basic  / maxVal) * barH);
+                    const aH = Math.round((s.allow  / maxVal) * barH);
+                    const dH = Math.round((s.deduct / maxVal) * barH);
+                    return (
+                      <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', flex: 1 }}>
+                        <div style={{ display: 'flex', alignItems: 'flex-end', gap: '3px', height: `${barH}px` }}>
+                          <div style={{ width: '14px', height: `${Math.max(bH, 2)}px`, background: 'linear-gradient(180deg,#6366f1,#4f46e5)', borderRadius: '3px 3px 0 0', transition: 'height 0.5s ease' }} />
+                          <div style={{ width: '14px', height: `${Math.max(aH, 2)}px`, background: 'linear-gradient(180deg,#10b981,#059669)', borderRadius: '3px 3px 0 0', transition: 'height 0.5s ease' }} />
+                          <div style={{ width: '14px', height: `${Math.max(dH, 2)}px`, background: 'linear-gradient(180deg,#ef4444,#dc2626)', borderRadius: '3px 3px 0 0', transition: 'height 0.5s ease' }} />
+                        </div>
+                        <span style={{ fontSize: '0.66rem', fontWeight: 700, color: 'var(--text-muted)' }}>{s.label}</span>
+                        <span style={{ fontSize: '0.58rem', color: 'var(--text-muted)' }}>₹{s.net.toLocaleString()}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+                <div style={{ marginTop: '16px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  {segments.map((s, i) => (
+                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ fontSize: '0.64rem', fontWeight: 700, color: 'var(--text-muted)', minWidth: '56px' }}>{s.label}</span>
+                      <div style={{ flex: 1, height: '6px', background: 'rgba(255,255,255,0.03)', borderRadius: '3px', overflow: 'hidden', display: 'flex' }}>
+                        <div style={{ width: `${(s.basic + s.allow) > 0 ? Math.round((s.basic / (s.basic + s.allow)) * 100) : 50}%`, height: '100%', background: '#6366f1' }} />
+                        <div style={{ width: `${(s.basic + s.allow) > 0 ? Math.round((s.allow / (s.basic + s.allow)) * 100) : 50}%`, height: '100%', background: '#10b981' }} />
+                      </div>
+                      <span style={{ fontSize: '0.62rem', color: 'var(--text-muted)', fontWeight: 600, minWidth: '60px', textAlign: 'right' }}>₹{s.net.toLocaleString()}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
+        </div>
+
+      </div>
+
+      {/* 5. Premium SVG Wave & Area Charts */}
+      {(() => {
+        // ── shared SVG path helpers ──────────────────────────────────────────
+        const W = 400, H = 100, PAD = 8;
+
+        /** Convert an array of values to a smooth cubic-bezier SVG path string */
+        const smoothPath = (pts, w = W, h = H, pad = PAD) => {
+          if (!pts || pts.length < 2) return '';
+          const maxV = Math.max(...pts, 1);
+          const xs = pts.map((_, i) => pad + (i / (pts.length - 1)) * (w - pad * 2));
+          const ys = pts.map(v => h - pad - ((v / maxV) * (h - pad * 2)));
+          let d = `M ${xs[0]} ${ys[0]}`;
+          for (let i = 1; i < pts.length; i++) {
+            const cpx1 = xs[i - 1] + (xs[i] - xs[i - 1]) * 0.5;
+            const cpy1 = ys[i - 1];
+            const cpx2 = xs[i] - (xs[i] - xs[i - 1]) * 0.5;
+            const cpy2 = ys[i];
+            d += ` C ${cpx1} ${cpy1}, ${cpx2} ${cpy2}, ${xs[i]} ${ys[i]}`;
+          }
+          return d;
+        };
+
+        /** Same but closed (fill area below) */
+        const areaPath = (pts, w = W, h = H, pad = PAD) => {
+          const line = smoothPath(pts, w, h, pad);
+          if (!line) return '';
+          const maxV = Math.max(...pts, 1);
+          const xs = pts.map((_, i) => pad + (i / (pts.length - 1)) * (w - pad * 2));
+          return `${line} L ${xs[pts.length - 1]} ${h - pad} L ${xs[0]} ${h - pad} Z`;
+        };
+
+        // ── build monthly totals for current year ────────────────────────────
+        const year = new Date().getFullYear();
+        const monthLabels = ['J','F','M','A','M','J','J','A','S','O','N','D'];
+        const monthlyFeeIn    = monthLabels.map((_, m) => fees.filter(f => (f.paymentDate||'').startsWith(`${year}-${String(m+1).padStart(2,'0')}`)).reduce((s,f)=>s+(f.paidAmount||0),0));
+        const monthlyAuxIn    = monthLabels.map((_, m) => income.filter(i => (i.date||'').startsWith(`${year}-${String(m+1).padStart(2,'0')}`)).reduce((s,i)=>s+(i.amount||0),0));
+        const monthlyExpOut   = monthLabels.map((_, m) => expenses.filter(e => !e.deleted && (e.date||'').startsWith(`${year}-${String(m+1).padStart(2,'0')}`)).reduce((s,e)=>s+(e.amount||0),0));
+        const monthlyPayroll  = monthLabels.map((_, m) => {
+          const pfx = `${year}-${String(m+1).padStart(2,'0')}`;
+          return payroll.filter(p=>(p.paymentDate||'').startsWith(pfx)).reduce((s,p)=>s+(p.netSalary||0),0)
+               + staffPayments.filter(sp=>(sp.paymentDate||'').startsWith(pfx)).reduce((s,sp)=>s+(sp.netSalary||sp.amount||0),0);
+        });
+        const monthlyNet = monthlyFeeIn.map((v,i) => v + monthlyAuxIn[i] - monthlyExpOut[i] - monthlyPayroll[i]);
+
+        // daily fee trend last 30 days
+        const today = new Date();
+        const dailyFee30 = Array.from({length:30}, (_,d) => {
+          const dt = new Date(today); dt.setDate(today.getDate() - (29 - d));
+          const ds = dt.toISOString().slice(0,10);
+          return fees.filter(f=>(f.paymentDate||'')=== ds).reduce((s,f)=>s+(f.paidAmount||0),0);
+        });
+        const dailyExp30 = Array.from({length:30}, (_,d) => {
+          const dt = new Date(today); dt.setDate(today.getDate() - (29 - d));
+          const ds = dt.toISOString().slice(0,10);
+          return expenses.filter(e=>!e.deleted && (e.date||'')=== ds).reduce((s,e)=>s+(e.amount||0),0);
+        });
+
+        // ── fee-type pie data as bar segments ────────────────────────────────
+        const feeTypes = {};
+        fees.forEach(f => { const t = f.feeType || 'Other'; feeTypes[t] = (feeTypes[t]||0) + (f.paidAmount||0); });
+
+        return (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+
+            {/* Row A: two wide wave charts side-by-side */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
+
+              {/* Wave Chart 1: Monthly Income vs Expense Trend */}
+              <div className="glass-panel animate-scale-up" style={{ padding: '24px', borderRadius: '16px', background: 'var(--bg-glass)', border: '1px solid var(--border-glass)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
+                  <div>
+                    <h4 style={{ fontSize: '0.88rem', fontWeight: 800, color: 'var(--text-main)', margin: 0 }}>Income vs Expense Trend</h4>
+                    <span style={{ fontSize: '0.64rem', color: 'var(--text-muted)' }}>Monthly wave — full year {year}</span>
+                  </div>
+                  <div style={{ display: 'flex', gap: '12px', fontSize: '0.62rem', fontWeight: 700 }}>
+                    <span style={{ color: '#10b981', display: 'flex', alignItems: 'center', gap: '4px' }}><span style={{ width: 20, height: 2, background: '#10b981', display: 'inline-block', borderRadius: 1 }} />Income</span>
+                    <span style={{ color: '#ef4444', display: 'flex', alignItems: 'center', gap: '4px' }}><span style={{ width: 20, height: 2, background: '#ef4444', display: 'inline-block', borderRadius: 1 }} />Expense</span>
+                  </div>
+                </div>
+                <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: '110px', overflow: 'visible' }} preserveAspectRatio="none">
+                  <defs>
+                    <linearGradient id="wv-inc" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#10b981" stopOpacity="0.3"/><stop offset="100%" stopColor="#10b981" stopOpacity="0.02"/></linearGradient>
+                    <linearGradient id="wv-exp" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#ef4444" stopOpacity="0.25"/><stop offset="100%" stopColor="#ef4444" stopOpacity="0.02"/></linearGradient>
+                  </defs>
+                  {/* Grid lines */}
+                  {[0.25, 0.5, 0.75].map(t => (
+                    <line key={t} x1={PAD} y1={PAD + t*(H-PAD*2)} x2={W-PAD} y2={PAD + t*(H-PAD*2)} stroke="rgba(255,255,255,0.04)" strokeWidth="1" />
+                  ))}
+                  {/* Income area */}
+                  <path d={areaPath(monthlyFeeIn.map((v,i)=>v+monthlyAuxIn[i]))} fill="url(#wv-inc)" />
+                  <path d={smoothPath(monthlyFeeIn.map((v,i)=>v+monthlyAuxIn[i]))} fill="none" stroke="#10b981" strokeWidth="2" strokeLinecap="round" />
+                  {/* Expense area */}
+                  <path d={areaPath(monthlyExpOut.map((v,i)=>v+monthlyPayroll[i]))} fill="url(#wv-exp)" />
+                  <path d={smoothPath(monthlyExpOut.map((v,i)=>v+monthlyPayroll[i]))} fill="none" stroke="#ef4444" strokeWidth="2" strokeLinecap="round" strokeDasharray="5,3" />
+                  {/* Data dots */}
+                  {monthlyFeeIn.map((v,i) => {
+                    const total = v + monthlyAuxIn[i];
+                    const maxV = Math.max(...monthlyFeeIn.map((a,j)=>a+monthlyAuxIn[j]),1);
+                    const x = PAD + (i/11)*(W-PAD*2);
+                    const y = H - PAD - ((total/maxV)*(H-PAD*2));
+                    return <circle key={i} cx={x} cy={y} r="3" fill="#10b981" stroke="rgba(0,0,0,0.3)" strokeWidth="1" />;
+                  })}
+                </svg>
+                {/* Month labels */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '4px', paddingInline: `${PAD}px` }}>
+                  {monthLabels.map((l,i) => <span key={i} style={{ fontSize: '0.52rem', color: 'var(--text-muted)', fontWeight: 600 }}>{l}</span>)}
+                </div>
+              </div>
+
+              {/* Wave Chart 2: Net Revenue Wave */}
+              <div className="glass-panel animate-scale-up" style={{ padding: '24px', borderRadius: '16px', background: 'var(--bg-glass)', border: '1px solid var(--border-glass)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
+                  <div>
+                    <h4 style={{ fontSize: '0.88rem', fontWeight: 800, color: 'var(--text-main)', margin: 0 }}>Net Revenue Wave</h4>
+                    <span style={{ fontSize: '0.64rem', color: 'var(--text-muted)' }}>Monthly net profit sinusoidal trend</span>
+                  </div>
+                  <span style={{ fontSize: '0.66rem', fontWeight: 700, color: '#6366f1', background: 'rgba(99,102,241,0.1)', padding: '4px 10px', borderRadius: '20px' }}>
+                    ₹{monthlyNet.reduce((a,b)=>a+b,0).toLocaleString()}
+                  </span>
+                </div>
+                {(() => {
+                  const absNet = monthlyNet.map(Math.abs);
+                  const maxV = Math.max(...absNet, 1);
+                  const mid = H / 2;
+                  const xs = monthlyNet.map((_,i) => PAD + (i/11)*(W-PAD*2));
+                  const ys = monthlyNet.map(v => mid - (v/maxV)*(mid - PAD));
+                  let line = `M ${xs[0]} ${ys[0]}`;
+                  for (let i = 1; i < xs.length; i++) {
+                    const cpx1 = xs[i-1] + (xs[i]-xs[i-1])*0.5; const cpy1 = ys[i-1];
+                    const cpx2 = xs[i] - (xs[i]-xs[i-1])*0.5;   const cpy2 = ys[i];
+                    line += ` C ${cpx1} ${cpy1}, ${cpx2} ${cpy2}, ${xs[i]} ${ys[i]}`;
+                  }
+                  return (
+                    <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: '110px', overflow: 'visible' }} preserveAspectRatio="none">
+                      <defs>
+                        <linearGradient id="net-pos" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#6366f1" stopOpacity="0.3"/><stop offset="100%" stopColor="#6366f1" stopOpacity="0"/></linearGradient>
+                      </defs>
+                      {/* Zero baseline */}
+                      <line x1={PAD} y1={mid} x2={W-PAD} y2={mid} stroke="rgba(255,255,255,0.08)" strokeWidth="1" strokeDasharray="4,4" />
+                      {/* Positive fill */}
+                      <path d={`${line} L ${xs[xs.length-1]} ${mid} L ${xs[0]} ${mid} Z`} fill="url(#net-pos)" />
+                      {/* Wave line */}
+                      <path d={line} fill="none" stroke="#6366f1" strokeWidth="2.5" strokeLinecap="round" />
+                      {/* Positive/negative dots */}
+                      {xs.map((x,i) => (
+                        <circle key={i} cx={x} cy={ys[i]} r="3"
+                          fill={monthlyNet[i] >= 0 ? '#6366f1' : '#ef4444'}
+                          stroke="rgba(0,0,0,0.3)" strokeWidth="1" />
+                      ))}
+                    </svg>
+                  );
+                })()}
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '4px', paddingInline: `${PAD}px` }}>
+                  {monthLabels.map((l,i) => <span key={i} style={{ fontSize: '0.52rem', color: 'var(--text-muted)', fontWeight: 600 }}>{l}</span>)}
+                </div>
+              </div>
+            </div>
+
+            {/* Row B: full-width daily fee pulse + narrow payroll trend */}
+            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '24px' }}>
+
+              {/* Wave Chart 3: Daily 30-day Fee vs Expense Pulse */}
+              <div className="glass-panel animate-scale-up" style={{ padding: '24px', borderRadius: '16px', background: 'var(--bg-glass)', border: '1px solid var(--border-glass)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
+                  <div>
+                    <h4 style={{ fontSize: '0.88rem', fontWeight: 800, color: 'var(--text-main)', margin: 0 }}>30-Day Fee & Expense Pulse</h4>
+                    <span style={{ fontSize: '0.64rem', color: 'var(--text-muted)' }}>Daily real-time sinusoidal wave — last 30 days</span>
+                  </div>
+                  <div style={{ display: 'flex', gap: '12px', fontSize: '0.62rem', fontWeight: 700 }}>
+                    <span style={{ color: '#3b82f6', display: 'flex', alignItems: 'center', gap: '4px' }}><span style={{ width: 20, height: 2, background: '#3b82f6', display: 'inline-block', borderRadius: 1 }} />Fees</span>
+                    <span style={{ color: '#f59e0b', display: 'flex', alignItems: 'center', gap: '4px' }}><span style={{ width: 20, height: 2, background: '#f59e0b', display: 'inline-block', borderRadius: 1 }} />Expense</span>
+                  </div>
+                </div>
+                {(() => {
+                  const PW = 600, PH = 120;
+                  const maxV = Math.max(...dailyFee30, ...dailyExp30, 1);
+                  const fLine = smoothPath(dailyFee30, PW, PH, PAD);
+                  const eLine = smoothPath(dailyExp30, PW, PH, PAD);
+                  const fArea = areaPath(dailyFee30, PW, PH, PAD);
+                  const eArea = areaPath(dailyExp30, PW, PH, PAD);
+                  // vertical bars behind
+                  const barXs = dailyFee30.map((_,i) => PAD + (i/(dailyFee30.length-1))*(PW-PAD*2));
+                  return (
+                    <svg viewBox={`0 0 ${PW} ${PH}`} style={{ width: '100%', height: '130px', overflow: 'visible' }} preserveAspectRatio="none">
+                      <defs>
+                        <linearGradient id="fee-grad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#3b82f6" stopOpacity="0.25"/><stop offset="100%" stopColor="#3b82f6" stopOpacity="0"/></linearGradient>
+                        <linearGradient id="exp-grad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#f59e0b" stopOpacity="0.2"/><stop offset="100%" stopColor="#f59e0b" stopOpacity="0"/></linearGradient>
+                      </defs>
+                      {/* Grid */}
+                      {[0.25,0.5,0.75].map(t=>(
+                        <line key={t} x1={PAD} y1={PAD+t*(PH-PAD*2)} x2={PW-PAD} y2={PAD+t*(PH-PAD*2)} stroke="rgba(255,255,255,0.04)" strokeWidth="1"/>
+                      ))}
+                      {/* Thin bar markers for each day */}
+                      {barXs.map((x,i)=>{
+                        const fH = (dailyFee30[i]/maxV)*(PH-PAD*2);
+                        return <rect key={i} x={x-1} y={PH-PAD-fH} width={2} height={fH} fill="rgba(59,130,246,0.18)" rx="1"/>;
+                      })}
+                      {/* Expense area */}
+                      <path d={eArea} fill="url(#exp-grad)"/>
+                      <path d={eLine} fill="none" stroke="#f59e0b" strokeWidth="1.8" strokeLinecap="round"/>
+                      {/* Fee area */}
+                      <path d={fArea} fill="url(#fee-grad)"/>
+                      <path d={fLine} fill="none" stroke="#3b82f6" strokeWidth="2.2" strokeLinecap="round"/>
+                      {/* Pulse dots every 5 days */}
+                      {dailyFee30.filter((_,i)=>i%5===0).map((v,k)=>{
+                        const i = k*5;
+                        const x = PAD + (i/(dailyFee30.length-1))*(PW-PAD*2);
+                        const y = PH - PAD - (v/maxV)*(PH-PAD*2);
+                        return <circle key={k} cx={x} cy={y} r="3.5" fill="#3b82f6" stroke="rgba(255,255,255,0.2)" strokeWidth="1.5"/>;
+                      })}
+                    </svg>
+                  );
+                })()}
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '4px', paddingInline: `${PAD}px` }}>
+                  {['30d ago','24d','18d','12d','6d','Today'].map((l,i)=>(
+                    <span key={i} style={{ fontSize: '0.52rem', color: 'var(--text-muted)', fontWeight: 600 }}>{l}</span>
+                  ))}
+                </div>
+              </div>
+
+              {/* Wave Chart 4: Fee-Type Composition – stacked area */}
+              <div className="glass-panel animate-scale-up" style={{ padding: '24px', borderRadius: '16px', background: 'var(--bg-glass)', border: '1px solid var(--border-glass)' }}>
+                <div style={{ marginBottom: '16px' }}>
+                  <h4 style={{ fontSize: '0.88rem', fontWeight: 800, color: 'var(--text-main)', margin: 0 }}>Fee Type Split</h4>
+                  <span style={{ fontSize: '0.64rem', color: 'var(--text-muted)' }}>Collected per category</span>
+                </div>
+                {(() => {
+                  const palette = ['#3b82f6','#10b981','#f59e0b','#a855f7','#ef4444','#06b6d4'];
+                  const entries = Object.entries(feeTypes).sort((a,b)=>b[1]-a[1]);
+                  const total = entries.reduce((s,[,v])=>s+v,0)||1;
+                  const PW2 = 200, PH2 = 120, cx=PW2/2, cy=PH2/2, r=48, rInner=28;
+                  // arc segments (donut)
+                  let startAngle = -Math.PI/2;
+                  const arcs = entries.map(([label, val], i) => {
+                    const angle = (val/total)*2*Math.PI;
+                    const endAngle = startAngle + angle;
+                    const x1=cx+r*Math.cos(startAngle), y1=cy+r*Math.sin(startAngle);
+                    const x2=cx+r*Math.cos(endAngle),   y2=cy+r*Math.sin(endAngle);
+                    const xi1=cx+rInner*Math.cos(startAngle), yi1=cy+rInner*Math.sin(startAngle);
+                    const xi2=cx+rInner*Math.cos(endAngle),   yi2=cy+rInner*Math.sin(endAngle);
+                    const large = angle > Math.PI ? 1 : 0;
+                    const d = `M ${x1} ${y1} A ${r} ${r} 0 ${large} 1 ${x2} ${y2} L ${xi2} ${yi2} A ${rInner} ${rInner} 0 ${large} 0 ${xi1} ${yi1} Z`;
+                    startAngle = endAngle;
+                    return { d, color: palette[i % palette.length], label, val, pct: Math.round((val/total)*100) };
+                  });
+                  return (
+                    <div>
+                      <svg viewBox={`0 0 ${PW2} ${PH2}`} style={{ width: '100%', height: '110px' }}>
+                        {arcs.length === 0 ? (
+                          <circle cx={cx} cy={cy} r={r} fill="rgba(255,255,255,0.04)" stroke="rgba(255,255,255,0.08)" strokeWidth="1"/>
+                        ) : arcs.map((a,i) => (
+                          <path key={i} d={a.d} fill={a.color} opacity="0.85"/>
+                        ))}
+                        <circle cx={cx} cy={cy} r={rInner-2} fill="var(--bg-glass)"/>
+                        <text x={cx} y={cy-4} textAnchor="middle" fill="var(--text-main)" fontSize="10" fontWeight="800">
+                          {entries.length}
+                        </text>
+                        <text x={cx} y={cy+10} textAnchor="middle" fill="var(--text-muted)" fontSize="7">types</text>
+                      </svg>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', marginTop: '8px' }}>
+                        {arcs.slice(0,4).map((a,i)=>(
+                          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <span style={{ width: 7, height: 7, borderRadius: '50%', background: a.color, flexShrink: 0 }} />
+                            <span style={{ fontSize: '0.62rem', color: 'var(--text-muted)', flex: 1 }}>{a.label}</span>
+                            <span style={{ fontSize: '0.62rem', color: a.color, fontWeight: 700 }}>{a.pct}%</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+            </div>
+
+          </div>
+        );
+      })()}
+
+
+
+
+
     </div>
   );
 }
@@ -6621,7 +7251,7 @@ export function TeacherSalaryStructureView({ showToast }) {
         const activeRoles = d.filter(r => r.active && !['Developer Admin', 'Main Admin', 'Admin Dashboard'].includes(r.name));
         setRoles(activeRoles);
       })
-      .catch(() => {});
+      .catch(() => { });
   };
 
   useEffect(() => {
@@ -6771,111 +7401,111 @@ export function TeacherSalaryStructureView({ showToast }) {
                   borderRadius: '10px', color: 'var(--text-main)', fontWeight: 600, cursor: 'pointer', fontSize: '0.85rem', transition: 'background 0.2s',
                   display: 'flex', alignItems: 'center', gap: '6px'
                 }} onMouseEnter={e => e.currentTarget.style.background = 'var(--border-subtle)'}
-                   onMouseLeave={e => e.currentTarget.style.background = 'var(--bg-card-subtle)'}><X size={16} /> Close</button>
+                  onMouseLeave={e => e.currentTarget.style.background = 'var(--bg-card-subtle)'}><X size={16} /> Close</button>
               </div>
             </form>
           </div>
         </div>,
         document.body
       )}
- 
+
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '16px' }}>
-          {loading ? (
-            <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
-              <Loader2 className="animate-spin" size={24} />
-            </div>
-          ) : filteredTeacherStructures.length === 0 ? (
-            <div className="glass-panel" style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '40px', color: 'var(--text-muted)', borderRadius: '16px' }}>
-              No teacher salary structures configured yet.
-            </div>
-          ) : (
-            filteredTeacherStructures.map((s, i) => (
-              <div key={i} className="glass-panel" style={{ 
-                padding: '24px', 
-                borderRadius: '16px', 
-                display: 'flex', 
-                flexDirection: 'column', 
-                gap: '12px',
-                maxWidth: '420px',
-                width: '100%',
-                background: '#ffffff',
-                border: '1px solid rgba(0, 0, 0, 0.08)',
-                boxShadow: '0 4px 20px rgba(0, 0, 0, 0.08)'
-              }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(0,0,0,0.06)', paddingBottom: '10px' }}>
-                  <h4 style={{ fontSize: '1rem', fontWeight: 800, color: '#10b981' }}>
-                    {(() => { const roleName = s.role || s.designation; return roleName === 'Teacher' ? 'Teacher' : (roleName.toLowerCase().startsWith('teacher') ? roleName : `Teacher (${roleName})`); })()}
-                  </h4>
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                  {[
-                    ['Basic Salary', s.basicSalary],
-                    ['PF Deduction', s.pfDeduction], ['Tax Deduction', s.taxDeduction]
-                  ].map(([l, v], idx) => (
-                    <div key={l} style={{ 
-                      display: 'flex', 
-                      justifyContent: 'space-between', 
-                      fontSize: '0.82rem',
-                      padding: '8px 0',
-                      borderBottom: idx === 2 ? 'none' : '1px solid rgba(0,0,0,0.04)'
-                    }}>
-                      <span style={{ color: 'var(--text-muted)' }}>{l}</span>
-                      <span style={{ color: 'var(--text-main)', fontWeight: 600 }}>₹{(v || 0).toLocaleString()}</span>
-                    </div>
-                  ))}
-                </div>
-                <div style={{ borderTop: '1px solid rgba(0,0,0,0.08)', paddingTop: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div style={{ display: 'flex', flexDirection: 'column' }}>
-                    <span style={{ fontWeight: 700, color: 'var(--text-muted)', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.02em' }}>Net Salary</span>
-                    <span style={{ fontWeight: 800, color: '#10b981', fontSize: '1.15rem' }}>₹{(s.netSalary || 0).toLocaleString()}</span>
+        {loading ? (
+          <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
+            <Loader2 className="animate-spin" size={24} />
+          </div>
+        ) : filteredTeacherStructures.length === 0 ? (
+          <div className="glass-panel" style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '40px', color: 'var(--text-muted)', borderRadius: '16px' }}>
+            No teacher salary structures configured yet.
+          </div>
+        ) : (
+          filteredTeacherStructures.map((s, i) => (
+            <div key={i} className="glass-panel" style={{
+              padding: '24px',
+              borderRadius: '16px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '12px',
+              maxWidth: '420px',
+              width: '100%',
+              background: '#ffffff',
+              border: '1px solid rgba(0, 0, 0, 0.08)',
+              boxShadow: '0 4px 20px rgba(0, 0, 0, 0.08)'
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(0,0,0,0.06)', paddingBottom: '10px' }}>
+                <h4 style={{ fontSize: '1rem', fontWeight: 800, color: '#10b981' }}>
+                  {(() => { const roleName = s.role || s.designation; return roleName === 'Teacher' ? 'Teacher' : (roleName.toLowerCase().startsWith('teacher') ? roleName : `Teacher (${roleName})`); })()}
+                </h4>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                {[
+                  ['Basic Salary', s.basicSalary],
+                  ['PF Deduction', s.pfDeduction], ['Tax Deduction', s.taxDeduction]
+                ].map(([l, v], idx) => (
+                  <div key={l} style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    fontSize: '0.82rem',
+                    padding: '8px 0',
+                    borderBottom: idx === 2 ? 'none' : '1px solid rgba(0,0,0,0.04)'
+                  }}>
+                    <span style={{ color: 'var(--text-muted)' }}>{l}</span>
+                    <span style={{ color: 'var(--text-main)', fontWeight: 600 }}>₹{(v || 0).toLocaleString()}</span>
                   </div>
-                  <div style={{ display: 'flex', gap: '8px' }}>
-                    {hasPermission('teacher-pay-structure', 'edit') && (
-                      <button onClick={() => handleEdit(s)} style={{
-                        background: 'rgba(0,0,0,0.03)', border: '1px solid rgba(0,0,0,0.08)', color: '#3b82f6', cursor: 'pointer',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '6px', borderRadius: '6px',
-                        transition: 'all 0.2s'
-                      }} onMouseEnter={e => { e.currentTarget.style.background = 'rgba(59,130,246,0.12)'; }}
-                         onMouseLeave={e => { e.currentTarget.style.background = 'rgba(0,0,0,0.03)'; }}
-                         title="Edit Structure">
-                        <Pencil size={15} />
-                      </button>
-                    )}
-                    {hasPermission('teacher-pay-structure', 'delete') && (
-                      <button onClick={() => handleDelete(s.id, s.role || s.designation)} style={{
-                        background: 'rgba(0,0,0,0.03)', border: '1px solid rgba(0,0,0,0.08)', color: '#ef4444', cursor: 'pointer',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '6px', borderRadius: '6px',
-                        transition: 'all 0.2s'
-                      }} onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.12)'; }}
-                         onMouseLeave={e => { e.currentTarget.style.background = 'rgba(0,0,0,0.03)'; }}
-                         title="Delete Structure">
-                        <Trash2 size={15} />
-                      </button>
-                    )}
-                  </div>
+                ))}
+              </div>
+              <div style={{ borderTop: '1px solid rgba(0,0,0,0.08)', paddingTop: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                  <span style={{ fontWeight: 700, color: 'var(--text-muted)', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.02em' }}>Net Salary</span>
+                  <span style={{ fontWeight: 800, color: '#10b981', fontSize: '1.15rem' }}>₹{(s.netSalary || 0).toLocaleString()}</span>
+                </div>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  {hasPermission('teacher-pay-structure', 'edit') && (
+                    <button onClick={() => handleEdit(s)} style={{
+                      background: 'rgba(0,0,0,0.03)', border: '1px solid rgba(0,0,0,0.08)', color: '#3b82f6', cursor: 'pointer',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '6px', borderRadius: '6px',
+                      transition: 'all 0.2s'
+                    }} onMouseEnter={e => { e.currentTarget.style.background = 'rgba(59,130,246,0.12)'; }}
+                      onMouseLeave={e => { e.currentTarget.style.background = 'rgba(0,0,0,0.03)'; }}
+                      title="Edit Structure">
+                      <Pencil size={15} />
+                    </button>
+                  )}
+                  {hasPermission('teacher-pay-structure', 'delete') && (
+                    <button onClick={() => handleDelete(s.id, s.role || s.designation)} style={{
+                      background: 'rgba(0,0,0,0.03)', border: '1px solid rgba(0,0,0,0.08)', color: '#ef4444', cursor: 'pointer',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '6px', borderRadius: '6px',
+                      transition: 'all 0.2s'
+                    }} onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.12)'; }}
+                      onMouseLeave={e => { e.currentTarget.style.background = 'rgba(0,0,0,0.03)'; }}
+                      title="Delete Structure">
+                      <Trash2 size={15} />
+                    </button>
+                  )}
                 </div>
               </div>
-            ))
-          )}
-        </div>
+            </div>
+          ))
+        )}
+      </div>
 
-        <ConfirmDialog
-          show={!!confirmDelete}
-          message={confirmDelete ? `Are you sure you want to delete the structure for ${confirmDelete.name}?` : ''}
-          onConfirm={async () => {
-            try {
-              const res = await fetch(`/api/finance/salary-structures/${confirmDelete.id}`, { method: 'DELETE' });
-              if (res.ok) {
-                showToast(`Deleted salary structure for ${confirmDelete.name}`);
-                fetchStructures();
-              } else {
-                showToast('Failed to delete structure', 'error');
-              }
-            } catch { showToast('Network error', 'error'); }
-            setConfirmDelete(null);
-          }}
-          onCancel={() => setConfirmDelete(null)}
-        />
+      <ConfirmDialog
+        show={!!confirmDelete}
+        message={confirmDelete ? `Are you sure you want to delete the structure for ${confirmDelete.name}?` : ''}
+        onConfirm={async () => {
+          try {
+            const res = await fetch(`/api/finance/salary-structures/${confirmDelete.id}`, { method: 'DELETE' });
+            if (res.ok) {
+              showToast(`Deleted salary structure for ${confirmDelete.name}`);
+              fetchStructures();
+            } else {
+              showToast('Failed to delete structure', 'error');
+            }
+          } catch { showToast('Network error', 'error'); }
+          setConfirmDelete(null);
+        }}
+        onCancel={() => setConfirmDelete(null)}
+      />
     </div>
   );
 }
@@ -7012,7 +7642,7 @@ export function FeesHistoryView({ showToast }) {
     });
 
     return matchingStudents.map(student => {
-      const studentFees = (feesArray || []).filter(f => 
+      const studentFees = (feesArray || []).filter(f =>
         f.studentId === student.id || f.admissionNumber === student.admissionNumber
       );
 
@@ -7161,13 +7791,13 @@ export function FeesHistoryView({ showToast }) {
         <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', alignItems: 'center', flex: 1 }}>
           <div style={{ minWidth: '150px' }}>
             <label style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '6px', display: 'block' }}>Class / Grade</label>
-            <select 
-              value={filterClass} 
+            <select
+              value={filterClass}
               onChange={e => {
                 setFilterClass(e.target.value);
                 setFilterDept('All');
                 setFilterSection('All');
-              }} 
+              }}
               style={{ ...inputStyle, background: 'var(--bg-card-subtle)', cursor: 'pointer' }}
             >
               <option value="All" style={optionStyle}>Select Grade</option>
@@ -7178,9 +7808,9 @@ export function FeesHistoryView({ showToast }) {
           {isGrade11or12(filterClass) && (
             <div style={{ minWidth: '150px' }}>
               <label style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '6px', display: 'block' }}>Department</label>
-              <select 
-                value={filterDept} 
-                onChange={e => setFilterDept(e.target.value)} 
+              <select
+                value={filterDept}
+                onChange={e => setFilterDept(e.target.value)}
                 style={{ ...inputStyle, background: 'var(--bg-card-subtle)', cursor: 'pointer' }}
               >
                 <option value="All" style={optionStyle}>All Departments</option>
@@ -7253,9 +7883,9 @@ export function FeesHistoryView({ showToast }) {
                           Pending: { text: '#ef4444', bg: 'rgba(239,68,68,0.08)', border: 'rgba(239,68,68,0.15)' }
                         };
                         const colors = statusColors[student.overallStatus] || statusColors.Paid;
-                        
+
                         const mainRow = (
-                          <tr 
+                          <tr
                             key={`main-${sIdx}`}
                             style={{ borderBottom: isExpanded ? 'none' : '1px solid var(--border-glass)', transition: 'background 0.2s', cursor: 'pointer' }}
                             onClick={() => toggleStudentExpand(id)}
@@ -7264,18 +7894,18 @@ export function FeesHistoryView({ showToast }) {
                           >
                             <td style={{ padding: '14px 20px' }}>
                               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                <div style={{ 
-                                  width: '38px', 
-                                  height: '38px', 
-                                  borderRadius: '50%', 
-                                  background: colors.bg, 
-                                  border: `1.5px solid ${colors.border}`, 
-                                  display: 'flex', 
-                                  alignItems: 'center', 
-                                  justifyContent: 'center', 
-                                  color: colors.text, 
-                                  fontWeight: 700, 
-                                  fontSize: '0.85rem' 
+                                <div style={{
+                                  width: '38px',
+                                  height: '38px',
+                                  borderRadius: '50%',
+                                  background: colors.bg,
+                                  border: `1.5px solid ${colors.border}`,
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  color: colors.text,
+                                  fontWeight: 700,
+                                  fontSize: '0.85rem'
                                 }}>
                                   {student.studentName ? student.studentName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() : 'ST'}
                                 </div>
@@ -7311,9 +7941,9 @@ export function FeesHistoryView({ showToast }) {
                             </td>
                           </tr>
                         );
-                        
+
                         if (!isExpanded) return [mainRow];
-                        
+
                         const detailsRow = (
                           <tr key={`details-${sIdx}`} style={{ background: 'rgba(0,0,0,0.06)', borderBottom: '1px solid var(--border-glass)' }}>
                             <td colSpan={6} style={{ padding: '20px' }}>
@@ -7383,7 +8013,7 @@ export function FeesHistoryView({ showToast }) {
                             </td>
                           </tr>
                         );
-                        
+
                         return [mainRow, detailsRow];
                       })}
                     </tbody>

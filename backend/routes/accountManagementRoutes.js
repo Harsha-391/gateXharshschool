@@ -85,7 +85,7 @@ const getPermissionParams = (req) => {
     return { module: 'income', action };
   }
   if (path.startsWith('/overview')) {
-    return { module: 'dashboard', action };
+    return { module: 'overview', action };
   }
   
   return null;

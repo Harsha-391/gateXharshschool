@@ -181,6 +181,62 @@ export const checkPermission = (module, action) => {
       return next();
     }
 
+    // Accountants have access to all finance, payroll, and expense modules
+    if (
+      roleName === 'Accountant' ||
+      role === 'Accountant' ||
+      (roleName && roleName.toLowerCase() === 'accountant') ||
+      (role && role.toLowerCase() === 'accountant')
+    ) {
+      const financeModules = [
+        'finance',
+        'expenses',
+        'teacher-payroll',
+        'staff-payroll',
+        'employee-payroll',
+        'financial-reports',
+        'auxiliary-income',
+        'income',
+        'fee-structures',
+        'fee-periods',
+        'teacher-pay-structure',
+        'staff-pay-structure',
+        'employee-pay-structure',
+        'payroll-history',
+        'expense-dashboard',
+        'expense-all-expenses',
+        'expense-tracker',
+        'expense-history',
+        'overview',
+        'dashboard'
+      ];
+      if (financeModules.includes(module)) {
+        return next();
+      }
+    }
+
+    // Expense Managers have access to all expense modules
+    if (
+      roleName === 'Expense Manager' ||
+      role === 'Expense Manager' ||
+      (roleName && roleName.toLowerCase() === 'expense manager') ||
+      (role && role.toLowerCase() === 'expense manager')
+    ) {
+      const expenseModules = [
+        'expenses',
+        'expense-dashboard',
+        'expense-all-expenses',
+        'expense-tracker',
+        'expense-history',
+        'overview',
+        'dashboard'
+      ];
+      if (expenseModules.includes(module)) {
+        return next();
+      }
+    }
+
+
     // Teachers are always permitted to view timetable, exam, and calendar schedules
     if (action === 'view') {
       if (
