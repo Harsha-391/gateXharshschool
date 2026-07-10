@@ -1,3 +1,4 @@
+import './RegisterTeacher.css';
 import React, { useState, useEffect } from 'react';
 import './AddStaff.css';
 import { fetchActiveGrades, fetchActiveSections } from '../utils/grades';

@@ -1,3 +1,4 @@
+import './Settings.css';
 import React, { useState, useEffect } from 'react';
 import { 
   Clock, Save, ShieldAlert, Settings as SettingsIcon, Calendar, Coffee, 

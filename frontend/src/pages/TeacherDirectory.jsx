@@ -1,3 +1,4 @@
+import './TeacherDirectory.css';
 import React, { useState, useEffect } from 'react';
 import './StaffDirectory.css';
 import { createPortal } from 'react-dom';

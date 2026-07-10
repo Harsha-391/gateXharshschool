@@ -1,3 +1,4 @@
+import './ReportManagement.css';
 import React, { useState, useEffect } from 'react';
 import {
   FileText, ClipboardList, Users, Calendar,

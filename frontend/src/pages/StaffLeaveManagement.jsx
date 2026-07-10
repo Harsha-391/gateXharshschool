@@ -1,3 +1,4 @@
+import './StaffLeaveManagement.css';
 import React, { useState, useEffect } from 'react';
 import { 
   Check, 
