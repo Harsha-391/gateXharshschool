@@ -27,48 +27,69 @@ import KeepAlive from '../components/KeepAlive';
 import { fetchActiveGrades, fetchActiveSections } from '../utils/grades';
 import { hasPermission } from '../utils/permissions';
 
+const lazyWithRetry = (componentImport) => {
+  return lazy(async () => {
+    try {
+      return await componentImport();
+    } catch (error) {
+      const isChunkLoadFailed = error.message && (
+        error.message.includes('Failed to fetch') ||
+        error.message.includes('dynamically imported') ||
+        error.message.includes('chunk') ||
+        error.message.includes('Loading chunk')
+      );
+      if (isChunkLoadFailed) {
+        console.log('Chunk load failed. Force reloading page...');
+        window.location.reload();
+        return new Promise(() => {});
+      }
+      throw error;
+    }
+  });
+};
+
 // Lazy load sub-components (Default Exports)
-const StudentDirectory = lazy(() => import('./StudentDirectory'));
-const StaffDirectory = lazy(() => import('./StaffDirectory'));
-const EmployeeDirectory = lazy(() => import('./EmployeeDirectory'));
-const TeacherDirectory = lazy(() => import('./TeacherDirectory'));
-const RegisterTeacher = lazy(() => import('./RegisterTeacher'));
-const AcademicPanel = lazy(() => import('./AcademicPanel'));
-const RegisterStudent = lazy(() => import('./RegisterStudent'));
-const StudentManager = lazy(() => import('./StudentManager'));
-const AddStaff = lazy(() => import('./AddStaff'));
-const AddEmployee = lazy(() => import('./AddEmployee'));
-const DesignationManager = lazy(() => import('./DesignationManager'));
+const StudentDirectory = lazyWithRetry(() => import('./StudentDirectory'));
+const StaffDirectory = lazyWithRetry(() => import('./StaffDirectory'));
+const EmployeeDirectory = lazyWithRetry(() => import('./EmployeeDirectory'));
+const TeacherDirectory = lazyWithRetry(() => import('./TeacherDirectory'));
+const RegisterTeacher = lazyWithRetry(() => import('./RegisterTeacher'));
+const AcademicPanel = lazyWithRetry(() => import('./AcademicPanel'));
+const RegisterStudent = lazyWithRetry(() => import('./RegisterStudent'));
+const StudentManager = lazyWithRetry(() => import('./StudentManager'));
+const AddStaff = lazyWithRetry(() => import('./AddStaff'));
+const AddEmployee = lazyWithRetry(() => import('./AddEmployee'));
+const DesignationManager = lazyWithRetry(() => import('./DesignationManager'));
 import ExpensePanel from './ExpensePanel';
-const AttendanceManager = lazy(() => import('./AttendanceManager'));
-const RolesPermissions = lazy(() => import('./RolesPermissions'));
-const Settings = lazy(() => import('./Settings'));
-const GradeManagement = lazy(() => import('./GradeManagement'));
-const UserProfile = lazy(() => import('./UserProfile'));
-const AuxiliaryIncome = lazy(() => import('./AuxiliaryIncome'));
-const LeaveManagement = lazy(() => import('./LeaveManagement'));
-const TeacherLeave = lazy(() => import('./TeacherLeave'));
-const StaffLeave = lazy(() => import('./StaffLeave'));
-const ReportManagement = lazy(() => import('./ReportManagement'));
-const TeacherWorkReport = lazy(() => import('./TeacherWorkReport.jsx?v=2'));
-const StaffWorkReport = lazy(() => import('./StaffWorkReport'));
+const AttendanceManager = lazyWithRetry(() => import('./AttendanceManager'));
+const RolesPermissions = lazyWithRetry(() => import('./RolesPermissions'));
+const Settings = lazyWithRetry(() => import('./Settings'));
+const GradeManagement = lazyWithRetry(() => import('./GradeManagement'));
+const UserProfile = lazyWithRetry(() => import('./UserProfile'));
+const AuxiliaryIncome = lazyWithRetry(() => import('./AuxiliaryIncome'));
+const LeaveManagement = lazyWithRetry(() => import('./LeaveManagement'));
+const TeacherLeave = lazyWithRetry(() => import('./TeacherLeave'));
+const StaffLeave = lazyWithRetry(() => import('./StaffLeave'));
+const ReportManagement = lazyWithRetry(() => import('./ReportManagement'));
+const TeacherWorkReport = lazyWithRetry(() => import('./TeacherWorkReport.jsx?v=2'));
+const StaffWorkReport = lazyWithRetry(() => import('./StaffWorkReport'));
 
 
 // Lazy load sub-components (Named Exports)
-const StudentReportsView = lazy(() => import('./StaffPanel').then(m => ({ default: m.StudentReportsView })));
-const ClassReportsView = lazy(() => import('./StaffPanel').then(m => ({ default: m.ClassReportsView })));
-const MonthlyCalendarView = lazy(() => import('./StaffPanel').then(m => ({ default: m.MonthlyCalendarView })));
+const StudentReportsView = lazyWithRetry(() => import('./StaffPanel').then(m => ({ default: m.StudentReportsView })));
+const ClassReportsView = lazyWithRetry(() => import('./StaffPanel').then(m => ({ default: m.ClassReportsView })));
+const MonthlyCalendarView = lazyWithRetry(() => import('./StaffPanel').then(m => ({ default: m.MonthlyCalendarView })));
 
-const MarkAttendanceView = lazy(() => import('./AdminAttendanceViews').then(m => ({ default: m.MarkAttendanceView })));
-const AttendanceHistoryView = lazy(() => import('./AdminAttendanceViews').then(m => ({ default: m.AttendanceHistoryView })));
+const MarkAttendanceView = lazyWithRetry(() => import('./AdminAttendanceViews').then(m => ({ default: m.MarkAttendanceView })));
+const AttendanceHistoryView = lazyWithRetry(() => import('./AdminAttendanceViews').then(m => ({ default: m.AttendanceHistoryView })));
 
-const CollectFeesView = lazy(() => import('./AccountantPanel').then(m => ({ default: m.CollectFeesView })));
-const FeeStructureView = lazy(() => import('./AccountantPanel').then(m => ({ default: m.FeeStructureView })));
-const FeesHistoryView = lazy(() => import('./AccountantPanel').then(m => ({ default: m.FeesHistoryView })));
-const ExpensesView = lazy(() => import('./AccountantPanel').then(m => ({ default: m.ExpensesView })));
-const ReportsView = lazy(() => import('./AccountantPanel').then(m => ({ default: m.ReportsView })));
-const PayrollHistoryView = lazy(() => import('./PayrollRedesign').then(m => ({ default: m.PayrollHistoryViewRedesign })));
-const PayrollHub = lazy(() => import('./PayrollRedesign').then(m => ({ default: m.PayrollHubRedesign })));
+const CollectFeesView = lazyWithRetry(() => import('./AccountantPanel').then(m => ({ default: m.CollectFeesView })));
+const FeeStructureView = lazyWithRetry(() => import('./AccountantPanel').then(m => ({ default: m.FeeStructureView })));
+const FeesHistoryView = lazyWithRetry(() => import('./AccountantPanel').then(m => ({ default: m.FeesHistoryView })));
+const ExpensesView = lazyWithRetry(() => import('./AccountantPanel').then(m => ({ default: m.ExpensesView })));
+const ReportsView = lazyWithRetry(() => import('./AccountantPanel').then(m => ({ default: m.ReportsView })));
+const PayrollHistoryView = lazyWithRetry(() => import('./PayrollRedesign').then(m => ({ default: m.PayrollHistoryViewRedesign })));
+const PayrollHub = lazyWithRetry(() => import('./PayrollRedesign').then(m => ({ default: m.PayrollHubRedesign })));
 
 // ─── Overview Stats Card (Theme-Aware) ──────────────────────────────────────
 function GenderRatioBar({ maleCount, femaleCount, total }) {

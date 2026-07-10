@@ -23,22 +23,43 @@ const isTokenExpired = (token) => {
   }
 };
 
+const lazyWithRetry = (componentImport) => {
+  return lazy(async () => {
+    try {
+      return await componentImport();
+    } catch (error) {
+      const isChunkLoadFailed = error.message && (
+        error.message.includes('Failed to fetch') ||
+        error.message.includes('dynamically imported') ||
+        error.message.includes('chunk') ||
+        error.message.includes('Loading chunk')
+      );
+      if (isChunkLoadFailed) {
+        console.log('Chunk load failed. Force reloading page...');
+        window.location.reload();
+        return new Promise(() => {});
+      }
+      throw error;
+    }
+  });
+};
+
 // Lazy load page components
-const StudentDirectory = lazy(() => import('./pages/StudentDirectory'));
-const AddStaff = lazy(() => import('./pages/AddStaff'));
-const StaffDirectory = lazy(() => import('./pages/StaffDirectory'));
-const AddEmployee = lazy(() => import('./pages/AddEmployee'));
-const EmployeeDirectory = lazy(() => import('./pages/EmployeeDirectory'));
-const AccountManagementPortal = lazy(() => import('./pages/AccountManagementPortal'));
-const SchoolProfile = lazy(() => import('./pages/SchoolProfile'));
-const AttendanceManager = lazy(() => import('./pages/AttendanceManager'));
-const RegisterStudent = lazy(() => import('./pages/RegisterStudent'));
-const AdminPanel = lazy(() => import('./pages/AdminPanel'));
-const SchoolLogin = lazy(() => import('./pages/SchoolLogin'));
-const AdminLogin = lazy(() => import('./pages/AdminLogin'));
-const AcademicPanel = lazy(() => import('./pages/AcademicPanel'));
-const UserProfile = lazy(() => import('./pages/UserProfile'));
-const SuspendedScreen = lazy(() => import('./pages/SuspendedScreen'));
+const StudentDirectory = lazyWithRetry(() => import('./pages/StudentDirectory'));
+const AddStaff = lazyWithRetry(() => import('./pages/AddStaff'));
+const StaffDirectory = lazyWithRetry(() => import('./pages/StaffDirectory'));
+const AddEmployee = lazyWithRetry(() => import('./pages/AddEmployee'));
+const EmployeeDirectory = lazyWithRetry(() => import('./pages/EmployeeDirectory'));
+const AccountManagementPortal = lazyWithRetry(() => import('./pages/AccountManagementPortal'));
+const SchoolProfile = lazyWithRetry(() => import('./pages/SchoolProfile'));
+const AttendanceManager = lazyWithRetry(() => import('./pages/AttendanceManager'));
+const RegisterStudent = lazyWithRetry(() => import('./pages/RegisterStudent'));
+const AdminPanel = lazyWithRetry(() => import('./pages/AdminPanel'));
+const SchoolLogin = lazyWithRetry(() => import('./pages/SchoolLogin'));
+const AdminLogin = lazyWithRetry(() => import('./pages/AdminLogin'));
+const AcademicPanel = lazyWithRetry(() => import('./pages/AcademicPanel'));
+const UserProfile = lazyWithRetry(() => import('./pages/UserProfile'));
+const SuspendedScreen = lazyWithRetry(() => import('./pages/SuspendedScreen'));
 
 // Global Fetch Interceptor with SWR caching and request promise coalescing
 const originalFetch = window.fetch;
