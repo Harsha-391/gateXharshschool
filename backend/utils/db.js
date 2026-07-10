@@ -1638,70 +1638,28 @@ export const initSqlDb = async () => {
   }
   const masterPool = sqlDb.getPoolForTenant(null);
 
-    // 1. Initialize master database schema & updates
-    await executeSchemaOnPool(masterPool, true);
-    await applySchemaUpdates(masterPool, true);
+  // Load subdomain-to-dbName mappings
+  await sqlDb.loadDbMappings();
 
-    // Load subdomain-to-dbName mappings
-    await sqlDb.loadDbMappings();
+  // Auto-register missing subdomains
+  await ensureSubdomainsRegistered(masterPool);
 
-    // Auto-trigger JSON-to-SQL migration to register any missing schools from JSON files
-    try {
-      await migrateJsonToSql();
-      await sqlDb.loadDbMappings(); // Reload mappings after migration
-    } catch (migrateErr) {
-      console.error('[SQL Init ERROR] Failed to run JSON migration:', migrateErr.message);
-    }
-
-    // 1A. Perform startup migrations on master database pool
-    try {
-      console.log('[SQL Migration] Performing startup role and user type updates in master DB...');
-      // Alter roles table primary key to composite (id, tenantId)
+  // Fetch all registered schools and register their mappings
+  const schools = await sqlDb.query("SELECT id, subdomain, dbName FROM schools", [], 'platform');
+  for (const school of (schools || [])) {
+    const dbName = school.dbName || `school_${slugify(school.subdomain)}`;
+    if (!school.dbName) {
       try {
-        await masterPool.query("UPDATE roles SET tenantId = 'platform' WHERE tenantId IS NULL OR tenantId = ''");
-        await masterPool.query("ALTER TABLE roles DROP PRIMARY KEY, ADD PRIMARY KEY (id, tenantId)");
-        console.log("[SQL Migration] Successfully altered roles table primary key to composite (id, tenantId).");
-      } catch (err) {
-        // Ignore if already composite
-      }
-      // Rename Teacher role from Staff to Teacher
-      await masterPool.query("UPDATE roles SET name = 'Teacher', description = 'Teacher. Records attendance, enters marks, manages academic activities, and views student profiles.' WHERE id = 'role-teacher'");
-      // Delete any duplicate roles named 'Staff' in the database to clear it up as requested
-      await masterPool.query("DELETE FROM roles WHERE name = 'Staff'");
-      // Delete Principal and Vice Principal roles from roles table
-      await masterPool.query("DELETE FROM roles WHERE id IN ('role-principal', 'role-vice-principal')");
-      // Update user types in user_access table (first Staff -> Employee, then Teacher -> Staff)
-      await masterPool.query("UPDATE user_access SET userType = 'Employee' WHERE userType = 'Staff'");
-      await masterPool.query("UPDATE user_access SET userType = 'Staff' WHERE userType = 'Teacher'");
-    } catch (err) {
-      console.warn('[SQL Migration WARNING] Master DB roles/user_access migration warning:', err.message);
-    }
-
-    // Auto-register missing subdomains
-    await ensureSubdomainsRegistered(masterPool);
-
-    // 2. Fetch all registered schools
-    const schools = await sqlDb.query("SELECT id, subdomain, dbName FROM schools", [], 'platform');
-    
-    // 3. Setup database-per-school, register/fill mappings, and run migrations
-    for (const school of (schools || [])) {
-      const dbName = school.dbName || `school_${slugify(school.subdomain)}`;
-      if (!school.dbName) {
         await masterPool.query('UPDATE schools SET dbName = ? WHERE id = ?', [dbName, school.id]);
+      } catch (err) {
+        // ignore
       }
-      sqlDb.registerDbMapping(school.subdomain, dbName);
-      await migrateTenantDataToDedicatedDb(school.subdomain);
     }
+    sqlDb.registerDbMapping(school.subdomain, dbName);
+  }
 
-    // 4. Run recovery migrations on master database
-    try {
-      await sqlDb.query("UPDATE schools SET adminUsername = 'school_admin' WHERE adminUsername IS NULL OR adminUsername = ''", [], 'platform');
-    } catch (err) {
-      console.warn('[SQL Migration WARNING] Master DB recovery migrations warning:', err.message);
-    }
-
-    isSqlInitialized = true;
-    console.log('[SQL Init] MySQL Database-Per-School Multi-Tenant Adapter is active and running.');
+  isSqlInitialized = true;
+  console.log('[SQL Init] MySQL Database-Per-School Multi-Tenant Adapter is active and running.');
 };
 
 // Start the init procedure on boot
