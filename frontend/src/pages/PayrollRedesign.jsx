@@ -1012,6 +1012,7 @@ function PayrollDashboardRedesign({ type, showToast }) {
   const [availableRoles, setAvailableRoles] = useState([]);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   // Fetch available roles/designations for Staff or Employee
   useEffect(() => {
@@ -1046,20 +1047,55 @@ function PayrollDashboardRedesign({ type, showToast }) {
     }
   }, [type]);
 
-  useEffect(() => {
+  const fetchMetrics = () => {
     setLoading(true);
+    setError(null);
     const roleParam = selectedRole !== 'All' ? `&role=${encodeURIComponent(selectedRole)}` : '';
     fetch(`/api/payroll/dashboard?type=${type}&month=${selectedMonth}&year=${selectedYear}${roleParam}`, { headers: getAuthHeaders() })
-      .then(res => res.json())
-      .then(data => setStats(data))
-      .catch(err => showToast?.('Failed to load dashboard metrics', 'error'))
+      .then(res => {
+        if (!res.ok) {
+          throw new Error('Failed to load dashboard metrics');
+        }
+        return res.json();
+      })
+      .then(data => {
+        if (data && data.summary) {
+          setStats(data);
+        } else {
+          throw new Error('Failed to load dashboard metrics');
+        }
+      })
+      .catch(err => {
+        setError(err.message);
+        setStats(null);
+        showToast?.('Failed to load dashboard metrics', 'error');
+      })
       .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    fetchMetrics();
   }, [type, selectedMonth, selectedYear, selectedRole]);
 
-  if (loading || !stats) {
+  if (loading) {
     return (
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '16px', justifyContent: 'center', padding: '50px', color: '#475569' }}>
         <Clock className="spin" size={24} style={{ marginRight: '8px' }} /> Loading dashboard telemetry analytics...
+      </div>
+    );
+  }
+
+  if (error || !stats) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', alignItems: 'center', justifyContent: 'center', padding: '50px', color: '#ef4444' }}>
+        <AlertCircle size={36} />
+        <div style={{ fontWeight: 705, color: '#64748b' }}>{error || 'Failed to load dashboard metrics'}</div>
+        <button 
+          onClick={fetchMetrics}
+          style={{ padding: '10px 20px', background: '#4f46e5', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 700 }}
+        >
+          Retry
+        </button>
       </div>
     );
   }
