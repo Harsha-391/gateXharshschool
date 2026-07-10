@@ -281,7 +281,49 @@ router.post('/payments', async (req, res) => {
 // ==========================================
 router.get('/dashboard', async (req, res) => {
   try {
-    const { type, role } = req.query;
+    // 1. Enforce tenant context validation
+    const activeTenant = req.headers['x-tenant-id'] || req.query.tenantId;
+    if (!activeTenant || activeTenant === 'platform' || activeTenant === 'default') {
+      return res.status(400).json({ error: 'Valid tenant context (x-tenant-id header) is required to access the payroll dashboard.' });
+    }
+
+    let { type, role, month, year } = req.query;
+
+    // 2. Validate type query parameter
+    const allowedTypes = ['Teacher', 'Staff', 'Employee'];
+    if (type && !allowedTypes.includes(type)) {
+      return res.status(400).json({ error: 'Invalid type parameter. Must be one of: Teacher, Staff, Employee.' });
+    }
+
+    // 3. Validate and sanitize month query parameter
+    const allowedMonths = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December'
+    ];
+    const currentMonth = new Date().toLocaleString('default', { month: 'long' });
+    if (!month) {
+      month = currentMonth;
+    } else {
+      const cleanMonth = month.trim();
+      const matchedMonth = allowedMonths.find(m => m.toLowerCase() === cleanMonth.toLowerCase());
+      if (!matchedMonth) {
+        return res.status(400).json({ error: 'Invalid month parameter. Must be a full month name (e.g., January).' });
+      }
+      month = matchedMonth;
+    }
+
+    // 4. Validate and sanitize year query parameter
+    const currentYear = String(new Date().getFullYear());
+    if (!year) {
+      year = currentYear;
+    } else {
+      const cleanYear = year.trim();
+      const yearNum = parseInt(cleanYear, 10);
+      if (isNaN(yearNum) || yearNum < 2000 || yearNum > 2100 || !/^\d{4}$/.test(cleanYear)) {
+        return res.status(400).json({ error: 'Invalid year parameter. Must be a 4-digit year between 2000 and 2100.' });
+      }
+      year = cleanYear;
+    }
     
     // Counts
     let teachersCount = 0;
@@ -349,8 +391,8 @@ router.get('/dashboard', async (req, res) => {
     const monthlyPayrollCost = parseFloat(configCostRows[0]?.monthlyCost || 0);
     
     // Paid vs Pending (Target Period)
-    const targetMonth = req.query.month || new Date().toLocaleString('default', { month: 'long' });
-    const targetYear = req.query.year || String(new Date().getFullYear());
+    const targetMonth = month;
+    const targetYear = year;
     
     let paidQuery = 'SELECT COUNT(DISTINCT p.employeeId) as paidCount FROM salary_payments p';
     let paidParams = [targetMonth, targetYear];
@@ -578,14 +620,22 @@ router.get('/dashboard', async (req, res) => {
         upcomingPayments
       },
       charts: {
-        trend: trendRows.reverse(),
-        departmentWise: deptCosts,
-        distribution: distribution[0] || { low: 0, medium: 0, high: 0 },
-        paymentStatus: payStatus
+        trend: (trendRows || []).reverse(),
+        departmentWise: deptCosts || [],
+        distribution: (distribution && distribution[0]) || { low: 0, medium: 0, high: 0 },
+        paymentStatus: payStatus || []
       }
     });
   } catch (error) {
-    res.status(500).json({ error: 'Failed to fetch dashboard stats: ' + error.message });
+    console.error('[Payroll Dashboard Error] Failed to fetch stats:', {
+      tenantId: req.headers['x-tenant-id'] || req.query.tenantId || 'unknown',
+      query: req.query,
+      errorMessage: error.message,
+      stack: error.stack
+    });
+    res.status(500).json({ 
+      error: 'Failed to fetch dashboard stats: ' + error.message
+    });
   }
 });
 
