@@ -359,7 +359,7 @@ router.get('/dashboard', async (req, res) => {
     let configCostQuery = 'SELECT SUM(m.netSalary) as monthlyCost FROM salary_masters m';
     let configCostParams = [];
     const joins = [];
-    const wheres = ['m.status = "Active"'];
+    const wheres = ["m.status = 'Active'"];
     
     if (type) {
       wheres.push('m.employeeType = ?');
@@ -397,7 +397,7 @@ router.get('/dashboard', async (req, res) => {
     let paidQuery = 'SELECT COUNT(DISTINCT p.employeeId) as paidCount FROM salary_payments p';
     let paidParams = [targetMonth, targetYear];
     const paidJoins = [];
-    const paidWheres = ['p.month = ?', 'p.year = ?', 'p.status = "Paid"'];
+    const paidWheres = ['p.month = ?', 'p.year = ?', "p.status = 'Paid'"];
     
     if (type) {
       paidWheres.push('p.employeeType = ?');
@@ -430,7 +430,7 @@ router.get('/dashboard', async (req, res) => {
     let totalConfiguredQuery = 'SELECT COUNT(DISTINCT m.employeeId) as totalConfigured FROM salary_masters m';
     let totalConfiguredParams = [];
     const tcJoins = [];
-    const tcWheres = ['m.status = "Active"'];
+    const tcWheres = ["m.status = 'Active'"];
     
     if (type) {
       tcWheres.push('m.employeeType = ?');
@@ -548,7 +548,7 @@ router.get('/dashboard', async (req, res) => {
       FROM salary_masters m`;
     let distParams = [];
     const distJoins = [];
-    const distWheres = ['m.status = "Active"'];
+    const distWheres = ["m.status = 'Active'"];
     
     if (type) {
       distWheres.push('m.employeeType = ?');
