@@ -4,6 +4,12 @@
 - `[x]` Implement enhanced QR scan and status auto-calculation logic in `employeeAttendanceController.js`
 - `[x]` Create the frontend `AttendanceSettings.jsx` page
 - `[x]` Update `backend/utils/authHelper.js` with failed login tracking, lockout checks, and password strength check
+- [x] Add `vendor` and `paymentDetails` columns in database migration (`db.js`)
+- [x] Implement file upload route `/api/upload` in `server.js`
+- [x] Wire `addExpense`, `getExpenses`, `updateExpense`, and `deleteExpense` to be fully SQL-driven in `accountManagementController.js`
+- [x] Update frontend `ExpensePanel.jsx` to upload screenshots using the file browser
+- [x] Update frontend `AllExpensesView` details modal to show clickable screenshot link
+- [x] Verify functionality with test expense entries
 - `[x]` Update `backend/middleware/auth.js` with active tenant context checks for cross-tenant access prevention
 - `[x]` Mount dynamic `checkPermission` validation in `backend/routes/academicRoutes.js`
 - `[x]` 1. Directories load constraints (show empty list by default until filtered or searched)

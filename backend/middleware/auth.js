@@ -67,7 +67,7 @@ export const auth = async (req, res, next) => {
     // Immediate Token Tenant Validation: if tenant no longer exists in platform, reject
     if (verified.tenantId && verified.tenantId !== 'platform' && verified.tenantId !== 'localhost') {
       try {
-        const globalDb = readDb();
+        const globalDb = tenantStorage.run(null, () => readDb());
         const schoolRecord = (globalDb.schools || []).find(s => slugify(s.subdomain) === slugify(verified.tenantId));
         if (!schoolRecord) {
           logSecurity('INVALID_TENANT_SESSION', `Attempted to use session token for non-existent tenant: '${verified.tenantId}'`, req);
@@ -81,7 +81,7 @@ export const auth = async (req, res, next) => {
     // Immediate Session Invalidation on Password Change for Main Admin
     if (verified.role === 'Main Admin') {
       try {
-        const globalDb = readDb();
+        const globalDb = tenantStorage.run(null, () => readDb());
         const schoolRecord = (globalDb.schools || []).find(s => slugify(s.subdomain) === slugify(verified.tenantId));
         if (!schoolRecord || schoolRecord.adminPassword !== verified.passwordHash) {
           logSecurity('INVALIDATED_SESSION_USE', `Attempted to use session token with outdated password for '${verified.username}'`, req);

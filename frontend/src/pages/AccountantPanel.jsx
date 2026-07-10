@@ -6232,7 +6232,7 @@ export function ReportsView({ showToast, setAccountantView }) {
           <div className="glass-panel animate-scale-up" style={{
             padding: '20px', borderRadius: '16px',
             borderLeft: '5px solid #3b82f6',
-            background: 'rgba(59,130,246,0.03)',
+            background: '#ffffff',
             position: 'relative', overflow: 'hidden'
           }}>
             <div style={{ position: 'absolute', top: 0, right: 0, width: '80px', height: '80px', background: 'rgba(59,130,246,0.06)', borderRadius: '0 16px 0 80px' }} />
@@ -6260,7 +6260,7 @@ export function ReportsView({ showToast, setAccountantView }) {
           <div className="glass-panel animate-scale-up" style={{
             padding: '20px', borderRadius: '16px',
             borderLeft: '5px solid #10b981',
-            background: 'rgba(16,185,129,0.03)',
+            background: '#ffffff',
             position: 'relative', overflow: 'hidden'
           }}>
             <div style={{ position: 'absolute', top: 0, right: 0, width: '80px', height: '80px', background: 'rgba(16,185,129,0.06)', borderRadius: '0 16px 0 80px' }} />
@@ -6288,7 +6288,7 @@ export function ReportsView({ showToast, setAccountantView }) {
           <div className="glass-panel animate-scale-up" style={{
             padding: '20px', borderRadius: '16px',
             borderLeft: '5px solid #ef4444',
-            background: 'rgba(239,68,68,0.03)',
+            background: '#ffffff',
             position: 'relative', overflow: 'hidden'
           }}>
             <div style={{ position: 'absolute', top: 0, right: 0, width: '80px', height: '80px', background: 'rgba(239,68,68,0.06)', borderRadius: '0 16px 0 80px' }} />
@@ -6316,7 +6316,7 @@ export function ReportsView({ showToast, setAccountantView }) {
           <div className="glass-panel animate-scale-up" style={{
             padding: '20px', borderRadius: '16px',
             borderLeft: '5px solid #8b5cf6',
-            background: 'rgba(139,92,246,0.03)',
+            background: '#ffffff',
             position: 'relative', overflow: 'hidden'
           }}>
             <div style={{ position: 'absolute', top: 0, right: 0, width: '80px', height: '80px', background: 'rgba(139,92,246,0.06)', borderRadius: '0 16px 0 80px' }} />
@@ -6349,7 +6349,7 @@ export function ReportsView({ showToast, setAccountantView }) {
           padding: '24px',
           borderRadius: '16px',
           borderLeft: '5px solid #3b82f6',
-          background: 'rgba(255,255,255,0.015)'
+          background: '#ffffff'
         }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Total Fees Income</span>
@@ -6370,7 +6370,7 @@ export function ReportsView({ showToast, setAccountantView }) {
           padding: '24px',
           borderRadius: '16px',
           borderLeft: '5px solid #06b6d4',
-          background: 'rgba(255,255,255,0.015)'
+          background: '#ffffff'
         }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Total Auxiliary Income</span>
@@ -6391,7 +6391,7 @@ export function ReportsView({ showToast, setAccountantView }) {
           padding: '24px',
           borderRadius: '16px',
           borderLeft: '5px solid #8b5cf6',
-          background: 'rgba(255,255,255,0.015)'
+          background: '#ffffff'
         }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Total Payroll</span>
@@ -6412,7 +6412,7 @@ export function ReportsView({ showToast, setAccountantView }) {
           padding: '24px',
           borderRadius: '16px',
           borderLeft: '5px solid #ef4444',
-          background: 'rgba(255,255,255,0.015)'
+          background: '#ffffff'
         }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Total Expense</span>
@@ -6433,7 +6433,7 @@ export function ReportsView({ showToast, setAccountantView }) {
           padding: '24px',
           borderRadius: '16px',
           borderLeft: `5px solid ${netProfit >= 0 ? '#10b981' : '#ef4444'}`,
-          background: 'rgba(255,255,255,0.015)',
+          background: '#ffffff',
           boxShadow: netProfit >= 0 ? '0 8px 32px rgba(16, 185, 129, 0.05)' : '0 8px 32px rgba(239, 68, 68, 0.05)'
         }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>

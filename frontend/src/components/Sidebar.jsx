@@ -288,6 +288,36 @@ export default function Sidebar({
               }
             })()}
 
+            {(hasPermission('expense-dashboard', 'view') || hasPermission('expense-all-expenses', 'view') || hasPermission('expense-tracker', 'view') || hasPermission('expense-history', 'view')) && (
+              <button
+                onClick={() => { setAdminView('expense-dashboard'); setMobileOpen(false); }}
+                className={`nav-item ${['expense-dashboard', 'expense-all-expenses', 'expense-history'].includes(adminView) ? 'active' : ''}`}
+              >
+                <Wallet size={20} className="flex-shrink-0" />
+                <span className="nav-label" style={{ fontWeight: 600 }}>Expenses</span>
+              </button>
+            )}
+
+            {hasPermission('auxiliary-income', 'view') && (
+              <button
+                onClick={() => { setAdminView('auxiliary-income'); setMobileOpen(false); }}
+                className={`nav-item ${adminView === 'auxiliary-income' ? 'active' : ''}`}
+              >
+                <Tags size={20} className="flex-shrink-0" />
+                <span className="nav-label" style={{ fontWeight: 600 }}>Auxiliary & Other Income</span>
+              </button>
+            )}
+
+            {hasPermission('financial-reports', 'view') && (
+              <button
+                onClick={() => { setAdminView('reports'); setMobileOpen(false); }}
+                className={`nav-item ${adminView === 'reports' ? 'active' : ''}`}
+              >
+                <List size={20} className="flex-shrink-0" />
+                <span className="nav-label" style={{ fontWeight: 600 }}>Financial Reports</span>
+              </button>
+            )}
+
             {(hasPermission('student-directory', 'view') || hasPermission('staff-directory', 'view') || hasPermission('employee-directory', 'view') || hasPermission('teacher-directory', 'view')) && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
                 <button
@@ -743,83 +773,6 @@ export default function Sidebar({
               </div>
             )}
 
-            {(hasPermission('expense-dashboard', 'view') || hasPermission('expense-all-expenses', 'view') || hasPermission('expense-tracker', 'view') || hasPermission('expense-history', 'view')) && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                <button
-                  type="button"
-                  onClick={() => setAdminExpensesOpen(!adminExpensesOpen)}
-                  className={`nav-item ${['expense-dashboard', 'expense-all-expenses', 'expense-history'].includes(adminView) ? 'parent-active' : ''}`}
-                  style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', cursor: 'pointer' }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                    <Wallet size={20} className="flex-shrink-0" />
-                    <span className="nav-label" style={{ fontWeight: 600 }}>Expenses</span>
-                  </div>
-                  {adminExpensesOpen ? <ChevronDown size={16} className="flex-shrink-0" /> : <ChevronRight size={16} className="flex-shrink-0" />}
-                </button>
-                {adminExpensesOpen && (
-                  <div style={{ display: 'flex', flexDirection: 'column', paddingLeft: '16px', borderLeft: '1px solid rgba(255,255,255,0.06)', marginLeft: '24px', marginTop: '2px', marginBottom: '6px', gap: '4px' }}>
-                    {hasPermission('expense-dashboard', 'view') && (
-                      <button
-                        onClick={() => { setAdminView('expense-dashboard'); setMobileOpen(false); }}
-                        className={`nav-item ${adminView === 'expense-dashboard' ? 'active' : ''}`}
-                        style={{ padding: '10px 12px', fontSize: '0.88rem', position: 'relative' }}
-                      >
-                        <LayoutDashboard size={18} className="flex-shrink-0" />
-                        <span className="nav-label">Expense Panel</span>
-                      </button>
-                    )}
-                    {hasPermission('expense-all-expenses', 'view') && (
-                      <button
-                        onClick={() => { setAdminView('expense-all-expenses'); setMobileOpen(false); }}
-                        className={`nav-item ${adminView === 'expense-all-expenses' ? 'active' : ''}`}
-                        style={{ padding: '10px 12px', fontSize: '0.88rem', position: 'relative' }}
-                      >
-                        <ClipboardList size={18} className="flex-shrink-0" />
-                        <span className="nav-label">Expenses</span>
-                      </button>
-                    )}
-
-                    {hasPermission('expense-history', 'view') && (
-                      <button
-                        onClick={() => { setAdminView('expense-history'); setMobileOpen(false); }}
-                        className={`nav-item ${adminView === 'expense-history' ? 'active' : ''}`}
-                        style={{ padding: '10px 12px', fontSize: '0.88rem', position: 'relative' }}
-                      >
-                        <History size={18} className="flex-shrink-0" />
-                        <span className="nav-label">Expense History</span>
-                      </button>
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {hasPermission('auxiliary-income', 'view') && (
-              <button
-                onClick={() => { setAdminView('auxiliary-income'); setMobileOpen(false); }}
-                className={`nav-item ${adminView === 'auxiliary-income' ? 'active' : ''}`}
-              >
-                <Tags size={20} className="flex-shrink-0" />
-                <span className="nav-label" style={{ fontWeight: 600 }}>Auxiliary & Other Income</span>
-              </button>
-            )}
-
-            {hasPermission('financial-reports', 'view') && (
-              <div className="sidebar-section-group" style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                <span style={{ fontWeight: 700, fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-muted)', padding: '4px 4px 0' }}>
-                  Revenue & Reports
-                </span>
-                <button
-                  onClick={() => { setAdminView('reports'); setMobileOpen(false); }}
-                  className={`nav-item ${adminView === 'reports' ? 'active' : ''}`}
-                  style={{ fontWeight: 500 }}
-                >
-                  <List size={20} className="flex-shrink-0" />
-                  <span className="nav-label">Financial Reports</span>
-                </button>
-              </div>
-            )}
 
             {(isSuperAdmin() || hasPermission('security-audit', 'view') || hasPermission('roles-permissions', 'view') || hasPermission('settings', 'view')) && (
               <div className="sidebar-section-group" style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>

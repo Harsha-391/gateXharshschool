@@ -3,7 +3,7 @@ import './ExpensePanel.css';
 import {
   LayoutDashboard, DollarSign, Wallet, ClipboardList, BarChart3, Bell, CheckCircle,
   AlertTriangle, Plus, Search, Filter, Download, ArrowUpRight, ArrowDownRight,
-  TrendingDown, FileText, X, ShieldAlert, ChevronRight, Eye, Trash2, Edit2, Loader2,
+  TrendingDown, TrendingUp, FileText, X, ShieldAlert, ChevronRight, Eye, Trash2, Edit2, Loader2,
   ListFilter, Calendar, PieChart, Settings, RefreshCw, Shield, ArrowUp, ArrowDown,
   LogOut, History
 } from 'lucide-react';
@@ -27,6 +27,13 @@ export default function ExpensePanel({ setActiveView, onLogout, expenseView, set
     if (type === 'success' || type === 'info') return;
     setNotification({ message, type });
     setTimeout(() => setNotification(null), 3500);
+  };
+
+  const scrollToSection = (id) => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
   };
 
   const fetchExpenses = () => {
@@ -86,17 +93,17 @@ export default function ExpensePanel({ setActiveView, onLogout, expenseView, set
 
     switch (expenseView) {
       case 'dashboard':
-        return <TrackerView expenses={expenses} income={income} fetchExpenses={fetchExpenses} showToast={showToast} budgetLimit={budgetLimit} />;
+        return <TrackerView expenses={expenses} income={income} fetchExpenses={fetchExpenses} showToast={showToast} budgetLimit={budgetLimit} setExpenseView={setExpenseView} />;
       case 'add-expense':
         return <AllExpensesView expenses={expenses} showToast={showToast} fetchExpenses={fetchExpenses} autoOpenAddForm={true} setExpenseView={setExpenseView} />;
       case 'all-expenses':
         return <AllExpensesView expenses={expenses} showToast={showToast} fetchExpenses={fetchExpenses} setExpenseView={setExpenseView} />;
       case 'tracker':
-        return <TrackerView expenses={expenses} income={income} fetchExpenses={fetchExpenses} showToast={showToast} budgetLimit={budgetLimit} />;
+        return <TrackerView expenses={expenses} income={income} fetchExpenses={fetchExpenses} showToast={showToast} budgetLimit={budgetLimit} setExpenseView={setExpenseView} />;
       case 'history':
         return <HistoryView expenses={expenses} expenseHistory={expenseHistory} fetchExpenses={fetchExpenses} showToast={showToast} budgetLimit={budgetLimit} />;
       default:
-        return <AllExpensesView expenses={expenses} showToast={showToast} fetchExpenses={fetchExpenses} setExpenseView={setExpenseView} />;
+        return <TrackerView expenses={expenses} income={income} fetchExpenses={fetchExpenses} showToast={showToast} budgetLimit={budgetLimit} setExpenseView={setExpenseView} />;
     }
   };
 
@@ -144,10 +151,81 @@ export default function ExpensePanel({ setActiveView, onLogout, expenseView, set
               </p>
             </div>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <button 
+              onClick={() => setExpenseView('add-expense')} 
+              className="btn-secondary" 
+              style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.78rem', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer', background: 'linear-gradient(135deg, #ef4444, #dc2626)', color: '#fff', border: 'none', fontWeight: 700 }}
+            >
+              <Plus size={14} /> Record Expense
+            </button>
           </div>
         </div>
       )}
+
+      {/* Dynamic Tab Bar Row */}
+      <div className="glass-panel" style={{ display: 'flex', gap: '8px', padding: '8px 12px', borderRadius: '12px', border: '1px solid rgba(0,0,0,0.06)', background: '#ffffff', overflowX: 'auto' }}>
+        <button 
+          onClick={() => setExpenseView('dashboard')}
+          style={{
+            padding: '10px 20px',
+            borderRadius: '8px',
+            fontSize: '0.88rem',
+            fontWeight: 700,
+            border: 'none',
+            cursor: 'pointer',
+            background: expenseView === 'dashboard' ? 'rgba(239, 68, 68, 0.1)' : 'transparent',
+            color: expenseView === 'dashboard' ? '#ef4444' : 'var(--text-muted)',
+            transition: 'all 0.2s',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px'
+          }}
+        >
+          <LayoutDashboard size={16} />
+          Expense Panel
+        </button>
+        <button 
+          onClick={() => setExpenseView('all-expenses')}
+          style={{
+            padding: '10px 20px',
+            borderRadius: '8px',
+            fontSize: '0.88rem',
+            fontWeight: 700,
+            border: 'none',
+            cursor: 'pointer',
+            background: ['all-expenses', 'add-expense'].includes(expenseView) ? 'rgba(239, 68, 68, 0.1)' : 'transparent',
+            color: ['all-expenses', 'add-expense'].includes(expenseView) ? '#ef4444' : 'var(--text-muted)',
+            transition: 'all 0.2s',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px'
+          }}
+        >
+          <ClipboardList size={16} />
+          Expenses Ledger
+        </button>
+        <button 
+          onClick={() => setExpenseView('history')}
+          style={{
+            padding: '10px 20px',
+            borderRadius: '8px',
+            fontSize: '0.88rem',
+            fontWeight: 700,
+            border: 'none',
+            cursor: 'pointer',
+            background: expenseView === 'history' ? 'rgba(239, 68, 68, 0.1)' : 'transparent',
+            color: expenseView === 'history' ? '#ef4444' : 'var(--text-muted)',
+            transition: 'all 0.2s',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px'
+          }}
+        >
+          <History size={16} />
+          Expense History
+        </button>
+      </div>
 
       {renderContent()}
     </div>
@@ -486,6 +564,41 @@ function AddExpenseView({ showToast, setExpenseView, onClose, onSuccess, isModal
     }
   }, [editExpense]);
 
+  const [uploadingFile, setUploadingFile] = useState(false);
+
+  const handleFileChange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    setUploadingFile(true);
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      const res = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setForm(prev => ({
+          ...prev,
+          attachmentName: data.filePath
+        }));
+        showToast('Screenshot uploaded successfully!');
+      } else {
+        const err = await res.json();
+        showToast(err.error || 'Failed to upload screenshot.', 'error');
+      }
+    } catch (err) {
+      console.error(err);
+      showToast('Network error uploading file.', 'error');
+    } finally {
+      setUploadingFile(false);
+    }
+  };
+
   useEffect(() => {
     const loadClassifications = async () => {
       try {
@@ -526,6 +639,12 @@ function AddExpenseView({ showToast, setExpenseView, onClose, onSuccess, isModal
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    if (form.vendorContact && form.vendorContact.length !== 10) {
+      showToast('Vendor Contact Number must be exactly 10 digits.', 'error');
+      return;
+    }
+
     setLoading(true);
 
     const payload = {
@@ -535,7 +654,7 @@ function AddExpenseView({ showToast, setExpenseView, onClose, onSuccess, isModal
       amount: Number(form.amount) || 0,
       description: form.remarks,
       date: form.date,
-      paymentDate: form.paymentDate || form.date,
+      paymentDate: form.date, // defaults to expense date
       paidBy: 'Expense Management',
       vendor: {
         name: form.vendorName,
@@ -545,14 +664,14 @@ function AddExpenseView({ showToast, setExpenseView, onClose, onSuccess, isModal
       },
       paymentDetails: {
         method: form.paymentMethod,
-        transactionId: form.transactionId,
-        invoiceNumber: form.invoiceNumber
+        transactionId: form.paymentMethod === 'UPI' ? form.transactionId : '',
+        invoiceNumber: ''
       },
       status: form.status,
       submittedBy: 'Expense Management',
       remarks: form.remarks,
       notes: form.notes,
-      attachment: form.attachmentName || 'invoice_mock.pdf',
+      attachment: form.paymentMethod === 'UPI' ? (form.attachmentName || 'screenshot.png') : '',
       grade: '',
       department: '',
       expenseType: 'Operational'
@@ -665,8 +784,14 @@ function AddExpenseView({ showToast, setExpenseView, onClose, onSuccess, isModal
             <div>
               <label style={fieldLabelStyle}>Amount (₹)</label>
               <input 
-                type="number" required placeholder="12500" 
-                value={form.amount} onChange={e => setForm({ ...form, amount: e.target.value })}
+                type="text" required placeholder="12500" 
+                value={form.amount} 
+                onChange={e => {
+                  const val = e.target.value.replace(/\D/g, ''); // Strip non-numeric characters
+                  if (val.length <= 20) {
+                    setForm({ ...form, amount: val });
+                  }
+                }}
                 style={inputStyle}
               />
             </div>
@@ -675,15 +800,6 @@ function AddExpenseView({ showToast, setExpenseView, onClose, onSuccess, isModal
               <input 
                 type="date" required 
                 value={form.date} onChange={e => setForm({ ...form, date: e.target.value })}
-                max={new Date().toLocaleDateString('en-CA')}
-                style={inputStyle}
-              />
-            </div>
-            <div>
-              <label style={fieldLabelStyle}>Payment Settlement Date</label>
-              <input 
-                type="date" 
-                value={form.paymentDate} onChange={e => setForm({ ...form, paymentDate: e.target.value })}
                 max={new Date().toLocaleDateString('en-CA')}
                 style={inputStyle}
               />
@@ -716,8 +832,14 @@ function AddExpenseView({ showToast, setExpenseView, onClose, onSuccess, isModal
             <div>
               <label style={fieldLabelStyle}>Contact Number</label>
               <input 
-                type="tel" placeholder="+91 9876543210" 
-                value={form.vendorContact} onChange={e => setForm({ ...form, vendorContact: e.target.value })}
+                type="text" placeholder="9876543210" 
+                value={form.vendorContact} 
+                onChange={e => {
+                  const val = e.target.value.replace(/\D/g, ''); // Strip non-numeric characters
+                  if (val.length <= 10) {
+                    setForm({ ...form, vendorContact: val });
+                  }
+                }}
                 style={inputStyle}
               />
             </div>
@@ -753,30 +875,28 @@ function AddExpenseView({ showToast, setExpenseView, onClose, onSuccess, isModal
                 {['Cash', 'UPI', 'Bank Transfer', 'Cheque', 'Card'].map(m => <option key={m} value={m}>{m}</option>)}
               </select>
             </div>
-            <div>
-              <label style={fieldLabelStyle}>Transaction / Reference ID</label>
-              <input 
-                type="text" placeholder="TXN-938210398" 
-                value={form.transactionId} onChange={e => setForm({ ...form, transactionId: e.target.value })}
-                style={inputStyle}
-              />
-            </div>
-            <div>
-              <label style={fieldLabelStyle}>Invoice / Receipt Number</label>
-              <input 
-                type="text" placeholder="INV-2026-883" 
-                value={form.invoiceNumber} onChange={e => setForm({ ...form, invoiceNumber: e.target.value })}
-                style={inputStyle}
-              />
-            </div>
-            <div>
-              <label style={fieldLabelStyle}>Document Upload (Mock)</label>
-              <input 
-                type="text" placeholder="invoice_receipt.pdf" 
-                value={form.attachmentName} onChange={e => setForm({ ...form, attachmentName: e.target.value })}
-                style={inputStyle}
-              />
-            </div>
+            {form.paymentMethod === 'UPI' && (
+              <>
+                <div>
+                  <label style={fieldLabelStyle}>Transaction / Reference ID</label>
+                  <input 
+                    type="text" placeholder="TXN-938210398" 
+                    value={form.transactionId} onChange={e => setForm({ ...form, transactionId: e.target.value })}
+                    style={inputStyle}
+                  />
+                </div>
+                <div>
+                  <label style={fieldLabelStyle}>Upload Screenshot</label>
+                  <input 
+                    type="file" accept="image/*,application/pdf"
+                    onChange={handleFileChange}
+                    style={inputStyle}
+                  />
+                  {uploadingFile && <span style={{ fontSize: '0.75rem', color: isModal ? '#475569' : 'var(--text-muted)', display: 'block', marginTop: '4px' }}>Uploading screenshot...</span>}
+                  {form.attachmentName && <span style={{ fontSize: '0.75rem', color: '#10b981', display: 'block', marginTop: '4px', wordBreak: 'break-all' }}>✓ {form.attachmentName.split('/').pop()}</span>}
+                </div>
+              </>
+            )}
           </div>
         </div>
 
@@ -1009,7 +1129,7 @@ function AllExpensesView({ expenses, showToast, fetchExpenses, autoOpenAddForm =
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ background: 'rgba(255,255,255,0.01)', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                {['ID', 'Expense Title', 'Category', 'Vendor', 'Amount', 'Date', 'Method'].map(h => (
+                {['ID', 'Expense Title', 'Category', 'Vendor', 'Amount', 'Date', 'Method', 'Actions'].map(h => (
                   <th key={h} style={{ padding: '14px 16px', textAlign: 'left', fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{h}</th>
                 ))}
               </tr>
@@ -1017,11 +1137,17 @@ function AllExpensesView({ expenses, showToast, fetchExpenses, autoOpenAddForm =
             <tbody>
               {paginated.length === 0 ? (
                 <tr>
-                  <td colSpan={7} style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)', fontSize: '0.85rem' }}>No expenses found matching the selected filters.</td>
+                  <td colSpan={8} style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)', fontSize: '0.85rem' }}>No expenses found matching the selected filters.</td>
                 </tr>
               ) : (
                 paginated.map((exp, i) => (
-                  <tr key={i} style={{ borderBottom: '1px solid rgba(255,255,255,0.02)', transition: 'background 0.15s' }}>
+                  <tr 
+                    key={i} 
+                    onClick={() => setSelectedExpense(exp)}
+                    style={{ borderBottom: '1px solid rgba(255,255,255,0.02)', transition: 'background 0.15s', cursor: 'pointer' }}
+                    onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.02)'}
+                    onMouseLeave={e => e.currentTarget.style.background = 'none'}
+                  >
                     <td style={{ padding: '12px 16px', fontSize: '0.75rem', fontWeight: 600, color: 'hsl(var(--color-danger))' }}>{exp.expenseId}</td>
                     <td style={{ padding: '12px 16px', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-main)' }}>{exp.title}</td>
                     <td style={{ padding: '12px 16px', fontSize: '0.78rem', color: 'var(--text-muted)' }}>{exp.category}</td>
@@ -1029,6 +1155,29 @@ function AllExpensesView({ expenses, showToast, fetchExpenses, autoOpenAddForm =
                     <td style={{ padding: '12px 16px', fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-main)' }}>₹{exp.amount?.toLocaleString()}</td>
                     <td style={{ padding: '12px 16px', fontSize: '0.78rem', color: 'var(--text-muted)' }}>{exp.date}</td>
                     <td style={{ padding: '12px 16px', fontSize: '0.78rem', color: 'var(--text-muted)' }}>{exp.paymentDetails?.method || 'Cash'}</td>
+                    <td style={{ padding: '12px 16px', display: 'flex', gap: '12px', alignItems: 'center' }} onClick={e => e.stopPropagation()}>
+                      <button 
+                        onClick={(e) => { 
+                          e.stopPropagation(); 
+                          setEditingExpense(exp); 
+                          setShowAddForm(true); 
+                        }}
+                        style={{ background: 'none', border: 'none', color: '#eab308', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '4px', borderRadius: '4px' }}
+                        title="Edit Expense"
+                      >
+                        <Edit2 size={15} />
+                      </button>
+                      <button 
+                        onClick={(e) => { 
+                          e.stopPropagation(); 
+                          handleDelete(exp.expenseId || exp.id, exp.title); 
+                        }}
+                        style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '4px', borderRadius: '4px' }}
+                        title="Delete Expense"
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    </td>
                   </tr>
                 ))
               )}
@@ -1090,7 +1239,12 @@ function AllExpensesView({ expenses, showToast, fetchExpenses, autoOpenAddForm =
                 ['Transaction ID', selectedExpense.paymentDetails?.transactionId || '—'],
                 ['Invoice Number', selectedExpense.paymentDetails?.invoiceNumber || '—'],
                 ['Submitted By', selectedExpense.submittedBy || 'Expense Management'],
-                ['Remarks', selectedExpense.remarks || '—']
+                ['Remarks', selectedExpense.remarks || '—'],
+                ['Attachment', selectedExpense.attachment ? (
+                  <a href={selectedExpense.attachment} target="_blank" rel="noreferrer" style={{ color: '#ef4444', textDecoration: 'underline', fontWeight: 700 }}>
+                    View Screenshot
+                  </a>
+                ) : 'None']
               ].map(([k, v], i) => (
                 <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', borderBottom: '1px solid #f1f5f9', paddingBottom: '6px' }}>
                   <span style={{ color: '#475569', fontWeight: 600 }}>{k}</span>
@@ -1139,7 +1293,15 @@ function AllExpensesView({ expenses, showToast, fetchExpenses, autoOpenAddForm =
   );
 }
 
-function TrackerView({ expenses, income, fetchExpenses, showToast, budgetLimit }) {
+function TrackerView({ expenses, income, fetchExpenses, showToast, budgetLimit, setExpenseView }) {
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [editingExpense, setEditingExpense] = useState(null);
+
+  const handleCloseForm = () => {
+    setShowAddForm(false);
+    setEditingExpense(null);
+  };
+
   const getDaysInMonth = (y, m) => new Date(y, m + 1, 0).getDate();
 
   const today = new Date();
@@ -1445,13 +1607,12 @@ function TrackerView({ expenses, income, fetchExpenses, showToast, budgetLimit }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-      
 
       {/* 2. SIX PREMIUM KPI CARDS */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
         
         {/* Total Spend */}
-        <div className="glass-panel" style={{ padding: '20px', borderRadius: '14px', position: 'relative', display: 'flex', flexDirection: 'column', gap: '8px', border: '1px solid rgba(255,255,255,0.05)', background: 'rgba(255,255,255,0.01)' }}>
+        <div className="glass-panel" style={{ padding: '20px', borderRadius: '14px', position: 'relative', display: 'flex', flexDirection: 'column', gap: '8px', border: '1px solid rgba(0,0,0,0.06)', background: '#ffffff' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span style={{ fontSize: '0.68rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Filtered Outlay</span>
             <div style={{ padding: '8px', borderRadius: '8px', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444' }}>
@@ -1465,7 +1626,7 @@ function TrackerView({ expenses, income, fetchExpenses, showToast, budgetLimit }
         </div>
 
         {/* Today's Spend */}
-        <div className="glass-panel" style={{ padding: '20px', borderRadius: '14px', position: 'relative', display: 'flex', flexDirection: 'column', gap: '8px', border: '1px solid rgba(255,255,255,0.05)', background: 'rgba(255,255,255,0.01)' }}>
+        <div className="glass-panel" style={{ padding: '20px', borderRadius: '14px', position: 'relative', display: 'flex', flexDirection: 'column', gap: '8px', border: '1px solid rgba(0,0,0,0.06)', background: '#ffffff' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span style={{ fontSize: '0.68rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Overhead Today</span>
             <div style={{ padding: '8px', borderRadius: '8px', background: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6' }}>
@@ -1479,7 +1640,7 @@ function TrackerView({ expenses, income, fetchExpenses, showToast, budgetLimit }
         </div>
 
         {/* Current Month Spend */}
-        <div className="glass-panel" style={{ padding: '20px', borderRadius: '14px', position: 'relative', display: 'flex', flexDirection: 'column', gap: '8px', border: '1px solid rgba(255,255,255,0.05)', background: 'rgba(255,255,255,0.01)' }}>
+        <div className="glass-panel" style={{ padding: '20px', borderRadius: '14px', position: 'relative', display: 'flex', flexDirection: 'column', gap: '8px', border: '1px solid rgba(0,0,0,0.06)', background: '#ffffff' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span style={{ fontSize: '0.68rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Monthly Spend</span>
             <div style={{ padding: '8px', borderRadius: '8px', background: 'rgba(168, 85, 247, 0.1)', color: '#a855f7' }}>
@@ -1493,7 +1654,7 @@ function TrackerView({ expenses, income, fetchExpenses, showToast, budgetLimit }
         </div>
 
         {/* Current Year Spend */}
-        <div className="glass-panel" style={{ padding: '20px', borderRadius: '14px', position: 'relative', display: 'flex', flexDirection: 'column', gap: '8px', border: '1px solid rgba(255,255,255,0.05)', background: 'rgba(255,255,255,0.01)' }}>
+        <div className="glass-panel" style={{ padding: '20px', borderRadius: '14px', position: 'relative', display: 'flex', flexDirection: 'column', gap: '8px', border: '1px solid rgba(0,0,0,0.06)', background: '#ffffff' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span style={{ fontSize: '0.68rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Yearly Spend</span>
             <div style={{ padding: '8px', borderRadius: '8px', background: 'rgba(236, 72, 153, 0.1)', color: '#ec4899' }}>
@@ -1507,7 +1668,7 @@ function TrackerView({ expenses, income, fetchExpenses, showToast, budgetLimit }
         </div>
 
         {/* Average Daily Spend */}
-        <div className="glass-panel" style={{ padding: '20px', borderRadius: '14px', position: 'relative', display: 'flex', flexDirection: 'column', gap: '8px', border: '1px solid rgba(255,255,255,0.05)', background: 'rgba(255,255,255,0.01)' }}>
+        <div className="glass-panel" style={{ padding: '20px', borderRadius: '14px', position: 'relative', display: 'flex', flexDirection: 'column', gap: '8px', border: '1px solid rgba(0,0,0,0.06)', background: '#ffffff' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span style={{ fontSize: '0.68rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Daily Burn Rate</span>
             <div style={{ padding: '8px', borderRadius: '8px', background: 'rgba(20, 184, 166, 0.1)', color: '#14b8a6' }}>
@@ -1525,7 +1686,7 @@ function TrackerView({ expenses, income, fetchExpenses, showToast, budgetLimit }
       </div>
 
       {/* 3. DUAL GRID: CHARTS PANEL & DYNAMIC INSIGHTS */}
-      <div style={{ display: 'grid', gridTemplateColumns: '3fr 2fr', gap: '24px', alignItems: 'flex-start' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '3fr 2fr', gap: '24px', alignItems: 'stretch' }}>
         
         {/* COLUMN 1: INTERACTIVE SVG CHARTS PANEL */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
@@ -1641,259 +1802,181 @@ function TrackerView({ expenses, income, fetchExpenses, showToast, budgetLimit }
             </div>
           </div>
 
-          {/* TWO CHART ROW: MONTHLY & INCOME VS EXPENSE */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-            
-            {/* CHART 2: MONTHLY COMPARISON */}
-            <div className="glass-panel" style={{ padding: '20px', borderRadius: '16px', position: 'relative' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                <h4 style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--text-main)', margin: 0, display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <BarChart3 size={15} style={{ color: '#3b82f6' }} /> Monthly Comparison ({currentYearStr})
-                </h4>
-              </div>
-
-              {/* Tooltip */}
-              {hoveredMonthIdx !== null && monthlyData[hoveredMonthIdx] && (
-                <div style={{
-                  position: 'absolute',
-                  left: `${mPadL + hoveredMonthIdx * (mAreaW / 12) + (mAreaW / 12) / 2}px`,
-                  top: `${mPadT + (1 - monthlyData[hoveredMonthIdx].amount / maxMonthlyVal) * mAreaH - 35}px`,
-                  transform: 'translateX(-50%)',
-                  background: 'rgba(17, 24, 39, 0.95)',
-                  border: '1px solid rgba(255, 255, 255, 0.08)',
-                  borderRadius: '6px',
-                  padding: '4px 8px',
-                  color: '#fff',
-                  fontSize: '0.68rem',
-                  pointerEvents: 'none',
-                  boxShadow: '0 4px 10px rgba(0,0,0,0.4)',
-                  zIndex: 20
-                }}>
-                  ₹{monthlyData[hoveredMonthIdx].amount.toLocaleString()}
-                </div>
-              )}
-
-              <div style={{ width: '100%', height: `${mChartH}px` }}>
-                <svg viewBox={`0 0 ${mChartW} ${mChartH}`} width="100%" height="100%">
-                  <defs>
-                    <linearGradient id="monthlyBarGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.8"/>
-                      <stop offset="100%" stopColor="#2563eb" stopOpacity="0.3"/>
-                    </linearGradient>
-                  </defs>
-                  
-                  {/* Grid lines */}
-                  {[0, 0.5, 1].map((p, i) => {
-                    const y = mPadT + p * mAreaH;
-                    const val = Math.round(maxMonthlyVal * (1 - p));
-                    return (
-                      <g key={i}>
-                        <line x1={mPadL} y1={y} x2={mChartW - mPadR} y2={y} stroke="rgba(255,255,255,0.03)" strokeWidth="1" strokeDasharray="3,3" />
-                        <text x={mPadL - 8} y={y + 4} textAnchor="end" fill="var(--text-muted)" fontSize="9" fontWeight="600">
-                          ₹{val >= 1000 ? (val / 1000).toFixed(0) + 'K' : val}
-                        </text>
-                      </g>
-                    );
-                  })}
-
-                  {/* Bars */}
-                  {monthlyData.map((d, i) => {
-                    const barH = (d.amount / maxMonthlyVal) * mAreaH;
-                    const x = mPadL + i * (mAreaW / 12) + 3;
-                    const y = (mChartH - mPadB) - barH;
-                    return (
-                      <g key={i} 
-                         onMouseEnter={() => setHoveredMonthIdx(i)}
-                         onMouseLeave={() => setHoveredMonthIdx(null)}
-                         style={{ cursor: 'pointer' }}
-                      >
-                        <path 
-                          d={drawRoundedBarPath(x, y, mBarW, barH, 4)} 
-                          fill={hoveredMonthIdx === i ? '#60a5fa' : 'url(#monthlyBarGrad)'} 
-                          style={{ transition: 'all 0.2s ease' }}
-                        />
-                        <text x={x + mBarW / 2} y={mChartH - mPadB + 16} textAnchor="middle" fill="var(--text-muted)" fontSize="9" fontWeight="700">
-                          {d.label}
-                        </text>
-                      </g>
-                    );
-                  })}
-                </svg>
-              </div>
+          {/* CATEGORY ANALYSIS CARD */}
+          <div className="glass-panel" style={{ padding: '24px', borderRadius: '16px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <h3 style={{ fontSize: '0.92rem', fontWeight: 700, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
+              <BarChart3 size={17} style={{ color: 'hsl(var(--color-danger))' }} /> Category Analysis
+            </h3>
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
+                <thead>
+                  <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', color: 'var(--text-muted)' }}>
+                    <th style={{ padding: '8px', textAlign: 'left', fontWeight: 700 }}>Category</th>
+                    <th style={{ padding: '8px', textAlign: 'right', fontWeight: 700 }}>Total Spent</th>
+                    <th style={{ padding: '8px', textAlign: 'center', fontWeight: 700 }}>Count</th>
+                    <th style={{ padding: '8px', textAlign: 'right', fontWeight: 700 }}>Avg / Tx</th>
+                    <th style={{ padding: '8px', textAlign: 'right', fontWeight: 700 }}>Share</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {sortedCategories.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} style={{ padding: '20px', textAlign: 'center', color: 'var(--text-muted)', fontStyle: 'italic' }}>
+                        No transactions recorded for selected filters.
+                      </td>
+                    </tr>
+                  ) : (
+                    sortedCategories.map(([cat, val]) => {
+                      const count = activeExpenses.filter(e => e.category === cat).length;
+                      const avg = count > 0 ? Math.round(val / count) : 0;
+                      const share = totalSpend > 0 ? Math.round((val / totalSpend) * 100) : 0;
+                      return (
+                        <tr key={cat} style={{ borderBottom: '1px solid rgba(255,255,255,0.02)', transition: 'background 0.2s' }} onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.01)'} onMouseLeave={e => e.currentTarget.style.background = 'none'}>
+                          <td style={{ padding: '10px 8px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
+                              <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: getCategoryColor(cat) }} />
+                              <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>{cat}</span>
+                            </div>
+                            <div style={{ width: '100px', height: '4px', background: 'rgba(255,255,255,0.03)', borderRadius: '2px', overflow: 'hidden' }}>
+                              <div style={{ width: `${share}%`, height: '100%', background: getCategoryColor(cat), borderRadius: '2px' }} />
+                            </div>
+                          </td>
+                          <td style={{ padding: '10px 8px', textAlign: 'right', fontWeight: 700, color: 'var(--text-main)' }}>₹{val.toLocaleString()}</td>
+                          <td style={{ padding: '10px 8px', textAlign: 'center', color: 'var(--text-muted)' }}>{count}</td>
+                          <td style={{ padding: '10px 8px', textAlign: 'right', color: 'var(--text-muted)' }}>₹{avg.toLocaleString()}</td>
+                          <td style={{ padding: '10px 8px', textAlign: 'right', fontWeight: 700, color: 'var(--text-muted)' }}>{share}%</td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
             </div>
-
-            {/* CHART 3: EXPENSE (6 MONTHS) */}
-            <div className="glass-panel" style={{ padding: '20px', borderRadius: '16px', position: 'relative' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                <h4 style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--text-main)', margin: 0, display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <TrendingDown size={15} style={{ color: '#ef4444' }} /> Expense (6 Months)
-                </h4>
-              </div>
- 
-              {/* Tooltip */}
-              {hoveredIncExpIdx !== null && incExpData[hoveredIncExpIdx] && (
-                <div style={{
-                  position: 'absolute',
-                  left: `${iePadL + hoveredIncExpIdx * ieGroupW + ieGroupW / 2}px`,
-                  top: `${(ieChartH - iePadB) - (incExpData[hoveredIncExpIdx].expense / maxIncExpVal) * ieAreaH - 35}px`,
-                  transform: 'translateX(-50%)',
-                  background: 'rgba(17, 24, 39, 0.95)',
-                  border: '1px solid rgba(255, 255, 255, 0.08)',
-                  borderRadius: '6px',
-                  padding: '5px 8px',
-                  color: '#fff',
-                  fontSize: '0.68rem',
-                  pointerEvents: 'none',
-                  boxShadow: '0 4px 10px rgba(0,0,0,0.4)',
-                  zIndex: 20
-                }}>
-                  <div style={{ fontWeight: 600, color: 'var(--text-muted)', textAlign: 'center' }}>{incExpData[hoveredIncExpIdx].label}</div>
-                  <div style={{ display: 'flex', gap: '8px', marginTop: '2px', justifyContent: 'center' }}>
-                    <span style={{ color: '#ef4444', fontWeight: 700 }}>₹{incExpData[hoveredIncExpIdx].expense.toLocaleString()}</span>
-                  </div>
-                </div>
-              )}
- 
-              <div style={{ width: '100%', height: `${ieChartH}px` }}>
-                <svg viewBox={`0 0 ${ieChartW} ${ieChartH}`} width="100%" height="100%">
-                  <defs>
-                    <linearGradient id="expGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#ef4444" stopOpacity="0.85"/>
-                      <stop offset="100%" stopColor="#dc2626" stopOpacity="0.3"/>
-                    </linearGradient>
-                  </defs>
- 
-                  {/* Grid lines */}
-                  {[0, 0.5, 1].map((p, i) => {
-                    const y = iePadT + p * ieAreaH;
-                    const val = Math.round(maxIncExpVal * (1 - p));
-                    return (
-                      <g key={i}>
-                        <line x1={iePadL} y1={y} x2={ieChartW - iePadR} y2={y} stroke="rgba(255,255,255,0.03)" strokeWidth="1" strokeDasharray="3,3" />
-                        <text x={iePadL - 8} y={y + 4} textAnchor="end" fill="var(--text-muted)" fontSize="9" fontWeight="600">
-                          ₹{val >= 1000 ? (val / 1000).toFixed(0) + 'K' : val}
-                        </text>
-                      </g>
-                    );
-                  })}
- 
-                  {/* Single Bars */}
-                  {incExpData.map((d, i) => {
-                    const expH = (d.expense / maxIncExpVal) * ieAreaH;
-                    const x = iePadL + i * ieGroupW + (ieGroupW - ieBarW) / 2;
-                    const y = (ieChartH - iePadB) - expH;
- 
-                    return (
-                      <g key={i}
-                         onMouseEnter={() => setHoveredIncExpIdx(i)}
-                         onMouseLeave={() => setHoveredIncExpIdx(null)}
-                         style={{ cursor: 'pointer' }}
-                      >
-                        {/* Expense Bar */}
-                        <path 
-                          d={drawRoundedBarPath(x, y, ieBarW, expH, 4)} 
-                          fill={hoveredIncExpIdx === i ? '#f87171' : 'url(#expGrad)'} 
-                          style={{ transition: 'all 0.2s ease' }}
-                        />
-                        {/* Label */}
-                        <text x={iePadL + i * ieGroupW + ieGroupW / 2} y={ieChartH - iePadB + 16} textAnchor="middle" fill="var(--text-muted)" fontSize="9" fontWeight="700">
-                          {d.label}
-                        </text>
-                      </g>
-                    );
-                  })}
-                </svg>
-              </div>
-            </div>
-
           </div>
 
-          {/* CHART 4: CATEGORY DISTRIBUTION (DONUT) */}
-          <div className="glass-panel" style={{ padding: '20px', borderRadius: '16px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
-            <h4 style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--text-main)', margin: 0, display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <PieChart size={15} style={{ color: 'hsl(var(--color-danger))' }} /> Category Allocation
-            </h4>
-
-            <div style={{ display: 'flex', alignItems: 'center', gap: '20px', justifyContent: 'center' }}>
+          {/* ADVANCED FINANCIAL INTELLIGENCE CARD */}
+          <div className="glass-panel" style={{ padding: '24px', borderRadius: '16px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <h3 style={{ fontSize: '0.92rem', fontWeight: 700, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
+              <TrendingUp size={17} style={{ color: 'hsl(var(--color-danger))' }} /> Advanced Financial Intelligence
+            </h3>
+            
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px' }}>
               
-              {/* SVG Donut */}
-              <div style={{ position: 'relative', width: '160px', height: '160px' }}>
-                <svg viewBox="0 0 160 160" width="100%" height="100%">
-                  {calculatedSlices.length === 0 ? (
-                    <circle cx="80" cy="80" r="60" fill="none" stroke="rgba(255,255,255,0.03)" strokeWidth="12" />
-                  ) : (
-                    calculatedSlices.map((s, idx) => (
-                      <circle 
-                        key={idx}
-                        cx="80"
-                        cy="80"
-                        r={donutR}
-                        fill="none"
-                        stroke={s.color}
-                        strokeWidth={hoveredDonutIdx === idx ? 17 : 12}
-                        strokeDasharray={s.dashArray}
-                        strokeDashoffset={s.dashOffset}
-                        transform="rotate(-90 80 80)"
-                        onMouseEnter={() => setHoveredDonutIdx(idx)}
-                        onMouseLeave={() => setHoveredDonutIdx(null)}
-                        style={{ transition: 'stroke-width 0.15s ease', cursor: 'pointer' }}
-                      />
-                    ))
-                  )}
-                </svg>
-                
-                {/* Center Text Panel */}
-                <div style={{
-                  position: 'absolute',
-                  top: '50%',
-                  left: '50%',
-                  transform: 'translate(-50%, -50%)',
-                  textAlign: 'center',
-                  pointerEvents: 'none',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  justifyContent: 'center',
-                  alignItems: 'center'
-                }}>
-                  <span style={{ fontSize: '0.62rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)', letterSpacing: '0.04em' }}>
-                    {activeDonutSlice ? activeDonutSlice.cat : 'Total Spend'}
-                  </span>
-                  <span style={{ fontSize: '0.98rem', fontWeight: 800, color: 'var(--text-main)', marginTop: '2px' }}>
-                    ₹{activeDonutSlice ? activeDonutSlice.val.toLocaleString() : totalSpend.toLocaleString()}
-                  </span>
-                  {activeDonutSlice && (
-                    <span style={{ fontSize: '0.68rem', fontWeight: 700, color: activeDonutSlice.color, marginTop: '1px' }}>
-                      {Math.round(activeDonutSlice.pct * 100)}%
-                    </span>
-                  )}
+              {/* Average Voucher Size */}
+              <div style={{ padding: '16px', background: 'rgba(255,255,255,0.015)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.04)', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <span style={{ fontSize: '0.62rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Avg Requisition Value</span>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                  <h4 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-main)', margin: 0 }}>
+                    ₹{activeExpenses.length > 0 ? Math.round(totalSpend / activeExpenses.length).toLocaleString() : '0'}
+                  </h4>
+                  <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Threshold: ₹50K</span>
                 </div>
+                <div style={{ width: '100%', height: '6px', background: 'rgba(255,255,255,0.03)', borderRadius: '3px', overflow: 'hidden', marginTop: '4px' }}>
+                  <div style={{ 
+                    width: `${Math.min(Math.round(((activeExpenses.length > 0 ? (totalSpend / activeExpenses.length) : 0) / 50000) * 100), 100)}%`, 
+                    height: '100%', 
+                    background: 'linear-gradient(90deg, #3b82f6, #60a5fa)', 
+                    borderRadius: '3px' 
+                  }} />
+                </div>
+                <p style={{ fontSize: '0.62rem', color: 'var(--text-muted)', margin: 0 }}>Per transaction average compared to limit</p>
               </div>
 
-              {/* Donut Legend */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', flex: 1, maxHeight: '150px', overflowY: 'auto', paddingRight: '4px' }}>
-                {sortedCategories.slice(0, 5).map(([cat, val], idx) => {
-                  const pct = Math.round((val / (totalSpend || 1)) * 100);
-                  return (
-                    <div 
-                      key={cat} 
-                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.72rem', cursor: 'pointer', padding: '2px 4px', borderRadius: '4px', background: hoveredDonutIdx === idx ? 'rgba(255,255,255,0.02)' : 'transparent' }}
-                      onMouseEnter={() => setHoveredDonutIdx(idx)}
-                      onMouseLeave={() => setHoveredDonutIdx(null)}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', overflow: 'hidden' }}>
-                        <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: getCategoryColor(cat), flexShrink: 0 }} />
-                        <span style={{ fontWeight: 600, color: hoveredDonutIdx === idx ? 'var(--text-main)' : 'var(--text-muted)', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>{cat}</span>
-                      </div>
-                      <span style={{ fontWeight: 700, color: 'var(--text-main)', marginLeft: '6px' }}>{pct}%</span>
+              {/* Spending Concentration Card */}
+              {(() => {
+                let sumSq = 0;
+                sortedCategories.forEach(([_, val]) => {
+                  const pct = val / (totalSpend || 1);
+                  sumSq += pct * pct;
+                });
+                const hhiPct = Math.round(sumSq * 100);
+                const isHigh = sumSq > 0.7;
+                const isMod = sumSq > 0.3;
+                const badgeColor = isHigh ? '#ef4444' : isMod ? '#f59e0b' : '#10b981';
+                const badgeBg = isHigh ? 'rgba(239, 68, 68, 0.1)' : isMod ? 'rgba(245, 158, 11, 0.1)' : 'rgba(16, 185, 129, 0.1)';
+                const statusText = isHigh ? 'High Concentration' : isMod ? 'Moderate' : 'Highly Diversified';
+                return (
+                  <div style={{ padding: '16px', background: 'rgba(255,255,255,0.015)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.04)', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <span style={{ fontSize: '0.62rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Spending Concentration</span>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <h4 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--text-main)', margin: 0 }}>
+                        {hhiPct}% HHI
+                      </h4>
+                      <span style={{ fontSize: '0.62rem', fontWeight: 700, color: badgeColor, background: badgeBg, padding: '2px 8px', borderRadius: '20px' }}>
+                        {statusText}
+                      </span>
                     </div>
-                  );
-                })}
-                {sortedCategories.length > 5 && (
-                  <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontStyle: 'italic', paddingLeft: '14px', marginTop: '2px' }}>
-                    + {sortedCategories.length - 5} more categories
+                    <div style={{ width: '100%', height: '6px', background: 'rgba(255,255,255,0.03)', borderRadius: '3px', overflow: 'hidden', marginTop: '4px' }}>
+                      <div style={{ 
+                        width: `${hhiPct}%`, 
+                        height: '100%', 
+                        background: badgeColor, 
+                        borderRadius: '3px' 
+                      }} />
+                    </div>
+                    <p style={{ fontSize: '0.62rem', color: 'var(--text-muted)', margin: 0 }}>HHI Portfolio Diversity index</p>
                   </div>
-                )}
-              </div>
+                );
+              })()}
+
+              {/* Budget Burn Index Card */}
+              {(() => {
+                const day = new Date().getDate();
+                const pctTime = day / 30;
+                const pctSpend = monthlySpend / (budgetLimit || 1);
+                const index = pctTime > 0 ? (pctSpend / pctTime) : 0;
+                const progressWidth = Math.min(Math.round((index / 2) * 100), 100);
+                const statusColor = index > 1.2 ? '#ef4444' : index > 0.8 ? '#f59e0b' : '#10b981';
+                const statusBg = index > 1.2 ? 'rgba(239, 68, 68, 0.1)' : index > 0.8 ? 'rgba(245, 158, 11, 0.1)' : 'rgba(16, 185, 129, 0.1)';
+                return (
+                  <div style={{ padding: '16px', background: 'rgba(255,255,255,0.015)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.04)', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <span style={{ fontSize: '0.62rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Budget Burn Index</span>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <h4 style={{ fontSize: '1.25rem', fontWeight: 800, color: statusColor, margin: 0 }}>
+                        {index.toFixed(2)}
+                      </h4>
+                      <span style={{ fontSize: '0.62rem', fontWeight: 700, color: statusColor, background: statusBg, padding: '2px 8px', borderRadius: '20px' }}>
+                        {index > 1.2 ? 'Over-burning' : index > 0.8 ? 'Normal' : 'Optimal'}
+                      </span>
+                    </div>
+                    <div style={{ width: '100%', height: '6px', background: 'rgba(255,255,255,0.03)', borderRadius: '3px', overflow: 'hidden', marginTop: '4px' }}>
+                      <div style={{ 
+                        width: `${progressWidth}%`, 
+                        height: '100%', 
+                        background: statusColor, 
+                        borderRadius: '3px' 
+                      }} />
+                    </div>
+                    <p style={{ fontSize: '0.62rem', color: 'var(--text-muted)', margin: 0 }}>Time-to-Spend burn coefficient</p>
+                  </div>
+                );
+              })()}
+
+              {/* EOM Projected Outlay Card */}
+              {(() => {
+                const projectedVal = avgDailySpend * 30;
+                const budgetPct = Math.min(Math.round((projectedVal / (budgetLimit || 1)) * 100), 100);
+                return (
+                  <div style={{ padding: '16px', background: 'rgba(255,255,255,0.015)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.04)', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <span style={{ fontSize: '0.62rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>EOM Spend Projection</span>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                      <h4 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-main)', margin: 0 }}>
+                        ₹{projectedVal.toLocaleString()}
+                      </h4>
+                      <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>{budgetPct}% Budget</span>
+                    </div>
+                    <div style={{ width: '100%', height: '6px', background: 'rgba(255,255,255,0.03)', borderRadius: '3px', overflow: 'hidden', marginTop: '4px' }}>
+                      <div style={{ 
+                        width: `${budgetPct}%`, 
+                        height: '100%', 
+                        background: 'linear-gradient(90deg, #ec4899, #a855f7)', 
+                        borderRadius: '3px' 
+                      }} />
+                    </div>
+                    <p style={{ fontSize: '0.62rem', color: 'var(--text-muted)', margin: 0 }}>Estimated monthly total spend vs limit</p>
+                  </div>
+                );
+              })()}
 
             </div>
           </div>
@@ -1901,7 +1984,7 @@ function TrackerView({ expenses, income, fetchExpenses, showToast, budgetLimit }
         </div>
 
         {/* COLUMN 2: ANALYTICS & RECENT FEED */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', height: '100%' }}>
           
           {/* STATS HIGHLIGHTS CARD */}
           <div className="glass-panel" style={{ padding: '24px', borderRadius: '16px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
@@ -1912,43 +1995,58 @@ function TrackerView({ expenses, income, fetchExpenses, showToast, budgetLimit }
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               
               {/* Category Peaks */}
-              <div style={{ display: 'flex', alignItems: 'center', justifyBetween: 'space-between', padding: '12px', background: 'rgba(255,255,255,0.015)', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.04)' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', flex: 1 }}>
-                  <span style={{ fontSize: '0.62rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Peak Expense Category</span>
-                  <span style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-main)' }}>{highestCategory[0]}</span>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', padding: '12px', background: 'rgba(255,255,255,0.015)', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.04)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', flex: 1 }}>
+                    <span style={{ fontSize: '0.62rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Peak Expense Category</span>
+                    <span style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-main)' }}>{highestCategory[0]}</span>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <span style={{ fontSize: '0.85rem', fontWeight: 800, color: '#ef4444' }}>₹{highestCategory[1].toLocaleString()}</span>
+                  </div>
                 </div>
-                <div style={{ textAlign: 'right' }}>
-                  <span style={{ fontSize: '0.85rem', fontWeight: 800, color: '#ef4444' }}>₹{highestCategory[1].toLocaleString()}</span>
+                <div style={{ width: '100%', height: '4px', background: 'rgba(255,255,255,0.03)', borderRadius: '2px', overflow: 'hidden' }}>
+                  <div style={{ width: `${Math.round((highestCategory[1] / (totalSpend || 1)) * 100)}%`, height: '100%', background: '#ef4444', borderRadius: '2px' }} />
                 </div>
               </div>
 
               {/* Category Troughs */}
-              <div style={{ display: 'flex', alignItems: 'center', justifyBetween: 'space-between', padding: '12px', background: 'rgba(255,255,255,0.015)', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.04)' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', flex: 1 }}>
-                  <span style={{ fontSize: '0.62rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Lowest Expense Category</span>
-                  <span style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-main)' }}>{lowestCategory[0]}</span>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', padding: '12px', background: 'rgba(255,255,255,0.015)', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.04)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', flex: 1 }}>
+                    <span style={{ fontSize: '0.62rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Lowest Expense Category</span>
+                    <span style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-main)' }}>{lowestCategory[0]}</span>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <span style={{ fontSize: '0.85rem', fontWeight: 800, color: '#10b981' }}>₹{lowestCategory[1].toLocaleString()}</span>
+                  </div>
                 </div>
-                <div style={{ textAlign: 'right' }}>
-                  <span style={{ fontSize: '0.85rem', fontWeight: 800, color: '#10b981' }}>₹{lowestCategory[1].toLocaleString()}</span>
+                <div style={{ width: '100%', height: '4px', background: 'rgba(255,255,255,0.03)', borderRadius: '2px', overflow: 'hidden' }}>
+                  <div style={{ width: `${Math.round((lowestCategory[1] / (totalSpend || 1)) * 100)}%`, height: '100%', background: '#10b981', borderRadius: '2px' }} />
                 </div>
               </div>
 
               {/* Month Growth Rate */}
-              <div style={{ display: 'flex', alignItems: 'center', justifyBetween: 'space-between', padding: '12px', background: 'rgba(255,255,255,0.015)', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.04)' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', flex: 1 }}>
-                  <span style={{ fontSize: '0.62rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Spending Growth %</span>
-                  <span style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-main)' }}>Month over Month (MoM)</span>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', padding: '12px', background: 'rgba(255,255,255,0.015)', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.04)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', flex: 1 }}>
+                    <span style={{ fontSize: '0.62rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Spending Growth %</span>
+                    <span style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-main)' }}>Month over Month (MoM)</span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px', justifyContent: 'flex-end' }}>
+                    {growthPercent >= 0 ? (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '2px', color: '#ef4444', fontWeight: 800, fontSize: '0.85rem' }}>
+                        <ArrowUpRight size={14} /> +{growthPercent}%
+                      </div>
+                    ) : (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '2px', color: '#10b981', fontWeight: 800, fontSize: '0.85rem' }}>
+                        <ArrowDownRight size={14} /> {growthPercent}%
+                      </div>
+                    )}
+                  </div>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', justifyEnd: 'flex-end' }}>
-                  {growthPercent >= 0 ? (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '2px', color: '#ef4444', fontWeight: 800, fontSize: '0.85rem' }}>
-                      <ArrowUpRight size={14} /> +{growthPercent}%
-                    </div>
-                  ) : (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '2px', color: '#10b981', fontWeight: 800, fontSize: '0.85rem' }}>
-                      <ArrowDownRight size={14} /> {growthPercent}%
-                    </div>
-                  )}
+                <div style={{ width: '100%', height: '4px', background: 'rgba(255,255,255,0.03)', borderRadius: '2px', overflow: 'hidden' }}>
+                  <div style={{ width: `${Math.min(Math.abs(growthPercent), 100)}%`, height: '100%', background: growthPercent >= 0 ? '#ef4444' : '#10b981', borderRadius: '2px' }} />
                 </div>
               </div>
 
@@ -1992,56 +2090,110 @@ function TrackerView({ expenses, income, fetchExpenses, showToast, budgetLimit }
             </div>
           </div>
 
-          {/* COMBINED RECENT TRANSACTIONS STREAM */}
-          <div className="glass-panel" style={{ padding: '24px', borderRadius: '16px' }}>
-            <h3 style={{ fontSize: '0.92rem', fontWeight: 700, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '6px', margin: 0, marginBottom: '14px' }}>
-              <ClipboardList size={17} style={{ color: 'hsl(var(--color-danger))' }} /> Ledger Transaction Stream
+          {/* QUICK ACTIONS CARD */}
+          <div className="glass-panel" style={{ padding: '24px', borderRadius: '16px', display: 'flex', flexDirection: 'column', gap: '16px', flex: 1, justifyContent: 'center' }}>
+            <h3 style={{ fontSize: '0.92rem', fontWeight: 700, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
+              <Plus size={17} style={{ color: 'hsl(var(--color-danger))' }} /> Quick Actions
             </h3>
-            
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              {recentTransactions.length === 0 ? (
-                <div style={{ padding: '20px 0', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.78rem' }}>No activity records found.</div>
-              ) : (
-                recentTransactions.map((tx, idx) => {
-                  const isIncome = tx.type === 'income';
-                  return (
-                    <div 
-                      key={idx} 
-                      onClick={() => handleSelectVoucher(tx)}
-                      style={{ 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        gap: '12px', 
-                        padding: '10px', 
-                        borderRadius: '10px', 
-                        background: 'rgba(255,255,255,0.005)', 
-                        border: '1px solid rgba(255,255,255,0.02)',
-                        cursor: tx.type === 'expense' ? 'pointer' : 'default'
-                      }}
-                    >
-                      <div style={{
-                        padding: '6px',
-                        borderRadius: '8px',
-                        background: isIncome ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
-                        color: isIncome ? '#10b981' : '#ef4444'
-                      }}>
-                        {isIncome ? <ArrowUp size={14} /> : <ArrowDown size={14} />}
-                      </div>
-                      
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', flex: 1, minWidth: 0 }}>
-                        <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-main)', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>{tx.title}</span>
-                        <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>{tx.category} • {tx.date}</span>
-                      </div>
-
-                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', justifyContent: 'center' }}>
-                        <span style={{ fontSize: '0.78rem', fontWeight: 800, color: isIncome ? '#10b981' : '#ef4444' }}>
-                          {isIncome ? '+' : '-'}₹{tx.amount.toLocaleString()}
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })
-              )}
+            <div style={{ display: 'grid', gridTemplateRows: '1.2fr 1fr', gap: '14px', flex: 1, marginTop: '8px' }}>
+              <button 
+                onClick={() => {
+                  setEditingExpense(null);
+                  setShowAddForm(true);
+                }} 
+                className="btn-secondary" 
+                style={{ 
+                  display: 'flex', 
+                  flexDirection: 'column', 
+                  alignItems: 'center', 
+                  justifyContent: 'center', 
+                  gap: '8px', 
+                  fontSize: '0.9rem', 
+                  borderRadius: '12px', 
+                  cursor: 'pointer', 
+                  background: 'linear-gradient(135deg, #ef4444, #dc2626)', 
+                  color: '#fff', 
+                  border: 'none', 
+                  fontWeight: 800, 
+                  boxShadow: '0 4px 14px rgba(239, 68, 68, 0.2)',
+                  transition: 'transform 0.15s ease',
+                  padding: '16px',
+                  height: '100%'
+                }}
+                onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-2px)'}
+                onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}
+              >
+                <Plus size={24} style={{ background: 'rgba(255,255,255,0.15)', padding: '6px', borderRadius: '50%' }} />
+                <span>Record Expense</span>
+              </button>
+              
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', height: '100%' }}>
+                <button 
+                  onClick={() => setExpenseView('all-expenses')} 
+                  className="btn-secondary" 
+                  style={{ 
+                    display: 'flex', 
+                    flexDirection: 'column', 
+                    alignItems: 'center', 
+                    justifyContent: 'center', 
+                    gap: '8px', 
+                    fontSize: '0.8rem', 
+                    borderRadius: '12px', 
+                    cursor: 'pointer', 
+                    fontWeight: 700, 
+                    background: 'rgba(255,255,255,0.02)', 
+                    color: 'var(--text-main)', 
+                    border: '1px solid rgba(255,255,255,0.06)',
+                    transition: 'transform 0.15s ease, background 0.15s ease',
+                    padding: '12px',
+                    height: '100%'
+                  }}
+                  onMouseEnter={e => {
+                    e.currentTarget.style.transform = 'translateY(-2px)';
+                    e.currentTarget.style.background = 'rgba(255,255,255,0.04)';
+                  }}
+                  onMouseLeave={e => {
+                    e.currentTarget.style.transform = 'translateY(0)';
+                    e.currentTarget.style.background = 'rgba(255,255,255,0.02)';
+                  }}
+                >
+                  <ClipboardList size={20} style={{ color: 'hsl(var(--color-danger))' }} />
+                  <span>Ledger</span>
+                </button>
+                
+                <button 
+                  onClick={() => setExpenseView('history')} 
+                  className="btn-secondary" 
+                  style={{ 
+                    display: 'flex', 
+                    flexDirection: 'column', 
+                    alignItems: 'center', 
+                    justifyContent: 'center', 
+                    gap: '8px', 
+                    fontSize: '0.8rem', 
+                    borderRadius: '12px', 
+                    cursor: 'pointer', 
+                    fontWeight: 700, 
+                    background: 'rgba(255,255,255,0.02)', 
+                    color: 'var(--text-main)', 
+                    border: '1px solid rgba(255,255,255,0.06)',
+                    transition: 'transform 0.15s ease, background 0.15s ease',
+                    padding: '12px',
+                    height: '100%'
+                  }}
+                  onMouseEnter={e => {
+                    e.currentTarget.style.transform = 'translateY(-2px)';
+                    e.currentTarget.style.background = 'rgba(255,255,255,0.04)';
+                  }}
+                  onMouseLeave={e => {
+                    e.currentTarget.style.transform = 'translateY(0)';
+                    e.currentTarget.style.background = 'rgba(255,255,255,0.02)';
+                  }}
+                >
+                  <History size={20} style={{ color: 'hsl(var(--color-danger))' }} />
+                  <span>History</span>
+                </button>
+              </div>
             </div>
           </div>
 
@@ -2092,6 +2244,39 @@ function TrackerView({ expenses, income, fetchExpenses, showToast, budgetLimit }
         </div>
       )}
 
+      {/* Record Expense Modal */}
+      {showAddForm && (
+        <div className="modal-overlay" onClick={handleCloseForm} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.65)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 99999, backdropFilter: 'blur(4px)' }}>
+          <div className="modal-content" onClick={e => e.stopPropagation()} style={{
+            maxWidth: '850px', width: '95%', maxHeight: '90vh', background: '#ffffff', borderRadius: '20px',
+            border: '1px solid #e2e8f0', padding: '32px', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)',
+            display: 'flex', flexDirection: 'column', gap: '20px', overflowY: 'auto', color: '#0f172a'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #e2e8f0', paddingBottom: '16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                {editingExpense ? <Edit2 size={22} style={{ color: '#f59e0b' }} /> : <Plus size={22} style={{ color: '#ef4444' }} />}
+                <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#0f172a', margin: 0 }}>
+                  {editingExpense ? 'Edit Expense Details' : 'Record Expense'}
+                </h3>
+              </div>
+              <button onClick={handleCloseForm} style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', padding: '6px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 0.2s' }} onMouseEnter={e => e.currentTarget.style.background = '#f1f5f9'} onMouseLeave={e => e.currentTarget.style.background = 'none'}><X size={20} /></button>
+            </div>
+            
+            <AddExpenseView 
+              showToast={showToast} 
+              setExpenseView={() => {}} 
+              onClose={handleCloseForm}
+              onSuccess={() => {
+                fetchExpenses();
+                handleCloseForm();
+              }}
+              isModal={true}
+              editExpense={editingExpense}
+            />
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
@@ -2107,6 +2292,28 @@ function HistoryView({ expenses, expenseHistory, fetchExpenses, showToast, budge
   const [selectedMonthHistory, setSelectedMonthHistory] = useState(currentMonthStr);
   const [selectedYearHistory, setSelectedYearHistory] = useState(currentYearStr);
   const [selectedExpense, setSelectedExpense] = useState(null);
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [editingExpense, setEditingExpense] = useState(null);
+
+  const handleCloseForm = () => {
+    setShowAddForm(false);
+    setEditingExpense(null);
+  };
+
+  const handleDelete = async (id, title) => {
+    if (!window.confirm(`Permanently remove expense request "${title}"?`)) return;
+    try {
+      const res = await fetch(`/api/account-management/expenses/${id}`, { method: 'DELETE' });
+      if (res.ok) {
+        showToast('Expense successfully removed.');
+        fetchExpenses();
+      } else {
+        showToast('Error removing expense.', 'error');
+      }
+    } catch {
+      showToast('Network communication error', 'error');
+    }
+  };
 
   const exportHistoryCSV = () => {
     if (!filteredPeriodExpenses.length) return showToast('No items to export.', 'error');
@@ -2460,7 +2667,7 @@ function HistoryView({ expenses, expenseHistory, fetchExpenses, showToast, budge
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ background: 'rgba(255,255,255,0.01)', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                {['ID', 'Expense Title', 'Category', 'Vendor', 'Amount', 'Date', 'Method'].map(h => (
+                {['ID', 'Expense Title', 'Category', 'Vendor', 'Amount', 'Date', 'Method', 'Actions'].map(h => (
                   <th key={h} style={{ padding: '14px 16px', textAlign: 'left', fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{h}</th>
                 ))}
               </tr>
@@ -2468,13 +2675,19 @@ function HistoryView({ expenses, expenseHistory, fetchExpenses, showToast, budge
             <tbody>
               {filteredPeriodExpenses.length === 0 ? (
                 <tr>
-                  <td colSpan={7} style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)', fontSize: '0.82rem' }}>
+                  <td colSpan={8} style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)', fontSize: '0.82rem' }}>
                     No recorded operational expenses found in this fiscal period.
                   </td>
                 </tr>
               ) : (
                 filteredPeriodExpenses.map((exp, i) => (
-                  <tr key={i} style={{ borderBottom: '1px solid rgba(255,255,255,0.02)', transition: 'background 0.15s', opacity: exp.deleted ? 0.65 : 1 }}>
+                  <tr 
+                    key={i} 
+                    onClick={() => setSelectedExpense(exp)}
+                    style={{ borderBottom: '1px solid rgba(255,255,255,0.02)', transition: 'background 0.15s', cursor: 'pointer', opacity: exp.deleted ? 0.65 : 1 }}
+                    onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.02)'}
+                    onMouseLeave={e => e.currentTarget.style.background = 'none'}
+                  >
                     <td style={{ padding: '12px 16px', fontSize: '0.75rem', fontWeight: 600, color: 'hsl(var(--color-danger))' }}>{exp.expenseId}</td>
                     <td style={{ padding: '12px 16px', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-main)', textDecoration: exp.deleted ? 'line-through' : 'none' }}>
                       {exp.title}
@@ -2487,7 +2700,31 @@ function HistoryView({ expenses, expenseHistory, fetchExpenses, showToast, budge
                     <td style={{ padding: '12px 16px', fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-main)', textDecoration: exp.deleted ? 'line-through' : 'none' }}>₹{exp.amount?.toLocaleString()}</td>
                     <td style={{ padding: '12px 16px', fontSize: '0.78rem', color: 'var(--text-muted)', textDecoration: exp.deleted ? 'line-through' : 'none' }}>{exp.date}</td>
                     <td style={{ padding: '12px 16px', fontSize: '0.78rem', color: 'var(--text-muted)', textDecoration: exp.deleted ? 'line-through' : 'none' }}>{exp.paymentDetails?.method || 'Cash'}</td>
-
+                    <td style={{ padding: '12px 16px', display: 'flex', gap: '12px', alignItems: 'center' }} onClick={e => e.stopPropagation()}>
+                      <button 
+                        onClick={(e) => { 
+                          e.stopPropagation(); 
+                          setEditingExpense(exp); 
+                          setShowAddForm(true); 
+                        }}
+                        style={{ background: 'none', border: 'none', color: '#eab308', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '4px', borderRadius: '4px' }}
+                        title="Edit Expense"
+                        disabled={exp.deleted}
+                      >
+                        <Edit2 size={15} />
+                      </button>
+                      <button 
+                        onClick={(e) => { 
+                          e.stopPropagation(); 
+                          handleDelete(exp.expenseId || exp.id, exp.title); 
+                        }}
+                        style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '4px', borderRadius: '4px' }}
+                        title="Delete Expense"
+                        disabled={exp.deleted}
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    </td>
                   </tr>
                 ))
               )}
@@ -2536,6 +2773,39 @@ function HistoryView({ expenses, expenseHistory, fetchExpenses, showToast, budge
                 </div>
               ))}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Record Expense Modal */}
+      {showAddForm && (
+        <div className="modal-overlay" onClick={handleCloseForm} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.65)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 99999, backdropFilter: 'blur(4px)' }}>
+          <div className="modal-content" onClick={e => e.stopPropagation()} style={{
+            maxWidth: '850px', width: '95%', maxHeight: '90vh', background: '#ffffff', borderRadius: '20px',
+            border: '1px solid #e2e8f0', padding: '32px', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)',
+            display: 'flex', flexDirection: 'column', gap: '20px', overflowY: 'auto', color: '#0f172a'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #e2e8f0', paddingBottom: '16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                {editingExpense ? <Edit2 size={22} style={{ color: '#f59e0b' }} /> : <Plus size={22} style={{ color: '#ef4444' }} />}
+                <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#0f172a', margin: 0 }}>
+                  {editingExpense ? 'Edit Expense Details' : 'Record Expense'}
+                </h3>
+              </div>
+              <button onClick={handleCloseForm} style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', padding: '6px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 0.2s' }} onMouseEnter={e => e.currentTarget.style.background = '#f1f5f9'} onMouseLeave={e => e.currentTarget.style.background = 'none'}><X size={20} /></button>
+            </div>
+            
+            <AddExpenseView 
+              showToast={showToast} 
+              setExpenseView={() => {}} 
+              onClose={handleCloseForm}
+              onSuccess={() => {
+                fetchExpenses();
+                handleCloseForm();
+              }}
+              isModal={true}
+              editExpense={editingExpense}
+            />
           </div>
         </div>
       )}

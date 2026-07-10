@@ -1588,6 +1588,16 @@ app.put('/api/auth/profile', auth, upload.single('photo'), restoreTenantContext,
 // 1. STUDENTS ROUTER & STATIC UPLOADS
 // ==========================================
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+// General File Upload Endpoint
+app.post('/api/upload', auth, restoreTenantContext, upload.single('file'), (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ error: 'No file uploaded.' });
+  }
+  const filePath = `/uploads/${req.file.filename}`;
+  res.json({ success: true, filePath, filename: req.file.originalname });
+});
+
 app.use('/api/students', studentRoutes);
 
 // ==========================================

@@ -1210,7 +1210,10 @@ const applySchemaUpdates = async (pool, isMaster = false, tenantId = null) => {
       "CREATE TABLE IF NOT EXISTS salary_masters (id VARCHAR(50) PRIMARY KEY, employeeId VARCHAR(50) NOT NULL, employeeType VARCHAR(50) NOT NULL, basicSalary DECIMAL(10,2) NOT NULL DEFAULT 0.00, hra DECIMAL(10,2) NOT NULL DEFAULT 0.00, da DECIMAL(10,2) NOT NULL DEFAULT 0.00, ta DECIMAL(10,2) NOT NULL DEFAULT 0.00, medical DECIMAL(10,2) NOT NULL DEFAULT 0.00, specialAllowance DECIMAL(10,2) NOT NULL DEFAULT 0.00, otherAllowances DECIMAL(10,2) NOT NULL DEFAULT 0.00, pf DECIMAL(10,2) NOT NULL DEFAULT 0.00, esi DECIMAL(10,2) NOT NULL DEFAULT 0.00, profTax DECIMAL(10,2) NOT NULL DEFAULT 0.00, loan DECIMAL(10,2) NOT NULL DEFAULT 0.00, advance DECIMAL(10,2) NOT NULL DEFAULT 0.00, otherDeductions DECIMAL(10,2) NOT NULL DEFAULT 0.00, grossSalary DECIMAL(10,2) NOT NULL DEFAULT 0.00, totalDeductions DECIMAL(10,2) NOT NULL DEFAULT 0.00, netSalary DECIMAL(10,2) NOT NULL DEFAULT 0.00, effectiveDate VARCHAR(50) NOT NULL, salaryCycle VARCHAR(50) NOT NULL DEFAULT 'Monthly', status VARCHAR(50) NOT NULL DEFAULT 'Active', createdAt VARCHAR(100) NOT NULL, tenantId VARCHAR(100) NOT NULL, UNIQUE KEY unique_employee_salary (employeeId))",
       "CREATE TABLE IF NOT EXISTS salary_payments (id VARCHAR(50) PRIMARY KEY, receiptNo VARCHAR(100) NOT NULL, employeeId VARCHAR(50) NOT NULL, employeeType VARCHAR(50) NOT NULL, month VARCHAR(20) NOT NULL, year VARCHAR(10) NOT NULL, paymentDate VARCHAR(50) NOT NULL, paymentMethod VARCHAR(100) NOT NULL, transactionId VARCHAR(255), basicSalary DECIMAL(10,2) NOT NULL DEFAULT 0.00, hra DECIMAL(10,2) NOT NULL DEFAULT 0.00, da DECIMAL(10,2) NOT NULL DEFAULT 0.00, ta DECIMAL(10,2) NOT NULL DEFAULT 0.00, medical DECIMAL(10,2) NOT NULL DEFAULT 0.00, specialAllowance DECIMAL(10,2) NOT NULL DEFAULT 0.00, otherAllowances DECIMAL(10,2) NOT NULL DEFAULT 0.00, pf DECIMAL(10,2) NOT NULL DEFAULT 0.00, esi DECIMAL(10,2) NOT NULL DEFAULT 0.00, profTax DECIMAL(10,2) NOT NULL DEFAULT 0.00, loan DECIMAL(10,2) NOT NULL DEFAULT 0.00, advance DECIMAL(10,2) NOT NULL DEFAULT 0.00, otherDeductions DECIMAL(10,2) NOT NULL DEFAULT 0.00, bonus DECIMAL(10,2) NOT NULL DEFAULT 0.00, incentive DECIMAL(10,2) NOT NULL DEFAULT 0.00, overtime DECIMAL(10,2) NOT NULL DEFAULT 0.00, fine DECIMAL(10,2) NOT NULL DEFAULT 0.00, loanAdjustment DECIMAL(10,2) NOT NULL DEFAULT 0.00, advanceAdjustment DECIMAL(10,2) NOT NULL DEFAULT 0.00, grossSalary DECIMAL(10,2) NOT NULL DEFAULT 0.00, totalDeductions DECIMAL(10,2) NOT NULL DEFAULT 0.00, netSalary DECIMAL(10,2) NOT NULL DEFAULT 0.00, finalPayable DECIMAL(10,2) NOT NULL DEFAULT 0.00, paidAmount DECIMAL(10,2) NOT NULL DEFAULT 0.00, balance DECIMAL(10,2) NOT NULL DEFAULT 0.00, status VARCHAR(50) NOT NULL DEFAULT 'Paid', remarks TEXT, tenantId VARCHAR(100) NOT NULL, UNIQUE KEY unique_employee_period (employeeId, month, year))",
       "CREATE TABLE IF NOT EXISTS salary_revision_history (id VARCHAR(50) PRIMARY KEY, employeeId VARCHAR(50) NOT NULL, employeeType VARCHAR(50) NOT NULL, previousSalary DECIMAL(10,2) NOT NULL DEFAULT 0.00, newSalary DECIMAL(10,2) NOT NULL DEFAULT 0.00, revisedDate VARCHAR(50) NOT NULL, reason TEXT, tenantId VARCHAR(100) NOT NULL)",
-      "CREATE TABLE IF NOT EXISTS report_card_templates (id VARCHAR(50) PRIMARY KEY, name VARCHAR(255) NOT NULL, html LONGTEXT NOT NULL, pdfUrl VARCHAR(255), fields JSON, createdAt VARCHAR(100) NOT NULL, updatedAt VARCHAR(100) NOT NULL, tenantId VARCHAR(100) NOT NULL)"
+      "CREATE TABLE IF NOT EXISTS report_card_templates (id VARCHAR(50) PRIMARY KEY, name VARCHAR(255) NOT NULL, html LONGTEXT NOT NULL, pdfUrl VARCHAR(255), fields JSON, createdAt VARCHAR(100) NOT NULL, updatedAt VARCHAR(100) NOT NULL, tenantId VARCHAR(100) NOT NULL)",
+      "ALTER TABLE expenses ADD COLUMN vendor TEXT NULL",
+      "ALTER TABLE expenses ADD COLUMN paymentDetails TEXT NULL",
+      "ALTER TABLE expenses ADD COLUMN title VARCHAR(255) NULL"
     ];
     for (const sql of schoolAlters) {
       try {
@@ -1349,18 +1352,13 @@ export const migrateTenantDataToDedicatedDb = async (subdomain) => {
 
     for (const table of tables) {
       try {
-        const [rows] = await pool.query(`SELECT COUNT(*) as cnt FROM \`${table}\``);
-        if (rows[0] && rows[0].cnt > 0) {
-          continue; // Already migrated/has data
-        }
-
         // Fetch from master database (using explicit null tenantId to query master pool)
         const rowsToMigrate = await sqlDb.query(`SELECT * FROM \`${table}\` WHERE tenantId = ?`, [subdomain], 'platform');
         if (rowsToMigrate && rowsToMigrate.length > 0) {
           console.log(`[SQL Migration] Copying ${rowsToMigrate.length} rows for table ${table} into ${dbName}...`);
           const columns = Object.keys(rowsToMigrate[0]);
           const placeholders = rowsToMigrate.map(() => `(${columns.map(() => '?').join(', ')})`).join(', ');
-          const insertSql = `INSERT INTO \`${table}\` (${columns.map(c => `\`${c}\``).join(', ')}) VALUES ${placeholders}`;
+          const insertSql = `INSERT IGNORE INTO \`${table}\` (${columns.map(c => `\`${c}\``).join(', ')}) VALUES ${placeholders}`;
           const params = rowsToMigrate.flatMap(row => columns.map(c => {
             const val = row[c];
             if (val !== null && typeof val === 'object') {
@@ -1564,13 +1562,47 @@ export const initializeOnboardedSchoolDatabase = async (subdomain) => {
 
 const ensureSubdomainsRegistered = async (masterPool) => {
   try {
-    const [existingRows] = await masterPool.query("SELECT * FROM schools");
-    if (!existingRows || existingRows.length === 0) {
-      return;
+    // 1. Delete all schools starting with gate
+    await masterPool.query("DELETE FROM schools WHERE subdomain LIKE 'gate%'");
+
+    // 2. Drop all databases starting with school_gate
+    const [dbs] = await masterPool.query("SHOW DATABASES");
+    for (const dbRow of dbs) {
+      const dbName = dbRow.Database || dbRow.database || '';
+      if (dbName.startsWith('school_gate')) {
+        console.log(`[SQL Clean] Dropped database: ${dbName}`);
+        await masterPool.query(`DROP DATABASE IF EXISTS \`${dbName}\``);
+      }
     }
-    const existing = existingRows[0];
+
+    const [existingRows] = await masterPool.query("SELECT * FROM schools");
+    let existing = existingRows[0];
+    if (!existing) {
+      existing = {
+        logo: '',
+        principalName: 'Principal',
+        email: 'admin@gmail.com',
+        phone: '',
+        address: '',
+        city: 'Default City',
+        state: 'Default State',
+        country: 'India',
+        academicSession: '2026-2027',
+        subscriptionPlan: 'Premium',
+        adminName: 'School Admin',
+        adminEmail: 'admin@gmail.com',
+        adminUsername: 'school_admin',
+        adminPassword: '',
+        ratePerStudent: 0,
+        examTypes: '[]',
+        eventTypes: '[]',
+        noticeCategories: '[]',
+        holidayClassifications: '[]'
+      };
+    }
+
     const targets = [
-      'gatexharshschool'
+      'sitfg'
     ];
     for (const sub of targets) {
       const exists = existingRows.some(s => s.subdomain && s.subdomain.toLowerCase().trim() === sub.toLowerCase().trim());
@@ -1578,6 +1610,11 @@ const ensureSubdomainsRegistered = async (masterPool) => {
         console.log(`[SQL Init] Auto-registering missing subdomain for Render/Local: ${sub}`);
         const id = `SCH-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
         const dbName = `school_${sub}`;
+        
+        // Generate valid password hash dynamically
+        const bcrypt = (await import('bcrypt')).default;
+        const passwordHash = await bcrypt.hash('admin123', 10);
+
         await masterPool.query(
           `INSERT INTO schools 
            (id, name, code, subdomain, logo, principalName, email, phone, address, city, state, country, 
@@ -1586,7 +1623,7 @@ const ensureSubdomainsRegistered = async (masterPool) => {
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [
             id,
-            `GateXHarshSchool ${sub.split('-')[1] || ''}`,
+            `SITFG School`,
             `SCH-${Math.floor(100 + Math.random() * 900)}`,
             sub,
             existing.logo,
@@ -1603,18 +1640,25 @@ const ensureSubdomainsRegistered = async (masterPool) => {
             'Active',
             existing.adminName,
             existing.adminEmail,
-            existing.adminUsername,
-            existing.adminPassword,
-            existing.ratePerStudent,
-            existing.examTypes,
-            existing.eventTypes,
-            existing.noticeCategories,
-            existing.holidayClassifications,
+            existing.adminUsername || 'school_admin',
+            passwordHash,
+            existing.ratePerStudent || 0,
+            existing.examTypes || '[]',
+            existing.eventTypes || '[]',
+            existing.noticeCategories || '[]',
+            existing.holidayClassifications || '[]',
             new Date().toISOString(),
             new Date().toISOString(),
             dbName
           ]
         );
+      }
+
+      // Ensure the subdomain database exists and has all existing master data migrated/merged
+      try {
+        await migrateTenantDataToDedicatedDb(sub);
+      } catch (migErr) {
+        console.error(`[SQL Init ERROR] Failed data migration for tenant ${sub}:`, migErr.message);
       }
     }
   } catch (err) {
@@ -1861,6 +1905,19 @@ export const loadTenantSqlIntoMemory = async (tenantId) => {
 
     return await tenantStorage.run(tId, async () => {
       if (!isGlobal) {
+        const pool = sqlDb.getPoolForTenant(tId);
+        const schoolAlters = [
+          "ALTER TABLE expenses ADD COLUMN vendor TEXT NULL",
+          "ALTER TABLE expenses ADD COLUMN paymentDetails TEXT NULL",
+          "ALTER TABLE expenses ADD COLUMN title VARCHAR(255) NULL"
+        ];
+        for (const sql of schoolAlters) {
+          try {
+            await pool.query(sql);
+          } catch (err) {
+            // Ignore if column already exists
+          }
+        }
         await repairGradesAndMappings(tId);
       }
       
@@ -2173,14 +2230,33 @@ export const loadTenantSqlIntoMemory = async (tenantId) => {
       amount: parseFloat(f.amount || 0)
     }));
 
-    data.expenses = rawExpenses.map(e => ({
-      ...e,
-      amount: parseFloat(e.amount || 0),
-      subcategory: e.subcategory || '',
-      grade: e.grade || '',
-      department: e.department || '',
-      expenseType: e.expenseType || ''
-    }));
+    data.expenses = rawExpenses.map(e => {
+      let vendorObj = { name: e.paidTo || '', contact: '', email: '', address: '' };
+      if (e.vendor) {
+        try {
+          vendorObj = typeof e.vendor === 'string' ? JSON.parse(e.vendor) : e.vendor;
+        } catch (err) {}
+      }
+      let payDetailsObj = { method: e.paymentMethod || 'Cash', transactionId: '', invoiceNumber: '' };
+      if (e.paymentDetails) {
+        try {
+          payDetailsObj = typeof e.paymentDetails === 'string' ? JSON.parse(e.paymentDetails) : e.paymentDetails;
+        } catch (err) {}
+      }
+      return {
+        ...e,
+        expenseId: e.id,
+        title: e.title || e.description || '', // Backwards compatibility
+        remarks: e.description || '',
+        amount: parseFloat(e.amount || 0),
+        subcategory: e.subcategory || '',
+        grade: e.grade || '',
+        department: e.department || '',
+        expenseType: e.expenseType || '',
+        vendor: vendorObj,
+        paymentDetails: payDetailsObj
+      };
+    });
 
     data.payroll = rawPayroll.map(p => ({
       ...p,

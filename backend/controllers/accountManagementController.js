@@ -5,7 +5,7 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const DB_FILE = path.join(__dirname, '..', 'db.json');
-import { readDb as centralReadDb, writeDb as centralWriteDb, addActivity, isSqlActive, tenantStorage, slugify } from '../utils/db.js';
+import { readDb as centralReadDb, writeDb as centralWriteDb, addActivity, isSqlActive, tenantStorage, slugify, invalidateTenantCache } from '../utils/db.js';
 import { logAudit } from '../utils/logger.js';
 import * as sqlDb from '../utils/sqlDb.js';
 
@@ -979,11 +979,64 @@ export const deleteStaffPayment = (req, res) => {
 // =============================================
 // 8. EXPENSES
 // =============================================
-export const getExpenses = (req, res) => {
+export const getExpenses = async (req, res) => {
   try {
     const { category, search } = req.query;
+
+    if (isSqlActive()) {
+      const tenantId = tenantStorage.getStore();
+      const tId = tenantId ? slugify(tenantId) : 'platform';
+
+      let queryStr = 'SELECT * FROM expenses WHERE tenantId = ? AND status != "Deleted"';
+      const params = [tId];
+
+      if (category && category !== 'All') {
+        queryStr += ' AND category = ?';
+        params.push(category);
+      }
+
+      if (search && search.trim()) {
+        const q = `%${search.toLowerCase()}%`;
+        queryStr += ' AND (LOWER(id) LIKE ? OR LOWER(category) LIKE ? OR LOWER(subcategory) LIKE ? OR LOWER(description) LIKE ? OR LOWER(paidTo) LIKE ?)';
+        params.push(q, q, q, q, q);
+      }
+
+      queryStr += ' ORDER BY date DESC';
+      const rows = await sqlDb.query(queryStr, params);
+
+      const expenses = rows.map(e => {
+        let vendorObj = { name: e.paidTo || '', contact: '', email: '', address: '' };
+        if (e.vendor) {
+          try {
+            vendorObj = typeof e.vendor === 'string' ? JSON.parse(e.vendor) : e.vendor;
+          } catch (err) {}
+        }
+        let payDetailsObj = { method: e.paymentMethod || 'Cash', transactionId: '', invoiceNumber: '' };
+        if (e.paymentDetails) {
+          try {
+            payDetailsObj = typeof e.paymentDetails === 'string' ? JSON.parse(e.paymentDetails) : e.paymentDetails;
+          } catch (err) {}
+        }
+        return {
+          ...e,
+          expenseId: e.id,
+          title: e.title || e.description || '', // Backwards compatibility
+          remarks: e.description || '',
+          amount: parseFloat(e.amount || 0),
+          subcategory: e.subcategory || '',
+          grade: e.grade || '',
+          department: e.department || '',
+          expenseType: e.expenseType || '',
+          vendor: vendorObj,
+          paymentDetails: payDetailsObj
+        };
+      });
+
+      return res.json(expenses);
+    }
+
     const db = readDb();
-    let expenses = (db.expenses || []).filter(e => !e.deleted);
+    let expenses = (db.expenses || []).filter(e => !e.deleted && e.status !== 'Deleted');
 
     if (category && category !== 'All') {
       expenses = expenses.filter(e => e.category === category);
@@ -998,11 +1051,12 @@ export const getExpenses = (req, res) => {
 
     res.json(expenses);
   } catch (err) {
+    console.error('Error loading expenses:', err);
     res.status(500).json({ error: 'Server error loading expenses.' });
   }
 };
 
-export const addExpense = (req, res) => {
+export const addExpense = async (req, res) => {
   try {
     const { 
       title, 
@@ -1030,17 +1084,78 @@ export const addExpense = (req, res) => {
       return res.status(400).json({ error: 'Title, category, and amount are required.' });
     }
 
-    const db = readDb();
     const expId = `EXP-${Date.now()}`;
+    const desc = description || remarks || title;
+
+    if (isSqlActive()) {
+      const tenantId = tenantStorage.getStore();
+      const tId = tenantId ? slugify(tenantId) : 'platform';
+
+      await sqlDb.query(
+        `INSERT INTO expenses (id, category, subcategory, amount, date, description, status, paidTo, paymentMethod, attachment, createdAt, tenantId, grade, department, expenseType, vendor, paymentDetails, title)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          expId,
+          category,
+          subcategory || '',
+          Number(amount) || 0,
+          date || new Date().toISOString().split('T')[0],
+          desc,
+          status || 'Approved',
+          vendor?.name || paidBy || '',
+          paymentDetails?.method || 'Cash',
+          attachment || '',
+          new Date().toISOString(),
+          tId,
+          grade || '',
+          department || '',
+          expenseType || 'Operational',
+          JSON.stringify(vendor || { name: '', contact: '', email: '', address: '' }),
+          JSON.stringify(paymentDetails || { method: 'Cash', transactionId: '', invoiceNumber: '' }),
+          title || ''
+        ]
+      );
+
+      // Invalidate the cache to force reload fresh database records
+      invalidateTenantCache(tId);
+
+      // Return the recorded expense directly
+      return res.status(201).json({
+        id: expId,
+        expenseId: expId,
+        title: desc,
+        category,
+        subcategory: subcategory || '',
+        amount: Number(amount) || 0,
+        description: desc,
+        date: date || new Date().toISOString().split('T')[0],
+        paymentDate: paymentDate || '',
+        paidBy: paidBy || 'Accountant',
+        vendor: vendor || { name: '', contact: '', email: '', address: '' },
+        paymentDetails: paymentDetails || { method: 'Cash', transactionId: '', invoiceNumber: '' },
+        status: status || 'Approved',
+        submittedBy: submittedBy || 'Expense Management',
+        approvedBy: approvedBy || 'System',
+        remarks: remarks || '',
+        notes: notes || '',
+        attachment: attachment || '',
+        grade: grade || '',
+        department: department || '',
+        expenseType: expenseType || 'Operational',
+        createdAt: new Date().toISOString()
+      });
+    }
+
+    const db = readDb();
 
     const newExpense = {
       id: expId,
       expenseId: expId,
-      title,
+      title: title,
       category,
       subcategory: subcategory || '',
       amount: Number(amount) || 0,
-      description: description || '',
+      description: desc,
       date: date || new Date().toISOString().split('T')[0],
       paymentDate: paymentDate || '',
       paidBy: paidBy || 'Accountant',
@@ -1069,7 +1184,6 @@ export const addExpense = (req, res) => {
       'rgba(var(--color-success-rgb), 0.1)'
     );
 
-    // Budget Limit Alert Check (Mock alert if amount exceeds 50000)
     if (Number(amount) >= 50000) {
       addActivity(
         db,
@@ -1090,9 +1204,97 @@ export const addExpense = (req, res) => {
   }
 };
 
-export const updateExpense = (req, res) => {
+export const updateExpense = async (req, res) => {
   try {
     const { id } = req.params;
+
+    if (isSqlActive()) {
+      const tenantId = tenantStorage.getStore();
+      const tId = tenantId ? slugify(tenantId) : 'platform';
+
+      const currentRows = await sqlDb.query('SELECT * FROM expenses WHERE id = ? AND tenantId = ?', [id, tId]);
+      if (!currentRows || currentRows.length === 0) {
+        return res.status(404).json({ error: 'Expense not found.' });
+      }
+
+      const current = currentRows[0];
+
+      const updatedCategory = req.body.category || current.category;
+      const updatedSubcategory = req.body.subcategory || current.subcategory;
+      const updatedAmount = req.body.amount !== undefined ? Number(req.body.amount) : parseFloat(current.amount);
+      const updatedDate = req.body.date || current.date;
+      const updatedDescription = req.body.description || req.body.remarks || current.description;
+      const updatedStatus = req.body.status || current.status;
+      const updatedPaidTo = req.body.vendor?.name || req.body.paidTo || current.paidTo;
+      const updatedPaymentMethod = req.body.paymentDetails?.method || current.paymentMethod;
+      const updatedAttachment = req.body.attachment || current.attachment;
+      const updatedGrade = req.body.grade || current.grade;
+      const updatedDepartment = req.body.department || current.department;
+      const updatedExpenseType = req.body.expenseType || current.expenseType;
+
+      let currentVendor = { name: current.paidTo || '', contact: '', email: '', address: '' };
+      if (current.vendor) {
+        try {
+          currentVendor = typeof current.vendor === 'string' ? JSON.parse(current.vendor) : current.vendor;
+        } catch(e) {}
+      }
+      const updatedVendor = req.body.vendor ? { ...currentVendor, ...req.body.vendor } : currentVendor;
+
+      let currentPayDetails = { method: current.paymentMethod || 'Cash', transactionId: '', invoiceNumber: '' };
+      if (current.paymentDetails) {
+        try {
+          currentPayDetails = typeof current.paymentDetails === 'string' ? JSON.parse(current.paymentDetails) : current.paymentDetails;
+        } catch(e) {}
+      }
+      const updatedPayDetails = req.body.paymentDetails ? { ...currentPayDetails, ...req.body.paymentDetails } : currentPayDetails;
+
+      await sqlDb.query(
+        `UPDATE expenses 
+         SET category = ?, subcategory = ?, amount = ?, date = ?, description = ?, status = ?, paidTo = ?, paymentMethod = ?, attachment = ?, grade = ?, department = ?, expenseType = ?, vendor = ?, paymentDetails = ?, title = ?
+         WHERE id = ? AND tenantId = ?`,
+        [
+          updatedCategory,
+          updatedSubcategory,
+          updatedAmount,
+          updatedDate,
+          updatedDescription,
+          updatedStatus,
+          updatedPaidTo,
+          updatedPaymentMethod,
+          updatedAttachment,
+          updatedGrade,
+          updatedDepartment,
+          updatedExpenseType,
+          JSON.stringify(updatedVendor),
+          JSON.stringify(updatedPayDetails),
+          req.body.title || current.title || '',
+          id,
+          tId
+        ]
+      );
+
+      invalidateTenantCache(tId);
+
+      return res.json({
+        id,
+        expenseId: id,
+        category: updatedCategory,
+        subcategory: updatedSubcategory,
+        amount: updatedAmount,
+        date: updatedDate,
+        description: updatedDescription,
+        status: updatedStatus,
+        vendor: updatedVendor,
+        paymentDetails: updatedPayDetails,
+        attachment: updatedAttachment,
+        grade: updatedGrade,
+        department: updatedDepartment,
+        expenseType: updatedExpenseType,
+        title: req.body.title || current.title || '',
+        remarks: updatedDescription
+      });
+    }
+
     const db = readDb();
     
     const idx = db.expenses.findIndex(e => e.expenseId === id);
@@ -1104,7 +1306,6 @@ export const updateExpense = (req, res) => {
     const updatedExpense = {
       ...currentExpense,
       ...req.body,
-      // Ensure ID doesn't change
       expenseId: currentExpense.expenseId,
       amount: req.body.amount !== undefined ? Number(req.body.amount) : currentExpense.amount
     };
@@ -1128,9 +1329,25 @@ export const updateExpense = (req, res) => {
   }
 };
 
-export const deleteExpense = (req, res) => {
+export const deleteExpense = async (req, res) => {
   try {
     const { id } = req.params;
+
+    if (isSqlActive()) {
+      const tenantId = tenantStorage.getStore();
+      const tId = tenantId ? slugify(tenantId) : 'platform';
+
+      await sqlDb.query(
+        `UPDATE expenses SET status = 'Deleted' WHERE id = ? AND tenantId = ?`,
+        [id, tId]
+      );
+
+      // Invalidate cache so deletion reflects instantly
+      invalidateTenantCache(tId);
+
+      return res.json({ success: true, message: `Removed expense: ${id}` });
+    }
+
     const db = readDb();
 
     const idx = db.expenses.findIndex(e => e.expenseId === id);
