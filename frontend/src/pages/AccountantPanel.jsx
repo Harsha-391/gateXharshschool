@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import './AccountantPanel.css';
 import { createPortal } from 'react-dom';
 import {
@@ -17,8 +17,8 @@ import { PayrollHubRedesign, PayrollHistoryViewRedesign } from './PayrollRedesig
 
 function ConfirmDialog({ show, message, onConfirm, onCancel }) {
   if (!show) return null;
-  return (
-    <div className="modal-overlay" onClick={onCancel}>
+  return createPortal(
+    <div className="modal-overlay" onClick={onCancel} style={{ zIndex: 1500 }}>
       <div onClick={e => e.stopPropagation()} className="animate-scale-up" style={{
         width: '100%', maxWidth: '400px', background: 'var(--bg-elevated)', borderRadius: '16px',
         border: '1px solid var(--border-glass)', padding: '28px', boxShadow: 'var(--shadow-lg)',
@@ -41,7 +41,8 @@ function ConfirmDialog({ show, message, onConfirm, onCancel }) {
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 import StaffDirectory from './StaffDirectory';
@@ -460,9 +461,9 @@ export function CollectFeesView({ showToast, readOnly = false }) {
   const [showMonthRangeModal, setShowMonthRangeModal] = useState(false);
   const [newPeriodFreq, setNewPeriodFreq] = useState('Quarterly');
   const [newPeriodName, setNewPeriodName] = useState('');
-  const [filterClass, setFilterClass] = useState('All');
-  const [filterDept, setFilterDept] = useState('All');
-  const [filterSection, setFilterSection] = useState('All');
+  const [filterClass, setFilterClass] = useState(() => localStorage.getItem('fee_filter_class') || 'All');
+  const [filterDept, setFilterDept] = useState(() => localStorage.getItem('fee_filter_dept') || 'All');
+  const [filterSection, setFilterSection] = useState(() => localStorage.getItem('fee_filter_section') || 'All');
   const [filterStatus, setFilterStatus] = useState('All');
   const [search, setSearch] = useState('');
   const [form, setForm] = useState({
@@ -484,10 +485,27 @@ export function CollectFeesView({ showToast, readOnly = false }) {
   // collectDueState: { period, detailsStudent, tuitionDue, transportDue, otherDue, paymentMethod, remarks, fine } | null
   const [selectedDetailsStudentId, setSelectedDetailsStudentId] = useState(null);
   const [sectionTab, setSectionTab] = useState('due'); // 'due', 'completed'
+  const [transportFilter, setTransportFilter] = useState(() => localStorage.getItem('fee_transport_filter') || 'bus'); // 'bus' or 'non-bus'
 
   const [tuitionAmount, setTuitionAmount] = useState('');
   const [transportAmount, setTransportAmount] = useState('');
   const [otherAmount, setOtherAmount] = useState('');
+
+  useEffect(() => {
+    localStorage.setItem('fee_filter_class', filterClass);
+  }, [filterClass]);
+
+  useEffect(() => {
+    localStorage.setItem('fee_filter_dept', filterDept);
+  }, [filterDept]);
+
+  useEffect(() => {
+    localStorage.setItem('fee_filter_section', filterSection);
+  }, [filterSection]);
+
+  useEffect(() => {
+    localStorage.setItem('fee_transport_filter', transportFilter);
+  }, [transportFilter]);
 
   useEffect(() => {
     if (!showForm) {
@@ -579,10 +597,11 @@ export function CollectFeesView({ showToast, readOnly = false }) {
   }, [filterClass, activeGrades, activeSections]);
 
   useEffect(() => {
+    if (activeGrades.length === 0 || activeSections.length === 0) return;
     if (filterSection !== 'All' && !allowedSectionsForFilter.includes(filterSection)) {
       setFilterSection('All');
     }
-  }, [filterClass, allowedSectionsForFilter, filterSection]);
+  }, [filterClass, allowedSectionsForFilter, filterSection, activeGrades, activeSections]);
 
   const fetchFees = () => {
     const params = new URLSearchParams();
@@ -757,18 +776,19 @@ export function CollectFeesView({ showToast, readOnly = false }) {
       let tAmt = 0;
       let trAmt = 0;
       let oAmt = 0;
+      const isTransportStudent = (stu.transportRequired || 'No') === 'Yes';
       if (matchedFstr) {
         tAmt = matchedFstr.tuitionFee || 0;
-        trAmt = matchedFstr.transportFee || 0;
+        trAmt = isTransportStudent ? (matchedFstr.transportFee || 0) : 0;
         oAmt = matchedFstr.otherCharges || 0;
       }
 
       const calcTuition = getCalculatedAmount(tAmt, freq, !!(matchedFstr && matchedFstr.monthRange));
-      const calcTransport = getCalculatedAmount(trAmt, freq, !!(matchedFstr && matchedFstr.monthRange));
+      const calcTransport = isTransportStudent ? getCalculatedAmount(trAmt, freq, !!(matchedFstr && matchedFstr.monthRange)) : 0;
       const calcOther = getCalculatedAmount(oAmt, freq, !!(matchedFstr && matchedFstr.monthRange));
 
       setTuitionAmount(tAmt ? String(calcTuition) : '');
-      setTransportAmount(trAmt ? String(calcTransport) : '');
+      setTransportAmount(isTransportStudent && trAmt ? String(calcTransport) : '');
       setOtherAmount(oAmt ? String(calcOther) : '');
 
       const baseTotal = calcTuition + calcTransport + calcOther;
@@ -810,17 +830,18 @@ export function CollectFeesView({ showToast, readOnly = false }) {
   };
 
   const handleStudentSelect = (e) => {
-    const stu = students.find(s => s.id === e.target.value);
+    const stu = students.find(s => s.id == e.target.value);
     selectStudent(stu);
   };
 
   const handleBillingPeriodChange = (newBp) => {
-    const stu = students.find(s => s.id === form.studentId);
+    const stu = students.find(s => s.id == form.studentId);
     let tAmt = 0;
     let trAmt = 0;
     let oAmt = 0;
     let freq = 'Yearly';
     let matchedFstr = null;
+    const isTransportStudent = stu ? (stu.transportRequired || 'No') === 'Yes' : true;
     if (stu) {
       const studentBase = parseGradeName(stu.studentClass || '').baseGrade.toLowerCase();
       const classStructures = feeStructures.filter(f =>
@@ -830,16 +851,16 @@ export function CollectFeesView({ showToast, readOnly = false }) {
       if (matchedFstr) {
         freq = matchedFstr.frequency || 'Yearly';
         tAmt = matchedFstr.tuitionFee || 0;
-        trAmt = matchedFstr.transportFee || 0;
+        trAmt = isTransportStudent ? (matchedFstr.transportFee || 0) : 0;
         oAmt = matchedFstr.otherCharges || 0;
       }
     }
     const calcTuition = getCalculatedAmount(tAmt, freq, !!(matchedFstr && matchedFstr.monthRange));
-    const calcTransport = getCalculatedAmount(trAmt, freq, !!(matchedFstr && matchedFstr.monthRange));
+    const calcTransport = isTransportStudent ? getCalculatedAmount(trAmt, freq, !!(matchedFstr && matchedFstr.monthRange)) : 0;
     const calcOther = getCalculatedAmount(oAmt, freq, !!(matchedFstr && matchedFstr.monthRange));
 
     setTuitionAmount(tAmt ? String(calcTuition) : '');
-    setTransportAmount(trAmt ? String(calcTransport) : '');
+    setTransportAmount(isTransportStudent && trAmt ? String(calcTransport) : '');
     setOtherAmount(oAmt ? String(calcOther) : '');
 
     const baseTotal = calcTuition + calcTransport + calcOther;
@@ -1097,19 +1118,27 @@ export function CollectFeesView({ showToast, readOnly = false }) {
     }
   };
 
-  const handleNewPeriodCollect = (student) => {
-    const classStructures = feeStructures.filter(fs => fs.studentClass === student.studentClass);
+  const handleNewPeriodCollect = (student, forcedPeriod = null) => {
+    const studentBase = parseGradeName(student.studentClass || '').baseGrade.toLowerCase();
+    const classStructures = feeStructures.filter(fs =>
+      parseGradeName(fs.studentClass || '').baseGrade.toLowerCase() === studentBase
+    );
     let matchedFs = classStructures[0] || {};
+    if (forcedPeriod) {
+      const found = classStructures.find(fs => (fs.monthRange || 'Full Year') === forcedPeriod);
+      if (found) matchedFs = found;
+    }
     const freq = matchedFs.frequency || 'Yearly';
-    const periodName = matchedFs.monthRange || 'Full Year';
+    const periodName = forcedPeriod || matchedFs.monthRange || 'Full Year';
     const hasMonthRange = !!matchedFs.monthRange;
 
     const configTuition = getCalculatedAmount(matchedFs.tuitionFee || 0, freq, hasMonthRange);
-    const configTransport = getCalculatedAmount(matchedFs.transportFee || 0, freq, hasMonthRange);
+    const isTransportStudent = (student.transportRequired || 'No') === 'Yes';
+    const configTransport = isTransportStudent ? getCalculatedAmount(matchedFs.transportFee || 0, freq, hasMonthRange) : 0;
     const configOther = getCalculatedAmount(matchedFs.otherCharges || 0, freq, hasMonthRange);
 
     setTuitionAmount(configTuition > 0 ? String(configTuition) : '');
-    setTransportAmount(configTransport > 0 ? String(configTransport) : '');
+    setTransportAmount(isTransportStudent && configTransport > 0 ? String(configTransport) : '');
     setOtherAmount(configOther > 0 ? String(configOther) : '');
 
     const totalAmt = configTuition + configTransport + configOther;
@@ -1426,7 +1455,8 @@ export function CollectFeesView({ showToast, readOnly = false }) {
 
         const studentPeriodFees = studentFees.filter(f => f.billingPeriod === periodName);
         const alignedComponents = [];
-        const standardTypes = ['Tuition Fee', 'Transport Fee', 'Other Charges'];
+        const isTransportStudent = (student.transportRequired || 'No') === 'Yes';
+        const standardTypes = isTransportStudent ? ['Tuition Fee', 'Transport Fee', 'Other Charges'] : ['Tuition Fee', 'Other Charges'];
 
         standardTypes.forEach(type => {
           const configAmt = configMap[type] || 0;
@@ -1527,6 +1557,7 @@ export function CollectFeesView({ showToast, readOnly = false }) {
         studentClass: student.studentClass,
         section: student.section,
         rollNumber: student.rollNumber || student.roll || '',
+        transportRequired: student.transportRequired || 'No',
         periods: periodsList,
         overallTotal,
         overallPaid,
@@ -1537,6 +1568,8 @@ export function CollectFeesView({ showToast, readOnly = false }) {
   };
 
   const groupedStudents = groupFeesByStudent(fees);
+  const busStudents = groupedStudents.filter(s => s.transportRequired === 'Yes');
+  const nonBusStudents = groupedStudents.filter(s => s.transportRequired !== 'Yes');
 
   const toggleStudentExpand = (studentId) => {
     setExpandedStudents(prev => ({
@@ -1549,7 +1582,7 @@ export function CollectFeesView({ showToast, readOnly = false }) {
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
       {/* Receipt Modal */}
       {receiptData && (() => {
-        const printStudent = students.find(s => s.id === receiptData.studentId || s.admissionNumber === receiptData.admissionNumber) || {};
+        const printStudent = students.find(s => s.id == receiptData.studentId || s.admissionNumber === receiptData.admissionNumber) || {};
         const baseClass = printStudent.studentClass || receiptData.studentClass || 'N/A';
         const section = printStudent.section || receiptData.section || '';
         const gradeSec = section ? `${baseClass}-${section}` : baseClass;
@@ -1873,7 +1906,10 @@ export function CollectFeesView({ showToast, readOnly = false }) {
                       />
                     </div>
                   </>
-                ) : (
+                ) : (() => {
+                  const selectedStu = students.find(s => s.id == form.studentId);
+                  const isFormTransportStudent = (selectedStu?.transportRequired || 'No') === 'Yes';
+                  return (
                   <>
                     <div>
                       <label style={labelStyle}>Tuition Fee (₹)</label>
@@ -1885,6 +1921,7 @@ export function CollectFeesView({ showToast, readOnly = false }) {
                         style={inputStyle}
                       />
                     </div>
+                    {isFormTransportStudent && (
                     <div>
                       <label style={labelStyle}>Transport Fee (₹)</label>
                       <input
@@ -1895,6 +1932,7 @@ export function CollectFeesView({ showToast, readOnly = false }) {
                         style={inputStyle}
                       />
                     </div>
+                    )}
                     <div>
                       <label style={labelStyle}>Other Charges (₹)</label>
                       <input
@@ -1906,7 +1944,8 @@ export function CollectFeesView({ showToast, readOnly = false }) {
                       />
                     </div>
                   </>
-                )}
+                  );
+                })()}
 
                 {form.isCollectDue ? (
                   <div>
@@ -1925,7 +1964,7 @@ export function CollectFeesView({ showToast, readOnly = false }) {
                     </div>
                   </div>
                 ) : (() => {
-                  const selStudent = students.find(s => s.id === form.studentId);
+                  const selStudent = students.find(s => s.id == form.studentId);
                   let selFs = null;
                   const targetClass = selStudent
                     ? selStudent.studentClass
@@ -1934,7 +1973,10 @@ export function CollectFeesView({ showToast, readOnly = false }) {
                       : selectedFormGrade);
 
                   if (targetClass) {
-                    const classStructures = feeStructures.filter(f => f.studentClass === targetClass);
+                    const parsedTarget = parseGradeName(targetClass).baseGrade.toLowerCase();
+                    const classStructures = feeStructures.filter(f =>
+                      parseGradeName(f.studentClass || '').baseGrade.toLowerCase() === parsedTarget
+                    );
                     selFs = classStructures.find(f => f.monthRange === form.billingPeriod) || classStructures[0];
                   }
                   const selFreq = selFs ? (selFs.frequency || 'Yearly') : 'Yearly';
@@ -2128,6 +2170,31 @@ export function CollectFeesView({ showToast, readOnly = false }) {
                             )}
                           </div>
                           <div style={{ display: 'inline-flex', gap: '6px', alignItems: 'center' }}>
+                            {!readOnly && !hasPayments && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedDetailsStudentId(null);
+                                  handleNewPeriodCollect(detailsStudent, period.name);
+                                }}
+                                title="Collect Fee for Period"
+                                style={{
+                                  padding: '5px 10px',
+                                  background: 'linear-gradient(135deg, #10b981, #059669)',
+                                  border: 'none',
+                                  borderRadius: '6px',
+                                  color: '#fff',
+                                  fontWeight: 700,
+                                  cursor: 'pointer',
+                                  fontSize: '0.7rem',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '4px'
+                                }}
+                              >
+                                <Plus size={11} /> Collect Fee
+                              </button>
+                            )}
                             {!readOnly && hasPayments && period.duePeriodAmount > 0 && (
                               <button
                                 onClick={(e) => { e.stopPropagation(); handleCollectDue(period, detailsStudent); }}
@@ -2155,9 +2222,37 @@ export function CollectFeesView({ showToast, readOnly = false }) {
                                   <Printer size={13} />
                                 </button>
                                 {!readOnly && (
-                                  <button onClick={(e) => { e.stopPropagation(); handleEditPeriod(period); }} title="Edit Period Record" style={{ padding: '6px', background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.15)', borderRadius: '6px', color: '#f59e0b', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                    <Pencil size={13} />
-                                  </button>
+                                  <>
+                                    <button onClick={(e) => { e.stopPropagation(); handleEditPeriod(period); }} title="Edit Period Record" style={{ padding: '6px', background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.15)', borderRadius: '6px', color: '#f59e0b', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                      <Pencil size={13} />
+                                    </button>
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        const recordsToDelete = [];
+                                        period.components.forEach(c => {
+                                          if (c.rawFee && (c.rawFee.id || c.rawFee.feeId)) {
+                                            recordsToDelete.push({ id: c.rawFee.id || c.rawFee.feeId });
+                                          }
+                                          if (c.dueCollectionRecords) {
+                                            c.dueCollectionRecords.forEach(dc => {
+                                              if (dc.id || dc.feeId) {
+                                                recordsToDelete.push({ id: dc.id || dc.feeId });
+                                              }
+                                            });
+                                          }
+                                        });
+                                        setShowConfirmDelete({
+                                          name: period.name,
+                                          components: recordsToDelete.map(r => ({ rawFee: r }))
+                                        });
+                                      }}
+                                      title="Delete Period Fee Records"
+                                      style={{ padding: '6px', background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.15)', borderRadius: '6px', color: '#ef4444', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                    >
+                                      <Trash2 size={13} />
+                                    </button>
+                                  </>
                                 )}
                               </>
                             )}
@@ -2255,36 +2350,36 @@ export function CollectFeesView({ showToast, readOnly = false }) {
                                 >
                                   <Printer size={15} />
                                 </button>
-                                {!readOnly && (
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      const tuitionRec = allDcRecords.find(dc => dc.parentFeeType === 'Tuition Fee');
-                                      const transportRec = allDcRecords.find(dc => dc.parentFeeType === 'Transport Fee');
-                                      const otherRec = allDcRecords.find(dc => dc.parentFeeType === 'Other Charges');
-                                      const firstDc = allDcRecords[0];
-                                      setCollectDueState({
-                                        period,
-                                        detailsStudent,
-                                        tuitionDue: tuitionRec ? String(tuitionRec.paidAmount || '') : '',
-                                        transportDue: transportRec ? String(transportRec.paidAmount || '') : '',
-                                        otherDue: otherRec ? String(otherRec.paidAmount || '') : '',
-                                        paymentMethod: firstDc?.paymentMethod || 'Cash',
-                                        remarks: '',
-                                        fine: String(firstDc?.fine || '0'),
-                                        editingDcIds: {
-                                          'Tuition Fee': tuitionRec?.id || tuitionRec?.feeId || null,
-                                          'Transport Fee': transportRec?.id || transportRec?.feeId || null,
-                                          'Other Charges': otherRec?.id || otherRec?.feeId || null
-                                        }
-                                      });
-                                    }}
-                                    title="Edit Dues Clearance"
-                                    style={{ padding: '6px', background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.2)', borderRadius: '8px', color: '#f59e0b', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                                  >
-                                    <Pencil size={15} />
-                                  </button>
-                                )}
+                                 {!readOnly && (
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        const tuitionRec = allDcRecords.find(dc => dc.parentFeeType === 'Tuition Fee');
+                                        const transportRec = allDcRecords.find(dc => dc.parentFeeType === 'Transport Fee');
+                                        const otherRec = allDcRecords.find(dc => dc.parentFeeType === 'Other Charges');
+                                        const firstDc = allDcRecords[0];
+                                        setCollectDueState({
+                                          period,
+                                          detailsStudent,
+                                          tuitionDue: tuitionRec ? String(tuitionRec.paidAmount || '') : '',
+                                          transportDue: transportRec ? String(transportRec.paidAmount || '') : '',
+                                          otherDue: otherRec ? String(otherRec.paidAmount || '') : '',
+                                          paymentMethod: firstDc?.paymentMethod || 'Cash',
+                                          remarks: '',
+                                          fine: String(firstDc?.fine || '0'),
+                                          editingDcIds: {
+                                            'Tuition Fee': tuitionRec?.id || tuitionRec?.feeId || null,
+                                            'Transport Fee': transportRec?.id || transportRec?.feeId || null,
+                                            'Other Charges': otherRec?.id || otherRec?.feeId || null
+                                          }
+                                        });
+                                      }}
+                                      title="Edit Dues Clearance"
+                                      style={{ padding: '6px', background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.2)', borderRadius: '8px', color: '#f59e0b', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                    >
+                                      <Pencil size={15} />
+                                    </button>
+                                 )}
                               </div>
                             </div>
                             <div style={{ overflowX: 'hidden', overflowY: 'auto', maxHeight: '140px' }}>
@@ -2299,6 +2394,7 @@ export function CollectFeesView({ showToast, readOnly = false }) {
                                     <th style={{ padding: '8px 10px', fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', width: '12%', textAlign: 'right' }}>Receipt #</th>
                                     <th style={{ padding: '8px 10px', fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', width: '12%', textAlign: 'right' }}>Date</th>
                                     <th style={{ padding: '8px 10px', fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', width: '10%', textAlign: 'right' }}>Method</th>
+                                    {!readOnly && <th style={{ padding: '8px 10px', width: '5%', textAlign: 'right' }}></th>}
                                   </tr>
                                 </thead>
                                 <tbody>
@@ -2318,6 +2414,21 @@ export function CollectFeesView({ showToast, readOnly = false }) {
                                       <td style={{ padding: '8px 10px', color: 'var(--text-muted)', fontSize: '0.75rem', width: '10%', textAlign: 'right' }}>
                                         {dcRec.paymentMethod || '—'}
                                       </td>
+                                      {!readOnly && (
+                                        <td style={{ padding: '8px 10px', textAlign: 'right', width: '5%' }}>
+                                          <button
+                                            type="button"
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              setShowConfirmDelete(dcRec);
+                                            }}
+                                            title="Delete Due Clearance Record"
+                                            style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '2px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+                                          >
+                                            <Trash2 size={13} />
+                                          </button>
+                                        </td>
+                                      )}
                                     </tr>
                                   ))}
                                 </tbody>
@@ -2457,7 +2568,7 @@ export function CollectFeesView({ showToast, readOnly = false }) {
                     <input type="number" value={collectDueState.tuitionDue} onChange={e => setCollectDueState(s => ({ ...s, tuitionDue: e.target.value }))} style={inputStyle} placeholder="0" />
                   </div>
                 )}
-                {(collectDueState.transportDue || collectDueState.transportDue === '') && (
+                {(collectDueState.detailsStudent?.transportRequired === 'Yes') && (collectDueState.transportDue || collectDueState.transportDue === '') && (
                   <div>
                     <label style={labelStyle}>Transport Fee Due (₹)</label>
                     <input type="number" value={collectDueState.transportDue} onChange={e => setCollectDueState(s => ({ ...s, transportDue: e.target.value }))} style={inputStyle} placeholder="0" />
@@ -2532,9 +2643,20 @@ export function CollectFeesView({ showToast, readOnly = false }) {
           );
         }
         return (() => {
-          const renderStudentTable = (list) => {
+          const renderStudentTable = (list, title, titleIcon, titleColor) => {
             return (
-              <div className="glass-panel animate-scale-up" style={{ borderRadius: '16px', padding: 0, border: '1px solid var(--border-glass)', overflow: 'hidden' }}>
+              <div className="glass-panel animate-scale-up" style={{ borderRadius: '16px', padding: 0, border: '1px solid var(--border-glass)', overflow: 'hidden', flex: 1, minWidth: '340px' }}>
+                {/* Title badge for bus/non-bus */}
+                {title && (
+                  <div style={{ padding: '12px 20px', borderBottom: '1px solid var(--border-glass)', background: 'rgba(255,255,255,0.02)', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <span style={{ fontSize: '1.1rem' }}>{titleIcon}</span>
+                    <span style={{ fontSize: '0.88rem', fontWeight: 800, color: titleColor || 'var(--text-main)' }}>{title}</span>
+                    <span style={{
+                      padding: '2px 10px', borderRadius: '10px', fontSize: '0.7rem', fontWeight: 700,
+                      background: `${titleColor}15`, color: titleColor, border: `1px solid ${titleColor}30`
+                    }}>{list.length}</span>
+                  </div>
+                )}
                 {/* Embedded Filters Toolbar inside the glass panel header */}
                 <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center', padding: '16px 20px', borderBottom: '1px solid var(--border-glass)', background: 'rgba(255,255,255,0.015)' }}>
                   <div style={{ position: 'relative', flex: 1, minWidth: '220px' }}>
@@ -2557,11 +2679,11 @@ export function CollectFeesView({ showToast, readOnly = false }) {
                 </div>
 
                 <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
-                  {list.length === 0 && search ? (
+                  {list.length === 0 ? (
                     <div style={{ padding: '40px 20px', textAlign: 'center', color: 'var(--text-muted)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
-                      <Search size={24} style={{ opacity: 0.35 }} />
-                      <div style={{ fontWeight: 700, fontSize: '0.9rem' }}>No student found starting with "{search}"</div>
-                      <div style={{ fontSize: '0.78rem' }}>Try a different name or clear the search</div>
+                      <Users size={24} style={{ opacity: 0.35 }} />
+                      <div style={{ fontWeight: 700, fontSize: '0.9rem' }}>{search ? `No student found starting with "${search}"` : 'No students in this category'}</div>
+                      <div style={{ fontSize: '0.78rem' }}>{search ? 'Try a different name or clear the search' : ''}</div>
                     </div>
                   ) : (
                     <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
@@ -2654,33 +2776,6 @@ export function CollectFeesView({ showToast, readOnly = false }) {
                                         })}
                                       </div>
                                     )}
-                                    <div style={{ marginLeft: 'auto', flexShrink: 0 }}>
-                                      {!readOnly && !(student.periods.length > 0 && student.overallDue <= 0) && (
-                                        <button
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            handleNewPeriodCollect(student);
-                                          }}
-                                          style={{
-                                            padding: '6px 12px',
-                                            background: 'linear-gradient(135deg, #10b981, #059669)',
-                                            border: 'none',
-                                            borderRadius: '6px',
-                                            color: '#fff',
-                                            fontWeight: 700,
-                                            cursor: 'pointer',
-                                            fontSize: '0.75rem',
-                                            boxShadow: '0 2px 8px rgba(16,185,129,0.15)',
-                                            display: 'inline-flex',
-                                            alignItems: 'center',
-                                            gap: '4px',
-                                            whiteSpace: 'nowrap'
-                                          }}
-                                        >
-                                          <Plus size={12} /> Collect Fee
-                                        </button>
-                                      )}
-                                    </div>
                                   </div>
                                 </div>
                               </td>
@@ -2697,8 +2792,60 @@ export function CollectFeesView({ showToast, readOnly = false }) {
           };
 
           return (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              {renderStudentTable(groupedStudents)}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              {/* Segmented Tab Selector for Bus/Non-Bus */}
+              <div style={{ display: 'flex', gap: '10px', borderBottom: '1px solid var(--border-glass)', paddingBottom: '14px' }}>
+                <button
+                  type="button"
+                  onClick={() => setTransportFilter('bus')}
+                  style={{
+                    padding: '10px 20px',
+                    borderRadius: '10px',
+                    fontSize: '0.85rem',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    border: 'none',
+                    background: transportFilter === 'bus' ? 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)' : 'rgba(255,255,255,0.03)',
+                    color: transportFilter === 'bus' ? '#ffffff' : 'var(--text-muted)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    boxShadow: transportFilter === 'bus' ? '0 4px 12px rgba(59,130,246,0.2)' : 'none',
+                    transition: 'all 0.2s ease'
+                  }}
+                >
+                  🚌 Bus Facility
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTransportFilter('non-bus')}
+                  style={{
+                    padding: '10px 20px',
+                    borderRadius: '10px',
+                    fontSize: '0.85rem',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    border: 'none',
+                    background: transportFilter === 'non-bus' ? 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)' : 'rgba(255,255,255,0.03)',
+                    color: transportFilter === 'non-bus' ? '#ffffff' : 'var(--text-muted)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    boxShadow: transportFilter === 'non-bus' ? '0 4px 12px rgba(245,158,11,0.2)' : 'none',
+                    transition: 'all 0.2s ease'
+                  }}
+                >
+                  📚 Non-Bus Facility
+                </button>
+              </div>
+
+              <div>
+                {transportFilter === 'bus' ? (
+                  renderStudentTable(busStudents, 'Students with Bus Facility', '🚌', '#3b82f6')
+                ) : (
+                  renderStudentTable(nonBusStudents, 'Students without Bus Facility', '📚', '#f59e0b')
+                )}
+              </div>
             </div>
           );
         })()
@@ -5367,7 +5514,7 @@ function Disabled_IncomeView({ showToast, active = true }) {
                   const feeColors = {
                     'Tuition Fee': '#3b82f6',
                     'Admission Fee': '#8b5cf6',
-                    'Exam Fee': '#6366f1',
+                    'Exam Fee': '#FF8C42',
                     'Transport Fee': '#06b6d4',
                     'Other Charges': '#64748b'
                   };
@@ -5813,7 +5960,7 @@ export function ReportsView({ showToast, setAccountantView }) {
   const netProfit = totalInflow - totalOutflow;
   const profitMargin = totalInflow > 0 ? Math.round((netProfit / totalInflow) * 100) : 0;
 
-  // ─── Period-aware filtered totals (Today / This Month / This Year) ───
+  // â”€â”€â”€ Period-aware filtered totals (Today / This Month / This Year) â”€â”€â”€
   const now = new Date();
   const todayStr  = now.toISOString().slice(0, 10);                          // 'YYYY-MM-DD'
   const monthStr  = now.toISOString().slice(0, 7);                           // 'YYYY-MM'
@@ -6028,7 +6175,7 @@ export function ReportsView({ showToast, setAccountantView }) {
   const categoryColors = {
     'Tuition Fee': '#3b82f6',
     'Admission Fee': '#8b5cf6',
-    'Exam Fee': '#6366f1',
+    'Exam Fee': '#FF8C42',
     'Transport Fee': '#06b6d4',
     'Other Charges': '#64748b',
     'Teacher Salary': '#8b5cf6',
@@ -6209,7 +6356,7 @@ export function ReportsView({ showToast, setAccountantView }) {
                 onClick={() => setPeriodFilter(p.key)}
                 style={{
                   border: 'none',
-                  background: periodFilter === p.key ? 'linear-gradient(135deg, #6366f1, #8b5cf6)' : 'transparent',
+                  background: periodFilter === p.key ? 'linear-gradient(135deg, #FF8C42, #8b5cf6)' : 'transparent',
                   color: periodFilter === p.key ? '#fff' : 'var(--text-muted)',
                   fontSize: '0.74rem',
                   fontWeight: 700,
@@ -6217,7 +6364,7 @@ export function ReportsView({ showToast, setAccountantView }) {
                   borderRadius: '8px',
                   cursor: 'pointer',
                   transition: 'all 0.2s ease',
-                  boxShadow: periodFilter === p.key ? '0 2px 8px rgba(99,102,241,0.35)' : 'none'
+                  boxShadow: periodFilter === p.key ? '0 2px 8px rgba(255, 107, 0,0.35)' : 'none'
                 }}
               >
                 {p.label}
@@ -6681,7 +6828,7 @@ export function ReportsView({ showToast, setAccountantView }) {
         <div className="glass-panel animate-scale-up" style={{ padding: '24px', borderRadius: '16px', display: 'flex', flexDirection: 'column', gap: '16px', background: 'var(--bg-glass)', border: '1px solid var(--border-glass)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'rgba(99,102,241,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#6366f1' }}>
+              <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'rgba(255, 107, 0,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#FF8C42' }}>
                 <Users size={18} />
               </div>
               <div>
@@ -6689,7 +6836,7 @@ export function ReportsView({ showToast, setAccountantView }) {
                 <span style={{ fontSize: '0.66rem', color: 'var(--text-muted)' }}>Administrative disbursals</span>
               </div>
             </div>
-            <span style={{ fontSize: '0.66rem', fontWeight: 700, color: '#6366f1', background: 'rgba(99,102,241,0.1)', padding: '4px 10px', borderRadius: '20px' }}>
+            <span style={{ fontSize: '0.66rem', fontWeight: 700, color: '#FF8C42', background: 'rgba(255, 107, 0,0.1)', padding: '4px 10px', borderRadius: '20px' }}>
               {staffPayrollCount} Disbursed
             </span>
           </div>
@@ -6697,7 +6844,7 @@ export function ReportsView({ showToast, setAccountantView }) {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', borderBottom: '1px dashed var(--border-glass)', paddingBottom: '14px' }}>
             <div>
               <span style={{ fontSize: '0.64rem', color: 'var(--text-muted)', display: 'block', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Disbursed Net Pay</span>
-              <strong style={{ fontSize: '1.45rem', fontWeight: 800, color: '#6366f1' }}>₹{staffPayrollPaid.toLocaleString()}</strong>
+              <strong style={{ fontSize: '1.45rem', fontWeight: 800, color: '#FF8C42' }}>₹{staffPayrollPaid.toLocaleString()}</strong>
             </div>
             <div style={{ textAlign: 'right' }}>
               <span style={{ fontSize: '0.64rem', color: 'var(--text-muted)', display: 'block' }}>Basic Total</span>
@@ -6716,7 +6863,7 @@ export function ReportsView({ showToast, setAccountantView }) {
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
               <div style={{ width: '100%', height: '5px', background: 'rgba(255,255,255,0.02)', borderRadius: '2px', overflow: 'hidden', display: 'flex' }}>
-                <div style={{ width: `${staffPayrollBasic > 0 ? Math.round((staffPayrollBasic / (staffPayrollBasic + staffPayrollAllow)) * 100) : 100}%`, height: '100%', background: '#6366f1' }} />
+                <div style={{ width: `${staffPayrollBasic > 0 ? Math.round((staffPayrollBasic / (staffPayrollBasic + staffPayrollAllow)) * 100) : 100}%`, height: '100%', background: '#FF8C42' }} />
                 <div style={{ width: `${staffPayrollAllow > 0 ? Math.round((staffPayrollAllow / (staffPayrollBasic + staffPayrollAllow)) * 100) : 0}%`, height: '100%', background: '#10b981' }} />
               </div>
             </div>
@@ -6869,10 +7016,10 @@ export function ReportsView({ showToast, setAccountantView }) {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
             <div>
               <h4 style={{ fontSize: '0.88rem', fontWeight: 800, color: 'var(--text-main)', margin: 0 }}>Payroll Breakdown</h4>
-              <span style={{ fontSize: '0.66rem', color: 'var(--text-muted)' }}>Basic · Allowances · Deductions</span>
+              <span style={{ fontSize: '0.66rem', color: 'var(--text-muted)' }}>Basic Â· Allowances Â· Deductions</span>
             </div>
             <div style={{ display: 'flex', gap: '8px', fontSize: '0.62rem', fontWeight: 600, color: 'var(--text-muted)' }}>
-              <span style={{ display: 'flex', alignItems: 'center', gap: '3px' }}><span style={{ width: 7, height: 7, borderRadius: 1, background: '#6366f1', display: 'inline-block' }} />Basic</span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '3px' }}><span style={{ width: 7, height: 7, borderRadius: 1, background: '#FF8C42', display: 'inline-block' }} />Basic</span>
               <span style={{ display: 'flex', alignItems: 'center', gap: '3px' }}><span style={{ width: 7, height: 7, borderRadius: 1, background: '#10b981', display: 'inline-block' }} />Allow</span>
               <span style={{ display: 'flex', alignItems: 'center', gap: '3px' }}><span style={{ width: 7, height: 7, borderRadius: 1, background: '#ef4444', display: 'inline-block' }} />Deduct</span>
             </div>
@@ -6896,7 +7043,7 @@ export function ReportsView({ showToast, setAccountantView }) {
                     return (
                       <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', flex: 1 }}>
                         <div style={{ display: 'flex', alignItems: 'flex-end', gap: '3px', height: `${barH}px` }}>
-                          <div style={{ width: '14px', height: `${Math.max(bH, 2)}px`, background: 'linear-gradient(180deg,#6366f1,#4f46e5)', borderRadius: '3px 3px 0 0', transition: 'height 0.5s ease' }} />
+                          <div style={{ width: '14px', height: `${Math.max(bH, 2)}px`, background: 'linear-gradient(180deg,#FF8C42,#e07830)', borderRadius: '3px 3px 0 0', transition: 'height 0.5s ease' }} />
                           <div style={{ width: '14px', height: `${Math.max(aH, 2)}px`, background: 'linear-gradient(180deg,#10b981,#059669)', borderRadius: '3px 3px 0 0', transition: 'height 0.5s ease' }} />
                           <div style={{ width: '14px', height: `${Math.max(dH, 2)}px`, background: 'linear-gradient(180deg,#ef4444,#dc2626)', borderRadius: '3px 3px 0 0', transition: 'height 0.5s ease' }} />
                         </div>
@@ -6911,7 +7058,7 @@ export function ReportsView({ showToast, setAccountantView }) {
                     <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                       <span style={{ fontSize: '0.64rem', fontWeight: 700, color: 'var(--text-muted)', minWidth: '56px' }}>{s.label}</span>
                       <div style={{ flex: 1, height: '6px', background: 'rgba(255,255,255,0.03)', borderRadius: '3px', overflow: 'hidden', display: 'flex' }}>
-                        <div style={{ width: `${(s.basic + s.allow) > 0 ? Math.round((s.basic / (s.basic + s.allow)) * 100) : 50}%`, height: '100%', background: '#6366f1' }} />
+                        <div style={{ width: `${(s.basic + s.allow) > 0 ? Math.round((s.basic / (s.basic + s.allow)) * 100) : 50}%`, height: '100%', background: '#FF8C42' }} />
                         <div style={{ width: `${(s.basic + s.allow) > 0 ? Math.round((s.allow / (s.basic + s.allow)) * 100) : 50}%`, height: '100%', background: '#10b981' }} />
                       </div>
                       <span style={{ fontSize: '0.62rem', color: 'var(--text-muted)', fontWeight: 600, minWidth: '60px', textAlign: 'right' }}>₹{s.net.toLocaleString()}</span>
@@ -6927,7 +7074,7 @@ export function ReportsView({ showToast, setAccountantView }) {
 
       {/* 5. Premium SVG Wave & Area Charts */}
       {(() => {
-        // ── shared SVG path helpers ──────────────────────────────────────────
+        // â”€â”€ shared SVG path helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         const W = 400, H = 100, PAD = 8;
 
         /** Convert an array of values to a smooth cubic-bezier SVG path string */
@@ -6956,7 +7103,7 @@ export function ReportsView({ showToast, setAccountantView }) {
           return `${line} L ${xs[pts.length - 1]} ${h - pad} L ${xs[0]} ${h - pad} Z`;
         };
 
-        // ── build monthly totals for current year ────────────────────────────
+        // â”€â”€ build monthly totals for current year â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         const year = new Date().getFullYear();
         const monthLabels = ['J','F','M','A','M','J','J','A','S','O','N','D'];
         const monthlyFeeIn    = monthLabels.map((_, m) => fees.filter(f => (f.paymentDate||'').startsWith(`${year}-${String(m+1).padStart(2,'0')}`)).reduce((s,f)=>s+(f.paidAmount||0),0));
@@ -6982,7 +7129,7 @@ export function ReportsView({ showToast, setAccountantView }) {
           return expenses.filter(e=>!e.deleted && (e.date||'')=== ds).reduce((s,e)=>s+(e.amount||0),0);
         });
 
-        // ── fee-type pie data as bar segments ────────────────────────────────
+        // â”€â”€ fee-type pie data as bar segments â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         const feeTypes = {};
         fees.forEach(f => { const t = f.feeType || 'Other'; feeTypes[t] = (feeTypes[t]||0) + (f.paidAmount||0); });
 
@@ -7041,7 +7188,7 @@ export function ReportsView({ showToast, setAccountantView }) {
                     <h4 style={{ fontSize: '0.88rem', fontWeight: 800, color: 'var(--text-main)', margin: 0 }}>Net Revenue Wave</h4>
                     <span style={{ fontSize: '0.64rem', color: 'var(--text-muted)' }}>Monthly net profit sinusoidal trend</span>
                   </div>
-                  <span style={{ fontSize: '0.66rem', fontWeight: 700, color: '#6366f1', background: 'rgba(99,102,241,0.1)', padding: '4px 10px', borderRadius: '20px' }}>
+                  <span style={{ fontSize: '0.66rem', fontWeight: 700, color: '#FF8C42', background: 'rgba(255, 107, 0,0.1)', padding: '4px 10px', borderRadius: '20px' }}>
                     ₹{monthlyNet.reduce((a,b)=>a+b,0).toLocaleString()}
                   </span>
                 </div>
@@ -7060,18 +7207,18 @@ export function ReportsView({ showToast, setAccountantView }) {
                   return (
                     <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: '110px', overflow: 'visible' }} preserveAspectRatio="none">
                       <defs>
-                        <linearGradient id="net-pos" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#6366f1" stopOpacity="0.3"/><stop offset="100%" stopColor="#6366f1" stopOpacity="0"/></linearGradient>
+                        <linearGradient id="net-pos" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#FF8C42" stopOpacity="0.3"/><stop offset="100%" stopColor="#FF8C42" stopOpacity="0"/></linearGradient>
                       </defs>
                       {/* Zero baseline */}
                       <line x1={PAD} y1={mid} x2={W-PAD} y2={mid} stroke="rgba(255,255,255,0.08)" strokeWidth="1" strokeDasharray="4,4" />
                       {/* Positive fill */}
                       <path d={`${line} L ${xs[xs.length-1]} ${mid} L ${xs[0]} ${mid} Z`} fill="url(#net-pos)" />
                       {/* Wave line */}
-                      <path d={line} fill="none" stroke="#6366f1" strokeWidth="2.5" strokeLinecap="round" />
+                      <path d={line} fill="none" stroke="#FF8C42" strokeWidth="2.5" strokeLinecap="round" />
                       {/* Positive/negative dots */}
                       {xs.map((x,i) => (
                         <circle key={i} cx={x} cy={ys[i]} r="3"
-                          fill={monthlyNet[i] >= 0 ? '#6366f1' : '#ef4444'}
+                          fill={monthlyNet[i] >= 0 ? '#FF8C42' : '#ef4444'}
                           stroke="rgba(0,0,0,0.3)" strokeWidth="1" />
                       ))}
                     </svg>
@@ -7646,7 +7793,10 @@ export function FeesHistoryView({ showToast }) {
         f.studentId === student.id || f.admissionNumber === student.admissionNumber
       );
 
-      const classStructures = feeStructures.filter(fs => fs.studentClass === student.studentClass);
+      const studentBase = parseGradeName(student.studentClass || '').baseGrade.toLowerCase();
+      const classStructures = feeStructures.filter(fs =>
+        parseGradeName(fs.studentClass || '').baseGrade.toLowerCase() === studentBase
+      );
       const periodNames = [...new Set(classStructures.map(fs => fs.monthRange || 'Full Year'))];
       if (periodNames.length === 0) {
         periodNames.push('Full Year');
@@ -8415,4 +8565,5 @@ export function PayrollHub({ title, type, showToast }) {
     </div>
   );
 }
+
 

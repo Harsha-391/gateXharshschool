@@ -1,4 +1,4 @@
-/* Staff Directory Styling Overrides for SaaS Visuals */
+﻿/* Staff Directory Styling Overrides for SaaS Visuals */
 
 /* Overwrite hardcoded white backgrounds in modals and result card boxes for Dark Theme compatibility */
 [data-theme='dark'] div[style*="background: '#ffffff'"],
@@ -31,3 +31,4 @@
   box-shadow: var(--shadow-md);
   border-color: rgba(hsl(var(--color-primary)), 0.35);
 }
+

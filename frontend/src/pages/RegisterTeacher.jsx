@@ -1,5 +1,6 @@
-import './RegisterTeacher.css';
-import React, { useState, useEffect } from 'react';
+﻿import './RegisterTeacher.css';
+import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import './AddStaff.css';
 import { fetchActiveGrades, fetchActiveSections } from '../utils/grades';
 import { 
@@ -28,6 +29,8 @@ import {
 function SearchableSelect({ options, value, onChange, placeholder, className, style, error }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef(null);
+  const [coords, setCoords] = useState({ top: 0, left: 0, width: 0 });
   
   const filteredOptions = options.filter(opt => 
     opt.label.toLowerCase().includes(searchTerm.toLowerCase())
@@ -35,15 +38,47 @@ function SearchableSelect({ options, value, onChange, placeholder, className, st
   
   const activeLabel = options.find(opt => opt.value === value)?.label || '';
 
+  const updateCoords = () => {
+    if (containerRef.current) {
+      const rect = containerRef.current.getBoundingClientRect();
+      setCoords({
+        top: rect.bottom + window.scrollY,
+        left: rect.left + window.scrollX,
+        width: rect.width
+      });
+    }
+  };
+
+  useEffect(() => {
+    if (isOpen) {
+      updateCoords();
+      window.addEventListener('resize', updateCoords);
+      window.addEventListener('scroll', updateCoords, true);
+      return () => {
+        window.removeEventListener('resize', updateCoords);
+        window.removeEventListener('scroll', updateCoords, true);
+      };
+    }
+  }, [isOpen]);
+
   useEffect(() => {
     if (!isOpen) return;
-    const handleOutsideClick = () => setIsOpen(false);
+    const handleOutsideClick = (e) => {
+      const portalElements = document.querySelectorAll('.searchable-select-portal');
+      let clickedInsidePortal = false;
+      portalElements.forEach(p => {
+        if (p.contains(e.target)) clickedInsidePortal = true;
+      });
+      if (containerRef.current && !containerRef.current.contains(e.target) && !clickedInsidePortal) {
+        setIsOpen(false);
+      }
+    };
     document.addEventListener('click', handleOutsideClick);
     return () => document.removeEventListener('click', handleOutsideClick);
   }, [isOpen]);
 
   return (
-    <div style={{ position: 'relative', width: '100%' }} onClick={(e) => e.stopPropagation()}>
+    <div ref={containerRef} style={{ position: 'relative', width: '100%' }} onClick={(e) => e.stopPropagation()}>
       <div 
         onClick={() => setIsOpen(!isOpen)}
         className={className}
@@ -61,54 +96,68 @@ function SearchableSelect({ options, value, onChange, placeholder, className, st
         </span>
         <ChevronRight size={14} style={{ transform: isOpen ? 'rotate(90deg)' : 'rotate(0)', transition: '0.2s' }} />
       </div>
-      {isOpen && (
-        <div className="glass-panel" style={{
-          position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 1000,
-          background: 'var(--bg-dropdown)', marginTop: '6px',
-          maxHeight: '200px', overflowY: 'auto',
-          padding: '8px', boxShadow: 'var(--shadow-lg)'
+      
+      {isOpen && createPortal(
+        <div className="glass-panel searchable-select-portal" style={{
+          position: 'absolute',
+          top: `${coords.top}px`,
+          left: `${coords.left}px`,
+          width: `${coords.width}px`,
+          zIndex: 999999999,
+          background: 'var(--bg-dropdown)',
+          padding: '8px',
+          boxShadow: 'var(--shadow-lg)',
+          marginTop: '6px',
+          maxHeight: '200px',
+          overflowY: 'auto'
         }}>
           <input 
-            type="text" 
-            value={searchTerm} 
-            onChange={(e) => setSearchTerm(e.target.value)}
+            type="text"
+            className="form-control"
             placeholder="Search..."
-            style={{
-              width: '100%', padding: '10px 12px', borderRadius: '8px',
-              border: '1px solid var(--border-glass)', background: 'var(--bg-surface)',
-              color: 'var(--text-main)', fontSize: '0.85rem', outline: 'none', marginBottom: '4px'
-            }}
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            style={{ marginBottom: '8px', padding: '8px', fontSize: '0.85rem' }}
             autoFocus
           />
           {filteredOptions.length > 0 ? (
             filteredOptions.map(opt => (
               <div 
-                key={opt.value} 
+                key={opt.value}
                 onClick={() => {
                   onChange(opt.value);
                   setIsOpen(false);
                   setSearchTerm('');
                 }}
                 style={{
-                  padding: '10px 12px', borderRadius: '6px', cursor: 'pointer',
-                  background: value === opt.value ? 'rgba(99, 102, 241, 0.1)' : 'transparent',
-                  color: value === opt.value ? 'rgb(99, 102, 241)' : 'var(--text-main)',
-                  fontWeight: value === opt.value ? '600' : 'normal', fontSize: '0.85rem'
+                  padding: '10px 12px',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  background: value === opt.value ? 'rgba(255, 107, 0, 0.1)' : 'transparent',
+                  color: value === opt.value ? 'rgb(255, 107, 0)' : 'var(--text-main)',
+                  fontWeight: value === opt.value ? '600' : 'normal',
+                  fontSize: '0.85rem'
+                }}
+                onMouseEnter={(e) => {
+                  if (value !== opt.value) e.target.style.background = 'var(--bg-glass-active)';
+                }}
+                onMouseLeave={(e) => {
+                  if (value !== opt.value) e.target.style.background = 'transparent';
                 }}
               >
                 {opt.label}
               </div>
             ))
           ) : (
-            <div style={{ padding: '8px', color: 'var(--text-muted)', fontSize: '0.8rem' }}>No matches found</div>
+            <div style={{ padding: '8px', color: 'var(--text-muted)', fontSize: '0.8rem', textAlign: 'center' }}>No matches found</div>
           )}
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
 }
 
-// Drag & Drop File Upload Component
 function DragAndDropFile({ fieldName, label, file, onFileChange, onRemove, accept = "*" }) {
   const [dragOver, setDragOver] = useState(false);
 
@@ -135,8 +184,8 @@ function DragAndDropFile({ fieldName, label, file, onFileChange, onRemove, accep
       onDragEnter={handleDrag} onDragOver={handleDrag} onDragLeave={handleDrag} onDrop={handleDrop}
       style={{
         padding: '16px', borderRadius: '12px', display: 'flex', flexDirection: 'column', gap: '10px',
-        background: dragOver ? 'rgba(99, 102, 241, 0.05)' : 'rgba(255,255,255,0.01)',
-        border: dragOver ? '2px dashed rgb(99, 102, 241)' : '1px solid var(--border-glass)',
+        background: dragOver ? 'rgba(255, 107, 0, 0.05)' : 'rgba(255,255,255,0.01)',
+        border: dragOver ? '2px dashed rgb(255, 107, 0)' : '1px solid var(--border-glass)',
         transition: 'all 0.3s ease', minHeight: '120px', justifyContent: 'center'
       }}
     >
@@ -154,7 +203,7 @@ function DragAndDropFile({ fieldName, label, file, onFileChange, onRemove, accep
       ) : (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', background: 'rgba(255,255,255,0.03)', borderRadius: '8px', border: '1px solid var(--border-glass)' }}>
           <span style={{ fontSize: '0.75rem', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap', maxWidth: '180px', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-            <FileText size={12} style={{ color: 'rgb(99, 102, 241)' }} /> {file.name}
+            <FileText size={12} style={{ color: 'rgb(255, 107, 0)' }} /> {file.name}
           </span>
           <button type="button" onClick={() => onRemove(fieldName)} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '2px', display: 'flex' }}>
             <X size={14} />
@@ -589,7 +638,7 @@ export default function RegisterTeacher({ setActiveView, editData }) {
       {draftSaving && (
         <div style={{
           position: 'fixed', top: '20px', right: '20px', zIndex: 99999,
-          background: 'rgba(99, 102, 241, 0.95)', color: 'white',
+          background: 'rgba(255, 107, 0, 0.95)', color: 'white',
           padding: '10px 18px', borderRadius: '8px', fontSize: '0.8rem',
           fontWeight: 600, boxShadow: 'var(--shadow-md)', display: 'flex',
           alignItems: 'center', gap: '8px', pointerEvents: 'none'
@@ -601,7 +650,7 @@ export default function RegisterTeacher({ setActiveView, editData }) {
       {draftRestoredAlert && (
         <div className="glass-panel animate-slide-down" style={{
           display: 'flex', alignItems: 'center', gap: '10px', padding: '12px 16px',
-          background: 'rgba(99, 102, 241, 0.08)', border: '1px solid rgba(99, 102, 241, 0.2)',
+          background: 'rgba(255, 107, 0, 0.08)', border: '1px solid rgba(255, 107, 0, 0.2)',
           borderRadius: '12px', fontSize: '0.85rem', fontWeight: 600,
           color: 'hsl(var(--color-primary))'
         }}>
@@ -670,7 +719,7 @@ export default function RegisterTeacher({ setActiveView, editData }) {
                 <div><label style={labelStyle}>Employment Type</label><SearchableSelect options={employmentTypeOptions} value={formData.employmentType} onChange={(v) => handleSelectChange('employmentType', v)} placeholder="Select Type" className="form-control" style={inputStyle} /></div>
                 <div>
                   <label style={labelStyle}>Designation</label>
-                  <div style={{ ...inputStyle, background: 'rgba(99, 102, 241, 0.08)', fontWeight: 700, color: 'hsl(var(--color-primary))' }}>Teacher</div>
+                  <div style={{ ...inputStyle, background: 'rgba(255, 107, 0, 0.08)', fontWeight: 700, color: 'hsl(var(--color-primary))' }}>Teacher</div>
                 </div>
                 <div><label style={labelStyle}>Department</label><SearchableSelect options={departmentOptions} value={formData.department} onChange={(v) => handleSelectChange('department', v)} placeholder="Select Department" className="form-control" style={inputStyle} /></div>
                 <div><label style={labelStyle}>Status</label><SearchableSelect options={statusOptions} value={formData.status} onChange={(v) => handleSelectChange('status', v)} placeholder="Select" className="form-control" style={inputStyle} /></div>
@@ -924,7 +973,7 @@ export default function RegisterTeacher({ setActiveView, editData }) {
           {/* STEP 8: Final Review */}
           {activeStep === 8 && (
             <div className="animate-slide-up" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-              <div className="glass-panel" style={{ padding: '24px', background: 'rgba(99, 102, 241, 0.04)', borderColor: 'rgba(99, 102, 241, 0.2)', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <div className="glass-panel" style={{ padding: '24px', background: 'rgba(255, 107, 0, 0.04)', borderColor: 'rgba(255, 107, 0, 0.2)', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <AlertTriangle size={20} style={{ color: 'hsl(var(--color-warning))', flexShrink: 0 }} />
                 <div>
                   <strong style={{ display: 'block', fontSize: '0.9rem' }}>Review Teacher Profile Ledger</strong>
@@ -1078,3 +1127,4 @@ export default function RegisterTeacher({ setActiveView, editData }) {
     </div>
   );
 }
+

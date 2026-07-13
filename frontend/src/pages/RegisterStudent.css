@@ -1,4 +1,4 @@
-/* Register Student Form Page Styling Overrides */
+﻿/* Register Student Form Page Styling Overrides */
 
 /* Overwrite hardcoded white backgrounds in modals and result card boxes for Dark Theme compatibility */
 [data-theme='dark'] div[style*="background: '#ffffff'"],
@@ -25,3 +25,4 @@
   box-shadow: var(--shadow-md);
   margin-top: 20px;
 }
+

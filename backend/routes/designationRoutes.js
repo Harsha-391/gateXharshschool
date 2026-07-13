@@ -26,14 +26,16 @@ const logAudit = (db, req, action, details) => {
 };
 
 // Check reference usages before deleting designation
-const checkDesignationUsage = (db, designationName) => {
-  // 1. Check Staff table
-  const hasStaff = (db.staff || []).some(s => s.role === designationName);
-  if (hasStaff) return 'This designation is currently assigned to one or more staff members.';
-
-  // 2. Check Employees table
-  const hasEmployee = (db.employees || []).some(e => e.designation === designationName);
-  if (hasEmployee) return 'This designation is currently assigned to one or more employees.';
+const checkDesignationUsage = (db, designationName, isStaff) => {
+  if (isStaff) {
+    // 1. Check Staff table
+    const hasStaff = (db.staff || []).some(s => s.role === designationName || s.designation === designationName);
+    if (hasStaff) return 'This designation is currently assigned to one or more staff members.';
+  } else {
+    // 2. Check Employees table
+    const hasEmployee = (db.employees || []).some(e => e.designation === designationName);
+    if (hasEmployee) return 'This designation is currently assigned to one or more employees.';
+  }
 
   return null;
 };
@@ -98,6 +100,10 @@ router.use(ensureTenantSqlLoaded);
 router.get('/', checkViewDesignationPermission, (req, res) => {
   try {
     const db = readDb();
+    const type = req.query.type;
+    if (type === 'staff') {
+      return res.json(db.staffDesignations || []);
+    }
     res.json(db.designations || []);
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch designations: ' + error.message });
@@ -107,20 +113,22 @@ router.get('/', checkViewDesignationPermission, (req, res) => {
 // POST /api/designations
 router.post('/', checkPermission('designation-manager', 'create'), (req, res) => {
   try {
-    const { name, status } = req.body;
+    const { name, status, type } = req.body;
     if (!name || !name.trim()) {
       return res.status(400).json({ error: 'Designation name is required.' });
     }
 
     const db = readDb();
-    if (!db.designations) db.designations = [];
+    const isStaff = type === 'staff';
+    const targetArray = isStaff ? (db.staffDesignations || []) : (db.designations || []);
 
-    const exists = db.designations.some(d => d.name.trim().toLowerCase() === name.trim().toLowerCase());
+    const exists = targetArray.some(d => d.name.trim().toLowerCase() === name.trim().toLowerCase());
     if (exists) {
       return res.status(400).json({ error: 'A designation with this name already exists.' });
     }
 
-    const desigId = `desig-${getActiveTenantId()}-${slugify(name)}`;
+    const idPrefix = isStaff ? 'staff-desig' : 'desig';
+    const desigId = `${idPrefix}-${getActiveTenantId()}-${slugify(name)}`;
     const newDesig = {
       id: desigId,
       name: name.trim(),
@@ -129,8 +137,15 @@ router.post('/', checkPermission('designation-manager', 'create'), (req, res) =>
       updatedAt: new Date().toISOString()
     };
 
-    db.designations.push(newDesig);
-    logAudit(db, req, 'Create Designation', `Created designation: ${name}`);
+    if (isStaff) {
+      if (!db.staffDesignations) db.staffDesignations = [];
+      db.staffDesignations.push(newDesig);
+    } else {
+      if (!db.designations) db.designations = [];
+      db.designations.push(newDesig);
+    }
+
+    logAudit(db, req, `Create ${isStaff ? 'Staff ' : ''}Designation`, `Created designation: ${name}`);
     writeDb(db);
 
     res.status(201).json(newDesig);
@@ -146,32 +161,39 @@ router.put('/:id', checkPermission('designation-manager', 'edit'), (req, res) =>
     const { name, status } = req.body;
 
     const db = readDb();
-    const index = db.designations.findIndex(d => d.id === id);
+    const isStaff = id.startsWith('staff-desig-');
+    const targetArray = isStaff ? (db.staffDesignations || []) : (db.designations || []);
+
+    const index = targetArray.findIndex(d => d.id === id);
     if (index === -1) {
       return res.status(404).json({ error: 'Designation not found.' });
     }
 
-    const desig = db.designations[index];
+    const desig = targetArray[index];
 
     if (name && name.trim().toLowerCase() !== desig.name.toLowerCase()) {
-      const exists = db.designations.some(d => d.name.trim().toLowerCase() === name.trim().toLowerCase() && d.id !== id);
+      const exists = targetArray.some(d => d.name.trim().toLowerCase() === name.trim().toLowerCase() && d.id !== id);
       if (exists) {
         return res.status(400).json({ error: 'Another designation with this name already exists.' });
       }
-      
+
       const oldName = desig.name;
       const newName = name.trim();
       desig.name = newName;
-      
-      if (db.staff) {
-        db.staff.forEach(s => {
-          if (s.role === oldName) s.role = newName;
-        });
-      }
-      if (db.employees) {
-        db.employees.forEach(e => {
-          if (e.designation === oldName) e.designation = newName;
-        });
+
+      if (isStaff) {
+        if (db.staff) {
+          db.staff.forEach(s => {
+            if (s.designation === oldName) s.designation = newName;
+            if (s.role === oldName) s.role = newName;
+          });
+        }
+      } else {
+        if (db.employees) {
+          db.employees.forEach(e => {
+            if (e.designation === oldName) e.designation = newName;
+          });
+        }
       }
     }
 
@@ -180,9 +202,15 @@ router.put('/:id', checkPermission('designation-manager', 'edit'), (req, res) =>
     }
 
     desig.updatedAt = new Date().toISOString();
-    db.designations[index] = desig;
+    targetArray[index] = desig;
 
-    logAudit(db, req, 'Update Designation', `Updated designation: ${desig.name}`);
+    if (isStaff) {
+      db.staffDesignations = targetArray;
+    } else {
+      db.designations = targetArray;
+    }
+
+    logAudit(db, req, `Update ${isStaff ? 'Staff ' : ''}Designation`, `Updated designation: ${desig.name}`);
     writeDb(db);
 
     res.json(desig);
@@ -197,18 +225,27 @@ router.delete('/:id', checkPermission('designation-manager', 'delete'), (req, re
     const { id } = req.params;
 
     const db = readDb();
-    const desig = db.designations.find(d => d.id === id);
+    const isStaff = id.startsWith('staff-desig-');
+    const targetArray = isStaff ? (db.staffDesignations || []) : (db.designations || []);
+
+    const desig = targetArray.find(d => d.id === id);
     if (!desig) {
       return res.status(404).json({ error: 'Designation not found.' });
     }
 
-    const usageError = checkDesignationUsage(db, desig.name);
+    const usageError = checkDesignationUsage(db, desig.name, isStaff);
     if (usageError) {
       return res.status(400).json({ error: usageError });
     }
 
-    db.designations = db.designations.filter(d => d.id !== id);
-    logAudit(db, req, 'Delete Designation', `Deleted designation: ${desig.name}`);
+    const filtered = targetArray.filter(d => d.id !== id);
+    if (isStaff) {
+      db.staffDesignations = filtered;
+    } else {
+      db.designations = filtered;
+    }
+
+    logAudit(db, req, `Delete ${isStaff ? 'Staff ' : ''}Designation`, `Deleted designation: ${desig.name}`);
     writeDb(db);
 
     res.json({ message: 'Designation deleted successfully' });

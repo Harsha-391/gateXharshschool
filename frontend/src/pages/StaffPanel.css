@@ -1,4 +1,4 @@
-/* StaffPanel Page Styling Overrides & Custom Components */
+﻿/* StaffPanel Page Styling Overrides & Custom Components */
 
 /* Roster Table Modernization */
 .student-table {
@@ -80,3 +80,4 @@
   color: var(--text-main) !important;
   border-color: var(--border-glass) !important;
 }
+

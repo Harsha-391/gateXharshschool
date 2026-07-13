@@ -1,4 +1,4 @@
-/* Academic Panel Styling Overrides for SaaS Visuals */
+﻿/* Academic Panel Styling Overrides for SaaS Visuals */
 
 /* Overwrite hardcoded white backgrounds in modals and form wrappers for Dark Theme compatibility */
 [data-theme='dark'] div[style*="background: '#ffffff'"],
@@ -67,3 +67,4 @@
     display: none !important;
   }
 }
+

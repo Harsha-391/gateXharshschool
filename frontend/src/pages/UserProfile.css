@@ -1,4 +1,4 @@
-/* User Profile Panel Overrides for SaaS Visuals */
+﻿/* User Profile Panel Overrides for SaaS Visuals */
 
 /* Overwrite hardcoded white backgrounds in modals and result card boxes for Dark Theme compatibility */
 [data-theme='dark'] div[style*="background: '#ffffff'"],
@@ -33,3 +33,4 @@
   padding: 8px 0;
   border-bottom: 1px dashed var(--border-glass);
 }
+

@@ -78,7 +78,6 @@ const MATRIX_CONFIGURABLE_MODULES = [
   'expense-history',
   'financial-reports',
   'auxiliary-income',
-  'security-audit',
   'roles-permissions',
   'settings'
 ];
@@ -249,7 +248,12 @@ export const checkPermission = (module, action) => {
           'published-timetable',
           'exam-timetable',
           'academic-manager',
-          'academic-calendar'
+          'academic-calendar',
+          'results',
+          'results-manager',
+          'results-marks-entry',
+          'student-directory',
+          'teacher-directory'
         ];
         if (allowedTeacherViewModules.includes(module)) {
           return next();

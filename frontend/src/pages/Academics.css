@@ -1,4 +1,4 @@
-/* Timetable matrix */
+﻿/* Timetable matrix */
 .timetable-grid {
   display: grid;
   grid-template-columns: 90px repeat(5, 1fr);
@@ -83,3 +83,4 @@
     padding-bottom: 12px;
   }
 }
+

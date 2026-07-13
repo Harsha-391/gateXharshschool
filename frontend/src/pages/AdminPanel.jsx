@@ -1,4 +1,4 @@
-import React, { useState, useEffect, lazy, Suspense } from 'react';
+﻿import React, { useState, useEffect, lazy, Suspense } from 'react';
 import './AdminPanel.css';
 import { 
   Users, 
@@ -20,7 +20,8 @@ import {
   RefreshCw,
   Lock,
   Bell,
-  Sun
+  Sun,
+  Activity
 } from 'lucide-react';
 import SkeletonLoader from '../components/SkeletonLoader';
 import KeepAlive from '../components/KeepAlive';
@@ -91,7 +92,7 @@ const ReportsView = lazyWithRetry(() => import('./AccountantPanel').then(m => ({
 const PayrollHistoryView = lazyWithRetry(() => import('./PayrollRedesign').then(m => ({ default: m.PayrollHistoryViewRedesign })));
 const PayrollHub = lazyWithRetry(() => import('./PayrollRedesign').then(m => ({ default: m.PayrollHubRedesign })));
 
-// ─── Overview Stats Card (Theme-Aware) ──────────────────────────────────────
+// â”€â”€â”€ Overview Stats Card (Theme-Aware) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function GenderRatioBar({ maleCount, femaleCount, total }) {
   const malePct = total > 0 ? Math.round((maleCount / total) * 100) : 50;
   const femalePct = 100 - malePct;
@@ -277,9 +278,7 @@ const getViewPermissionModuleAndAction = (view) => {
   if (view === 'auxiliary-income') return { module: 'auxiliary-income', action: 'view' };
   if (view === 'financial-reports') return { module: 'financial-reports', action: 'view' };
   
-  if (view === 'security-audit') {
-    return { module: 'security-audit', action: 'view' };
-  }
+
   if (view === 'roles-permissions') {
     return { module: 'roles-permissions', action: 'view' };
   }
@@ -593,7 +592,9 @@ export default function AdminPanel({ setActiveView, onLogout, adminView, setAdmi
             {/* Section Header */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div>
-                <h2 style={{ fontSize: '1.3rem', fontWeight: 800, margin: '0 0 4px 0', color: 'var(--text-main)' }}>Directory Overview</h2>
+                <h2 style={{ fontSize: '1.3rem', fontWeight: 800, margin: '0 0 4px 0', color: 'var(--text-main)' }}>
+                  <span style={{ color: '#FF8C42' }}>Directory</span> Overview
+                </h2>
                 <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', margin: 0 }}>Live headcount and gender distribution across all categories</p>
               </div>
               <button
@@ -611,7 +612,7 @@ export default function AdminPanel({ setActiveView, onLogout, adminView, setAdmi
               </button>
             </div>
 
-            {/* ── ROW 1: Simple Count Cards ───────────────────────── */}
+            {/* â”€â”€ ROW 1: Simple Count Cards â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px' }}>
 
               {/* Total Students */}
@@ -620,18 +621,19 @@ export default function AdminPanel({ setActiveView, onLogout, adminView, setAdmi
                 onClick={() => setAdminView('students')}
                 style={{
                   cursor: 'pointer', borderRadius: '16px', padding: '24px 20px',
-                  border: '1px solid var(--border-glass)', background: 'var(--bg-card)',
+                  border: '1px solid rgba(255, 107, 0, 0.12)',
+                  background: 'linear-gradient(135deg, var(--bg-card) 0%, rgba(255, 107, 0, 0.02) 100%)',
                   display: 'flex', alignItems: 'center', gap: '18px',
-                  transition: 'transform 0.18s ease, box-shadow 0.18s ease'
+                  transition: 'transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease'
                 }}
-                onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = 'var(--shadow-md)'; }}
-                onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = ''; }}
+                onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = '0 10px 25px -5px rgba(255, 107, 0, 0.12)'; e.currentTarget.style.borderColor = '#FF8C42'; }}
+                onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = ''; e.currentTarget.style.borderColor = 'rgba(255, 107, 0, 0.12)'; }}
               >
                 <div style={{
                   width: '52px', height: '52px', borderRadius: '14px', flexShrink: 0,
-                  background: 'rgba(99,102,241,0.1)', color: '#6366f1',
+                  background: 'rgba(255, 107, 0, 0.08)', color: '#FF8C42',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  border: '1px solid rgba(99,102,241,0.2)'
+                  border: '1px solid rgba(255, 107, 0, 0.15)'
                 }}>
                   <Users size={24} />
                 </div>
@@ -639,7 +641,7 @@ export default function AdminPanel({ setActiveView, onLogout, adminView, setAdmi
                   <div style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '4px' }}>Total Students</div>
                   {statsLoading
                     ? <div style={{ height: '28px', width: '50px', borderRadius: '6px', background: 'var(--border-glass)' }} />
-                    : <div style={{ fontSize: '2rem', fontWeight: 800, color: '#6366f1', lineHeight: 1 }}>{overviewStats.students.total}</div>
+                    : <div style={{ fontSize: '2.2rem', fontWeight: 800, color: '#FF8C42', lineHeight: 1 }}>{overviewStats.students.total}</div>
                   }
                 </div>
               </div>
@@ -650,18 +652,19 @@ export default function AdminPanel({ setActiveView, onLogout, adminView, setAdmi
                 onClick={() => setAdminView('teachers')}
                 style={{
                   cursor: 'pointer', borderRadius: '16px', padding: '24px 20px',
-                  border: '1px solid var(--border-glass)', background: 'var(--bg-card)',
+                  border: '1px solid rgba(255, 107, 0, 0.12)',
+                  background: 'linear-gradient(135deg, var(--bg-card) 0%, rgba(255, 107, 0, 0.02) 100%)',
                   display: 'flex', alignItems: 'center', gap: '18px',
-                  transition: 'transform 0.18s ease, box-shadow 0.18s ease'
+                  transition: 'transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease'
                 }}
-                onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = 'var(--shadow-md)'; }}
-                onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = ''; }}
+                onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = '0 10px 25px -5px rgba(255, 107, 0, 0.12)'; e.currentTarget.style.borderColor = '#FF8C42'; }}
+                onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = ''; e.currentTarget.style.borderColor = 'rgba(255, 107, 0, 0.12)'; }}
               >
                 <div style={{
                   width: '52px', height: '52px', borderRadius: '14px', flexShrink: 0,
-                  background: 'rgba(59,130,246,0.1)', color: '#3b82f6',
+                  background: 'rgba(255, 107, 0, 0.08)', color: '#FF8C42',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  border: '1px solid rgba(59,130,246,0.2)'
+                  border: '1px solid rgba(255, 107, 0, 0.15)'
                 }}>
                   <UserCheck size={24} />
                 </div>
@@ -669,7 +672,7 @@ export default function AdminPanel({ setActiveView, onLogout, adminView, setAdmi
                   <div style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '4px' }}>Total Teachers</div>
                   {statsLoading
                     ? <div style={{ height: '28px', width: '50px', borderRadius: '6px', background: 'var(--border-glass)' }} />
-                    : <div style={{ fontSize: '2rem', fontWeight: 800, color: '#3b82f6', lineHeight: 1 }}>{overviewStats.teachers?.total || 0}</div>
+                    : <div style={{ fontSize: '2.2rem', fontWeight: 800, color: '#FF8C42', lineHeight: 1 }}>{overviewStats.teachers?.total || 0}</div>
                   }
                 </div>
               </div>
@@ -680,18 +683,19 @@ export default function AdminPanel({ setActiveView, onLogout, adminView, setAdmi
                 onClick={() => setAdminView('staff')}
                 style={{
                   cursor: 'pointer', borderRadius: '16px', padding: '24px 20px',
-                  border: '1px solid var(--border-glass)', background: 'var(--bg-card)',
+                  border: '1px solid rgba(255, 107, 0, 0.12)',
+                  background: 'linear-gradient(135deg, var(--bg-card) 0%, rgba(255, 107, 0, 0.02) 100%)',
                   display: 'flex', alignItems: 'center', gap: '18px',
-                  transition: 'transform 0.18s ease, box-shadow 0.18s ease'
+                  transition: 'transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease'
                 }}
-                onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = 'var(--shadow-md)'; }}
-                onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = ''; }}
+                onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = '0 10px 25px -5px rgba(255, 107, 0, 0.12)'; e.currentTarget.style.borderColor = '#FF8C42'; }}
+                onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = ''; e.currentTarget.style.borderColor = 'rgba(255, 107, 0, 0.12)'; }}
               >
                 <div style={{
                   width: '52px', height: '52px', borderRadius: '14px', flexShrink: 0,
-                  background: 'rgba(16,185,129,0.1)', color: '#10b981',
+                  background: 'rgba(255, 107, 0, 0.08)', color: '#FF8C42',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  border: '1px solid rgba(16,185,129,0.2)'
+                  border: '1px solid rgba(255, 107, 0, 0.15)'
                 }}>
                   <UserCheck size={24} />
                 </div>
@@ -699,7 +703,7 @@ export default function AdminPanel({ setActiveView, onLogout, adminView, setAdmi
                   <div style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '4px' }}>Total Staff</div>
                   {statsLoading
                     ? <div style={{ height: '28px', width: '50px', borderRadius: '6px', background: 'var(--border-glass)' }} />
-                    : <div style={{ fontSize: '2rem', fontWeight: 800, color: '#10b981', lineHeight: 1 }}>{overviewStats.staff.total}</div>
+                    : <div style={{ fontSize: '2.2rem', fontWeight: 800, color: '#FF8C42', lineHeight: 1 }}>{overviewStats.staff.total}</div>
                   }
                 </div>
               </div>
@@ -710,18 +714,19 @@ export default function AdminPanel({ setActiveView, onLogout, adminView, setAdmi
                 onClick={() => setAdminView('employees')}
                 style={{
                   cursor: 'pointer', borderRadius: '16px', padding: '24px 20px',
-                  border: '1px solid var(--border-glass)', background: 'var(--bg-card)',
+                  border: '1px solid rgba(255, 107, 0, 0.12)',
+                  background: 'linear-gradient(135deg, var(--bg-card) 0%, rgba(255, 107, 0, 0.02) 100%)',
                   display: 'flex', alignItems: 'center', gap: '18px',
-                  transition: 'transform 0.18s ease, box-shadow 0.18s ease'
+                  transition: 'transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease'
                 }}
-                onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = 'var(--shadow-md)'; }}
-                onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = ''; }}
+                onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = '0 10px 25px -5px rgba(255, 107, 0, 0.12)'; e.currentTarget.style.borderColor = '#FF8C42'; }}
+                onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = ''; e.currentTarget.style.borderColor = 'rgba(255, 107, 0, 0.12)'; }}
               >
                 <div style={{
                   width: '52px', height: '52px', borderRadius: '14px', flexShrink: 0,
-                  background: 'rgba(245,158,11,0.1)', color: '#f59e0b',
+                  background: 'rgba(255, 107, 0, 0.08)', color: '#FF8C42',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  border: '1px solid rgba(245,158,11,0.2)'
+                  border: '1px solid rgba(255, 107, 0, 0.15)'
                 }}>
                   <UserCog size={24} />
                 </div>
@@ -729,22 +734,30 @@ export default function AdminPanel({ setActiveView, onLogout, adminView, setAdmi
                   <div style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '4px' }}>Total Employees</div>
                   {statsLoading
                     ? <div style={{ height: '28px', width: '50px', borderRadius: '6px', background: 'var(--border-glass)' }} />
-                    : <div style={{ fontSize: '2rem', fontWeight: 800, color: '#f59e0b', lineHeight: 1 }}>{overviewStats.employees.total}</div>
+                    : <div style={{ fontSize: '2.2rem', fontWeight: 800, color: '#FF8C42', lineHeight: 1 }}>{overviewStats.employees.total}</div>
                   }
                 </div>
               </div>
 
             </div>
 
-            {/* ── ROW 2: Gender Ratio Cards ────────────────────────── */}
+            {/* â”€â”€ ROW 2: Gender Ratio Cards â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px' }}>
 
               {/* Students Ratio */}
-              <div className="glass-panel" style={{
-                borderRadius: '16px', padding: '20px',
-                border: '1px solid var(--border-glass)', background: 'var(--bg-card)',
-                display: 'flex', flexDirection: 'column', gap: '14px'
-              }}>
+              <div
+                className="glass-panel"
+                style={{
+                  borderRadius: '16px', padding: '20px',
+                  border: '1px solid rgba(255, 107, 0, 0.12)',
+                  background: 'linear-gradient(135deg, var(--bg-card) 0%, rgba(255, 107, 0, 0.02) 100%)',
+                  display: 'flex', flexDirection: 'column', gap: '14px',
+                  transition: 'transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease',
+                  cursor: 'pointer'
+                }}
+                onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = '0 10px 25px -5px rgba(255, 107, 0, 0.12)'; e.currentTarget.style.borderColor = '#FF8C42'; }}
+                onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = ''; e.currentTarget.style.borderColor = 'rgba(255, 107, 0, 0.12)'; }}
+              >
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <div>
                     <div style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Students</div>
@@ -769,11 +782,19 @@ export default function AdminPanel({ setActiveView, onLogout, adminView, setAdmi
               </div>
 
               {/* Teachers Ratio */}
-              <div className="glass-panel" style={{
-                borderRadius: '16px', padding: '20px',
-                border: '1px solid var(--border-glass)', background: 'var(--bg-card)',
-                display: 'flex', flexDirection: 'column', gap: '14px'
-              }}>
+              <div
+                className="glass-panel"
+                style={{
+                  borderRadius: '16px', padding: '20px',
+                  border: '1px solid rgba(255, 107, 0, 0.12)',
+                  background: 'linear-gradient(135deg, var(--bg-card) 0%, rgba(255, 107, 0, 0.02) 100%)',
+                  display: 'flex', flexDirection: 'column', gap: '14px',
+                  transition: 'transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease',
+                  cursor: 'pointer'
+                }}
+                onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = '0 10px 25px -5px rgba(255, 107, 0, 0.12)'; e.currentTarget.style.borderColor = '#FF8C42'; }}
+                onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = ''; e.currentTarget.style.borderColor = 'rgba(255, 107, 0, 0.12)'; }}
+              >
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <div>
                     <div style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Teachers</div>
@@ -798,11 +819,19 @@ export default function AdminPanel({ setActiveView, onLogout, adminView, setAdmi
               </div>
 
               {/* Staff Ratio */}
-              <div className="glass-panel" style={{
-                borderRadius: '16px', padding: '20px',
-                border: '1px solid var(--border-glass)', background: 'var(--bg-card)',
-                display: 'flex', flexDirection: 'column', gap: '14px'
-              }}>
+              <div
+                className="glass-panel"
+                style={{
+                  borderRadius: '16px', padding: '20px',
+                  border: '1px solid rgba(255, 107, 0, 0.12)',
+                  background: 'linear-gradient(135deg, var(--bg-card) 0%, rgba(255, 107, 0, 0.02) 100%)',
+                  display: 'flex', flexDirection: 'column', gap: '14px',
+                  transition: 'transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease',
+                  cursor: 'pointer'
+                }}
+                onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = '0 10px 25px -5px rgba(255, 107, 0, 0.12)'; e.currentTarget.style.borderColor = '#FF8C42'; }}
+                onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = ''; e.currentTarget.style.borderColor = 'rgba(255, 107, 0, 0.12)'; }}
+              >
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <div>
                     <div style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Staff</div>
@@ -827,11 +856,19 @@ export default function AdminPanel({ setActiveView, onLogout, adminView, setAdmi
               </div>
 
               {/* Employees Ratio */}
-              <div className="glass-panel" style={{
-                borderRadius: '16px', padding: '20px',
-                border: '1px solid var(--border-glass)', background: 'var(--bg-card)',
-                display: 'flex', flexDirection: 'column', gap: '14px'
-              }}>
+              <div
+                className="glass-panel"
+                style={{
+                  borderRadius: '16px', padding: '20px',
+                  border: '1px solid rgba(255, 107, 0, 0.12)',
+                  background: 'linear-gradient(135deg, var(--bg-card) 0%, rgba(255, 107, 0, 0.02) 100%)',
+                  display: 'flex', flexDirection: 'column', gap: '14px',
+                  transition: 'transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease',
+                  cursor: 'pointer'
+                }}
+                onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = '0 10px 25px -5px rgba(255, 107, 0, 0.12)'; e.currentTarget.style.borderColor = '#FF8C42'; }}
+                onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = ''; e.currentTarget.style.borderColor = 'rgba(255, 107, 0, 0.12)'; }}
+              >
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <div>
                     <div style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Employees</div>
@@ -857,7 +894,7 @@ export default function AdminPanel({ setActiveView, onLogout, adminView, setAdmi
 
             </div>
 
-            {/* ── ROW 3: Published School Events ─────────────── */}
+            {/* â”€â”€ ROW 3: Published School Events â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
             <div className="glass-panel" style={{
               borderRadius: '16px', padding: '24px',
               border: '1px solid var(--border-glass)', background: 'var(--bg-card)',
@@ -865,7 +902,7 @@ export default function AdminPanel({ setActiveView, onLogout, adminView, setAdmi
             }}>
               <div>
                 <h3 style={{ fontSize: '1.15rem', fontWeight: 800, margin: '0 0 4px 0', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <Calendar size={20} style={{ color: 'hsl(var(--color-primary))' }} /> Published School Events
+                  <Calendar size={20} style={{ color: '#FF8C42' }} /> <span style={{ color: '#FF8C42' }}>Published</span> School Events
                 </h3>
                 <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', margin: 0 }}>Active events broadcasted to the school portal</p>
               </div>
@@ -880,7 +917,7 @@ export default function AdminPanel({ setActiveView, onLogout, adminView, setAdmi
                                      : lowerType.includes('health') || lowerType.includes('well') ? { bg: 'rgba(34,197,94,0.1)', text: '#16a34a' }
                                      : lowerType.includes('celebr') ? { bg: 'rgba(251,146,60,0.1)', text: '#ea580c' }
                                      : lowerType.includes('cultur') ? { bg: 'rgba(168,85,247,0.1)', text: '#9333ea' }
-                                     : { bg: 'rgba(99,102,241,0.1)', text: 'hsl(var(--color-primary))' };
+                                     : { bg: 'rgba(255, 107, 0,0.1)', text: '#FF8C42' };
                     return (
                       <div key={evt.id} style={{
                         padding: '16px', borderRadius: '12px', background: 'var(--bg-glass-active)',
@@ -891,7 +928,7 @@ export default function AdminPanel({ setActiveView, onLogout, adminView, setAdmi
                             padding: '3px 8px', borderRadius: '12px', fontSize: '0.62rem', fontWeight: 700,
                             background: badgeColor.bg, color: badgeColor.text
                           }}>{evt.type || 'Event'}</span>
-                          <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 600 }}>⏰ {evt.startTime || evt.time || ''}{evt.endTime ? ` - ${evt.endTime}` : ''}</span>
+                          <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 600 }}>â° {evt.startTime || evt.time || ''}{evt.endTime ? ` - ${evt.endTime}` : ''}</span>
                         </div>
                         <h4 style={{ fontSize: '0.92rem', fontWeight: 800, margin: 0, color: 'var(--text-main)' }}>{evt.title}</h4>
                         <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', margin: 0 }}>{evt.description || 'No description provided.'}</p>
@@ -900,7 +937,7 @@ export default function AdminPanel({ setActiveView, onLogout, adminView, setAdmi
                           borderTop: '1px solid var(--border-glass)', paddingTop: '8px', color: 'var(--text-muted)', marginTop: '4px'
                         }}>
                           <span>📅 Date: <strong>{new Date(evt.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</strong></span>
-                          <span>📍 Venue: {evt.venue}</span>
+                          <span>ðŸ“ Venue: {evt.venue}</span>
                           <span>👥 Target: {evt.participants}</span>
                         </div>
                       </div>
@@ -914,7 +951,7 @@ export default function AdminPanel({ setActiveView, onLogout, adminView, setAdmi
               )}
             </div>
 
-            {/* ── ROW 4: Published Notice Board ─────────────── */}
+            {/* â”€â”€ ROW 4: Published Notice Board â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
             <div className="glass-panel" style={{
               borderRadius: '16px', padding: '24px',
               border: '1px solid var(--border-glass)', background: 'var(--bg-card)',
@@ -922,7 +959,7 @@ export default function AdminPanel({ setActiveView, onLogout, adminView, setAdmi
             }}>
               <div>
                 <h3 style={{ fontSize: '1.15rem', fontWeight: 800, margin: '0 0 4px 0', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <Bell size={20} style={{ color: '#f59e0b' }} /> Published Notice Board
+                  <Bell size={20} style={{ color: '#FF8C42' }} /> <span style={{ color: '#FF8C42' }}>Published</span> Notice Board
                 </h3>
                 <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', margin: 0 }}>Active notices broadcasted to the school portal</p>
               </div>
@@ -938,7 +975,7 @@ export default function AdminPanel({ setActiveView, onLogout, adminView, setAdmi
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                           <span style={{
                             padding: '3px 8px', borderRadius: '12px', fontSize: '0.62rem', fontWeight: 700,
-                            background: 'rgba(99,102,241,0.1)', color: 'hsl(var(--color-primary))'
+                            background: 'rgba(255, 107, 0,0.1)', color: '#FF8C42'
                           }}>{nt.category}</span>
                         </div>
                         <h4 style={{ fontSize: '0.92rem', fontWeight: 800, margin: 0, color: 'var(--text-main)' }}>{nt.title}</h4>
@@ -948,7 +985,7 @@ export default function AdminPanel({ setActiveView, onLogout, adminView, setAdmi
                           borderTop: '1px solid var(--border-glass)', paddingTop: '8px', color: 'var(--text-muted)', marginTop: '4px'
                         }}>
                           <span>📅 Published: <strong>{new Date(nt.publishDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</strong></span>
-                          {nt.expiryDate && <span>⏳ Expires: <strong>{new Date(nt.expiryDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</strong></span>}
+                          {nt.expiryDate && <span>â³ Expires: <strong>{new Date(nt.expiryDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</strong></span>}
                           <span>👥 Target: {nt.visibility === 'Teachers' ? 'Staff' : nt.visibility}</span>
                         </div>
                       </div>
@@ -962,7 +999,7 @@ export default function AdminPanel({ setActiveView, onLogout, adminView, setAdmi
               )}
             </div>
 
-            {/* ── ROW 5: Published Holidays ─────────────── */}
+            {/* â”€â”€ ROW 5: Published Holidays â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
             <div className="glass-panel" style={{
               borderRadius: '16px', padding: '24px',
               border: '1px solid var(--border-glass)', background: 'var(--bg-card)',
@@ -970,7 +1007,7 @@ export default function AdminPanel({ setActiveView, onLogout, adminView, setAdmi
             }}>
               <div>
                 <h3 style={{ fontSize: '1.15rem', fontWeight: 800, margin: '0 0 4px 0', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <Sun size={20} style={{ color: '#ef4444' }} /> Published Holidays
+                  <Sun size={20} style={{ color: '#FF8C42' }} /> <span style={{ color: '#FF8C42' }}>Published</span> Holidays
                 </h3>
                 <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', margin: 0 }}>Active holidays declared for the school</p>
               </div>
@@ -1113,7 +1150,7 @@ export default function AdminPanel({ setActiveView, onLogout, adminView, setAdmi
           <ReportsView showToast={showToast} />
         </KeepAlive>
 
-        {adminView === 'register-student' && (
+        <KeepAlive active={adminView === 'register-student'}>
           <RegisterStudent 
             editData={editingStudentForRegister}
             setActiveView={(view) => { 
@@ -1125,7 +1162,7 @@ export default function AdminPanel({ setActiveView, onLogout, adminView, setAdmi
               }
             }} 
           />
-        )}
+        </KeepAlive>
 
         <KeepAlive active={adminView === 'student-manager'}>
           <StudentManager showToast={showToast} />
@@ -1315,9 +1352,7 @@ export default function AdminPanel({ setActiveView, onLogout, adminView, setAdmi
           <RolesPermissions onPermissionsSave={fetchUserProfile} />
         </KeepAlive>
 
-        <KeepAlive active={adminView === 'security-audit'}>
-          <RolesPermissions key="security-audit-ledger" initialTab="audit" hideTabs={true} onPermissionsSave={fetchUserProfile} />
-        </KeepAlive>
+
 
         <KeepAlive active={adminView === 'settings'}>
           <Settings showToast={showToast} />
@@ -1367,3 +1402,4 @@ export default function AdminPanel({ setActiveView, onLogout, adminView, setAdmi
     </div>
   );
 }
+

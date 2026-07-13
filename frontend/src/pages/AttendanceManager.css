@@ -1,4 +1,4 @@
-/* Attendance Manager Page Styling Overrides for SaaS Visuals */
+﻿/* Attendance Manager Page Styling Overrides for SaaS Visuals */
 
 /* Overwrite hardcoded white backgrounds in modals and result card boxes for Dark Theme compatibility */
 [data-theme='dark'] div[style*="background: '#ffffff'"],
@@ -32,3 +32,4 @@
   align-items: center;
   gap: 4px;
 }
+

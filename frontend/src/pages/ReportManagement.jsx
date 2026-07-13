@@ -1,4 +1,4 @@
-import './ReportManagement.css';
+﻿import './ReportManagement.css';
 import React, { useState, useEffect } from 'react';
 import {
   FileText, ClipboardList, Users, Calendar,
@@ -134,7 +134,7 @@ export default function ReportManagement({ showToast }) {
       {/* KPI Cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }}>
         {[
-          { label: 'TOTAL SUBMITTED', value: totalCount, icon: <FileText size={22} />, color: '#6366f1' },
+          { label: 'TOTAL SUBMITTED', value: totalCount, icon: <FileText size={22} />, color: '#FF8C42' },
           { label: 'FILED TODAY', value: todayCount, icon: <Activity size={22} />, color: '#2563eb' },
           { label: "THIS MONTH'S FILINGS", value: thisMonthCount, icon: <Calendar size={22} />, color: '#3b82f6' }
         ].map((card, i) => (
@@ -173,10 +173,16 @@ export default function ReportManagement({ showToast }) {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
             <label style={{ fontSize: '0.75rem', fontWeight: 700, color: '#475569', textTransform: 'uppercase' }}>Date Range</label>
             <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-              <input type="date" value={fromDate} onChange={e => setFromDate(e.target.value)} max={todayStr}
+              <input type="date" value={fromDate} onChange={e => {
+                const val = e.target.value;
+                setFromDate(val);
+                if (toDate && val > toDate) {
+                  setToDate(val);
+                }
+              }} max={todayStr}
                 style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#f8fafc', fontSize: '0.8rem', color: '#000000' }} />
               <span style={{ fontSize: '0.8rem', color: '#64748b' }}>to</span>
-              <input type="date" value={toDate} onChange={e => setToDate(e.target.value)} max={todayStr}
+              <input type="date" value={toDate} onChange={e => setToDate(e.target.value)} max={todayStr} min={fromDate}
                 style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#f8fafc', fontSize: '0.8rem', color: '#000000' }} />
             </div>
           </div>
@@ -265,7 +271,7 @@ export default function ReportManagement({ showToast }) {
                         </td>
                         <td style={{ padding: '14px 8px', textAlign: 'left' }}>
                           {entries.map((e, idx) => (
-                            <div key={idx} style={{ margin: idx > 0 ? '4px 0 0 0' : 0, fontWeight: 700, color: '#6366f1' }}>{e.subject}</div>
+                            <div key={idx} style={{ margin: idx > 0 ? '4px 0 0 0' : 0, fontWeight: 700, color: '#FF8C42' }}>{e.subject}</div>
                           ))}
                         </td>
                         <td style={{ padding: '14px 8px', textAlign: 'left' }}>
@@ -283,7 +289,7 @@ export default function ReportManagement({ showToast }) {
                         </td>
                         <td style={{ padding: '14px 8px', textAlign: 'center' }}>
                           <div style={{ display: 'flex', justifyContent: 'center', gap: '6px' }}>
-                            <button onClick={() => setShowDetailModal(report)} title="View Details" style={{ padding: '6px 8px', borderRadius: '6px', border: '1px solid #cbd5e1', background: '#ffffff', color: '#6366f1', cursor: 'pointer' }}>
+                            <button onClick={() => setShowDetailModal(report)} title="View Details" style={{ padding: '6px 8px', borderRadius: '6px', border: '1px solid #cbd5e1', background: '#ffffff', color: '#FF8C42', cursor: 'pointer' }}>
                               <Eye size={14} />
                             </button>
                             <button onClick={() => setReportToDelete(report)} title="Delete" style={{ padding: '6px 8px', borderRadius: '6px', border: '1px solid #ef4444', background: 'rgba(239,68,68,0.05)', color: '#ef4444', cursor: 'pointer' }}>
@@ -315,7 +321,7 @@ export default function ReportManagement({ showToast }) {
                 cursor: 'pointer',
                 fontWeight: 700,
                 fontSize: '0.86rem',
-                background: activeTab === 'today' ? '#6366f1' : '#f1f5f9',
+                background: activeTab === 'today' ? '#FF8C42' : '#f1f5f9',
                 color: activeTab === 'today' ? '#ffffff' : '#475569',
                 transition: 'all 0.2s'
               }}
@@ -331,7 +337,7 @@ export default function ReportManagement({ showToast }) {
                 cursor: 'pointer',
                 fontWeight: 700,
                 fontSize: '0.86rem',
-                background: activeTab === 'history' ? '#6366f1' : '#f1f5f9',
+                background: activeTab === 'history' ? '#FF8C42' : '#f1f5f9',
                 color: activeTab === 'history' ? '#ffffff' : '#475569',
                 transition: 'all 0.2s'
               }}
@@ -418,7 +424,7 @@ export default function ReportManagement({ showToast }) {
                               </div>
                               <div>
                                 <span style={{ fontSize: '0.68rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', display: 'block', marginBottom: '4px', letterSpacing: '0.05em' }}>Subject</span>
-                                <span style={{ fontSize: '0.86rem', fontWeight: 700, color: '#6366f1' }}>{entry.subject}</span>
+                                <span style={{ fontSize: '0.86rem', fontWeight: 700, color: '#FF8C42' }}>{entry.subject}</span>
                               </div>
                               <div>
                                 <span style={{ fontSize: '0.68rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', display: 'block', marginBottom: '4px', letterSpacing: '0.05em' }}>Chapter</span>
@@ -467,7 +473,7 @@ export default function ReportManagement({ showToast }) {
       {reportToDelete && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }} onClick={() => setReportToDelete(null)}>
           <form onClick={e => e.stopPropagation()} onSubmit={handleDeleteSubmit} style={{ background: '#ffffff', borderRadius: '18px', width: '95%', maxWidth: '440px', padding: '28px', boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}>
-            <h3 style={{ margin: '0 0 8px 0', fontSize: '1.1rem', fontWeight: 800, color: '#ef4444' }}>🗑️ Delete Work Report</h3>
+            <h3 style={{ margin: '0 0 8px 0', fontSize: '1.1rem', fontWeight: 800, color: '#ef4444' }}>🗑️ Delete Work Report</h3>
             <p style={{ fontSize: '0.85rem', color: '#64748b', margin: '0 0 20px 0' }}>
               Are you sure you want to permanently delete this work report: <strong>"{reportToDelete.title}"</strong>?
             </p>
@@ -481,3 +487,4 @@ export default function ReportManagement({ showToast }) {
     </div>
   );
 }
+

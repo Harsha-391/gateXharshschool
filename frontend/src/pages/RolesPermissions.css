@@ -1,4 +1,4 @@
-/* Roles & Permissions Styling Overrides for SaaS Visuals */
+﻿/* Roles & Permissions Styling Overrides for SaaS Visuals */
 
 /* Overwrite hardcoded white backgrounds in modals and result card boxes for Dark Theme compatibility */
 [data-theme='dark'] div[style*="background: '#ffffff'"],
@@ -35,3 +35,4 @@
 .audit-trail-row:hover {
   background: var(--bg-card-subtle);
 }
+

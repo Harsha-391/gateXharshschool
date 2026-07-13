@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import './GradeManagement.css';
 import { 
   GraduationCap, 
@@ -665,678 +665,661 @@ export default function GradeManagement({ currentSubView, setAdminView, showToas
       showToast('Bulk deletion failed.', 'danger');
     }
   };
-
   return (
     <div className="grade-management-container" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-      
-      {/* Sub-navigation Menu Header */}
-      <div className="glass-panel" style={{ padding: '8px', display: 'flex', gap: '8px', overflowX: 'auto', borderRadius: '12px' }}>
-        <button 
-          onClick={() => handleTabChange('grade-list')}
-          className={`tab-btn-custom ${activeTab === 'grade-list' ? 'active' : ''}`}
-          style={{
-            display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px', borderRadius: '8px', fontSize: '0.85rem', fontWeight: 600, border: 'none', cursor: 'pointer',
-            background: activeTab === 'grade-list' ? 'rgba(99,102,241,0.1)' : 'transparent',
-            color: activeTab === 'grade-list' ? 'rgb(99,102,241)' : 'var(--text-muted)',
-            transition: 'all 0.2s ease'
-          }}
-        >
-          <List size={16} /> Grade List
-        </button>
-        <button 
-          onClick={() => handleTabChange('add-grade')}
-          className={`tab-btn-custom ${activeTab === 'add-grade' ? 'active' : ''}`}
-          style={{
-            display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px', borderRadius: '8px', fontSize: '0.85rem', fontWeight: 600, border: 'none', cursor: 'pointer',
-            background: activeTab === 'add-grade' ? 'rgba(99,102,241,0.1)' : 'transparent',
-            color: activeTab === 'add-grade' ? 'rgb(99,102,241)' : 'var(--text-muted)',
-            transition: 'all 0.2s ease'
-          }}
-        >
-          <Plus size={16} /> Add Grade
-        </button>
-        <button 
-          onClick={() => handleTabChange('grade-departments')}
-          className={`tab-btn-custom ${activeTab === 'grade-departments' ? 'active' : ''}`}
-          style={{
-            display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px', borderRadius: '8px', fontSize: '0.85rem', fontWeight: 600, border: 'none', cursor: 'pointer',
-            background: activeTab === 'grade-departments' ? 'rgba(99,102,241,0.1)' : 'transparent',
-            color: activeTab === 'grade-departments' ? 'rgb(99,102,241)' : 'var(--text-muted)',
-            transition: 'all 0.2s ease'
-          }}
-        >
-           <Users size={16} /> Departments
-         </button>
-       </div>
+
+      {/* â”€â”€ Tab Navigation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+      <div className="gm-tab-strip">
+        {[
+          { key: 'grade-list', icon: <List size={15} />, label: 'Grade List' },
+          { key: 'add-grade',  icon: <Plus size={15} />, label: 'Add Grade' },
+          { key: 'grade-departments', icon: <Users size={15} />, label: 'Departments' },
+        ].map(tab => (
+          <button
+            key={tab.key}
+            onClick={() => handleTabChange(tab.key)}
+            className={`gm-tab-btn ${activeTab === tab.key ? 'active' : ''}`}
+          >
+            {tab.icon} {tab.label}
+          </button>
+        ))}
+      </div>
 
       {loading ? (
-        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '350px', flexDirection: 'column', gap: '12px' }}>
-          <Loader2 className="animate-spin" size={36} style={{ color: 'rgb(99, 102, 241)' }} />
-          <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Processing dynamic schema sync...</p>
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '350px', flexDirection: 'column', gap: '14px' }}>
+          <Loader2 className="animate-spin" size={36} style={{ color: '#FF8C42' }} />
+          <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', margin: 0 }}>Loading grade data…</p>
         </div>
       ) : (
-        <div className="tab-contents">
-          
-          {/* VIEW 1: GRADE LIST */}
+        <div>
+
+          {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+              VIEW 1 — GRADE LIST
+          â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
           {activeTab === 'grade-list' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-              <div className="glass-panel" style={{ padding: '20px', display: 'flex', flexWrap: 'wrap', gap: '16px', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div style={{ display: 'flex', gap: '12px', flex: 1, minWidth: '280px' }}>
-                  <div className="search-bar-container" style={{ width: '100%', maxWidth: '300px' }}>
-                    <Search size={16} className="search-bar-icon" />
-                    <input 
-                      type="text" 
-                      placeholder="Search grade (e.g. 1, 2)..." 
-                      className="search-bar-input"
-                      value={gradeSearch}
-                      onChange={(e) => { setGradeSearch(e.target.value.replace(/[^0-9]/g, '')); setGradePage(1); }}
-                      style={{ width: '100%' }}
-                    />
-                  </div>
 
+              {/* Stats summary bar */}
+              <div className="gm-stats-bar">
+                <div className="gm-stat-card">
+                  <div className="gm-stat-icon" style={{ background: 'rgba(255,107,0,0.1)' }}>
+                    <GraduationCap size={20} style={{ color: '#FF8C42' }} />
+                  </div>
+                  <div>
+                    <div className="gm-stat-value">{displayGrades.length}</div>
+                    <div className="gm-stat-label">Total Grades</div>
+                  </div>
                 </div>
-
-                {selectedGrades.length > 0 && (
-                  <div style={{ display: 'flex', gap: '10px' }}>
-                    <button onClick={handleBulkDeleteGrades} className="btn-danger" style={{ padding: '8px 14px', fontSize: '0.85rem', background: '#ef4444', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer' }}>
-                      Delete Selected
-                    </button>
+                <div className="gm-stat-card">
+                  <div className="gm-stat-icon" style={{ background: 'rgba(59,130,246,0.1)' }}>
+                    <Users size={20} style={{ color: '#3b82f6' }} />
                   </div>
+                  <div>
+                    <div className="gm-stat-value" style={{ color: '#3b82f6' }}>
+                      {displayGrades.reduce((sum, g) => sum + (g.sections?.length || 0), 0)}
+                    </div>
+                    <div className="gm-stat-label">Total Sections</div>
+                  </div>
+                </div>
+                <div className="gm-stat-card">
+                  <div className="gm-stat-icon" style={{ background: 'rgba(16,185,129,0.1)' }}>
+                    <BookOpen size={20} style={{ color: '#10b981' }} />
+                  </div>
+                  <div>
+                    <div className="gm-stat-value" style={{ color: '#10b981' }}>{subjects.length}</div>
+                    <div className="gm-stat-label">Total Subjects</div>
+                  </div>
+                </div>
+                <div className="gm-stat-card">
+                  <div className="gm-stat-icon" style={{ background: 'rgba(168,85,247,0.1)' }}>
+                    <Settings size={20} style={{ color: '#a855f7' }} />
+                  </div>
+                  <div>
+                    <div className="gm-stat-value" style={{ color: '#a855f7' }}>{departments.length}</div>
+                    <div className="gm-stat-label">Departments</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Search + bulk-delete toolbar */}
+              <div className="glass-panel" style={{ padding: '14px 18px', display: 'flex', flexWrap: 'wrap', gap: '12px', justifyContent: 'space-between', alignItems: 'center', border: '1.5px solid rgba(255,107,0,0.1)', borderRadius: '14px', background: 'var(--bg-card)' }}>
+                <div className="gm-search-wrap">
+                  <Search size={15} />
+                  <input
+                    type="text"
+                    placeholder="Search grade (e.g. 1, 2)…"
+                    className="gm-search-input"
+                    value={gradeSearch}
+                    onChange={e => { setGradeSearch(e.target.value.replace(/[^0-9]/g, '')); setGradePage(1); }}
+                  />
+                </div>
+                {selectedGrades.length > 0 && (
+                  <button onClick={handleBulkDeleteGrades} className="gm-btn-danger">
+                    <Trash2 size={14} /> Delete Selected ({selectedGrades.length})
+                  </button>
                 )}
               </div>
 
-              <div className="glass-panel" style={{ padding: '24px', maxHeight: '720px', overflowY: 'auto' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '24px' }}>
-                  {displayGrades.length > 0 ? (
-                    displayGrades.map((g) => {
-                      const rowKey = g.displayId || g.id;
-                      const gradeSections = g.sections || [];
-                      const gradeSubjectsList = subjects.filter(sub => sub.grade?.toUpperCase() === g.displayName?.toUpperCase());
+              {/* Cards grid */}
+              <div className="gm-cards-grid">
+                {displayGrades.length > 0 ? displayGrades.map(g => {
+                  const rowKey = g.displayId || g.id;
+                  const gradeSections = g.sections || [];
+                  const gradeSubjectsList = subjects.filter(sub => sub.grade?.toUpperCase() === g.displayName?.toUpperCase());
 
-                      return (
-                        <div key={rowKey} className="glass-panel" style={{ display: 'flex', flexDirection: 'column', padding: '24px', borderRadius: '16px', border: '1px solid var(--border-glass)', background: 'var(--bg-card-subtle)', position: 'relative', transition: 'transform 0.2s ease, box-shadow 0.2s ease', minHeight: '280px' }}>
-                          
-                          {/* Checkbox for bulk delete */}
-                          <div style={{ position: 'absolute', top: '20px', left: '20px', zIndex: 5 }}>
-                            <input 
-                              type="checkbox" 
-                              checked={selectedGrades.includes(rowKey)} 
-                              onChange={(e) => {
-                                if (e.target.checked) {
-                                  setSelectedGrades(prev => [...prev, rowKey]);
-                                } else {
-                                  setSelectedGrades(prev => prev.filter(id => id !== rowKey));
-                                }
-                              }}
-                              style={{ width: '16px', height: '16px', cursor: 'pointer' }}
-                            />
-                          </div>
+                  return (
+                    <div key={rowKey} className="gm-grade-card">
 
-                          {/* Grade Header */}
-                          <div style={{ paddingLeft: '28px', marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px' }}>
-                            <div>
-                              <h4 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 800, color: 'var(--text-main)' }}>{g.name}</h4>
-                              {g.deptName !== 'None' && (
-                                <span style={{ display: 'inline-block', background: 'rgba(99, 102, 241, 0.1)', color: 'rgb(99, 102, 241)', padding: '2px 8px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 700, marginTop: '4px' }}>
-                                  {g.deptName}
-                                </span>
-                              )}
-                            </div>
-                            <div style={{ display: 'flex', gap: '6px' }}>
-                              <button type="button" onClick={() => {
-                                const mappedDepts = mappings.filter(m => m.gradeId === g.id).map(m => m.departmentId);
-                                setEditingGrade({
-                                  ...g,
-                                  selectedDepts: mappedDepts
-                                });
-                              }} className="btn-secondary" style={{ padding: '6px', minWidth: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', borderRadius: '8px' }} title="Edit Grade Name">
-                                <Edit3 size={14} />
-                              </button>
-                              <button type="button" onClick={() => handleDeleteGrade(g)} className="btn-danger" style={{ padding: '6px', minWidth: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', borderRadius: '8px', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: 'none' }} title="Delete Grade">
-                                <Trash2 size={14} />
-                              </button>
-                            </div>
-                          </div>
+                      {/* Checkbox */}
+                      <div style={{ position: 'absolute', top: '20px', left: '18px' }}>
+                        <input
+                          type="checkbox"
+                          checked={selectedGrades.includes(rowKey)}
+                          onChange={e => {
+                            if (e.target.checked) setSelectedGrades(prev => [...prev, rowKey]);
+                            else setSelectedGrades(prev => prev.filter(id => id !== rowKey));
+                          }}
+                          style={{ width: '15px', height: '15px', cursor: 'pointer', accentColor: '#FF8C42' }}
+                        />
+                      </div>
 
-                          {/* Card Sections List */}
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', flex: 1 }}>
-                            <div>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-muted)', fontSize: '0.8rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '8px' }}>
-                                <Users size={14} /> Sections ({gradeSections.length})
-                              </div>
-                              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                                {gradeSections.length > 0 ? (
-                                  gradeSections.map((secName, idx) => (
-                                    <span 
-                                      key={idx} 
-                                      style={{ 
-                                        background: 'var(--bg-form)', 
-                                        border: '1px solid var(--border-glass)', 
-                                        padding: '4px 8px 4px 10px', 
-                                        borderRadius: '8px', 
-                                        fontSize: '0.8rem', 
-                                        fontWeight: 600, 
-                                        color: 'var(--text-main)',
-                                        display: 'inline-flex',
-                                        alignItems: 'center',
-                                        gap: '6px'
-                                      }}
-                                    >
-                                      {secName}
-                                      <button
-                                        type="button"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          handleRemoveSectionDirectly(g, secName);
-                                        }}
-                                        style={{
-                                          background: 'none',
-                                          border: 'none',
-                                          padding: 0,
-                                          margin: 0,
-                                          display: 'inline-flex',
-                                          alignItems: 'center',
-                                          justifyContent: 'center',
-                                          cursor: 'pointer',
-                                          color: 'var(--text-muted)',
-                                          transition: 'color 0.2s'
-                                        }}
-                                        onMouseEnter={(e) => e.currentTarget.style.color = '#ef4444'}
-                                        onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text-muted)'}
-                                        title={`Remove Section ${secName}`}
-                                      >
-                                        <X size={10} />
-                                      </button>
-                                    </span>
-                                  ))
-                                ) : (
-                                  <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem', fontStyle: 'italic' }}>No sections assigned</span>
-                                )}
-                              </div>
-                            </div>
- 
-                            {/* Card Subjects List */}
-                            <div>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-muted)', fontSize: '0.8rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '8px' }}>
-                                <BookOpen size={14} /> Subjects ({gradeSubjectsList.length})
-                              </div>
-                              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                                {gradeSubjectsList.length > 0 ? (
-                                  gradeSubjectsList.map((sub, idx) => (
-                                    <span 
-                                      key={idx} 
-                                      style={{ 
-                                        background: 'rgba(16, 185, 129, 0.08)', 
-                                        border: '1px solid rgba(16, 185, 129, 0.15)', 
-                                        color: '#10b981', 
-                                        padding: '4px 8px 4px 10px', 
-                                        borderRadius: '8px', 
-                                        fontSize: '0.8rem', 
-                                        fontWeight: 600,
-                                        display: 'inline-flex',
-                                        alignItems: 'center',
-                                        gap: '6px'
-                                      }}
-                                    >
-                                      {sub.subjectName}
-                                      <button
-                                        type="button"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          handleDeleteModalSubject(sub.id, sub.subjectName);
-                                        }}
-                                        style={{
-                                          background: 'none',
-                                          border: 'none',
-                                          padding: 0,
-                                          margin: 0,
-                                          display: 'inline-flex',
-                                          alignItems: 'center',
-                                          justifyContent: 'center',
-                                          cursor: 'pointer',
-                                          color: '#10b981',
-                                          opacity: 0.6,
-                                          transition: 'all 0.2s'
-                                        }}
-                                        onMouseEnter={(e) => { e.currentTarget.style.color = '#ef4444'; e.currentTarget.style.opacity = 1; }}
-                                        onMouseLeave={(e) => { e.currentTarget.style.color = '#10b981'; e.currentTarget.style.opacity = 0.6; }}
-                                        title={`Delete Subject ${sub.subjectName}`}
-                                      >
-                                        <X size={10} />
-                                      </button>
-                                    </span>
-                                  ))
-                                ) : (
-                                  <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem', fontStyle: 'italic' }}>No subjects registered</span>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Card Options / Actions Footer */}
-                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginTop: '20px', borderTop: '1px solid var(--border-glass)', paddingTop: '16px' }}>
-                            <button 
-                              type="button" 
-                              onClick={() => setSectionModalGrade(g)}
-                              className="btn-secondary" 
-                              style={{ padding: '10px', fontSize: '0.85rem', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', cursor: 'pointer', borderRadius: '10px' }}
-                            >
-                              <Plus size={14} /> Add Section
-                            </button>
-                            <button 
-                              type="button" 
-                              onClick={() => setSubjectModalGrade(g)}
-                              className="btn-primary" 
-                              style={{ padding: '10px', fontSize: '0.85rem', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', cursor: 'pointer', borderRadius: '10px', background: 'rgb(99, 102, 241)', color: 'white', border: 'none' }}
-                            >
-                              <BookOpen size={14} /> Grade Subjects
-                            </button>
+                      {/* Header */}
+                      <div className="gm-grade-card-header">
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1, minWidth: 0 }}>
+                          <div className="gm-grade-avatar">{g.name?.charAt(0)}</div>
+                          <div style={{ minWidth: 0 }}>
+                            <h4 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 800, color: 'var(--text-main)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              Grade {g.name}
+                            </h4>
+                            {g.deptName !== 'None' && (
+                              <span className="gm-grade-badge">{g.deptName}</span>
+                            )}
                           </div>
                         </div>
-                      );
-                    })
-                  ) : (
-                    <div className="glass-panel" style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '60px', color: 'var(--text-muted)' }}>
-                      No grades found.
+                        <div style={{ display: 'flex', gap: '5px', flexShrink: 0 }}>
+                          <button
+                            type="button"
+                            className="gm-icon-btn"
+                            title="Edit Grade"
+                            onClick={() => {
+                              const mappedDepts = mappings.filter(m => m.gradeId === g.id).map(m => m.departmentId);
+                              setEditingGrade({ ...g, selectedDepts: mappedDepts });
+                            }}
+                          >
+                            <Edit3 size={13} />
+                          </button>
+                          <button
+                            type="button"
+                            className="gm-icon-btn danger"
+                            title="Delete Grade"
+                            onClick={() => handleDeleteGrade(g)}
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="gm-divider" style={{ marginBottom: '12px' }} />
+
+                      {/* Body */}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', flex: 1 }}>
+
+                        {/* Sections */}
+                        <div>
+                          <div className="gm-card-section-label">
+                            <Users size={12} style={{ color: '#FF8C42' }} />
+                            Sections ({gradeSections.length})
+                          </div>
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px' }}>
+                            {gradeSections.length > 0 ? gradeSections.map((secName, idx) => (
+                              <span key={idx} className="gm-chip gm-chip-section">
+                                {secName}
+                                <button
+                                  type="button"
+                                  className="gm-chip-del"
+                                  title={`Remove ${secName}`}
+                                  onClick={e => { e.stopPropagation(); handleRemoveSectionDirectly(g, secName); }}
+                                >
+                                  <X size={9} />
+                                </button>
+                              </span>
+                            )) : (
+                              <span style={{ color: 'var(--text-muted)', fontSize: '0.78rem', fontStyle: 'italic' }}>No sections assigned</span>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Subjects */}
+                        <div>
+                          <div className="gm-card-section-label">
+                            <BookOpen size={12} style={{ color: '#10b981' }} />
+                            Subjects ({gradeSubjectsList.length})
+                          </div>
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px' }}>
+                            {gradeSubjectsList.length > 0 ? gradeSubjectsList.map((sub, idx) => (
+                              <span key={idx} className="gm-chip gm-chip-subject">
+                                {sub.subjectName}
+                                <button
+                                  type="button"
+                                  className="gm-chip-del"
+                                  style={{ color: '#10b981', opacity: 0.7 }}
+                                  title={`Delete ${sub.subjectName}`}
+                                  onClick={e => { e.stopPropagation(); handleDeleteModalSubject(sub.id, sub.subjectName); }}
+                                >
+                                  <X size={9} />
+                                </button>
+                              </span>
+                            )) : (
+                              <span style={{ color: 'var(--text-muted)', fontSize: '0.78rem', fontStyle: 'italic' }}>No subjects registered</span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Footer */}
+                      <div className="gm-card-footer">
+                        <button type="button" className="gm-btn-outline" onClick={() => setSectionModalGrade(g)}>
+                          <Plus size={13} /> Sections
+                        </button>
+                        <button type="button" className="gm-btn-solid" onClick={() => setSubjectModalGrade(g)}>
+                          <BookOpen size={13} /> Subjects
+                        </button>
+                      </div>
+
                     </div>
-                  )}
-                </div>
+                  );
+                }) : (
+                  <div style={{ gridColumn: '1 / -1' }}>
+                    <div className="gm-empty">
+                      <div className="gm-empty-icon"><GraduationCap size={26} /></div>
+                      <div style={{ fontWeight: 700, fontSize: '0.95rem' }}>No grades found</div>
+                      <div style={{ fontSize: '0.82rem' }}>Click "Add Grade" to create your first grade.</div>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Edit Grade Modal */}
               {editingGrade && (
-                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', zIndex: 10000000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
-                  <form onSubmit={handleUpdateGrade} className="glass-panel" style={{ padding: '24px', width: '90%', maxWidth: '400px', display: 'flex', flexDirection: 'column', gap: '16px', background: 'var(--bg-elevated)', borderRadius: '16px', boxShadow: '0 25px 50px rgba(0,0,0,0.3)', position: 'relative' }}>
-                    <button type="button" onClick={() => setEditingGrade(null)} style={{ position: 'absolute', top: '16px', right: '16px', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }} title="Close Form">
-                      <X size={20} />
-                    </button>
-                    <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 800 }}>Edit Grade</h3>
-                    <div>
-                      <label style={{ fontSize: '0.8rem', fontWeight: 600, display: 'block', marginBottom: '6px' }}>Grade Name</label>
-                      <input 
-                        type="text" 
-                        name="gradeName"
-                        data-type="grade-name"
-                        className="form-control grade-name-input" 
-                        value={editingGrade.name} 
-                        onChange={(e) => setEditingGrade({ ...editingGrade, name: e.target.value })}
-                        required
-                      />
-                    </div>
-
-                    {showDeptsSelector(editingGrade.name) && (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                        <label style={{ fontSize: '0.8rem', fontWeight: 600, display: 'block' }}>Select Departments</label>
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
-                          {departments.map(dept => {
-                            const isChecked = (editingGrade.selectedDepts || []).includes(dept.id);
-                            return (
-                              <label key={dept.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 10px', background: 'var(--bg-form)', border: '1px solid var(--border-glass)', borderRadius: '8px', cursor: 'pointer', fontSize: '0.8rem' }}>
-                                <input 
-                                  type="checkbox"
-                                  checked={isChecked}
-                                  onChange={(e) => {
-                                    const currentSelected = editingGrade.selectedDepts || [];
-                                    if (e.target.checked) {
-                                      setEditingGrade(prev => ({
-                                        ...prev,
-                                        selectedDepts: [...currentSelected, dept.id]
-                                      }));
-                                    } else {
-                                      setEditingGrade(prev => ({
-                                        ...prev,
-                                        selectedDepts: currentSelected.filter(id => id !== dept.id)
-                                      }));
-                                    }
-                                  }}
-                                />
-                                {dept.name}
-                              </label>
-                            );
-                          })}
-                        </div>
+                <div className="gm-modal-overlay">
+                  <form onSubmit={handleUpdateGrade} className="gm-modal-box" style={{ maxWidth: '420px' }}>
+                    <div className="gm-modal-header">
+                      <div>
+                        <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 800 }}>
+                          <span style={{ color: '#FF8C42' }}>Edit</span> Grade
+                        </h3>
+                        <p style={{ margin: '3px 0 0', fontSize: '0.8rem', color: 'var(--text-muted)' }}>Update grade name or department mapping</p>
                       </div>
-                    )}
+                      <button type="button" className="gm-modal-close" onClick={() => setEditingGrade(null)}>
+                        <X size={16} />
+                      </button>
+                    </div>
+                    <div className="gm-modal-body">
+                      <div className="gm-form-group">
+                        <label className="gm-label">Grade Name</label>
+                        <input
+                          type="text"
+                          name="gradeName"
+                          data-type="grade-name"
+                          className="gm-input grade-name-input"
+                          value={editingGrade.name}
+                          onChange={e => setEditingGrade({ ...editingGrade, name: e.target.value })}
+                          required
+                        />
+                      </div>
 
-                    <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '8px' }}>
-                      <button type="button" onClick={() => setEditingGrade(null)} className="btn-secondary" style={{ padding: '8px 16px', cursor: 'pointer' }}>Cancel</button>
-                      <button type="submit" className="btn-primary" style={{ padding: '8px 16px', cursor: 'pointer' }}>Save Changes</button>
+                      {showDeptsSelector(editingGrade.name) && (
+                        <div className="gm-form-group">
+                          <label className="gm-label">Select Departments</label>
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                            {departments.map(dept => {
+                              const isChecked = (editingGrade.selectedDepts || []).includes(dept.id);
+                              return (
+                                <label key={dept.id} className={`gm-dept-checkbox-label ${isChecked ? 'checked' : ''}`}>
+                                  <input
+                                    type="checkbox"
+                                    checked={isChecked}
+                                    onChange={e => {
+                                      const cur = editingGrade.selectedDepts || [];
+                                      setEditingGrade(prev => ({
+                                        ...prev,
+                                        selectedDepts: e.target.checked
+                                          ? [...cur, dept.id]
+                                          : cur.filter(id => id !== dept.id)
+                                      }));
+                                    }}
+                                    style={{ accentColor: '#FF8C42' }}
+                                  />
+                                  {dept.name}
+                                </label>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="gm-modal-footer">
+                        <button type="button" className="gm-btn-cancel" onClick={() => setEditingGrade(null)}>Cancel</button>
+                        <button type="submit" className="gm-btn-solid" style={{ padding: '9px 22px' }}>Save Changes</button>
+                      </div>
                     </div>
                   </form>
                 </div>
               )}
+
             </div>
           )}
 
-          {/* VIEW 2: ADD GRADE */}
+          {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+              VIEW 2 — ADD GRADE
+          â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
           {activeTab === 'add-grade' && (
-            <div className="glass-panel" style={{ padding: '30px', maxWidth: '500px', margin: '0 auto' }}>
-              <h3 style={{ margin: '0 0 20px 0', fontSize: '1.2rem', fontWeight: 800 }}>Create New Grade / Class</h3>
-              <form onSubmit={handleCreateGrade} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            <div style={{ maxWidth: '520px', margin: '0 auto' }}>
+              <div className="gm-form-panel">
                 <div>
-                  <label style={{ fontSize: '0.85rem', fontWeight: 700, display: 'block', marginBottom: '6px', color: 'var(--text-main)' }}>Grade Name / Class</label>
-                  <input 
-                    type="text" 
-                    name="gradeName"
-                    data-type="grade-name"
-                    placeholder="e.g. XI, XII, Grade 5, LKG"
-                    className="form-control grade-name-input"
-                    value={newGrade.name}
-                    onChange={(e) => setNewGrade({ ...newGrade, name: e.target.value })}
-                    required
-                  />
-                  <small style={{ color: 'var(--text-muted)', fontSize: '0.75rem', marginTop: '4px', display: 'block' }}>
-                    Type standard roman class numbers (XI/XII) to display special department mapping selectors.
-                  </small>
+                  <h3 className="gm-form-title"><span style={{ color: '#FF8C42' }}>Create</span> New Grade / Class</h3>
+                  <p style={{ margin: '4px 0 0', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+                    Register a new grade level for your school
+                  </p>
                 </div>
 
-                {showDeptsSelector(newGrade.name) && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                    <label style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-main)' }}>Select Departments</label>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
-                      {departments.map(dept => {
-                        const isChecked = newGrade.selectedDepts.includes(dept.id);
-                        return (
-                          <label key={dept.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'var(--bg-form)', border: '1px solid var(--border-glass)', borderRadius: '8px', cursor: 'pointer', fontSize: '0.85rem' }}>
-                            <input 
-                              type="checkbox"
-                              checked={isChecked}
-                              onChange={(e) => {
-                                if (e.target.checked) {
-                                  setNewGrade(prev => ({
-                                    ...prev,
-                                    selectedDepts: [...prev.selectedDepts, dept.id]
-                                  }));
-                                } else {
-                                  setNewGrade(prev => ({
-                                    ...prev,
-                                    selectedDepts: prev.selectedDepts.filter(id => id !== dept.id)
-                                  }));
-                                }
-                              }}
-                            />
-                            {dept.name}
-                          </label>
-                        );
-                      })}
-                    </div>
+                <div className="gm-divider" />
+
+                <form onSubmit={handleCreateGrade} style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+                  <div className="gm-form-group">
+                    <label className="gm-label">Grade Name / Class</label>
+                    <input
+                      type="text"
+                      name="gradeName"
+                      data-type="grade-name"
+                      placeholder="e.g. XI, XII, Grade 5, LKG"
+                      className="gm-input grade-name-input"
+                      value={newGrade.name}
+                      onChange={e => setNewGrade({ ...newGrade, name: e.target.value })}
+                      required
+                    />
+                    <span className="gm-input-hint">
+                      Use standard roman numerals (XI / XII) to reveal department mapping options.
+                    </span>
                   </div>
-                )}
 
+                  {showDeptsSelector(newGrade.name) && (
+                    <div className="gm-form-group">
+                      <label className="gm-label">Select Departments</label>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                        {departments.map(dept => {
+                          const isChecked = newGrade.selectedDepts.includes(dept.id);
+                          return (
+                            <label key={dept.id} className={`gm-dept-checkbox-label ${isChecked ? 'checked' : ''}`}>
+                              <input
+                                type="checkbox"
+                                checked={isChecked}
+                                onChange={e => {
+                                  if (e.target.checked) setNewGrade(prev => ({ ...prev, selectedDepts: [...prev.selectedDepts, dept.id] }));
+                                  else setNewGrade(prev => ({ ...prev, selectedDepts: prev.selectedDepts.filter(id => id !== dept.id) }));
+                                }}
+                                style={{ accentColor: '#FF8C42' }}
+                              />
+                              {dept.name}
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
 
-                <button type="submit" className="btn-primary" style={{ padding: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', background: 'rgb(99, 102, 241)', color: 'white', border: 'none', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer', marginTop: '10px' }}>
-                  <Save size={18} /> Register Grade
-                </button>
-              </form>
+                  <button type="submit" className="gm-btn-solid" style={{ padding: '12px', marginTop: '4px' }}>
+                    <Save size={16} /> Register Grade
+                  </button>
+                </form>
+              </div>
             </div>
           )}
 
-          {/* VIEW 3: DEPARTMENTS */}
+          {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+              VIEW 3 — DEPARTMENTS
+          â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
           {activeTab === 'grade-departments' && (
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '20px' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px' }}>
-                {/* Department Form */}
-                <div className="glass-panel" style={{ padding: '24px' }}>
-                  <h3 style={{ margin: '0 0 16px 0', fontSize: '1.1rem', fontWeight: 800 }}>Add Department</h3>
-                  <form onSubmit={handleCreateDept} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                    <div>
-                      <label style={{ fontSize: '0.8rem', fontWeight: 600, display: 'block', marginBottom: '6px' }}>Department Name</label>
-                      <input 
-                        type="text" 
-                        placeholder="e.g. Arts, Science Biology"
-                        className="form-control"
-                        value={newDept.name}
-                        onChange={(e) => setNewDept({ ...newDept, name: e.target.value })}
-                        required
-                      />
-                    </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px' }}>
 
-                    <button type="submit" className="btn-primary" style={{ padding: '10px', background: 'rgb(99, 102, 241)', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer' }}>
-                      Register Department
-                    </button>
-                  </form>
+              {/* Add Department Form */}
+              <div className="gm-form-panel">
+                <div>
+                  <h3 className="gm-form-title"><span style={{ color: '#FF8C42' }}>Add</span> Department</h3>
+                  <p style={{ margin: '4px 0 0', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+                    Create a new academic department for Grades XI & XII
+                  </p>
                 </div>
+                <div className="gm-divider" />
+                <form onSubmit={handleCreateDept} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                  <div className="gm-form-group">
+                    <label className="gm-label">Department Name</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Arts, Science Biology"
+                      className="gm-input"
+                      value={newDept.name}
+                      onChange={e => setNewDept({ ...newDept, name: e.target.value })}
+                      required
+                    />
+                  </div>
+                  <button type="submit" className="gm-btn-solid" style={{ padding: '11px' }}>
+                    <Plus size={15} /> Register Department
+                  </button>
+                </form>
+              </div>
 
-                {/* Departments List */}
-                <div className="glass-panel" style={{ padding: '24px' }}>
-                  <h3 style={{ margin: '0 0 16px 0', fontSize: '1.1rem', fontWeight: 800 }}>Departments Registry</h3>
-                  <div className="custom-table-container">
-                    <table className="custom-table">
+              {/* Departments List */}
+              <div className="gm-form-panel">
+                <div>
+                  <h3 className="gm-form-title"><span style={{ color: '#FF8C42' }}>Departments</span> Registry</h3>
+                  <p style={{ margin: '4px 0 0', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+                    {departments.length} department{departments.length !== 1 ? 's' : ''} registered
+                  </p>
+                </div>
+                <div className="gm-divider" />
+                {departments.length > 0 ? (
+                  <div className="gm-table-wrapper">
+                    <table className="gm-table">
                       <thead>
                         <tr>
+                          <th>#</th>
                           <th>Department Name</th>
                           <th style={{ textAlign: 'right' }}>Actions</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {departments.length > 0 ? (
-                          departments.map(d => (
-                            <tr key={d.id}>
-                              <td style={{ fontWeight: 600 }}>{d.name}</td>
-
-                              <td>
-                                <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-                                  <button type="button" onClick={() => setEditingDept({...d})} className="btn-secondary" style={{ padding: '4px 8px', fontSize: '0.75rem', cursor: 'pointer' }}>
-                                    Edit
-                                  </button>
-                                  <button type="button" onClick={() => handleDeleteDept(d.id, d.name)} className="btn-danger" style={{ padding: '4px 6px', display: 'flex', cursor: 'pointer' }}>
-                                    <Trash2 size={12} />
-                                  </button>
-                                </div>
-                              </td>
-                            </tr>
-                          ))
-                        ) : (
-                          <tr>
-                            <td colSpan="3" style={{ textAlign: 'center', padding: '30px', color: 'var(--text-muted)' }}>
-                              No departments registered.
+                        {departments.map((d, idx) => (
+                          <tr key={d.id}>
+                            <td style={{ color: 'var(--text-muted)', width: '36px' }}>{idx + 1}</td>
+                            <td style={{ fontWeight: 600 }}>{d.name}</td>
+                            <td>
+                              <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
+                                <button
+                                  type="button"
+                                  className="gm-btn-outline"
+                                  style={{ padding: '5px 12px', fontSize: '0.78rem' }}
+                                  onClick={() => setEditingDept({ ...d })}
+                                >
+                                  <Edit3 size={12} /> Edit
+                                </button>
+                                <button
+                                  type="button"
+                                  className="gm-icon-btn danger"
+                                  onClick={() => handleDeleteDept(d.id, d.name)}
+                                >
+                                  <Trash2 size={12} />
+                                </button>
+                              </div>
                             </td>
                           </tr>
-                        )}
+                        ))}
                       </tbody>
                     </table>
                   </div>
-                </div>
+                ) : (
+                  <div className="gm-empty">
+                    <div className="gm-empty-icon"><Users size={22} /></div>
+                    <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>No departments yet</div>
+                    <div style={{ fontSize: '0.8rem' }}>Add your first department using the form.</div>
+                  </div>
+                )}
               </div>
 
               {/* Edit Department Modal */}
               {editingDept && (
-                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', zIndex: 10000000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
-                  <form onSubmit={handleUpdateDept} className="glass-panel" style={{ padding: '24px', width: '90%', maxWidth: '400px', display: 'flex', flexDirection: 'column', gap: '16px', background: 'var(--bg-elevated)', borderRadius: '16px', boxShadow: '0 25px 50px rgba(0,0,0,0.3)', position: 'relative' }}>
-                    <button type="button" onClick={() => setEditingDept(null)} style={{ position: 'absolute', top: '16px', right: '16px', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }} title="Close Form">
-                      <X size={20} />
-                    </button>
-                    <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 800 }}>Edit Department</h3>
-                    <div>
-                      <label style={{ fontSize: '0.8rem', fontWeight: 600, display: 'block', marginBottom: '6px' }}>Department Name</label>
-                      <input 
-                        type="text" 
-                        className="form-control" 
-                        value={editingDept.name} 
-                        onChange={(e) => setEditingDept({ ...editingDept, name: e.target.value })}
-                        required
-                      />
+                <div className="gm-modal-overlay">
+                  <form onSubmit={handleUpdateDept} className="gm-modal-box" style={{ maxWidth: '420px' }}>
+                    <div className="gm-modal-header">
+                      <div>
+                        <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 800 }}>
+                          <span style={{ color: '#FF8C42' }}>Edit</span> Department
+                        </h3>
+                      </div>
+                      <button type="button" className="gm-modal-close" onClick={() => setEditingDept(null)}>
+                        <X size={16} />
+                      </button>
                     </div>
-
-                    <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '8px' }}>
-                      <button type="button" onClick={() => setEditingDept(null)} className="btn-secondary" style={{ padding: '8px 16px', cursor: 'pointer' }}>Cancel</button>
-                      <button type="submit" className="btn-primary" style={{ padding: '8px 16px', cursor: 'pointer' }}>Save Changes</button>
+                    <div className="gm-modal-body">
+                      <div className="gm-form-group">
+                        <label className="gm-label">Department Name</label>
+                        <input
+                          type="text"
+                          className="gm-input"
+                          value={editingDept.name}
+                          onChange={e => setEditingDept({ ...editingDept, name: e.target.value })}
+                          required
+                        />
+                      </div>
+                      <div className="gm-modal-footer">
+                        <button type="button" className="gm-btn-cancel" onClick={() => setEditingDept(null)}>Cancel</button>
+                        <button type="submit" className="gm-btn-solid" style={{ padding: '9px 22px' }}>Save Changes</button>
+                      </div>
                     </div>
                   </form>
                 </div>
               )}
+
             </div>
           )}
-
-
 
         </div>
       )}
 
-      {/* Add Section Modal */}
+      {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+          MODAL — MANAGE SECTIONS
+      â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
       {sectionModalGrade && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', zIndex: 10000000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
-          <div className="glass-panel" style={{ padding: '24px', width: '90%', maxWidth: '450px', display: 'flex', flexDirection: 'column', gap: '16px', background: 'var(--bg-elevated)', borderRadius: '16px', boxShadow: '0 25px 50px rgba(0,0,0,0.3)', maxHeight: '90vh', overflowY: 'auto', position: 'relative' }}>
-            <button type="button" onClick={() => setSectionModalGrade(null)} style={{ position: 'absolute', top: '16px', right: '16px', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }} title="Close Form">
-              <X size={20} />
-            </button>
-            <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 800 }}>Manage Sections for {sectionModalGrade.displayName}</h3>
-            
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <label style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-muted)' }}>Assigned Sections</label>
-              
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', background: 'var(--bg-form)', padding: '14px', borderRadius: '12px', border: '1px solid var(--border-glass)', minHeight: '60px' }}>
-                {selectedModalSections.length > 0 ? (
-                  selectedModalSections.map(secName => (
-                    <span 
-                      key={secName} 
-                      style={{ 
-                        background: 'rgba(99, 102, 241, 0.08)', 
-                        border: '1px solid rgba(99, 102, 241, 0.2)', 
-                        color: 'rgb(99, 102, 241)', 
-                        padding: '6px 12px', 
-                        borderRadius: '10px', 
-                        fontSize: '0.85rem', 
-                        fontWeight: 600,
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '6px'
-                      }}
-                    >
+        <div className="gm-modal-overlay">
+          <div className="gm-modal-box" style={{ maxWidth: '480px' }}>
+            <div className="gm-modal-header">
+              <div>
+                <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 800 }}>
+                  <span style={{ color: '#FF8C42' }}>Manage</span> Sections
+                </h3>
+                <p style={{ margin: '3px 0 0', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                  Grade <strong>{sectionModalGrade.displayName}</strong>
+                </p>
+              </div>
+              <button type="button" className="gm-modal-close" onClick={() => setSectionModalGrade(null)}>
+                <X size={16} />
+              </button>
+            </div>
+            <div className="gm-modal-body">
+
+              <div className="gm-form-group">
+                <label className="gm-label">Assigned Sections</label>
+                <div className="gm-chips-area">
+                  {selectedModalSections.length > 0 ? selectedModalSections.map(secName => (
+                    <span key={secName} className="gm-chip" style={{ background: 'rgba(255,107,0,0.07)', border: '1px solid rgba(255,107,0,0.18)', color: '#FF8C42', padding: '6px 12px', borderRadius: '10px', fontSize: '0.84rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
                       Section {secName}
-                      <button 
-                        type="button" 
-                        onClick={() => setSelectedModalSections(prev => prev.filter(name => name !== secName))}
-                        style={{ background: 'none', border: 'none', padding: 0, margin: 0, display: 'flex', alignItems: 'center', cursor: 'pointer', color: '#ef4444' }}
-                        title="Remove Section Assignment"
+                      <button
+                        type="button"
+                        style={{ background: 'none', border: 'none', padding: 0, display: 'flex', alignItems: 'center', cursor: 'pointer', color: '#ef4444', opacity: 0.8, transition: 'opacity 0.15s' }}
+                        onClick={() => setSelectedModalSections(prev => prev.filter(n => n !== secName))}
+                        onMouseEnter={e => e.currentTarget.style.opacity = 1}
+                        onMouseLeave={e => e.currentTarget.style.opacity = 0.8}
                       >
-                        <Trash2 size={12} />
+                        <X size={12} />
                       </button>
                     </span>
-                  ))
-                ) : (
-                  <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem', fontStyle: 'italic' }}>No sections assigned to this grade yet.</span>
-                )}
+                  )) : (
+                    <span style={{ color: 'var(--text-muted)', fontSize: '0.84rem', fontStyle: 'italic' }}>No sections assigned yet</span>
+                  )}
+                </div>
               </div>
-            </div>
 
-            {/* Quick-create global section */}
-            <div style={{ borderTop: '1px solid var(--border-glass)', paddingTop: '14px', marginTop: '4px' }}>
-              <label style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-muted)', display: 'block', marginBottom: '8px' }}>Create & Assign New Section</label>
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <input 
-                  type="text" 
-                  className="form-control" 
-                  placeholder="e.g. D, Gold, Lily"
-                  value={newGlobalSectionName}
-                  onChange={(e) => setNewGlobalSectionName(e.target.value)}
-                  style={{ flex: 1 }}
-                />
-                <button 
-                  type="button" 
-                  onClick={handleCreateAndAssignSection}
-                  className="btn-secondary" 
-                  style={{ padding: '0 16px', fontWeight: 600, fontSize: '0.85rem', cursor: 'pointer', borderRadius: '10px' }}
+              <div className="gm-divider" />
+
+              <div className="gm-form-group">
+                <label className="gm-label">Create &amp; Assign New Section</label>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <input
+                    type="text"
+                    className="gm-input"
+                    placeholder="e.g. D, Gold, Lily"
+                    value={newGlobalSectionName}
+                    onChange={e => setNewGlobalSectionName(e.target.value)}
+                    style={{ flex: 1 }}
+                  />
+                  <button type="button" className="gm-btn-outline" style={{ whiteSpace: 'nowrap' }} onClick={handleCreateAndAssignSection}>
+                    <Plus size={14} /> Create
+                  </button>
+                </div>
+              </div>
+
+              <div className="gm-modal-footer">
+                <button type="button" className="gm-btn-cancel" onClick={() => setSectionModalGrade(null)}>Cancel</button>
+                <button
+                  type="button"
+                  className="gm-btn-solid"
+                  style={{ padding: '9px 22px', display: 'flex', alignItems: 'center', gap: '6px' }}
+                  onClick={handleSaveModalSections}
+                  disabled={savingSections}
                 >
-                  Create
+                  {savingSections && <Loader2 className="animate-spin" size={14} />} Save Changes
                 </button>
               </div>
-            </div>
 
-            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '12px', borderTop: '1px solid var(--border-glass)', paddingTop: '14px' }}>
-              <button type="button" onClick={() => setSectionModalGrade(null)} className="btn-secondary" style={{ padding: '8px 16px', cursor: 'pointer', borderRadius: '8px' }}>Cancel</button>
-              <button 
-                type="button" 
-                onClick={handleSaveModalSections} 
-                disabled={savingSections}
-                className="btn-primary" 
-                style={{ padding: '8px 16px', cursor: 'pointer', borderRadius: '8px', background: 'rgb(99, 102, 241)', color: 'white', border: 'none', display: 'flex', alignItems: 'center', gap: '6px' }}
-              >
-                {savingSections && <Loader2 className="animate-spin" size={14} />} Save Changes
-              </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Grade Subjects Modal */}
+      {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+          MODAL — MANAGE SUBJECTS
+      â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
       {subjectModalGrade && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', zIndex: 10000000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
-          <div className="glass-panel" style={{ padding: '24px', width: '95%', maxWidth: '600px', display: 'flex', flexDirection: 'column', gap: '16px', background: 'var(--bg-elevated)', borderRadius: '16px', boxShadow: '0 25px 50px rgba(0,0,0,0.3)', maxHeight: '90vh', overflowY: 'auto', position: 'relative' }}>
-            <button type="button" onClick={() => setSubjectModalGrade(null)} style={{ position: 'absolute', top: '16px', right: '16px', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }} title="Close Form">
-              <X size={20} />
-            </button>
-            <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 800 }}>Manage Subjects for {subjectModalGrade.displayName}</h3>
-            
-            {/* Display subjects lists */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <label style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-muted)' }}>Registered Subjects</label>
-              
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', background: 'var(--bg-form)', padding: '14px', borderRadius: '12px', border: '1px solid var(--border-glass)', minHeight: '60px' }}>
-                {subjects.filter(sub => sub.grade?.toUpperCase() === subjectModalGrade.displayName?.toUpperCase()).length > 0 ? (
-                  subjects.filter(sub => sub.grade?.toUpperCase() === subjectModalGrade.displayName?.toUpperCase()).map(sub => (
-                    <span 
-                      key={sub.id} 
-                      style={{ 
-                        background: 'rgba(16, 185, 129, 0.08)', 
-                        border: '1px solid rgba(16, 185, 129, 0.2)', 
-                        color: '#10b981', 
-                        padding: '6px 12px', 
-                        borderRadius: '10px', 
-                        fontSize: '0.85rem', 
-                        fontWeight: 600,
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '6px'
-                      }}
-                    >
-                      {sub.subjectName}
-                      <button 
-                        type="button" 
-                        onClick={() => handleDeleteModalSubject(sub.id, sub.subjectName)}
-                        style={{ background: 'none', border: 'none', padding: 0, margin: 0, display: 'flex', alignItems: 'center', cursor: 'pointer', color: '#ef4444' }}
-                        title="Delete Subject"
-                      >
-                        <Trash2 size={12} />
-                      </button>
-                    </span>
-                  ))
-                ) : (
-                  <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem', fontStyle: 'italic' }}>No academic subjects registered for this grade yet.</span>
-                )}
+        <div className="gm-modal-overlay">
+          <div className="gm-modal-box" style={{ maxWidth: '580px' }}>
+            <div className="gm-modal-header">
+              <div>
+                <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 800 }}>
+                  <span style={{ color: '#FF8C42' }}>Manage</span> Subjects
+                </h3>
+                <p style={{ margin: '3px 0 0', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                  Grade <strong>{subjectModalGrade.displayName}</strong>
+                </p>
               </div>
+              <button type="button" className="gm-modal-close" onClick={() => setSubjectModalGrade(null)}>
+                <X size={16} />
+              </button>
             </div>
+            <div className="gm-modal-body">
 
-            {/* Forms to add new subjects */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '16px', borderTop: '1px solid var(--border-glass)', paddingTop: '16px' }}>
-              
-              {/* Single subject form */}
-              <form onSubmit={handleAddModalSubject} style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                <label style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-muted)' }}>Add Single Subject</label>
+              <div className="gm-form-group">
+                <label className="gm-label">Registered Subjects ({subjects.filter(sub => sub.grade?.toUpperCase() === subjectModalGrade.displayName?.toUpperCase()).length})</label>
+                <div className="gm-chips-area">
+                  {subjects.filter(sub => sub.grade?.toUpperCase() === subjectModalGrade.displayName?.toUpperCase()).length > 0 ? (
+                    subjects.filter(sub => sub.grade?.toUpperCase() === subjectModalGrade.displayName?.toUpperCase()).map(sub => (
+                      <span key={sub.id} className="gm-chip gm-chip-subject" style={{ padding: '6px 12px', borderRadius: '10px', fontSize: '0.84rem' }}>
+                        {sub.subjectName}
+                        <button
+                          type="button"
+                          style={{ background: 'none', border: 'none', padding: 0, display: 'flex', alignItems: 'center', cursor: 'pointer', color: '#ef4444', opacity: 0.8, transition: 'opacity 0.15s' }}
+                          onClick={() => handleDeleteModalSubject(sub.id, sub.subjectName)}
+                          onMouseEnter={e => e.currentTarget.style.opacity = 1}
+                          onMouseLeave={e => e.currentTarget.style.opacity = 0.8}
+                        >
+                          <X size={12} />
+                        </button>
+                      </span>
+                    ))
+                  ) : (
+                    <span style={{ color: 'var(--text-muted)', fontSize: '0.84rem', fontStyle: 'italic' }}>No subjects registered for this grade yet</span>
+                  )}
+                </div>
+              </div>
+
+              <div className="gm-divider" />
+
+              <form onSubmit={handleAddModalSubject} className="gm-form-group">
+                <label className="gm-label">Add Single Subject</label>
                 <div style={{ display: 'flex', gap: '8px' }}>
-                  <input 
-                    type="text" 
-                    className="form-control" 
+                  <input
+                    type="text"
+                    className="gm-input"
                     placeholder="e.g. Chemistry, History, English II"
                     value={newSubjectName}
-                    onChange={(e) => setNewSubjectName(e.target.value)}
+                    onChange={e => setNewSubjectName(e.target.value)}
                     required
                     style={{ flex: 1 }}
                   />
-                  <button 
-                    type="submit" 
+                  <button
+                    type="submit"
                     disabled={addingSubject}
-                    className="btn-primary" 
-                    style={{ padding: '0 16px', fontWeight: 600, fontSize: '0.85rem', cursor: 'pointer', borderRadius: '10px', background: 'rgb(99, 102, 241)', color: 'white', border: 'none' }}
+                    className="gm-btn-solid"
+                    style={{ whiteSpace: 'nowrap', padding: '9px 18px' }}
                   >
-                    Add
+                    {addingSubject ? <Loader2 className="animate-spin" size={13} /> : <Plus size={14} />} Add
                   </button>
                 </div>
               </form>
-             </div>
 
-            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '8px', borderTop: '1px solid var(--border-glass)', paddingTop: '14px' }}>
-              <button type="button" onClick={() => setSubjectModalGrade(null)} className="btn-secondary" style={{ padding: '8px 20px', cursor: 'pointer', borderRadius: '8px', fontWeight: 'bold' }}>Close Panel</button>
+              <div className="gm-modal-footer">
+                <button type="button" className="gm-btn-cancel" onClick={() => setSubjectModalGrade(null)}>Close Panel</button>
+              </div>
+
             </div>
           </div>
         </div>
@@ -1345,3 +1328,5 @@ export default function GradeManagement({ currentSubView, setAdminView, showToas
     </div>
   );
 }
+
+

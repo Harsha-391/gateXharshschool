@@ -1,11 +1,10 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import './RolesPermissions.css';
 import { createPortal } from 'react-dom';
 import { 
   Shield, 
   ShieldAlert, 
   Users, 
-  ClipboardList, 
   Plus, 
   Trash2, 
   Copy, 
@@ -70,7 +69,7 @@ const COMPATIBILITY_MAP = {
   'add-employee': 'add-staff'
 };
 
-export default function RolesPermissions({ initialTab = 'dashboard', hideTabs = false, onPermissionsSave }) {
+export default function RolesPermissions({ initialTab = 'dashboard', onPermissionsSave }) {
   const [activeTab, setActiveTab] = useState(initialTab);
   const [roles, setRoles] = useState([]);
   const [originalRoles, setOriginalRoles] = useState([]);
@@ -148,7 +147,7 @@ export default function RolesPermissions({ initialTab = 'dashboard', hideTabs = 
 
     { id: 'financial-reports', label: 'Financial Reports' },
     { id: 'auxiliary-income', label: 'Auxiliary & Other Income' },
-    { id: 'security-audit', label: 'Security Audit Ledger' },
+
     { id: 'roles-permissions', label: 'Roles & Permissions' },
     { id: 'settings', label: 'Settings' }
   ];
@@ -514,23 +513,13 @@ export default function RolesPermissions({ initialTab = 'dashboard', hideTabs = 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
         <div>
           <h1 style={{ fontSize: '1.8rem', fontWeight: 800, margin: 0, display: 'flex', alignItems: 'center', gap: '12px', letterSpacing: '-0.02em', color: 'var(--text-main)' }}>
-            {hideTabs ? (
-              <>
-                <ClipboardList size={28} style={{ color: 'hsl(var(--color-primary))' }} />
-                Security Audit Ledger
-              </>
-            ) : (
               <>
                 <Shield size={28} style={{ color: 'hsl(var(--color-primary))' }} />
                 Role & Permission Management
               </>
-            )}
           </h1>
           <p style={{ margin: '4px 0 0 0', color: 'var(--text-muted)', fontSize: '0.88rem' }}>
-            {hideTabs 
-              ? 'System-wide security ledger tracking actions and operational audits.'
-              : 'System-wide Role-Based Access Control (RBAC) and Audit Ledger configurations.'
-            }
+            System-wide Role-Based Access Control (RBAC) configurations.
           </p>
         </div>
         <button 
@@ -543,7 +532,7 @@ export default function RolesPermissions({ initialTab = 'dashboard', hideTabs = 
       </div>
 
       {/* Navigation tabs */}
-      {!hideTabs && (
+      {(
         <div style={{ display: 'flex', borderBottom: '1px solid var(--border-glass)', paddingBottom: '2px', gap: '24px', overflowX: 'auto' }}>
           {[
             { id: 'dashboard', label: 'Dashboard Overview', icon: Activity },
@@ -699,7 +688,7 @@ export default function RolesPermissions({ initialTab = 'dashboard', hideTabs = 
                       </h3>
                       <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                         {role.isSystem && (
-                          <span style={{ fontSize: '0.7rem', background: 'rgba(99, 102, 241, 0.12)', border: '1px solid rgba(99, 102, 241, 0.25)', color: 'hsl(var(--color-primary))', padding: '2px 8px', borderRadius: '100px', fontWeight: 700 }}>
+                          <span style={{ fontSize: '0.7rem', background: 'rgba(255, 107, 0, 0.12)', border: '1px solid rgba(255, 107, 0, 0.25)', color: 'hsl(var(--color-primary))', padding: '2px 8px', borderRadius: '100px', fontWeight: 700 }}>
                             System Default
                           </span>
                         )}
@@ -777,8 +766,8 @@ export default function RolesPermissions({ initialTab = 'dashboard', hideTabs = 
                     key={r.id}
                     onClick={() => setMatrixRoleId(r.id)}
                     style={{
-                      textAlign: 'left', background: r.id === matrixRoleId ? 'rgba(99, 102, 241, 0.08)' : 'none',
-                      border: r.id === matrixRoleId ? '1px solid rgba(99, 102, 241, 0.25)' : '1px solid transparent',
+                      textAlign: 'left', background: r.id === matrixRoleId ? 'rgba(255, 107, 0, 0.08)' : 'none',
+                      border: r.id === matrixRoleId ? '1px solid rgba(255, 107, 0, 0.25)' : '1px solid transparent',
                       padding: '12px 14px', borderRadius: '10px', color: r.id === matrixRoleId ? 'hsl(var(--color-primary))' : 'var(--text-main)',
                       fontSize: '0.88rem', fontWeight: r.id === matrixRoleId ? 700 : 500, cursor: 'pointer', outline: 'none',
                       display: 'flex', justifyContent: 'space-between', alignItems: 'center', transition: 'all 0.2s ease'
@@ -821,7 +810,7 @@ export default function RolesPermissions({ initialTab = 'dashboard', hideTabs = 
                         background: 'hsl(var(--color-primary))',
                         color: '#fff',
                         fontWeight: '700',
-                        boxShadow: '0 0 12px rgba(99, 102, 241, 0.4)',
+                        boxShadow: '0 0 12px rgba(255, 107, 0, 0.4)',
                         display: 'flex',
                         alignItems: 'center',
                         gap: '6px',
@@ -854,7 +843,7 @@ export default function RolesPermissions({ initialTab = 'dashboard', hideTabs = 
 
               {(selectedMatrixRole?.id === 'role-super-admin' || selectedMatrixRole?.id === 'role-principal') && (
                 <div style={{
-                  display: 'flex', gap: '12px', background: 'rgba(99, 102, 241, 0.06)', border: '1px solid rgba(99, 102, 241, 0.15)',
+                  display: 'flex', gap: '12px', background: 'rgba(255, 107, 0, 0.06)', border: '1px solid rgba(255, 107, 0, 0.15)',
                   padding: '16px 20px', borderRadius: '12px', color: 'var(--text-muted)', fontSize: '0.85rem', lineHeight: 1.5
                 }}>
                   <Info size={18} style={{ color: 'hsl(var(--color-primary))', flexShrink: 0, marginTop: '2px' }} />
@@ -882,11 +871,11 @@ export default function RolesPermissions({ initialTab = 'dashboard', hideTabs = 
                     {modules.map((mod, modIdx) => (
                       <tr key={mod.id} style={{
                         borderBottom: modIdx === modules.length - 1 ? 'none' : '1px solid var(--border-glass, #e2e8f0)',
-                        background: modIdx % 2 === 0 ? 'rgba(99, 102, 241, 0.01)' : '#ffffff',
+                        background: modIdx % 2 === 0 ? 'rgba(255, 107, 0, 0.01)' : '#ffffff',
                         transition: 'background 0.2s ease'
                       }} className="matrix-row-hover">
                         <td style={{ padding: '8px 18px', paddingLeft: mod.isSub ? '36px' : '18px', fontWeight: 700, color: 'var(--text-main, #0f172a)' }}>
-                          <span style={{ display: 'block', fontSize: '0.84rem', color: mod.isSub ? '#6366f1' : 'var(--text-main, #0f172a)', fontWeight: mod.isSub ? 600 : 700 }}>{mod.label}</span>
+                          <span style={{ display: 'block', fontSize: '0.84rem', color: mod.isSub ? '#FF8C42' : 'var(--text-main, #0f172a)', fontWeight: mod.isSub ? 600 : 700 }}>{mod.label}</span>
                           <div style={{ fontSize: '0.68rem', color: 'var(--text-muted, #64748b)', fontWeight: 500, marginTop: '1px', fontFamily: 'monospace' }}>
                             code: {mod.id}
                           </div>
@@ -1155,3 +1144,4 @@ export default function RolesPermissions({ initialTab = 'dashboard', hideTabs = 
     </div>
   );
 }
+

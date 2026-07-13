@@ -1,4 +1,4 @@
-/* Payroll Redesign Styling Overrides for Dark Theme Compatibility */
+﻿/* Payroll Redesign Styling Overrides for Dark Theme Compatibility */
 
 /* Container and background card overrides */
 [data-theme='dark'] .payroll-module-container,
@@ -89,3 +89,4 @@
   color: var(--text-inverse) !important;
   border-color: var(--text-main) !important;
 }
+

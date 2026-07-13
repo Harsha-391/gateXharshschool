@@ -102,36 +102,218 @@ export default function TeacherDirectory({ readOnly = true, onAddClick, onEditCl
     }
   };
 
-  const handlePrintQR = (teacher) => {
-    const printWindow = window.open('', '_blank', 'width=600,height=600');
+  const handlePrintQR = async (teacher) => {
+    let schoolName = 'SITFG School';
+    try {
+      const res = await fetch('/api/school');
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.name) schoolName = data.name;
+      }
+    } catch (e) {
+      console.error(e);
+    }
+
+    const printWindow = window.open('', '_blank', 'width=600,height=700');
     const qrUrl = getQrImageUrl(teacher.qrCodePath, teacher.employeeId || teacher.id, 'Teacher');
+    const avatarBg = teacher.avatarBg || 'linear-gradient(135deg, #FF8C42, #E05300)';
+    
     printWindow.document.write(`
       <html>
         <head>
           <title>Print ID Badge - ${teacher.fullName || teacher.name}</title>
           <style>
-            body { font-family: 'Inter', system-ui, sans-serif; text-align: center; padding: 40px; color: #1e1b4b; background: #ffffff; }
-            .badge-card { border: 2px solid #e2e8f0; border-radius: 20px; padding: 30px; display: inline-block; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.05); max-width: 350px; }
-            .avatar { width: 100px; height: 100px; border-radius: 50%; object-fit: cover; margin-bottom: 15px; border: 3px solid #3b82f6; }
-            .avatar-placeholder { width: 100px; height: 100px; border-radius: 50%; margin: 0 auto 15px; display: flex; align-items: center; justify-content: center; color: #ffffff; font-size: 2rem; font-weight: bold; background: ${teacher.avatarBg || 'linear-gradient(135deg, #3b82f6, #6366f1)'}; }
-            .name { font-size: 1.5rem; font-weight: 800; margin: 0 0 5px 0; }
-            .id { font-size: 1rem; font-weight: 700; color: #3b82f6; margin: 0 0 20px 0; }
-            .qr-image { width: 200px; height: 200px; margin-bottom: 20px; }
-            .footer { font-size: 0.8rem; color: #64748b; font-weight: 500; margin-top: 15px; }
+            @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap');
+            body {
+              font-family: 'Outfit', sans-serif;
+              text-align: center;
+              padding: 40px;
+              color: #1e293b;
+              background: #f1f5f9;
+              display: flex;
+              justify-content: center;
+              align-items: center;
+              height: 90vh;
+              margin: 0;
+            }
+            .badge-card {
+              border: 1px solid rgba(255, 140, 66, 0.12);
+              border-radius: 24px;
+              background: #ffffff;
+              box-shadow: 0 25px 50px -12px rgba(255, 140, 66, 0.08), 0 10px 15px -3px rgba(0,0,0,0.03);
+              width: 340px;
+              overflow: hidden;
+              position: relative;
+              text-align: center;
+              border-top: 4px solid #FF8C42;
+            }
+            .header-banner {
+              background: linear-gradient(135deg, #FF8C42 0%, #E05300 100%);
+              padding: 24px 20px 40px;
+              color: #ffffff;
+              text-align: center;
+              position: relative;
+            }
+            .header-banner h2 {
+              margin: 0;
+              font-size: 1.25rem;
+              font-weight: 800;
+              letter-spacing: 0.04em;
+              text-transform: uppercase;
+              text-shadow: 0 1px 2px rgba(0,0,0,0.1);
+            }
+            .header-banner p {
+              margin: 4px 0 0 0;
+              font-size: 0.7rem;
+              font-weight: 700;
+              color: rgba(255, 255, 255, 0.9);
+              text-transform: uppercase;
+              letter-spacing: 0.12em;
+            }
+            .card-body {
+              padding: 24px;
+              display: flex;
+              flex-direction: column;
+              align-items: center;
+            }
+            .avatar-container {
+              position: relative;
+              margin-top: -70px;
+              margin-bottom: 14px;
+              z-index: 10;
+            }
+            .avatar {
+              width: 96px;
+              height: 96px;
+              border-radius: 50%;
+              object-fit: cover;
+              border: 4px solid #ffffff;
+              box-shadow: 0 8px 20px rgba(255, 140, 66, 0.15), 0 2px 4px rgba(0,0,0,0.05);
+            }
+            .avatar-placeholder {
+              width: 96px;
+              height: 96px;
+              border-radius: 50%;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              color: #ffffff;
+              font-size: 2.2rem;
+              font-weight: 800;
+              border: 4px solid #ffffff;
+              box-shadow: 0 8px 20px rgba(255, 140, 66, 0.15), 0 2px 4px rgba(0,0,0,0.05);
+              background: ${avatarBg};
+            }
+            .name {
+              font-size: 1.3rem;
+              font-weight: 800;
+              color: #0f172a;
+              margin: 0 0 4px 0;
+              text-align: center;
+              letter-spacing: -0.02em;
+            }
+            .role-badge {
+              font-size: 0.75rem;
+              font-weight: 700;
+              color: #E05300;
+              text-transform: uppercase;
+              letter-spacing: 0.06em;
+              margin-bottom: 20px;
+              background: #fff5f0;
+              border: 1px solid rgba(255, 140, 66, 0.15);
+              padding: 4px 14px;
+              border-radius: 99px;
+              display: inline-block;
+            }
+            .qr-container {
+              background: #f8fafc;
+              border: 1px solid #e2e8f0;
+              padding: 16px;
+              border-radius: 16px;
+              margin-bottom: 20px;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              box-shadow: inset 0 2px 4px rgba(0,0,0,0.02);
+            }
+            .qr-image {
+              width: 170px;
+              height: 170px;
+              display: block;
+            }
+            .meta-info {
+              width: 100%;
+              display: grid;
+              grid-template-columns: 1fr 1fr;
+              gap: 12px;
+              border-top: 1px dashed #e2e8f0;
+              padding-top: 16px;
+              margin-bottom: 12px;
+              text-align: left;
+            }
+            .meta-item {
+              display: flex;
+              flex-direction: column;
+              gap: 2px;
+            }
+            .meta-label {
+              font-size: 0.65rem;
+              font-weight: 700;
+              color: #64748b;
+              text-transform: uppercase;
+              letter-spacing: 0.05em;
+            }
+            .meta-value {
+              font-size: 0.82rem;
+              font-weight: 600;
+              color: #1e293b;
+            }
+            .footer {
+              background: #fff5f0;
+              color: #E05300;
+              padding: 10px;
+              text-align: center;
+              font-size: 0.72rem;
+              font-weight: 800;
+              border-top: 1px solid rgba(255, 140, 66, 0.1);
+              text-transform: uppercase;
+              letter-spacing: 0.08em;
+              width: 100%;
+            }
           </style>
         </head>
         <body>
           <div class="badge-card">
-            ${teacher.photo ? `<img class="avatar" src="${teacher.photo}" />` : `
-              <div class="avatar-placeholder">
-                ${(teacher.fullName || teacher.name || 'T').split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()}
+            <div class="header-banner">
+              <h2>${schoolName}</h2>
+              <p>Security ID Badge</p>
+            </div>
+            <div class="card-body">
+              <div class="avatar-container">
+                ${teacher.photo ? `<img class="avatar" src="${teacher.photo}" />` : `
+                  <div class="avatar-placeholder">
+                    ${(teacher.fullName || teacher.name || 'T').split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()}
+                  </div>
+                `}
               </div>
-            `}
-            <div class="name">${teacher.fullName || teacher.name}</div>
-            <div class="id">${teacher.employeeId || teacher.id}</div>
-            <div><img class="qr-image" src="${qrUrl}" /></div>
-            <div style="font-weight: 600; font-size: 0.9rem;">${teacher.designation || 'Teacher'}</div>
-            <div style="font-size: 0.85rem; color: #475569; margin-top: 2px;">${teacher.department || ''}</div>
+              <div class="name">${teacher.fullName || teacher.name}</div>
+              <div class="role-badge">${teacher.designation || 'Teacher'}</div>
+              
+              <div class="qr-container">
+                <img class="qr-image" src="${qrUrl}" />
+              </div>
+
+              <div class="meta-info">
+                <div class="meta-item">
+                  <span class="meta-label">Employee ID</span>
+                  <span class="meta-value">${teacher.employeeId || teacher.id}</span>
+                </div>
+                <div class="meta-item">
+                  <span class="meta-label">Department</span>
+                  <span class="meta-value">${teacher.department || 'Academics'}</span>
+                </div>
+              </div>
+            </div>
             <div class="footer">Scan to record Attendance</div>
           </div>
           <script>
@@ -494,15 +676,17 @@ export default function TeacherDirectory({ readOnly = true, onAddClick, onEditCl
                         <td>
                           <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
                             <button onClick={() => setSelectedTeacher(t)} className="btn-secondary" 
-                              style={{ padding: '6px 10px', fontSize: '0.75rem', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                              <Info size={12} /> View
+                              style={{ padding: '6px 8px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                              title="Inspect">
+                              <Info size={13} />
                             </button>
                             {!readOnly && (
                               <>
                                 {hasPermission('teacher-directory', 'edit') && (
                                   <button onClick={() => onEditClick ? onEditClick(t) : openEditModal(t)} className="btn-secondary" 
-                                    style={{ padding: '6px 10px', fontSize: '0.75rem', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                    <Edit3 size={12} /> Edit
+                                    style={{ padding: '6px 8px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                    title="Edit">
+                                    <Edit3 size={13} />
                                   </button>
                                 )}
                                 {hasPermission('teacher-directory', 'delete') && (
@@ -856,3 +1040,4 @@ export default function TeacherDirectory({ readOnly = true, onAddClick, onEditCl
     </div>
   );
 }
+

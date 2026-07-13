@@ -52,10 +52,11 @@ export const registerTeacher = async (req, res) => { // Keep export name registe
       aadhaarNumber, panNumber, joiningDate, employmentType, department, primarySubject, secondarySubject,
       alternateMobile, currentAddress, currentCity, currentState, currentCountry, currentPostalCode, permanentAddress,
       permanentCity, permanentState, permanentCountry, permanentPostalCode, sameAsPermanent, qualification, experience,
-      experiences, salary, username, password, role
+      experiences, salary, username, password, role, hasRole, designation
     } = req.body;
 
-    const activeRole = role;
+    const isRoleAccount = hasRole !== 'No';
+    const activeRole = isRoleAccount ? role : designation;
 
     const derivedFullName = [firstName, middleName, lastName].filter(Boolean).join(' ');
     if (!derivedFullName) {
@@ -97,13 +98,21 @@ export const registerTeacher = async (req, res) => { // Keep export name registe
       console.error('Failed to generate QR Code during staff registration:', qrErr);
     }
 
-    const generatedUsername = username || `staff_${employeeId.toLowerCase().replace(/-/g, '_')}`;
-    const generatedPassword = await hashPassword(password || 'staff123');
+    let generatedUsername = null;
+    let generatedPassword = null;
+    let targetRoleId = null;
 
-    // Check username uniqueness
-    const usernameExists = db.staff.some(s => s.username === generatedUsername);
-    if (usernameExists) {
-      return res.status(400).json({ error: 'Username already exists.' });
+    if (isRoleAccount) {
+      generatedUsername = username || `staff_${employeeId.toLowerCase().replace(/-/g, '_')}`;
+      generatedPassword = await hashPassword(password || 'staff123');
+
+      // Check username uniqueness
+      const usernameExists = db.staff.some(s => s.username === generatedUsername);
+      if (usernameExists) {
+        return res.status(400).json({ error: 'Username already exists.' });
+      }
+
+      targetRoleId = mapDesignationToRoleId(activeRole, db.roles || getDefaultRoles());
     }
 
     const files = req.files || {};
@@ -124,8 +133,6 @@ export const registerTeacher = async (req, res) => { // Keep export name registe
     if (typeof experiences === 'string') {
       try { parsedExperiences = JSON.parse(experiences); } catch (e) { parsedExperiences = []; }
     }
-
-    const targetRoleId = mapDesignationToRoleId(activeRole, db.roles || getDefaultRoles());
 
     const newStaff = {
       id: employeeId,
@@ -148,6 +155,8 @@ export const registerTeacher = async (req, res) => { // Keep export name registe
       joiningDate: joiningDate || new Date().toISOString().split('T')[0],
       employmentType: employmentType || 'Full-Time',
       role: activeRole || 'Receptionist',
+      hasRole: hasRole || 'Yes',
+      designation: designation || '',
       department: department || 'Administration',
       primarySubject: primarySubject || '',
       secondarySubject: secondarySubject || '',
@@ -204,17 +213,19 @@ export const registerTeacher = async (req, res) => { // Keep export name registe
       createdAt: new Date().toISOString()
     });
 
-    if (!db.userAccess) db.userAccess = [];
-    db.userAccess.push({
-      id: `access-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
-      userId: employeeId,
-      userName: derivedFullName,
-      userType: 'Staff',
-      roleId: targetRoleId,
-      status: 'Active',
-      overrides: {},
-      updatedAt: new Date().toISOString()
-    });
+    if (isRoleAccount) {
+      if (!db.userAccess) db.userAccess = [];
+      db.userAccess.push({
+        id: `access-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+        userId: employeeId,
+        userName: derivedFullName,
+        userType: 'Staff',
+        roleId: targetRoleId,
+        status: 'Active',
+        overrides: {},
+        updatedAt: new Date().toISOString()
+      });
+    }
 
     addActivity(db, 'registration', 'New Staff Registered', `${derivedFullName} joined the school as ${activeRole}.`, 'hsl(var(--color-primary))', 'rgba(hsl(var(--color-primary)), 0.1)');
     writeDb(db);
@@ -227,7 +238,7 @@ export const registerTeacher = async (req, res) => { // Keep export name registe
         employeeId,
         fullName: derivedFullName,
         username: generatedUsername,
-        password: password || 'staff123',
+        password: isRoleAccount ? (password || 'staff123') : null,
         role: activeRole
       }
     });
@@ -380,11 +391,22 @@ export const updateTeacher = async (req, res) => { // Keep updateTeacher naming 
       return res.status(400).json({ error: 'Invalid PAN card format. Must match ABCDE1234F.' });
     }
 
-    if (updateData.username && updateData.username !== currentStaff.username) {
+    const hasRole = updateData.hasRole !== undefined ? updateData.hasRole : currentStaff.hasRole;
+    const isRoleAccount = hasRole !== 'No';
+    const activeRole = isRoleAccount ? (updateData.role || currentStaff.role) : (updateData.designation || currentStaff.designation);
+
+    if (isRoleAccount && updateData.username && updateData.username !== currentStaff.username) {
       const usernameExists = db.staff.some(s => s.username === updateData.username);
       if (usernameExists) {
         return res.status(400).json({ error: 'Username already exists.' });
       }
+    }
+
+    let newPasswordHash = currentStaff.password;
+    if (isRoleAccount && updateData.password) {
+      newPasswordHash = await hashPassword(updateData.password);
+    } else if (isRoleAccount && !currentStaff.password) {
+      newPasswordHash = await hashPassword('staff123');
     }
 
     const files = req.files || {};
@@ -430,7 +452,11 @@ export const updateTeacher = async (req, res) => { // Keep updateTeacher naming 
       ifscCode: updateData.ifscCode !== undefined ? encrypt(updateData.ifscCode) : currentStaff.ifscCode,
       accountHolder: updateData.accountHolder !== undefined ? encrypt(updateData.accountHolder) : currentStaff.accountHolder,
       upiId: updateData.upiId !== undefined ? encrypt(updateData.upiId) : currentStaff.upiId,
-      role: updateData.role || currentStaff.role,
+      role: activeRole,
+      hasRole: hasRole || 'Yes',
+      designation: updateData.designation !== undefined ? updateData.designation : (currentStaff.designation || ''),
+      username: isRoleAccount ? (updateData.username || currentStaff.username || `staff_${currentStaff.employeeId.toLowerCase().replace(/-/g, '_')}`) : null,
+      password: isRoleAccount ? newPasswordHash : null,
       updatedAt: new Date().toISOString()
     };
 
@@ -438,26 +464,32 @@ export const updateTeacher = async (req, res) => { // Keep updateTeacher naming 
 
     if (!db.userAccess) db.userAccess = [];
     const accessIndex = db.userAccess.findIndex(ua => ua.userId === staffId && ua.userType === 'Staff');
-    const targetRoleId = mapDesignationToRoleId(updatedStaff.role, db.roles || getDefaultRoles());
-    
-    if (accessIndex === -1) {
-      db.userAccess.push({
-        id: `access-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
-        userId: staffId,
-        userName: updatedStaff.fullName || updatedStaff.name,
-        userType: 'Staff',
-        roleId: targetRoleId,
-        status: updatedStaff.status || 'Active',
-        overrides: {},
-        updatedAt: new Date().toISOString()
-      });
-    } else {
-      db.userAccess[accessIndex].userName = updatedStaff.fullName || updatedStaff.name;
-      db.userAccess[accessIndex].roleId = targetRoleId;
-      if (updateData.status) {
-        db.userAccess[accessIndex].status = updateData.status;
+
+    if (!isRoleAccount) {
+      if (accessIndex !== -1) {
+        db.userAccess.splice(accessIndex, 1);
       }
-      db.userAccess[accessIndex].updatedAt = new Date().toISOString();
+    } else {
+      const targetRoleId = mapDesignationToRoleId(updatedStaff.role, db.roles || getDefaultRoles());
+      if (accessIndex === -1) {
+        db.userAccess.push({
+          id: `access-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+          userId: staffId,
+          userName: updatedStaff.fullName || updatedStaff.name,
+          userType: 'Staff',
+          roleId: targetRoleId,
+          status: updatedStaff.status || 'Active',
+          overrides: {},
+          updatedAt: new Date().toISOString()
+        });
+      } else {
+        db.userAccess[accessIndex].userName = updatedStaff.fullName || updatedStaff.name;
+        db.userAccess[accessIndex].roleId = targetRoleId;
+        if (updateData.status) {
+          db.userAccess[accessIndex].status = updateData.status;
+        }
+        db.userAccess[accessIndex].updatedAt = new Date().toISOString();
+      }
     }
 
     addActivity(db, 'alert', 'Staff Profile Modified', `${updatedStaff.fullName}'s professional records were updated.`, 'hsl(var(--color-secondary))', 'rgba(hsl(var(--color-secondary)), 0.1)');

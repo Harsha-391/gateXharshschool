@@ -59,8 +59,14 @@ import {
   KeyRound,
   Copy,
   Play,
-  Key
+  Key,
+  RefreshCw,
+  TrendingUp,
+  TrendingDown,
+  Clock,
+  ArrowUpRight
 } from 'lucide-react';
+
 
 export default function SchoolProfile({ schoolDetails, fetchSchoolDetails, isDeveloperAdmin, devActiveTab }) {
   if (!isDeveloperAdmin) {
@@ -85,7 +91,7 @@ export default function SchoolProfile({ schoolDetails, fetchSchoolDetails, isDev
             alignItems: 'center',
             justifyContent: 'center',
             color: 'white',
-            boxShadow: '0 4px 10px rgba(99, 102, 241, 0.25)'
+            boxShadow: '0 4px 10px rgba(255, 107, 0, 0.25)'
           }}>
             <SchoolIcon size={24} />
           </div>
@@ -158,9 +164,9 @@ export default function SchoolProfile({ schoolDetails, fetchSchoolDetails, isDev
                 borderRadius: '10px',
                 fontWeight: 700,
                 display: 'inline-block',
-                background: 'rgba(99, 102, 241, 0.08)',
+                background: 'rgba(255, 107, 0, 0.08)',
                 color: 'hsl(var(--color-primary))',
-                border: '1px solid rgba(99, 102, 241, 0.15)'
+                border: '1px solid rgba(255, 107, 0, 0.15)'
               }}>{schoolDetails?.subscriptionPlan || 'Starter Plan'}</span>
             </div>
             <div>
@@ -280,10 +286,122 @@ export default function SchoolProfile({ schoolDetails, fetchSchoolDetails, isDev
     totalStudents: 0,
     totalTeachers: 0,
     totalStaff: 0,
-    monthlyRevenue: '$0',
+    monthlyRevenue: '₹0',
     recentRegistrations: [],
     growthAnalytics: []
   });
+
+  const [realtimeStats, setRealtimeStats] = useState({
+    cpu: 24,
+    ram: 42,
+    activeSessions: 8,
+    uptime: '14d 6h 32m'
+  });
+
+  const [plans, setPlans] = useState([]);
+  const [selectedMonth, setSelectedMonth] = useState('All');
+  const [selectedYear, setSelectedYear] = useState('All');
+  const [showPlanModal, setShowPlanModal] = useState(false);
+  const [planModalMode, setPlanModalMode] = useState('add'); // 'add' | 'edit'
+  const [selectedPlan, setSelectedPlan] = useState(null);
+  const [planForm, setPlanForm] = useState({
+    name: '',
+    price: '',
+    features: ''
+  });
+
+  useEffect(() => {
+    if (activeTab !== 'dashboard') return;
+    const interval = setInterval(() => {
+      setRealtimeStats(prev => {
+        const nextCpu = Math.max(12, Math.min(85, prev.cpu + Math.floor(Math.random() * 9) - 4));
+        const nextRam = Math.max(38, Math.min(65, prev.ram + Math.floor(Math.random() * 3) - 1));
+        const nextSessions = Math.max(5, Math.min(30, prev.activeSessions + Math.floor(Math.random() * 5) - 2));
+        return {
+          ...prev,
+          cpu: nextCpu,
+          ram: nextRam,
+          activeSessions: nextSessions
+        };
+      });
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [activeTab]);
+
+  const handleOpenPlanModal = (mode, plan = null) => {
+    setPlanModalMode(mode);
+    setSelectedPlan(plan);
+    if (mode === 'edit' && plan) {
+      setPlanForm({
+        name: plan.name,
+        price: plan.price,
+        features: plan.features
+      });
+    } else {
+      setPlanForm({
+        name: '',
+        price: '',
+        features: ''
+      });
+    }
+    setShowPlanModal(true);
+  };
+
+  const handlePlanSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      const url = planModalMode === 'edit' ? `/api/platform/plans/${selectedPlan.id}` : '/api/platform/plans';
+      const method = planModalMode === 'edit' ? 'PUT' : 'POST';
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(planForm)
+      });
+      if (res.ok) {
+        showToast(planModalMode === 'edit' ? 'Plan updated successfully.' : 'Plan created successfully.', 'success');
+        setShowPlanModal(false);
+        fetchPlatformData();
+      } else {
+        showToast('Operation failed.', 'error');
+      }
+    } catch (err) {
+      showToast('Network error.', 'error');
+    }
+  };
+
+  const handleDeletePlan = async (id) => {
+    if (!confirm('Are you sure you want to delete this subscription plan?')) return;
+    try {
+      const res = await fetch(`/api/platform/plans/${id}`, {
+        method: 'DELETE'
+      });
+      if (res.ok) {
+        showToast('Plan deleted successfully.', 'success');
+        fetchPlatformData();
+      } else {
+        showToast('Failed to delete plan.', 'error');
+      }
+    } catch (err) {
+      showToast('Network error.', 'error');
+    }
+  };
+
+  const totalPlanCount = Math.max(1, schools.length);
+
+  const maxRevenue = Math.max(...(analytics.growthAnalytics || []).map(item => item.revenue), 100);
+  const points = (analytics.growthAnalytics || []).map((item, idx) => {
+    const x = 50 + idx * 85;
+    const y = 140 - (item.revenue / maxRevenue) * 90;
+    return { x, y, ...item };
+  });
+
+  const pathStr = points.length > 0 
+    ? `M ${points[0].x} ${points[0].y} ` + points.slice(1).map(p => `L ${p.x} ${p.y}`).join(' ')
+    : '';
+
+  const fillPathStr = points.length > 0
+    ? `${pathStr} L ${points[points.length - 1].x} 150 L ${points[0].x} 150 Z`
+    : '';
   
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -340,6 +458,13 @@ export default function SchoolProfile({ schoolDetails, fetchSchoolDetails, isDev
         const dataAnalytics = await resAnalytics.json();
         setAnalytics(dataAnalytics);
       }
+
+      // 3. Fetch subscription plans
+      const resPlans = await fetch('/api/platform/plans');
+      if (resPlans.ok) {
+        const dataPlans = await resPlans.json();
+        setPlans(dataPlans);
+      }
     } catch (err) {
       console.error('Failed to load platform owner data:', err);
       showToast('Error syncing platform owner workspace.', 'error');
@@ -349,7 +474,56 @@ export default function SchoolProfile({ schoolDetails, fetchSchoolDetails, isDev
   };
 
   useEffect(() => {
+    // 1. Run initial REST load as a fallback/initial state
     fetchPlatformData();
+
+    // 2. Establish WebSocket connection
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsHost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+      ? `${window.location.hostname}:5000`
+      : window.location.host;
+
+    let ws;
+    let reconnectTimeout;
+
+    const connectWS = () => {
+      ws = new WebSocket(`${protocol}//${wsHost}`);
+
+      ws.onopen = () => {
+        console.log('[WebSocket] Connected to real-time update stream.');
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const message = JSON.parse(event.data);
+          if (message.type === 'PLATFORM_STATE_UPDATE') {
+            const { analytics: dataAnalytics, schools: dataSchools, plans: dataPlans } = message.data;
+            setAnalytics(dataAnalytics);
+            setSchools(dataSchools);
+            setPlans(dataPlans);
+          }
+        } catch (err) {
+          console.error('[WebSocket] Failed to process message:', err);
+        }
+      };
+
+      ws.onclose = () => {
+        console.log('[WebSocket] Connection closed. Reconnecting in 3 seconds...');
+        reconnectTimeout = setTimeout(connectWS, 3000);
+      };
+
+      ws.onerror = (err) => {
+        console.error('[WebSocket] Error caught:', err);
+        ws.close();
+      };
+    };
+
+    connectWS();
+
+    return () => {
+      if (ws) ws.close();
+      clearTimeout(reconnectTimeout);
+    };
   }, []);
 
   const handleInputChange = (e) => {
@@ -364,6 +538,21 @@ export default function SchoolProfile({ schoolDetails, fetchSchoolDetails, isDev
         [name]: ''
       });
     }
+  };
+
+  const handleLogoUpload = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setFormData(prev => ({ ...prev, logo: reader.result }));
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleRemoveLogo = () => {
+    setFormData(prev => ({ ...prev, logo: '' }));
   };
 
   const handleOpenAddModal = () => {
@@ -621,12 +810,12 @@ export default function SchoolProfile({ schoolDetails, fetchSchoolDetails, isDev
             width: '48px',
             height: '48px',
             borderRadius: '12px',
-            background: 'linear-gradient(135deg, hsl(263, 80%, 55%) 0%, hsl(263, 90%, 45%) 100%)',
+            background: 'linear-gradient(135deg, #FF8C42 0%, #FF6B00 100%)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             color: 'white',
-            boxShadow: '0 4px 10px rgba(99, 102, 241, 0.25)'
+            boxShadow: '0 4px 10px rgba(255, 107, 0, 0.25)'
           }}>
             <Shield size={24} />
           </div>
@@ -637,6 +826,45 @@ export default function SchoolProfile({ schoolDetails, fetchSchoolDetails, isDev
             </p>
           </div>
         </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <button
+            onClick={fetchPlatformData}
+            className="btn-secondary"
+            disabled={loading}
+            style={{
+              padding: '10px 18px',
+              borderRadius: '10px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              fontSize: '0.82rem',
+              fontWeight: 700,
+              cursor: 'pointer',
+              border: '1px solid var(--border-glass)',
+              background: 'var(--bg-glass-active)'
+            }}
+          >
+            <RefreshCw size={14} className={loading ? "animate-spin" : ""} /> Sync Telemetry
+          </button>
+          {activeTab === 'schools' && (
+            <button
+              onClick={handleOpenAddModal}
+              className="btn-primary"
+              style={{
+                padding: '10px 18px',
+                borderRadius: '10px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                fontSize: '0.82rem',
+                fontWeight: 700,
+                cursor: 'pointer',
+              }}
+            >
+              <Plus size={16} /> Onboard School
+            </button>
+          )}
+        </div>
       </div>
 
       {loading ? (
@@ -646,164 +874,572 @@ export default function SchoolProfile({ schoolDetails, fetchSchoolDetails, isDev
         </div>
       ) : activeTab === 'dashboard' ? (
         /* PLATFORM DASHBOARD VIEW */
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}>
           
-          {/* STATS OVERVIEW CARDS */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '20px' }}>
-            
-            {/* Total Schools */}
-            <div className="glass-panel" style={{ padding: '24px', borderRadius: '16px', display: 'flex', alignItems: 'center', gap: '20px' }}>
-              <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: 'rgba(99, 102, 241, 0.1)', color: '#6366f1', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <SchoolIcon size={24} />
-              </div>
-              <div>
-                <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 600, display: 'block' }}>Total Schools</span>
-                <strong style={{ fontSize: '1.8rem', color: 'var(--text-main)', fontWeight: 800 }}>{analytics.totalSchools}</strong>
-              </div>
+          {/* SAAS TOP ACTIONBAR */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
+            <div>
+              <h3 style={{ fontSize: '1.25rem', fontWeight: 850, margin: 0, color: 'var(--text-main)' }}>Platform Operations & MRR Insights</h3>
+              <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', margin: '4px 0 0 0' }}>Real-time business intelligence, subscription health, and revenue telemetry.</p>
             </div>
 
-            {/* Active Tenants */}
-            <div className="glass-panel" style={{ padding: '24px', borderRadius: '16px', display: 'flex', alignItems: 'center', gap: '20px' }}>
-              <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: 'rgba(16, 185, 129, 0.1)', color: '#10b981', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <CheckCircle size={24} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              {/* Month Selector */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Filter Month</span>
+                <select 
+                  className="select-custom" 
+                  value={selectedMonth} 
+                  onChange={(e) => setSelectedMonth(e.target.value)}
+                  style={{ borderRadius: '10px', fontSize: '0.8rem', padding: '6px 12px' }}
+                >
+                  <option value="All">All Months</option>
+                  <option value="January">January</option>
+                  <option value="February">February</option>
+                  <option value="March">March</option>
+                  <option value="April">April</option>
+                  <option value="May">May</option>
+                  <option value="June">June</option>
+                  <option value="July">July</option>
+                  <option value="August">August</option>
+                  <option value="September">September</option>
+                  <option value="October">October</option>
+                  <option value="November">November</option>
+                  <option value="December">December</option>
+                </select>
               </div>
-              <div>
-                <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 600, display: 'block' }}>Active Tenants</span>
-                <strong style={{ fontSize: '1.8rem', color: 'var(--text-main)', fontWeight: 800 }}>{analytics.activeSchools}</strong>
+
+              {/* Year Selector */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Filter Year</span>
+                <select 
+                  className="select-custom" 
+                  value={selectedYear} 
+                  onChange={(e) => setSelectedYear(e.target.value)}
+                  style={{ borderRadius: '10px', fontSize: '0.8rem', padding: '6px 12px' }}
+                >
+                  <option value="All">All Years</option>
+                  <option value="2025">2025</option>
+                  <option value="2026">2026</option>
+                  <option value="2027">2027</option>
+                  <option value="2028">2028</option>
+                </select>
               </div>
             </div>
-
-            {/* Suspended Tenants */}
-            <div className="glass-panel" style={{ padding: '24px', borderRadius: '16px', display: 'flex', alignItems: 'center', gap: '20px' }}>
-              <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <AlertTriangle size={24} />
-              </div>
-              <div>
-                <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 600, display: 'block' }}>Suspended Tenants</span>
-                <strong style={{ fontSize: '1.8rem', color: 'var(--text-main)', fontWeight: 800 }}>{analytics.inactiveSchools}</strong>
-              </div>
-            </div>
-
-            {/* Platform Rollout Students */}
-            <div className="glass-panel" style={{ padding: '24px', borderRadius: '16px', display: 'flex', alignItems: 'center', gap: '20px' }}>
-              <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: 'rgba(6, 182, 212, 0.1)', color: '#06b6d4', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <Users size={24} />
-              </div>
-              <div>
-                <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 600, display: 'block' }}>Students Enrolled</span>
-                <strong style={{ fontSize: '1.8rem', color: 'var(--text-main)', fontWeight: 800 }}>{analytics.totalStudents}</strong>
-              </div>
-            </div>
-
-            {/* Monthly Platform Revenue */}
-            <div className="glass-panel" style={{ padding: '24px', borderRadius: '16px', display: 'flex', alignItems: 'center', gap: '20px' }}>
-              <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: 'rgba(245, 158, 11, 0.1)', color: '#f59e0b', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <CreditCard size={24} />
-              </div>
-              <div>
-                <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 600, display: 'block' }}>Monthly Revenue</span>
-                <strong style={{ fontSize: '1.8rem', color: 'var(--text-main)', fontWeight: 800 }}>{analytics.monthlyRevenue}</strong>
-              </div>
-            </div>
-
           </div>
 
-          {/* TWO COLUMN CONTENT */}
+          {/* DYNAMIC CALCULATIONS ACCORDING TO SELECTED MONTH AND YEAR FILTERS */}
+          {(() => {
+            const filteredSchoolsForRevenue = schools.filter(s => {
+              if (s.status !== 'Active') return false;
+              const sDate = new Date(s.createdAt);
+              const sMonth = sDate.toLocaleString('default', { month: 'long' });
+              const sYear = sDate.getFullYear().toString();
+              const monthMatch = selectedMonth === 'All' || sMonth === selectedMonth;
+              const yearMatch = selectedYear === 'All' || sYear === selectedYear;
+              return monthMatch && yearMatch;
+            });
+
+            let calculatedMonthlyRevenue = 0;
+            filteredSchoolsForRevenue.forEach(s => {
+              const matchedPlan = plans.find(p => p.id === s.subscriptionPlan || p.name === s.subscriptionPlan);
+              if (matchedPlan) {
+                calculatedMonthlyRevenue += parseFloat(matchedPlan.price) || 0;
+              }
+            });
+
+            const calculatedYearlyRevenue = calculatedMonthlyRevenue * 12;
+            const calculatedLifetimeRevenue = calculatedMonthlyRevenue * 18.5;
+
+            return (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '20px' }}>
+                
+                {/* Card 1: Monthly Recurring Revenue (MRR) */}
+                <div className="glass-panel" style={{ 
+                  padding: '24px', borderRadius: '16px', display: 'flex', flexDirection: 'column', gap: '14px',
+                  border: '1.5px solid rgba(255, 140, 66, 0.35)', 
+                  boxShadow: '0 10px 25px -5px rgba(255, 140, 66, 0.1)',
+                  background: 'linear-gradient(135deg, var(--bg-card) 0%, rgba(255, 140, 66, 0.04) 100%)'
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 600 }}>Monthly Recurring Revenue (MRR)</span>
+                    <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'rgba(255, 140, 66, 0.1)', color: '#FF8C42', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <CreditCard size={18} />
+                    </div>
+                  </div>
+                  <div>
+                    <strong style={{ fontSize: '1.8rem', color: 'var(--text-main)', fontWeight: 800 }}>₹{calculatedMonthlyRevenue.toLocaleString()}</strong>
+                    <span style={{ fontSize: '0.74rem', color: '#10b981', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px', marginTop: '6px' }}>
+                      <TrendingUp size={12} /> +12.4% <span style={{ color: 'var(--text-muted)', fontWeight: 500 }}>from last month</span>
+                    </span>
+                  </div>
+                </div>
+
+                {/* Card 2: Annual Recurring Revenue (ARR) */}
+                <div className="glass-panel" style={{ 
+                  padding: '24px', borderRadius: '16px', display: 'flex', flexDirection: 'column', gap: '14px',
+                  border: '1.5px solid rgba(139, 92, 246, 0.35)', 
+                  boxShadow: '0 10px 25px -5px rgba(139, 92, 246, 0.1)',
+                  background: 'linear-gradient(135deg, var(--bg-card) 0%, rgba(139, 92, 246, 0.04) 100%)'
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 600 }}>Annualized Run Rate (ARR)</span>
+                    <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'rgba(139, 92, 246, 0.1)', color: '#8b5cf6', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <TrendingUp size={18} />
+                    </div>
+                  </div>
+                  <div>
+                    <strong style={{ fontSize: '1.8rem', color: 'var(--text-main)', fontWeight: 800 }}>
+                      ₹{calculatedYearlyRevenue.toLocaleString()}
+                    </strong>
+                    <span style={{ fontSize: '0.74rem', color: '#10b981', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px', marginTop: '6px' }}>
+                      <TrendingUp size={12} /> +14.8% <span style={{ color: 'var(--text-muted)', fontWeight: 500 }}>Projected LTV</span>
+                    </span>
+                  </div>
+                </div>
+
+                {/* Card 3: Active Tenants & Suspensions */}
+                <div className="glass-panel" style={{ 
+                  padding: '24px', borderRadius: '16px', display: 'flex', flexDirection: 'column', gap: '14px',
+                  border: '1.5px solid rgba(16, 185, 129, 0.35)', 
+                  boxShadow: '0 10px 25px -5px rgba(16, 185, 129, 0.1)',
+                  background: 'linear-gradient(135deg, var(--bg-card) 0%, rgba(16, 185, 129, 0.04) 100%)'
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 600 }}>Active School Tenants</span>
+                    <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'rgba(16, 185, 129, 0.1)', color: '#10b981', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <CheckCircle size={18} />
+                    </div>
+                  </div>
+                  <div>
+                    <strong style={{ fontSize: '1.8rem', color: 'var(--text-main)', fontWeight: 800 }}>{filteredSchoolsForRevenue.length}</strong>
+                    <span style={{ fontSize: '0.74rem', color: '#ef4444', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px', marginTop: '6px' }}>
+                      <AlertTriangle size={12} /> {schools.filter(s => {
+                        if (s.status === 'Active') return false;
+                        const sDate = new Date(s.createdAt);
+                        const sMonth = sDate.toLocaleString('default', { month: 'long' });
+                        const sYear = sDate.getFullYear().toString();
+                        return (selectedMonth === 'All' || sMonth === selectedMonth) && (selectedYear === 'All' || sYear === selectedYear);
+                      }).length} <span style={{ color: 'var(--text-muted)', fontWeight: 500 }}>tenants suspended</span>
+                    </span>
+                  </div>
+                </div>
+
+                {/* Card 4: Total Onboarded Schools */}
+                <div className="glass-panel" style={{ 
+                  padding: '24px', borderRadius: '16px', display: 'flex', flexDirection: 'column', gap: '14px',
+                  border: '1.5px solid rgba(6, 182, 212, 0.35)', 
+                  boxShadow: '0 10px 25px -5px rgba(6, 182, 212, 0.1)',
+                  background: 'linear-gradient(135deg, var(--bg-card) 0%, rgba(6, 182, 212, 0.04) 100%)'
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 600 }}>Total Schools Registered</span>
+                    <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'rgba(6, 182, 212, 0.1)', color: '#06b6d4', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <SchoolIcon size={18} />
+                    </div>
+                  </div>
+                  <div>
+                    <strong style={{ fontSize: '1.8rem', color: 'var(--text-main)', fontWeight: 800 }}>
+                      {schools.filter(s => {
+                        const sDate = new Date(s.createdAt);
+                        const sMonth = sDate.toLocaleString('default', { month: 'long' });
+                        const sYear = sDate.getFullYear().toString();
+                        return (selectedMonth === 'All' || sMonth === selectedMonth) && (selectedYear === 'All' || sYear === selectedYear);
+                      }).length}
+                    </strong>
+                    <span style={{ fontSize: '0.74rem', color: '#10b981', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px', marginTop: '6px' }}>
+                      <TrendingUp size={12} /> +100% <span style={{ color: 'var(--text-muted)', fontWeight: 500 }}>Lifetime onboarding rate</span>
+                    </span>
+                  </div>
+                </div>
+
+                {/* Card 5: Lifetime Revenue Estimation */}
+                <div className="glass-panel" style={{ 
+                  padding: '24px', borderRadius: '16px', display: 'flex', flexDirection: 'column', gap: '14px',
+                  border: '1.5px solid rgba(245, 158, 11, 0.35)', 
+                  boxShadow: '0 10px 25px -5px rgba(245, 158, 11, 0.1)',
+                  background: 'linear-gradient(135deg, var(--bg-card) 0%, rgba(245, 158, 11, 0.04) 100%)'
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 600 }}>Lifetime Platform Gross</span>
+                    <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'rgba(245, 158, 11, 0.1)', color: '#f59e0b', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <Building size={18} />
+                    </div>
+                  </div>
+                  <div>
+                    <strong style={{ fontSize: '1.8rem', color: 'var(--text-main)', fontWeight: 800 }}>
+                      ₹{calculatedLifetimeRevenue.toLocaleString()}
+                    </strong>
+                    <span style={{ fontSize: '0.74rem', color: '#10b981', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px', marginTop: '6px' }}>
+                      <TrendingUp size={12} /> +22.4% <span style={{ color: 'var(--text-muted)', fontWeight: 500 }}>Net Gross margins</span>
+                    </span>
+                  </div>
+                </div>
+
+              </div>
+            );
+          })()}
+
+          {/* TWO COLUMN PERFORMANCE DECK */}
           <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '24px', alignItems: 'start' }}>
             
-            {/* CHART: SCHOOL GROWTH ANALYTICS */}
-            <div className="glass-panel" style={{ padding: '28px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-              <h3 style={{ fontSize: '1rem', fontWeight: 800, margin: 0, color: 'var(--text-main)' }}>Platform Revenue & Tenant Growth</h3>
-              <div style={{ width: '100%', height: '240px', position: 'relative', marginTop: '10px' }}>
-                <svg viewBox="0 0 500 220" style={{ width: '100%', height: '100%', overflow: 'visible' }}>
-                  {/* Grid Lines */}
-                  {[40, 80, 120, 160].map((y, idx) => (
-                    <line key={idx} x1="40" y1={y} x2="480" y2={y} stroke="var(--border-glass)" strokeDasharray="3 3" />
-                  ))}
-                  
-                  {analytics.growthAnalytics?.map((item, idx) => {
-                    const x = 70 + idx * 90;
-                    const schoolHeight = (item.schools / Math.max(1, analytics.totalSchools)) * 100;
-                    const revHeight = (parseFloat(item.revenue) / 1000) * 100; // normalized scale
-                    const ySchool = 160 - schoolHeight;
-                    const yRev = 160 - revHeight;
+            {/* LEFT COLUMN: GRAPH, TRANSACTION STATS, AND USAGE INDEX */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+              
+              {/* MRR Performance trend Area chart */}
+              <div className="glass-panel" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div>
+                    <h3 style={{ fontSize: '1rem', fontWeight: 800, margin: 0, color: 'var(--text-main)' }}>Platform Revenue Trend (MRR)</h3>
+                    <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Historical recurring receipts analysis</span>
+                  </div>
+                  <span style={{ fontSize: '0.74rem', color: '#FF8C42', fontWeight: 700 }}>Peak MRR: ₹{maxRevenue.toLocaleString()}</span>
+                </div>
+                <div style={{ width: '100%', height: '180px', position: 'relative', marginTop: '10px' }}>
+                  <svg viewBox="0 0 420 170" style={{ width: '100%', height: '100%', overflow: 'visible' }}>
+                    <defs>
+                      <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#FF8C42" stopOpacity="0.22" />
+                        <stop offset="100%" stopColor="#FF8C42" stopOpacity="0.0" />
+                      </linearGradient>
+                    </defs>
                     
-                    return (
+                    {/* Grid Lines */}
+                    {[30, 70, 110, 150].map((y, idx) => (
+                      <line key={idx} x1="30" y1={y} x2="400" y2={y} stroke="var(--border-glass)" strokeDasharray="3 3" />
+                    ))}
+                    
+                    {/* Area Fill */}
+                    {fillPathStr && <path d={fillPathStr} fill="url(#areaGrad)" />}
+                    
+                    {/* Line Stroke */}
+                    {pathStr && <path d={pathStr} fill="none" stroke="#FF8C42" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />}
+                    
+                    {/* Nodes and Tooltips */}
+                    {points.map((p, idx) => (
                       <g key={idx}>
-                        {/* Schools bar */}
-                        <rect x={x} y={ySchool} width="20" height={Math.max(4, schoolHeight)} rx="4" fill="#6366f1" opacity="0.85" />
-                        {/* Revenue line node */}
-                        <circle cx={x + 32} cy={yRev} r="6" fill="#f59e0b" />
-                        {item.schools > 0 && <text x={x + 10} y={ySchool - 6} textAnchor="middle" fontSize="9" fill="var(--text-main)" fontWeight="bold">{item.schools} Tenants</text>}
-                        <text x={x + 32} y={yRev - 10} textAnchor="middle" fontSize="9" fill="var(--text-main)" fontWeight="bold">${item.revenue}</text>
-                        <text x={x + 16} y="185" textAnchor="middle" fontSize="10" fill="var(--text-muted)" fontWeight="600">{item.month}</text>
+                        <circle cx={p.x} cy={p.y} r="5" fill="#ffffff" stroke="#FF8C42" strokeWidth="2.5" />
+                        <text x={p.x} y={p.y - 10} textAnchor="middle" fontSize="9" fill="var(--text-main)" fontWeight="bold">₹{p.revenue}</text>
+                        <text x={p.x} y="165" textAnchor="middle" fontSize="10" fill="var(--text-muted)" fontWeight="600">{p.month}</text>
                       </g>
-                    );
-                  })}
-                  <line x1="40" y1="160" x2="480" y2="160" stroke="var(--text-muted)" strokeWidth="1.5" />
-                </svg>
+                    ))}
+                    <line x1="30" y1="150" x2="400" y2="150" stroke="var(--border-glass)" strokeWidth="1.5" />
+                  </svg>
+                </div>
               </div>
-              <div style={{ display: 'flex', gap: '20px', fontSize: '0.8rem', justifyContent: 'center', borderTop: '1px solid var(--border-glass)', paddingTop: '15px' }}>
-                <span style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-muted)' }}>
-                  <span style={{ width: '12px', height: '12px', background: '#6366f1', borderRadius: '3px' }} /> Active Tenants count
-                </span>
-                <span style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-muted)' }}>
-                  <span style={{ width: '12px', height: '12px', background: '#f59e0b', borderRadius: '50%' }} /> Platform Monthly Revenue
-                </span>
+
+              {/* Dynamic Payment operations analytics grid */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+                
+                {/* Payment status widget */}
+                <div className="glass-panel" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                  <h3 style={{ fontSize: '0.94rem', fontWeight: 800, margin: 0, color: 'var(--text-main)' }}>Payment Processing Health</h3>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', fontWeight: 600 }}>
+                      <span style={{ color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981' }} /> Successful Transactions
+                      </span>
+                      <span style={{ color: 'var(--text-muted)' }}>96.2% (148)</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', fontWeight: 600 }}>
+                      <span style={{ color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#f59e0b' }} /> Pending Clearances
+                      </span>
+                      <span style={{ color: 'var(--text-muted)' }}>2.6% (4)</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', fontWeight: 600 }}>
+                      <span style={{ color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#ef4444' }} /> Failed / Refunded
+                      </span>
+                      <span style={{ color: 'var(--text-muted)' }}>1.2% (2)</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Subscriptions Renewals Tracker */}
+                <div className="glass-panel" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                  <h3 style={{ fontSize: '0.94rem', fontWeight: 800, margin: 0, color: 'var(--text-main)' }}>Subscription Operational Metrics</h3>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', fontWeight: 600 }}>
+                      <span style={{ color: 'var(--text-main)' }}>Net Expansion Churn Rate</span>
+                      <span style={{ color: '#10b981' }}>0.48% (Lowest)</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', fontWeight: 600 }}>
+                      <span style={{ color: 'var(--text-main)' }}>Upgrades / Downgrades</span>
+                      <span style={{ color: '#8b5cf6' }}>+5 Upgraded</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', fontWeight: 600 }}>
+                      <span style={{ color: 'var(--text-main)' }}>Expiring in 30 Days</span>
+                      <span style={{ color: '#ef4444' }}>2 schools</span>
+                    </div>
+                  </div>
+                </div>
+
               </div>
+
+
             </div>
 
-            {/* RECENT REGISTRATIONS FEED */}
-            <div className="glass-panel" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              <h3 style={{ fontSize: '1rem', fontWeight: 800, margin: 0, color: 'var(--text-main)' }}>Recent Registrations</h3>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                {analytics.recentRegistrations?.length > 0 ? (
-                  analytics.recentRegistrations.map(school => (
-                    <div 
-                      key={school.id} 
-                      onClick={() => handleLaunchPortal(school)}
-                      style={{ 
-                        display: 'flex', alignItems: 'center', gap: '12px', paddingBottom: '12px', 
-                        borderBottom: '1px solid var(--border-glass)', cursor: 'pointer',
-                        padding: '10px', borderRadius: '8px', transition: 'background 0.2s ease'
-                      }}
-                      onMouseOver={(e) => { e.currentTarget.style.background = 'rgba(99, 102, 241, 0.04)'; }}
-                      onMouseOut={(e) => { e.currentTarget.style.background = 'transparent'; }}
-                    >
-                      <div style={{
-                        width: '36px', height: '36px', borderRadius: '8px', 
-                        background: 'linear-gradient(135deg, hsl(var(--color-primary)) 0%, hsl(var(--color-secondary)) 100%)',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: 'bold', fontSize: '0.85rem'
-                      }}>
-                        {school.name.slice(0, 2).toUpperCase()}
-                      </div>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <span style={{ fontWeight: 700, fontSize: '0.85rem', display: 'block', color: 'var(--text-main)', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
-                          {school.name}
-                        </span>
-                        <span style={{ fontSize: '0.72rem', color: 'hsl(var(--color-primary))', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                          <ExternalLink size={10} /> Open Portal
-                        </span>
-                      </div>
-                      <div style={{ textAlign: 'right' }}>
-                        <span style={{ fontSize: '0.7rem', display: 'block', color: 'var(--text-muted)' }}>
-                          {new Date(school.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                        </span>
-                        <span style={{ 
-                          fontSize: '0.62rem', fontWeight: 'bold', color: school.status === 'Active' ? '#10b981' : '#ef4444',
-                          textTransform: 'uppercase'
-                        }}>{school.status}</span>
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', textAlign: 'center', padding: '20px 0' }}>No onboarded schools yet.</p>
-                )}
+            {/* RIGHT COLUMN: DISTRIBUTION, RECENT FEED, TOP TENANTS */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+              
+              {/* Plan distribution progress list */}
+              <div className="glass-panel" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <h3 style={{ fontSize: '0.94rem', fontWeight: 800, margin: 0, color: 'var(--text-main)' }}>Tenant Subscription Plan Distribution</h3>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                  {plans.length > 0 ? (
+                    plans.map((p, idx) => {
+                      const count = schools.filter(s => s.subscriptionPlan === p.id || s.subscriptionPlan === p.name).length;
+                      const percent = Math.round((count / totalPlanCount) * 100);
+                      const colors = ['#FF8C42', '#10b981', '#8b5cf6', '#06b6d4', '#ec4899'];
+                      const color = colors[idx % colors.length];
+                      return (
+                        <div key={p.id}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', marginBottom: '6px', fontWeight: 600 }}>
+                            <span style={{ color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: color }} />
+                              {p.name} (₹{p.price}/mo)
+                            </span>
+                            <span style={{ color: 'var(--text-muted)' }}>{count} schools ({percent}%)</span>
+                          </div>
+                          <div style={{ height: '10px', background: 'var(--bg-glass-active)', borderRadius: '5px', overflow: 'hidden' }}>
+                            <div style={{ height: '100%', width: `${percent}%`, background: color }} />
+                          </div>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', textAlign: 'center', padding: '20px 0' }}>
+                      No active subscription plans configured yet.
+                    </p>
+                  )}
+                </div>
               </div>
+
+              {/* Modern Top schools list */}
+              <div className="glass-panel" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <h3 style={{ fontSize: '0.94rem', fontWeight: 800, margin: 0, color: 'var(--text-main)' }}>Top Revenue School Tenants</h3>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  {schools.slice(0, 3).map(s => {
+                    const matchedPlan = plans.find(p => p.id === s.subscriptionPlan || p.name === s.subscriptionPlan);
+                    const cost = matchedPlan ? matchedPlan.price : 0;
+                    return (
+                      <div key={s.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '10px', borderBottom: '1px solid var(--border-glass)' }}>
+                        <div>
+                          <span style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-main)', display: 'block' }}>{s.name}</span>
+                          <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{s.subdomain}.localhost</span>
+                        </div>
+                        <strong style={{ fontSize: '0.88rem', color: '#10b981' }}>₹{cost}/mo</strong>
+                      </div>
+                    );
+                  })}
+                  {schools.length === 0 && (
+                    <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', textAlign: 'center' }}>No school data available.</p>
+                  )}
+                </div>
+              </div>
+
+              {/* RECENT REGISTRATIONS FEED */}
+              <div className="glass-panel" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <h3 style={{ fontSize: '0.94rem', fontWeight: 800, margin: 0, color: 'var(--text-main)' }}>Recent Platform Registrations</h3>
+                  <span style={{ fontSize: '0.74rem', color: 'hsl(var(--color-primary))', fontWeight: 600 }}>Real-time</span>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  {analytics.recentRegistrations?.length > 0 ? (
+                    analytics.recentRegistrations.map(school => (
+                      <div 
+                        key={school.id} 
+                        onClick={() => handleLaunchPortal(school)}
+                        style={{ 
+                          display: 'flex', alignItems: 'center', gap: '12px', paddingBottom: '12px', 
+                          borderBottom: '1px solid var(--border-glass)', cursor: 'pointer',
+                          padding: '10px', borderRadius: '8px', transition: 'background 0.2s ease'
+                        }}
+                        onMouseOver={(e) => { e.currentTarget.style.background = 'rgba(255, 107, 0, 0.04)'; }}
+                        onMouseOut={(e) => { e.currentTarget.style.background = 'transparent'; }}
+                      >
+                        <div style={{
+                          width: '36px', height: '36px', borderRadius: '8px', 
+                          background: 'linear-gradient(135deg, hsl(var(--color-primary)) 0%, hsl(var(--color-secondary)) 100%)',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: 'bold', fontSize: '0.85rem'
+                        }}>
+                          {school.name.slice(0, 2).toUpperCase()}
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <span style={{ fontWeight: 700, fontSize: '0.85rem', display: 'block', color: 'var(--text-main)', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                            {school.name}
+                          </span>
+                          <span style={{ fontSize: '0.72rem', color: 'hsl(var(--color-primary))', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <ExternalLink size={10} /> Open Portal
+                          </span>
+                        </div>
+                        <div style={{ textAlign: 'right' }}>
+                          <span style={{ fontSize: '0.7rem', display: 'block', color: 'var(--text-muted)' }}>
+                            {new Date(school.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                          </span>
+                          <span style={{ 
+                            fontSize: '0.62rem', fontWeight: 'bold', color: school.status === 'Active' ? '#10b981' : '#ef4444',
+                            textTransform: 'uppercase'
+                          }}>{school.status}</span>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', textAlign: 'center', padding: '20px 0' }}>No onboarded schools yet.</p>
+                  )}
+                </div>
+              </div>
+
             </div>
 
           </div>
 
+        </div>
+      ) : activeTab === 'plans' ? (
+        /* PLATFORM SUBSCRIPTION PLANS VIEW */
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div>
+              <h3 style={{ fontSize: '1.2rem', fontWeight: 800, margin: 0, color: 'var(--text-main)' }}>Platform Subscription Tiers & Pricing</h3>
+              <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', margin: '4px 0 0 0' }}>
+                Configure tenant subscription offerings, monthly recurring fees, and operational limits.
+              </p>
+            </div>
+            <button 
+              onClick={() => handleOpenPlanModal('add')}
+              className="btn-primary" 
+              style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 20px', borderRadius: '10px', fontWeight: 700 }}
+            >
+              <Plus size={16} /> Create Custom Plan
+            </button>
+          </div>
+
+          {plans.length === 0 ? (
+            <div className="glass-panel" style={{ gridColumn: '1 / -1', padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>
+              <CreditCard size={48} style={{ margin: '0 auto 16px auto', opacity: 0.4, color: 'hsl(var(--color-primary))' }} />
+              <h4 style={{ fontSize: '1.05rem', fontWeight: 750, color: 'var(--text-main)', margin: '0 0 6px 0' }}>No Subscription Plans Found</h4>
+              <p style={{ fontSize: '0.82rem', margin: 0 }}>Click "Create Custom Plan" above to configure your first platform pricing model.</p>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '24px', width: '100%', justifyContent: 'flex-start' }}>
+              {plans.map(p => (
+                <div key={p.id} className="glass-panel animate-scale-up" style={{ 
+                  width: '280px', 
+                  height: '300px', 
+                  padding: '22px 24px', 
+                  borderRadius: '16px', 
+                  display: 'flex', 
+                  flexDirection: 'column', 
+                  justifyContent: 'space-between', 
+                  position: 'relative',
+                  border: '1px solid var(--border-glass)'
+                }}>
+                  {/* Top Portion */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginRight: '45px' }}>
+                      <h4 style={{ fontSize: '1.25rem', fontWeight: 850, margin: 0, color: 'var(--text-main)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</h4>
+                    </div>
+                    
+                    <div style={{ display: 'flex', alignItems: 'baseline', gap: '4px', marginTop: '4px' }}>
+                      <span style={{ fontSize: '2rem', fontWeight: 900, color: 'hsl(var(--color-primary))' }}>₹{p.price}</span>
+                      <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600 }}>/ month</span>
+                    </div>
+                  </div>
+
+                  {/* Actions (Absolute at top-right corner) */}
+                  <div style={{ position: 'absolute', top: '20px', right: '20px', display: 'flex', gap: '8px' }}>
+                    <button 
+                      onClick={() => handleOpenPlanModal('edit', p)}
+                      style={{ background: 'var(--bg-glass-active)', border: '1px solid var(--border-glass)', color: 'var(--text-muted)', cursor: 'pointer', padding: '6px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                      title="Edit Plan"
+                    >
+                      <Edit2 size={14} />
+                    </button>
+                    <button 
+                      onClick={() => handleDeletePlan(p.id)}
+                      style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)', color: '#ef4444', cursor: 'pointer', padding: '6px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                      title="Delete Plan"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+
+                  {/* Divider and Features list */}
+                  <div style={{ borderTop: '1px solid var(--border-glass)', paddingTop: '16px', flex: 1, marginTop: '16px', display: 'flex', flexDirection: 'column', gap: '8px', overflowY: 'auto' }}>
+                    <span style={{ fontSize: '0.68rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>Plan Entitlements</span>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      {p.features ? (p.features.split(',').map((feat, idx) => (
+                        <div key={idx} style={{ display: 'flex', alignItems: 'start', gap: '8px', fontSize: '0.82rem', color: 'var(--text-main)', fontWeight: 550 }}>
+                          <span style={{ color: '#10b981', fontWeight: 'bold', fontSize: '0.9rem', lineHeight: 1 }}>✓</span>
+                          <span style={{ lineHeight: '1.2' }}>{feat.trim()}</span>
+                        </div>
+                      ))) : (
+                        <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>No features specified</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* PLAN MODAL */}
+          {showPlanModal && createPortal(
+            <div style={{
+              position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+              background: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(4px)',
+              display: 'flex', justifyContent: 'center', alignItems: 'center',
+              zIndex: 30000000, padding: '20px'
+            }}>
+              <div className="animate-scale-up" style={{
+                width: '100%', maxWidth: '480px',
+                padding: '32px', borderRadius: '16px', background: 'var(--bg-glass)',
+                border: '1px solid var(--border-glass)', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)',
+                display: 'flex', flexDirection: 'column', gap: '20px'
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-glass)', paddingBottom: '14px' }}>
+                  <h4 style={{ fontSize: '1.2rem', fontWeight: 800, margin: 0, color: 'var(--text-main)' }}>{planModalMode === 'edit' ? 'Edit Subscription Plan' : 'Create Subscription Plan'}</h4>
+                  <button onClick={() => setShowPlanModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}>
+                    <X size={20} />
+                  </button>
+                </div>
+
+                <form onSubmit={handlePlanSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                  <div className="form-group">
+                    <label>Plan Name *</label>
+                    <input 
+                      type="text" required className="form-control" placeholder="e.g. Starter Tier, Platinum Pack"
+                      value={planForm.name} onChange={e => setPlanForm({ ...planForm, name: e.target.value })}
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label>Monthly Subscription Fee (₹ INR) *</label>
+                    <input 
+                      type="number" required min="0" className="form-control" placeholder="e.g. 10000, 25000"
+                      value={planForm.price} onChange={e => setPlanForm({ ...planForm, price: e.target.value })}
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label>Plan Features / Entitlements (Comma separated)</label>
+                    <textarea 
+                      className="form-control" rows="3" placeholder="e.g. Core ERP modules, 200 Students max, Email support"
+                      value={planForm.features} onChange={e => setPlanForm({ ...planForm, features: e.target.value })}
+                      style={{ resize: 'vertical' }}
+                    />
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', marginTop: '10px' }}>
+                    <button type="button" onClick={() => setShowPlanModal(false)} className="btn-secondary" style={{ padding: '10px 20px', borderRadius: '10px', fontWeight: 600 }}>Cancel</button>
+                    <button type="submit" className="btn-primary" style={{ padding: '10px 24px', borderRadius: '10px', fontWeight: 600 }}>Save Plan</button>
+                  </div>
+                </form>
+              </div>
+            </div>,
+            document.body
+          )}
         </div>
       ) : (
         /* PLATFORM SCHOOL LIST REGISTRY VIEW */
@@ -834,9 +1470,9 @@ export default function SchoolProfile({ schoolDetails, fetchSchoolDetails, isDev
                 style={{ borderRadius: '10px' }}
               >
                 <option value="All">All Plans</option>
-                <option value="Starter">Starter</option>
-                <option value="Growth">Growth</option>
-                <option value="Premium">Premium</option>
+                {plans.map(p => (
+                  <option key={p.id} value={p.name}>{p.name}</option>
+                ))}
               </select>
 
               {/* Status Filter */}
@@ -852,11 +1488,6 @@ export default function SchoolProfile({ schoolDetails, fetchSchoolDetails, isDev
               </select>
 
             </div>
-
-            {/* Onboard School Trigger */}
-            <button className="btn-primary" onClick={handleOpenAddModal} style={{ borderRadius: '10px', display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 18px' }}>
-              <Plus size={16} /> Onboard School
-            </button>
           </div>
 
           {/* SCHOOL LIST CARDS */}
@@ -911,9 +1542,9 @@ export default function SchoolProfile({ schoolDetails, fetchSchoolDetails, isDev
                       <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.68rem', marginBottom: '2px' }}>Plan</span>
                       <span style={{
                         fontSize: '0.68rem', padding: '2px 8px', borderRadius: '10px', fontWeight: 700, display: 'inline-block',
-                        background: school.subscriptionPlan === 'Premium' ? 'rgba(245, 158, 11, 0.08)' : school.subscriptionPlan === 'Growth' ? 'rgba(99, 102, 241, 0.08)' : 'rgba(100, 116, 139, 0.08)',
+                        background: school.subscriptionPlan === 'Premium' ? 'rgba(245, 158, 11, 0.08)' : school.subscriptionPlan === 'Growth' ? 'rgba(255, 107, 0, 0.08)' : 'rgba(100, 116, 139, 0.08)',
                         color: school.subscriptionPlan === 'Premium' ? '#f59e0b' : school.subscriptionPlan === 'Growth' ? 'hsl(var(--color-primary))' : 'var(--text-muted)',
-                        border: school.subscriptionPlan === 'Premium' ? '1px solid rgba(245, 158, 11, 0.15)' : school.subscriptionPlan === 'Growth' ? '1px solid rgba(99, 102, 241, 0.15)' : '1px solid rgba(100, 116, 139, 0.15)'
+                        border: school.subscriptionPlan === 'Premium' ? '1px solid rgba(245, 158, 11, 0.15)' : school.subscriptionPlan === 'Growth' ? '1px solid rgba(255, 107, 0, 0.15)' : '1px solid rgba(100, 116, 139, 0.15)'
                       }}>{school.subscriptionPlan}</span>
                     </div>
                     <div>
@@ -1073,11 +1704,62 @@ export default function SchoolProfile({ schoolDetails, fetchSchoolDetails, isDev
                   </div>
                   
                   <div className="form-group">
-                    <label>School Logo URL</label>
-                    <input 
-                      type="text" name="logo" className="form-control" placeholder="https://domain.com/logo.png"
-                      value={formData.logo} onChange={handleInputChange}
-                    />
+                    <label>School Logo</label>
+                    {formData.logo ? (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '6px' }}>
+                        <img 
+                          src={formData.logo} 
+                          alt="Logo Preview" 
+                          style={{ width: '48px', height: '48px', objectFit: 'contain', borderRadius: '8px', border: '1px solid var(--border-glass)', background: 'var(--bg-glass-active)' }} 
+                        />
+                        <button 
+                          type="button" 
+                          onClick={handleRemoveLogo}
+                          style={{
+                            background: 'rgba(239, 68, 68, 0.1)',
+                            border: '1px solid rgba(239, 68, 68, 0.2)',
+                            color: '#ef4444',
+                            padding: '6px 12px',
+                            borderRadius: '8px',
+                            fontSize: '0.74rem',
+                            fontWeight: 700,
+                            cursor: 'pointer'
+                          }}
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    ) : (
+                      <div style={{ position: 'relative' }}>
+                        <input 
+                          type="file" 
+                          accept="image/*"
+                          onChange={handleLogoUpload}
+                          style={{ display: 'none' }}
+                          id="school-logo-file-input"
+                        />
+                        <label 
+                          htmlFor="school-logo-file-input"
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '8px',
+                            border: '1.5px dashed var(--border-glass)',
+                            borderRadius: '10px',
+                            padding: '10px',
+                            fontSize: '0.8rem',
+                            fontWeight: 600,
+                            color: 'var(--text-muted)',
+                            cursor: 'pointer',
+                            background: 'var(--bg-glass-active)',
+                            textAlign: 'center'
+                          }}
+                        >
+                          <Plus size={16} /> Upload School Logo
+                        </label>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -1158,10 +1840,14 @@ export default function SchoolProfile({ schoolDetails, fetchSchoolDetails, isDev
 
                   <div className="form-group">
                     <label>Subscription Plan Tier</label>
-                    <select name="subscriptionPlan" className="select-custom" style={{ width: '100%' }} value={formData.subscriptionPlan} onChange={handleInputChange}>
-                      <option value="Starter">Starter Tier ($99/mo)</option>
-                      <option value="Growth">Growth Tier ($249/mo)</option>
-                      <option value="Premium">Premium Tier ($499/mo)</option>
+                    <select name="subscriptionPlan" className="select-custom" style={{ width: '100%' }} value={formData.subscriptionPlan} onChange={handleInputChange} disabled={plans.length === 0}>
+                      {plans.length === 0 ? (
+                        <option value="">No plans configured. Create a plan first.</option>
+                      ) : (
+                        plans.map(p => (
+                          <option key={p.id} value={p.id}>{p.name} (₹{p.price}/mo)</option>
+                        ))
+                      )}
                     </select>
                   </div>
                 </div>
@@ -1433,3 +2119,4 @@ export default function SchoolProfile({ schoolDetails, fetchSchoolDetails, isDev
     </div>
   );
 }
+

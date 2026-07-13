@@ -99,7 +99,6 @@ const MATRIX_CONFIGURABLE_MODULES = [
   'expense-history',
   'financial-reports',
   'auxiliary-income',
-  'security-audit',
   'roles-permissions',
   'settings'
 ];

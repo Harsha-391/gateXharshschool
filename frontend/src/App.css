@@ -1,4 +1,4 @@
-/* Application Shell Layout */
+﻿/* Application Shell Layout */
 .app-container {
   display: flex;
   min-height: 100vh;
@@ -381,3 +381,4 @@
   animation: none !important;
   transform: none !important;
 }
+

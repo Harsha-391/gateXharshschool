@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import './UserProfile.css';
 import { 
   User, 
@@ -249,3 +249,4 @@ export default function UserProfile({ onProfileUpdate, showToast, onLogout }) {
     </div>
   );
 }
+

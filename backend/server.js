@@ -5,6 +5,7 @@ import fs from 'fs';
 import path from 'path';
 import { execSync } from 'child_process';
 import helmet from 'helmet';
+import { WebSocketServer } from 'ws';
 
 // Global debug log buffer for live diagnostics
 global.debugLogs = [];
@@ -79,11 +80,171 @@ import { sanitizeInput } from './middleware/sanitize.js';
 import { decrypt } from './utils/encryptionHelper.js';
 import { auth, generateToken, generateRefreshToken, verifyRefreshToken, blacklistToken, setAuthCookie, clearAuthCookie } from './middleware/auth.js';
 import multer from 'multer';
+import * as sqlDb from './utils/sqlDb.js';
 
 // Database cache refresh trigger
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const GLOBAL_DB_FILE = path.join(__dirname, 'db.json');
+
+// WebSocket Client tracking and utilities
+const wsClients = new Set();
+let wss = null;
+
+async function computePlatformAnalytics() {
+  const db = readDb(); // Global DB
+  const schools = db.schools || [];
+
+  const totalSchools = schools.length;
+  const activeSchools = schools.filter(s => s.status === 'Active').length;
+  const inactiveSchools = totalSchools - activeSchools;
+
+  let totalStudents = 0;
+  let totalTeachers = 0;
+  let totalStaff = 0;
+  let monthlyRevenue = 0;
+
+  if (isSqlActive()) {
+    try {
+      const sqlDb = await import('./utils/sqlDb.js');
+      const tenantStats = await Promise.all(schools.map(async (school) => {
+        const subdomain = school.subdomain;
+        try {
+          const [studentsRes, teachersRes, staffRes, employeesRes] = await Promise.all([
+            sqlDb.query('SELECT COUNT(*) as cnt FROM students', [], subdomain),
+            sqlDb.query('SELECT COUNT(*) as cnt FROM teachers', [], subdomain),
+            sqlDb.query('SELECT COUNT(*) as cnt FROM staff', [], subdomain),
+            sqlDb.query('SELECT COUNT(*) as cnt FROM employees', [], subdomain)
+          ]);
+          return {
+            students: studentsRes[0]?.cnt || 0,
+            teachers: teachersRes[0]?.cnt || 0,
+            staff: (staffRes[0]?.cnt || 0) + (employeesRes[0]?.cnt || 0)
+          };
+        } catch (err) {
+          console.error(`Failed to query stats for tenant ${subdomain}:`, err);
+          return { students: 0, teachers: 0, staff: 0 };
+        }
+      }));
+
+      tenantStats.forEach(ts => {
+        totalStudents += ts.students;
+        totalTeachers += ts.teachers;
+        totalStaff += ts.staff;
+      });
+    } catch (err) {
+      console.error('Failed to query global stats from SQL:', err);
+    }
+  }
+
+  schools.forEach(school => {
+    // Read individual tenant files if not in SQL mode
+    if (!isSqlActive()) {
+      const tenantDbPath = path.join(__dirname, 'tenants', `db_${school.subdomain}.json`);
+      if (fs.existsSync(tenantDbPath)) {
+        try {
+          const raw = fs.readFileSync(tenantDbPath, 'utf8');
+          const data = JSON.parse(raw);
+          totalStudents += (data.students || []).length;
+          totalTeachers += (data.teachers || []).length;
+          totalStaff += (data.staff || []).length + (data.employees || []).length;
+        } catch (e) {
+          console.error(`Error reading tenant DB for ${school.subdomain}:`, e);
+        }
+      }
+    }
+
+    // Monthly revenue based on plans
+    let plans = db.plans || [];
+    const planId = school.subscriptionPlan;
+    const matchedPlan = plans.find(p => p.id === planId || p.name === planId);
+    if (matchedPlan) {
+      monthlyRevenue += parseFloat(matchedPlan.price) || 0;
+    }
+  });
+
+  // Recent registrations
+  const recentRegistrations = [...schools]
+    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+    .slice(0, 5);
+
+  // School Growth chart data
+  const growthAnalytics = [
+    { month: 'Jan', schools: Math.max(0, totalSchools - 4), revenue: Math.max(0, monthlyRevenue - 800) },
+    { month: 'Feb', schools: Math.max(0, totalSchools - 3), revenue: Math.max(0, monthlyRevenue - 600) },
+    { month: 'Mar', schools: Math.max(0, totalSchools - 2), revenue: Math.max(0, monthlyRevenue - 400) },
+    { month: 'Apr', schools: Math.max(0, totalSchools - 1), revenue: Math.max(0, monthlyRevenue - 200) },
+    { month: 'May', schools: totalSchools, revenue: monthlyRevenue }
+  ];
+
+  return {
+    totalSchools,
+    activeSchools,
+    inactiveSchools,
+    totalStudents,
+    totalTeachers,
+    totalStaff,
+    monthlyRevenue: `₹${monthlyRevenue.toLocaleString()}`,
+    recentRegistrations,
+    growthAnalytics
+  };
+}
+
+const setupWebSocketServer = (server) => {
+  wss = new WebSocketServer({ server });
+  wss.on('connection', async (ws) => {
+    wsClients.add(ws);
+    console.log('[WebSocket] Client connected. Active clients:', wsClients.size);
+
+    try {
+      const db = readDb();
+      const data = await computePlatformAnalytics();
+      ws.send(JSON.stringify({
+        type: 'PLATFORM_STATE_UPDATE',
+        data: {
+          analytics: data,
+          schools: db.schools || [],
+          plans: db.plans || []
+        }
+      }));
+    } catch (err) {
+      console.error('[WebSocket] Error sending initial payload:', err);
+    }
+
+    ws.on('close', () => {
+      wsClients.delete(ws);
+      console.log('[WebSocket] Client disconnected. Active clients:', wsClients.size);
+    });
+
+    ws.on('error', (err) => {
+      console.error('[WebSocket Client Error]', err);
+    });
+  });
+};
+
+const broadcastPlatformUpdate = async () => {
+  if (!wss || wsClients.size === 0) return;
+  console.log('[WebSocket] Broadcasting update to', wsClients.size, 'clients...');
+  try {
+    const db = readDb();
+    const data = await computePlatformAnalytics();
+    const payload = JSON.stringify({
+      type: 'PLATFORM_STATE_UPDATE',
+      data: {
+        analytics: data,
+        schools: db.schools || [],
+        plans: db.plans || []
+      }
+    });
+    for (const client of wsClients) {
+      if (client.readyState === 1) {
+        client.send(payload);
+      }
+    }
+  } catch (err) {
+    console.error('[WebSocket Broadcast Error]', err);
+  }
+};
 
 const app = express();
 const PORT = 5000;
@@ -819,6 +980,7 @@ app.post('/api/platform/schools', schoolValidation, async (req, res) => {
     }
   }
 
+  broadcastPlatformUpdate();
   res.status(201).json(newSchool);
 });
 
@@ -876,6 +1038,7 @@ app.put('/api/platform/schools/:id', (req, res) => {
     }
   }
 
+  broadcastPlatformUpdate();
   res.json(db.schools[index]);
 });
 
@@ -888,6 +1051,7 @@ app.post('/api/platform/schools/:id/suspend', (req, res) => {
   school.status = 'Suspended';
   school.updatedAt = new Date().toISOString();
   writeDb(db);
+  broadcastPlatformUpdate();
 
   // Sync to tenant DB
   if (!isSqlActive()) {
@@ -919,6 +1083,7 @@ app.post('/api/platform/schools/:id/activate', (req, res) => {
   school.status = 'Active';
   school.updatedAt = new Date().toISOString();
   writeDb(db);
+  broadcastPlatformUpdate();
 
   // Sync to tenant DB
   if (!isSqlActive()) {
@@ -1029,6 +1194,7 @@ app.delete('/api/platform/schools/:id', async (req, res) => {
       }
     }
 
+    broadcastPlatformUpdate();
     return res.json({ success: true, message: 'School removed from the platform.' });
   }
 
@@ -1111,100 +1277,72 @@ app.post('/api/platform/schools/:id/credentials', restoreTenantContext, async (r
 
 // Get Platform Analytics
 app.get('/api/platform/analytics', async (req, res) => {
-  const db = readDb(); // Global DB
-  const schools = db.schools || [];
-
-  const totalSchools = schools.length;
-  const activeSchools = schools.filter(s => s.status === 'Active').length;
-  const inactiveSchools = totalSchools - activeSchools;
-
-  let totalStudents = 0;
-  let totalTeachers = 0;
-  let totalStaff = 0;
-  let monthlyRevenue = 0;
-
-  if (isSqlActive()) {
-    try {
-      const sqlDb = await import('./utils/sqlDb.js');
-      const tenantStats = await Promise.all(schools.map(async (school) => {
-        const subdomain = school.subdomain;
-        try {
-          const [studentsRes, teachersRes, staffRes, employeesRes] = await Promise.all([
-            sqlDb.query('SELECT COUNT(*) as cnt FROM students', [], subdomain),
-            sqlDb.query('SELECT COUNT(*) as cnt FROM teachers', [], subdomain),
-            sqlDb.query('SELECT COUNT(*) as cnt FROM staff', [], subdomain),
-            sqlDb.query('SELECT COUNT(*) as cnt FROM employees', [], subdomain)
-          ]);
-          return {
-            students: studentsRes[0]?.cnt || 0,
-            teachers: teachersRes[0]?.cnt || 0,
-            staff: (staffRes[0]?.cnt || 0) + (employeesRes[0]?.cnt || 0)
-          };
-        } catch (err) {
-          console.error(`Failed to query stats for tenant ${subdomain}:`, err);
-          return { students: 0, teachers: 0, staff: 0 };
-        }
-      }));
-
-      tenantStats.forEach(ts => {
-        totalStudents += ts.students;
-        totalTeachers += ts.teachers;
-        totalStaff += ts.staff;
-      });
-    } catch (err) {
-      console.error('Failed to query global stats from SQL:', err);
-    }
+  try {
+    const data = await computePlatformAnalytics();
+    res.json(data);
+  } catch (err) {
+    console.error('Failed to compute platform analytics:', err);
+    res.status(500).json({ error: 'Failed to compute platform analytics' });
   }
+});
 
-  schools.forEach(school => {
-    // Read individual tenant files if not in SQL mode
-    if (!isSqlActive()) {
-      const tenantDbPath = path.join(__dirname, 'tenants', `db_${school.subdomain}.json`);
-      if (fs.existsSync(tenantDbPath)) {
-        try {
-          const raw = fs.readFileSync(tenantDbPath, 'utf8');
-          const data = JSON.parse(raw);
-          totalStudents += (data.students || []).length;
-          totalTeachers += (data.teachers || []).length;
-          totalStaff += (data.staff || []).length + (data.employees || []).length;
-        } catch (e) {
-          console.error(`Error reading tenant DB for ${school.subdomain}:`, e);
-        }
-      }
-    }
+// ==========================================
+// DYNAMIC SUBSCRIPTION PLAN APIS
+// ==========================================
 
-    // Monthly revenue based on plans
-    const plan = school.subscriptionPlan || 'Starter';
-    if (plan === 'Starter') monthlyRevenue += 99;
-    else if (plan === 'Growth') monthlyRevenue += 249;
-    else if (plan === 'Premium') monthlyRevenue += 499;
-  });
+// GET subscription plans
+app.get('/api/platform/plans', (req, res) => {
+  const db = readDb();
+  let plans = db.plans || [];
+  res.json(plans);
+});
 
-  // Recent registrations
-  const recentRegistrations = [...schools]
-    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-    .slice(0, 5);
+// POST create plan
+app.post('/api/platform/plans', (req, res) => {
+  const db = readDb();
+  if (!db.plans) db.plans = [];
+  const { name, price, features } = req.body;
+  if (!name || price === undefined) {
+    return res.status(400).json({ error: 'Name and Price are required.' });
+  }
+  const id = 'Plan-' + Date.now();
+  const newPlan = { id, name, price: parseFloat(price) || 0, features: features || '' };
+  db.plans.push(newPlan);
+  writeDb(db);
+  broadcastPlatformUpdate();
+  res.json({ success: true, plan: newPlan });
+});
 
-  // School Growth chart data
-  const growthAnalytics = [
-    { month: 'Jan', schools: 1, revenue: 99 },
-    { month: 'Feb', schools: 1, revenue: 99 },
-    { month: 'Mar', schools: Math.max(1, totalSchools - 2), revenue: Math.max(99, monthlyRevenue - 348) },
-    { month: 'Apr', schools: Math.max(1, totalSchools - 1), revenue: Math.max(99, monthlyRevenue - 99) },
-    { month: 'May', schools: totalSchools, revenue: monthlyRevenue }
-  ];
+// PUT edit plan
+app.put('/api/platform/plans/:id', (req, res) => {
+  const db = readDb();
+  const { id } = req.params;
+  const { name, price, features } = req.body;
+  if (!db.plans) db.plans = [];
+  const idx = db.plans.findIndex(p => p.id === id);
+  if (idx === -1) {
+    return res.status(404).json({ error: 'Plan not found.' });
+  }
+  db.plans[idx] = {
+    ...db.plans[idx],
+    name: name || db.plans[idx].name,
+    price: price !== undefined ? parseFloat(price) : db.plans[idx].price,
+    features: features !== undefined ? features : db.plans[idx].features
+  };
+  writeDb(db);
+  broadcastPlatformUpdate();
+  res.json({ success: true, plan: db.plans[idx] });
+});
 
-  res.json({
-    totalSchools,
-    activeSchools,
-    inactiveSchools,
-    totalStudents,
-    totalTeachers,
-    totalStaff,
-    monthlyRevenue: `$${monthlyRevenue.toLocaleString()}`,
-    recentRegistrations,
-    growthAnalytics
-  });
+// DELETE plan
+app.delete('/api/platform/plans/:id', (req, res) => {
+  const db = readDb();
+  const { id } = req.params;
+  if (!db.plans) db.plans = [];
+  db.plans = db.plans.filter(p => p.id !== id);
+  writeDb(db);
+  broadcastPlatformUpdate();
+  res.json({ success: true });
 });
 
 // ==========================================
@@ -1641,6 +1779,67 @@ app.use('/api/rbac', rbacRoutes);
 app.use('/api/grades', gradeRoutes);
 app.use('/api/designations', designationRoutes);
 app.use('/api/payroll', payrollRoutes);
+
+// ==========================================
+// NOTIFICATIONS ROUTER
+// ==========================================
+app.get('/api/notifications', auth, restoreTenantContext, async (req, res) => {
+  try {
+    const tenantId = tenantStorage.getStore() || 'localhost';
+    const user = req.admin;
+    const role = (user.role || '').toLowerCase();
+    const isMainAdmin = ['developer admin', 'main admin', 'admin dashboard', 'principal', 'admin'].includes(role);
+
+    let notifications = [];
+    if (isMainAdmin) {
+      notifications = await sqlDb.query(
+        "SELECT * FROM notifications WHERE (recipientRole = 'main admin' OR recipientRole IS NULL OR recipientId = ?) AND tenantId = ? ORDER BY createdAt DESC LIMIT 50",
+        [user.id || '', tenantId]
+      );
+    } else {
+      notifications = await sqlDb.query(
+        "SELECT * FROM notifications WHERE recipientId = ? AND tenantId = ? ORDER BY createdAt DESC LIMIT 50",
+        [user.id || '', tenantId]
+      );
+    }
+    res.json(notifications || []);
+  } catch (err) {
+    console.error('Error fetching notifications:', err.message);
+    res.status(500).json({ error: 'Failed to fetch notifications' });
+  }
+});
+
+app.post('/api/notifications/read', auth, restoreTenantContext, async (req, res) => {
+  try {
+    const tenantId = tenantStorage.getStore() || 'localhost';
+    const { id } = req.body;
+    if (id) {
+      await sqlDb.query(
+        "UPDATE notifications SET `read` = 1 WHERE id = ? AND tenantId = ?",
+        [id, tenantId]
+      );
+    } else {
+      const user = req.admin;
+      const role = (user.role || '').toLowerCase();
+      const isMainAdmin = ['developer admin', 'main admin', 'admin dashboard', 'principal', 'admin'].includes(role);
+      if (isMainAdmin) {
+        await sqlDb.query(
+          "UPDATE notifications SET `read` = 1 WHERE (recipientRole = 'main admin' OR recipientRole IS NULL OR recipientId = ?) AND tenantId = ?",
+          [user.id || '', tenantId]
+        );
+      } else {
+        await sqlDb.query(
+          "UPDATE notifications SET `read` = 1 WHERE recipientId = ? AND tenantId = ?",
+          [user.id || '', tenantId]
+        );
+      }
+    }
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Error marking notifications as read:', err.message);
+    res.status(500).json({ error: 'Failed to mark notifications as read' });
+  }
+});
 
 // ==========================================
 // 2B. EMPLOYEES ENDPOINTS (Complete Module)
@@ -2464,6 +2663,7 @@ startSqlDbInit().then(() => {
   const server = app.listen(PORT, () => {
     console.log(`Aether Server running at http://localhost:${PORT}`);
   });
+  setupWebSocketServer(server);
 
   server.on('error', (e) => {
     if (e.code === 'EADDRINUSE') {
@@ -2472,8 +2672,13 @@ startSqlDbInit().then(() => {
         execSync(`npx -y kill-port ${PORT}`);
         console.log(`[Server] Port ${PORT} freed successfully. Retrying listen in 1.5 seconds...`);
         setTimeout(() => {
-          app.listen(PORT, () => {
+          const server2 = app.listen(PORT, () => {
             console.log(`Aether Server running at http://localhost:${PORT}`);
+          });
+          setupWebSocketServer(server2);
+          server2.on('error', (err2) => {
+            console.error('[Server Error] Retry server failed:', err2.message);
+            process.exit(1);
           });
         }, 1500);
       } catch (err) {
@@ -2502,4 +2707,4 @@ process.once('SIGUSR2', () => gracefulShutdown('SIGUSR2'));
 process.once('SIGINT', () => gracefulShutdown('SIGINT'));
 process.once('SIGTERM', () => gracefulShutdown('SIGTERM'));
 
-// Trigger restart to sync database cache and reload server state v26
+// Trigger restart to sync database cache and reload server state v27

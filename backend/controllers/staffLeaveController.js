@@ -61,6 +61,19 @@ export const applyLeave = async (req, res) => {
 
     logAudit('Apply Leave', 'Staff Leave', `Applied leave: ${title} (${totalDays} days)`, req);
 
+    try {
+      const staffRows = await sqlDb.query('SELECT name FROM staff WHERE id = ? AND tenantId = ?', [staffId, tenantId]);
+      const staffName = staffRows && staffRows[0] ? staffRows[0].name : (req.admin.username || 'Staff');
+      const notifId = `NT-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
+      await sqlDb.query(
+        `INSERT INTO notifications (id, title, message, type, recipientId, recipientRole, \`read\`, createdAt, tenantId)
+         VALUES (?, ?, ?, 'leave_request', NULL, 'main admin', 0, ?, ?)`,
+        [notifId, 'Leave Request', `${staffName} (Staff) requested a leave from ${fromDate} to ${toDate}.`, new Date().toISOString(), tenantId]
+      );
+    } catch (errNotif) {
+      console.error('Error creating leave request notification:', errNotif.message);
+    }
+
     res.json({ success: true, message: 'Leave application submitted successfully.', leaveId });
   } catch (err) {
     console.error('[Staff Leave Apply Error]', err);
@@ -252,6 +265,17 @@ export const adminApproveLeave = async (req, res) => {
       [remarks || '', timestamp, id, tenantId]
     );
 
+    try {
+      const notifId = `NT-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
+      await sqlDb.query(
+        `INSERT INTO notifications (id, title, message, type, recipientId, recipientRole, \`read\`, createdAt, tenantId)
+         VALUES (?, ?, ?, 'leave_status', ?, NULL, 0, ?, ?)`,
+        [notifId, 'Leave Approved', `Your leave request "${leave.title}" has been approved.`, leave.staffId, new Date().toISOString(), tenantId]
+      );
+    } catch (errNotif) {
+      console.error('Error creating leave status approved notification:', errNotif.message);
+    }
+
     // Automatically create/update "On Leave" attendance records
     const dates = getDatesInRange(leave.fromDate, leave.toDate);
     
@@ -316,6 +340,17 @@ export const adminRejectLeave = async (req, res) => {
       `UPDATE staff_leaves SET status = 'Rejected', remarks = ?, updatedAt = ? WHERE id = ? AND tenantId = ?`,
       [remarks || '', timestamp, id, tenantId]
     );
+
+    try {
+      const notifId = `NT-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
+      await sqlDb.query(
+        `INSERT INTO notifications (id, title, message, type, recipientId, recipientRole, \`read\`, createdAt, tenantId)
+         VALUES (?, ?, ?, 'leave_status', ?, NULL, 0, ?, ?)`,
+        [notifId, 'Leave Rejected', `Your leave request "${leave.title}" has been rejected.`, leave.staffId, new Date().toISOString(), tenantId]
+      );
+    } catch (errNotif) {
+      console.error('Error creating leave status rejected notification:', errNotif.message);
+    }
 
     // If it was previously approved, delete "On Leave" attendance records in the range
     if (previousStatus === 'Approved') {

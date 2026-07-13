@@ -1,4 +1,4 @@
-/* Accountant Panel Styling Overrides for SaaS Aesthetics */
+﻿/* Accountant Panel Styling Overrides for SaaS Aesthetics */
 
 /* Dashboard layout grid overrides */
 .finance-subadmin {
@@ -104,3 +104,4 @@
     grid-template-columns: 1fr;
   }
 }
+

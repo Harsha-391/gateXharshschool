@@ -1,6 +1,8 @@
-/* Grade Management Page Overrides for SaaS Visuals */
+﻿/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   Grade Management — Professional SaaS Stylesheet
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 
-/* Overwrite hardcoded white backgrounds in modals and result card boxes for Dark Theme compatibility */
+/* Dark-theme override for any hardcoded whites */
 [data-theme='dark'] div[style*="background: '#ffffff'"],
 [data-theme='dark'] div[style*='background: "#ffffff"'],
 [data-theme='dark'] div[style*="background: rgb(255, 255, 255)"],
@@ -8,41 +10,531 @@
   background: var(--bg-elevated) !important;
   color: var(--text-main) !important;
   border-color: var(--border-glass) !important;
-  box-shadow: var(--shadow-lg) !important;
 }
 
-/* Grade settings and section map cards */
-.grade-card-grid {
+/* â”€â”€ Tab nav strip â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+.gm-tab-strip {
+  display: flex;
+  gap: 4px;
+  padding: 6px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-glass);
+  border-radius: 14px;
+  overflow-x: auto;
+}
+
+.gm-tab-btn {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 18px;
+  border-radius: 9px;
+  font-size: 0.84rem;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  color: var(--text-muted);
+  background: transparent;
+  transition: all 0.18s ease;
+  white-space: nowrap;
+}
+.gm-tab-btn:hover {
+  background: rgba(255,107,0,0.05);
+  color: #FF8C42;
+}
+.gm-tab-btn.active {
+  background: rgba(255,107,0,0.1);
+  color: #FF8C42;
+  box-shadow: 0 2px 8px -2px rgba(255,107,0,0.2);
+}
+
+/* â”€â”€ Grade cards grid â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+.gm-cards-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
   gap: 20px;
 }
 
-.grade-card-container {
-  padding: 24px;
+.gm-grade-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  padding: 22px;
   border-radius: 16px;
   background: var(--bg-card);
-  border: 1px solid var(--border-glass);
-  box-shadow: var(--shadow-sm);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 1.5px solid rgba(255,107,0,0.1);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+  min-height: 260px;
 }
-
-.grade-card-container:hover {
+.gm-grade-card:hover {
   transform: translateY(-4px);
-  box-shadow: var(--shadow-md);
-  border-color: rgba(hsl(var(--color-primary)), 0.35);
+  box-shadow: 0 14px 32px -8px rgba(255,107,0,0.14);
+  border-color: #FF8C42;
 }
 
-/* Active sections labels container */
-.section-badge-chip {
-  font-size: 0.75rem;
-  font-weight: 700;
-  background: var(--bg-card-subtle);
-  border: 1px solid var(--border-glass);
-  color: var(--text-muted);
-  padding: 4px 10px;
-  border-radius: 8px;
+.gm-grade-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding-left: 26px; /* room for checkbox */
+  margin-bottom: 14px;
+}
+
+.gm-grade-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(255,107,0,0.15), rgba(255,80,0,0.08));
+  border: 1.5px solid rgba(255,107,0,0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  font-weight: 900;
+  color: #FF8C42;
+  flex-shrink: 0;
+  margin-right: 12px;
+}
+
+.gm-grade-badge {
   display: inline-flex;
   align-items: center;
   gap: 4px;
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  background: rgba(255,107,0,0.08);
+  color: #FF8C42;
+  border: 1px solid rgba(255,107,0,0.15);
+  margin-top: 4px;
 }
+
+.gm-card-section-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  margin-bottom: 7px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.gm-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 9px;
+  border-radius: 7px;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+.gm-chip-section {
+  background: rgba(255,107,0,0.04);
+  border: 1px solid rgba(255,107,0,0.12);
+  color: var(--text-main);
+}
+.gm-chip-subject {
+  background: rgba(16,185,129,0.05);
+  border: 1px solid rgba(16,185,129,0.15);
+  color: #10b981;
+}
+.gm-chip-del {
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+  color: var(--text-muted);
+  transition: color 0.15s;
+}
+.gm-chip-del:hover { color: #ef4444; }
+
+/* â”€â”€ Card footer action buttons â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+.gm-card-footer {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: auto;
+  padding-top: 14px;
+  border-top: 1px solid var(--border-glass);
+}
+
+.gm-btn-outline {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 9px 10px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  border-radius: 9px;
+  border: 1.5px solid rgba(255,107,0,0.22);
+  background: rgba(255,107,0,0.03);
+  color: #FF8C42;
+  cursor: pointer;
+  transition: all 0.18s;
+}
+.gm-btn-outline:hover {
+  background: rgba(255,107,0,0.08);
+  border-color: #FF8C42;
+}
+
+.gm-btn-solid {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 9px 10px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  border-radius: 9px;
+  border: none;
+  background: #FF8C42;
+  color: white;
+  cursor: pointer;
+  transition: background 0.18s;
+}
+.gm-btn-solid:hover { background: #e07830; }
+
+/* â”€â”€ Icon action buttons â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+.gm-icon-btn {
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  border: 1px solid var(--border-glass);
+  background: var(--bg-card);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.18s;
+  flex-shrink: 0;
+}
+.gm-icon-btn:hover { border-color: #FF8C42; color: #FF8C42; }
+.gm-icon-btn.danger {
+  background: rgba(239,68,68,0.07);
+  border-color: rgba(239,68,68,0.15);
+  color: #ef4444;
+}
+.gm-icon-btn.danger:hover { background: #ef4444; color: white; border-color: #ef4444; }
+
+/* â”€â”€ Form panels â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+.gm-form-panel {
+  background: var(--bg-card);
+  border: 1.5px solid rgba(255,107,0,0.1);
+  border-radius: 16px;
+  padding: 28px 28px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.gm-form-title {
+  font-size: 1.2rem;
+  font-weight: 800;
+  color: var(--text-main);
+  margin: 0;
+}
+
+.gm-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.gm-label {
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+
+.gm-input {
+  width: 100%;
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1.5px solid var(--border-glass);
+  background: var(--bg-form, var(--bg-card));
+  color: var(--text-main);
+  font-size: 0.88rem;
+  outline: none;
+  transition: border-color 0.18s;
+  box-sizing: border-box;
+}
+.gm-input:focus { border-color: #FF8C42; }
+
+.gm-input-hint {
+  font-size: 0.73rem;
+  color: var(--text-muted);
+  margin-top: 3px;
+}
+
+/* â”€â”€ Stats summary bar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+.gm-stats-bar {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 12px;
+}
+.gm-stat-card {
+  background: var(--bg-card);
+  border: 1.5px solid rgba(255,107,0,0.1);
+  border-radius: 12px;
+  padding: 16px 18px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.gm-stat-card:hover {
+  border-color: rgba(255,107,0,0.35);
+  box-shadow: 0 6px 18px -6px rgba(255,107,0,0.12);
+}
+.gm-stat-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.gm-stat-value {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: #FF8C42;
+  line-height: 1;
+}
+.gm-stat-label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-top: 2px;
+}
+
+/* â”€â”€ Dept table â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+.gm-table-wrapper {
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid var(--border-glass);
+}
+.gm-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.gm-table thead tr {
+  background: rgba(255,107,0,0.04);
+  border-bottom: 1px solid var(--border-glass);
+}
+.gm-table th {
+  padding: 12px 16px;
+  text-align: left;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.gm-table td {
+  padding: 13px 16px;
+  border-bottom: 1px solid var(--border-glass);
+  font-size: 0.87rem;
+  color: var(--text-main);
+}
+.gm-table tbody tr:last-child td { border-bottom: none; }
+.gm-table tbody tr:hover { background: rgba(255,107,0,0.02); }
+
+/* â”€â”€ Modal overlay & box â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+.gm-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  backdrop-filter: blur(7px);
+  -webkit-backdrop-filter: blur(7px);
+  z-index: 10000000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  animation: gmFadeIn 0.18s ease;
+}
+@keyframes gmFadeIn { from { opacity: 0 } to { opacity: 1 } }
+
+.gm-modal-box {
+  background: var(--bg-elevated);
+  border: 1.5px solid rgba(255,107,0,0.15);
+  border-radius: 18px;
+  box-shadow: 0 28px 56px rgba(0,0,0,0.28);
+  width: 90%;
+  max-height: 90vh;
+  overflow-y: auto;
+  position: relative;
+  animation: gmSlideUp 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+@keyframes gmSlideUp { from { transform: translateY(16px); opacity: 0 } to { transform: translateY(0); opacity: 1 } }
+
+.gm-modal-header {
+  padding: 22px 24px 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+.gm-modal-body { padding: 20px 24px 24px; display: flex; flex-direction: column; gap: 16px; }
+
+.gm-modal-close {
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255,107,0,0.06);
+  border: 1px solid rgba(255,107,0,0.12);
+  border-radius: 8px;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.18s;
+}
+.gm-modal-close:hover { background: #FF8C42; color: white; border-color: #FF8C42; }
+
+/* â”€â”€ Section / Subject chips area â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+.gm-chips-area {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  background: var(--bg-form, var(--bg-card));
+  padding: 14px;
+  border-radius: 12px;
+  border: 1.5px solid var(--border-glass);
+  min-height: 64px;
+}
+
+/* â”€â”€ Dept checkbox labels â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+.gm-dept-checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 13px;
+  border-radius: 9px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+  border: 1.5px solid var(--border-glass);
+  background: var(--bg-form, var(--bg-card));
+  color: var(--text-main);
+  user-select: none;
+}
+.gm-dept-checkbox-label.checked {
+  background: rgba(255,107,0,0.08);
+  border-color: rgba(255,107,0,0.28);
+  color: #FF8C42;
+}
+
+/* â”€â”€ Search input container â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+.gm-search-wrap {
+  position: relative;
+  max-width: 280px;
+  width: 100%;
+}
+.gm-search-wrap svg {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+  pointer-events: none;
+}
+.gm-search-input {
+  width: 100%;
+  padding: 9px 12px 9px 36px;
+  border-radius: 10px;
+  border: 1.5px solid var(--border-glass);
+  background: var(--bg-form, var(--bg-card));
+  color: var(--text-main);
+  font-size: 0.85rem;
+  outline: none;
+  transition: border-color 0.18s;
+  box-sizing: border-box;
+}
+.gm-search-input:focus { border-color: #FF8C42; }
+
+/* â”€â”€ Empty state â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+.gm-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 60px 20px;
+  color: var(--text-muted);
+  text-align: center;
+}
+.gm-empty-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
+  background: rgba(255,107,0,0.07);
+  border: 1.5px solid rgba(255,107,0,0.12);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #FF8C42;
+}
+
+/* â”€â”€ Delete danger button â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+.gm-btn-danger {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 14px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  border-radius: 9px;
+  border: 1px solid rgba(239,68,68,0.25);
+  background: rgba(239,68,68,0.07);
+  color: #ef4444;
+  cursor: pointer;
+  transition: all 0.18s;
+}
+.gm-btn-danger:hover { background: #ef4444; color: white; border-color: #ef4444; }
+
+/* â”€â”€ Modal footer â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+.gm-modal-footer {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  padding-top: 14px;
+  border-top: 1px solid var(--border-glass);
+  margin-top: 4px;
+}
+
+.gm-btn-cancel {
+  padding: 9px 18px;
+  border-radius: 9px;
+  border: 1px solid var(--border-glass);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.18s;
+}
+.gm-btn-cancel:hover { border-color: var(--text-muted); color: var(--text-main); }
+
+.gm-divider {
+  height: 1px;
+  background: var(--border-glass);
+  margin: 4px 0;
+}
+

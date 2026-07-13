@@ -4,11 +4,11 @@
   /* Fonts */
   --font-primary: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
 
-  /* Accent Colors (Consistent across themes - Indigo / Pink Base) */
-  --color-primary: 250, 85%, 62%;       /* Premium Violet/Indigo */
-  --color-primary-rgb: 99, 102, 241;
-  --color-secondary: 325, 90%, 60%;     /* Vibrant Rose */
-  --color-secondary-rgb: 236, 72, 153;
+  /* Accent Colors (Consistent across themes - GateX Brand Orange Base) */
+  --color-primary: 26, 100%, 63%;       /* GateX Light Orange */
+  --color-primary-rgb: 255, 140, 66;
+  --color-secondary: 22, 100%, 58%;     /* Medium Orange for Gradients */
+  --color-secondary-rgb: 255, 120, 30;
   --color-success: 155, 85%, 38%;       /* Emerald Mint */
   --color-success-rgb: 16, 185, 129;
   --color-warning: 38, 92%, 52%;        /* Warm Amber */
@@ -18,19 +18,19 @@
   --color-info: 192, 90%, 46%;          /* Electric Cyan */
   --color-info-rgb: 6, 182, 212;
 
-  /* Light Theme Variables - Clean SaaS / Premium Slate */
-  --bg-app: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
-  --bg-sidebar: rgba(255, 255, 255, 0.85);
-  --bg-glass: rgba(255, 255, 255, 0.7);
-  --bg-glass-active: rgba(241, 245, 249, 0.8);
-  --bg-card: rgba(255, 255, 255, 0.8);
-  --bg-card-muted: #f8fafc;
-  --bg-card-subtle: rgba(15, 23, 42, 0.03);
-  --bg-elevated: rgba(255, 255, 255, 0.95);
+  /* Light Theme Variables - Clean SaaS / Premium White */
+  --bg-app: #ffffff;
+  --bg-sidebar: #ffffff;
+  --bg-glass: #ffffff;
+  --bg-glass-active: #ffffff;
+  --bg-card: #ffffff;
+  --bg-card-muted: #ffffff;
+  --bg-card-subtle: rgba(255, 107, 0, 0.02);
+  --bg-elevated: #ffffff;
   --bg-dropdown: #ffffff;
-  --bg-form: rgba(241, 245, 249, 0.6);
-  --border-glass: rgba(148, 163, 184, 0.18);
-  --border-subtle: rgba(148, 163, 184, 0.12);
+  --bg-form: rgba(255, 255, 255, 0.9);
+  --border-glass: rgba(148, 163, 184, 0.45);
+  --border-subtle: rgba(148, 163, 184, 0.35);
   --modal-overlay-bg: rgba(15, 23, 42, 0.35);
   --text-main: #0f172a;
   --text-muted: #475569;
@@ -41,6 +41,7 @@
   --glass-blur: blur(20px);
   --webkit-glass-blur: blur(20px);
 }
+
 
 [data-theme='dark'] {
   /* Dark Theme Variables - Cyberpunk Glow / Sci-Fi Space */
@@ -54,8 +55,8 @@
   --bg-elevated: rgba(20, 17, 49, 0.95);
   --bg-dropdown: #141131;
   --bg-form: rgba(6, 5, 17, 0.65);
-  --border-glass: rgba(255, 255, 255, 0.09);
-  --border-subtle: rgba(255, 255, 255, 0.06);
+  --border-glass: rgba(255, 255, 255, 0.28);
+  --border-subtle: rgba(255, 255, 255, 0.2);
   --modal-overlay-bg: rgba(0, 0, 0, 0.65);
   --text-main: #f8fafc;
   --text-muted: #94a3b8;
@@ -75,23 +76,29 @@
 }
 
 body {
-  font-family: var(--font-primary);
+  font-family: var(--font-primary) !important;
   background: var(--bg-app);
   color: var(--text-main);
   min-height: 100vh;
   overflow-x: hidden;
-  line-height: 1.6;
-  letter-spacing: -0.015em;
+  line-height: 1.5;
+  letter-spacing: -0.02em;
   transition: background 0.4s ease, color 0.3s ease;
   position: relative;
 }
 
-/* Dot grid overlay pattern for high-end SaaS feel */
+/* Force modern premium Outfit font globally on all UI elements */
+body, button, input, select, textarea, span, p, div, label, table, td, th, h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-primary) !important;
+  letter-spacing: -0.015em;
+}
+
+/* Dot grid overlay pattern — dark theme only */
 body::before {
   content: '';
   position: fixed;
   top: 0; left: 0; right: 0; bottom: 0;
-  background-image: radial-gradient(rgba(148, 163, 184, 0.06) 1.5px, transparent 1.5px);
+  background-image: none;
   background-size: 24px 24px;
   z-index: -1;
   pointer-events: none;
@@ -103,8 +110,8 @@ body::before {
 
 /* Scrollbar Styling */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
 
 ::-webkit-scrollbar-track {
@@ -114,25 +121,26 @@ body::before {
 ::-webkit-scrollbar-thumb {
   background: var(--border-glass);
   border-radius: 99px;
-  border: 2px solid transparent;
+  border: 1px solid transparent;
   background-clip: padding-box;
 }
 
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(hsl(var(--color-primary)), 0.6);
-  border: 2px solid transparent;
+  border: 1px solid transparent;
   background-clip: padding-box;
 }
+
 
 /* Base Glassmorphic Layout Styles */
 .glass-panel {
   background: var(--bg-glass);
   backdrop-filter: var(--glass-blur);
   -webkit-backdrop-filter: var(--webkit-glass-blur);
-  border: 1px solid var(--border-glass);
-  border-radius: 20px;
-  box-shadow: var(--shadow-md);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 1.5px solid rgba(255, 140, 66, 0.28);
+  border-radius: 16px;
+  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.04), 0 1px 3px rgba(0, 0, 0, 0.02);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .no-card-form > .glass-panel,
@@ -156,27 +164,30 @@ body::before {
 
 .surface-card {
   background: var(--bg-card);
-  border: 1px solid var(--border-glass);
+  border: 1.5px solid rgba(255, 140, 66, 0.28);
   color: var(--text-main);
+  border-radius: 16px;
 }
 
 .surface-muted {
   background: var(--bg-card-muted);
   border: 1px solid var(--border-subtle);
   color: var(--text-main);
+  border-radius: 16px;
 }
 
 .surface-subtle {
   background: var(--bg-card-subtle);
   border: 1px solid var(--border-subtle);
   color: var(--text-main);
+  border-radius: 16px;
 }
 
 .glass-panel:hover {
-  box-shadow: var(--shadow-lg);
-  border-color: rgba(hsl(var(--color-primary)), 0.25);
-  transform: translateY(-3px);
+  box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.06), 0 0 0 1.5px rgba(255, 140, 66, 0.45);
+  transform: translateY(-2px);
 }
+
 
 /* Finance subadmin overrides (preserve readability adjustments) */
 .finance-subadmin {
@@ -287,12 +298,14 @@ h1, h2, h3, h4, h5, h6 {
   font-weight: 700;
   line-height: 1.25;
   color: var(--text-main);
-  letter-spacing: -0.025em;
+  letter-spacing: -0.03em;
 }
 
 p {
   color: var(--text-muted);
+  line-height: 1.5;
 }
+
 
 /* Animation Keyframes */
 @keyframes fadeIn {
@@ -449,6 +462,7 @@ p {
 /* Beautiful custom tables */
 .custom-table-container {
   overflow-x: auto;
+  overflow-y: auto;
   border-radius: 16px;
   border: 1px solid var(--border-glass);
   background: var(--bg-glass);
@@ -490,6 +504,14 @@ p {
   background: rgba(hsl(var(--color-primary)), 0.035);
 }
 
+/* Force table headers and cells to stay in a single row without wrapping */
+.custom-table th,
+.custom-table td,
+table th,
+table td {
+  white-space: nowrap !important;
+}
+
 /* Input Styles */
 .form-group {
   margin-bottom: 20px;
@@ -498,37 +520,37 @@ p {
 
 .form-group label {
   display: block;
-  font-size: 0.8rem;
-  font-weight: 600;
+  font-size: 0.75rem;
+  font-weight: 700;
   margin-bottom: 6px;
   color: var(--text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.03em;
+  letter-spacing: 0.05em;
 }
 
 .form-control {
   width: 100%;
-  padding: 12px 16px;
+  padding: 10px 14px;
   background: var(--bg-form);
   border: 1.5px solid var(--border-glass);
-  border-radius: 12px;
+  border-radius: 10px;
   color: var(--text-main);
   font-family: var(--font-primary);
-  font-size: 0.95rem;
-  transition: all 0.25s ease;
+  font-size: 0.88rem;
+  transition: all 0.2s ease;
   outline: none;
 }
 
 .form-control::placeholder {
   color: var(--text-muted);
-  opacity: 0.65;
+  opacity: 0.55;
 }
 
 .form-control:focus {
   outline: none;
-  border-color: hsl(var(--color-primary));
-  box-shadow: 0 0 0 4px rgba(hsl(var(--color-primary)), 0.12);
-  background: var(--bg-elevated);
+  border-color: #FF8C42;
+  box-shadow: 0 0 0 3px rgba(255, 140, 66, 0.15);
+  background: #ffffff;
 }
 
 [data-theme='dark'] .form-control {
@@ -544,8 +566,8 @@ p {
 
 [data-theme='dark'] .form-control:focus {
   outline: none;
-  border-color: hsl(var(--color-primary));
-  box-shadow: 0 0 0 4px rgba(hsl(var(--color-primary)), 0.16);
+  border-color: #FF8C42;
+  box-shadow: 0 0 0 3px rgba(255, 140, 66, 0.2);
   background: var(--bg-elevated);
 }
 
@@ -597,6 +619,14 @@ textarea.form-control[readonly] {
 input::placeholder,
 textarea::placeholder,
 select::placeholder {
-  color: #b0b8c9 !important;
+  color: #a0aec0 !important;
   opacity: 1 !important;
 }
+
+/* CustomSelect dropdown animation */
+@keyframes customSelectSlideDown {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+

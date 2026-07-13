@@ -107,13 +107,13 @@ export default function StudentDirectory({ readOnly = true, onAddClick, onEditCl
         <head>
           <title>Student ID Card - ${student.name}</title>
           <style>
-            @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800&display=swap');
+            @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap');
             body {
               font-family: 'Outfit', sans-serif;
               text-align: center;
               padding: 40px;
-              color: #1e1b4b;
-              background: #f8fafc;
+              color: #1e293b;
+              background: #f1f5f9;
               display: flex;
               justify-content: center;
               align-items: center;
@@ -121,37 +121,38 @@ export default function StudentDirectory({ readOnly = true, onAddClick, onEditCl
               margin: 0;
             }
             .badge-card {
-              border: 1px solid #e2e8f0;
+              border: 1px solid rgba(255, 140, 66, 0.12);
               border-radius: 24px;
               background: #ffffff;
-              box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04);
-              width: 350px;
+              box-shadow: 0 25px 50px -12px rgba(255, 140, 66, 0.08), 0 10px 15px -3px rgba(0,0,0,0.03);
+              width: 360px;
               overflow: hidden;
               position: relative;
               text-align: left;
+              border-top: 4px solid #FF8C42;
             }
             .header-banner {
-              background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
-              padding: 24px 20px;
+              background: linear-gradient(135deg, #FF8C42 0%, #E05300 100%);
+              padding: 30px 24px 44px;
               color: #ffffff;
               text-align: center;
               position: relative;
             }
             .header-banner h2 {
               margin: 0;
-              font-size: 1.25rem;
+              font-size: 1.35rem;
               font-weight: 800;
-              letter-spacing: 0.03em;
+              letter-spacing: 0.04em;
               text-transform: uppercase;
-              text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+              text-shadow: 0 1px 2px rgba(0,0,0,0.1);
             }
             .header-banner p {
               margin: 4px 0 0 0;
-              font-size: 0.75rem;
-              font-weight: 600;
-              color: #e0e7ff;
+              font-size: 0.72rem;
+              font-weight: 700;
+              color: rgba(255, 255, 255, 0.9);
               text-transform: uppercase;
-              letter-spacing: 0.1em;
+              letter-spacing: 0.12em;
             }
             .card-body {
               padding: 24px;
@@ -161,86 +162,123 @@ export default function StudentDirectory({ readOnly = true, onAddClick, onEditCl
             }
             .avatar-container {
               position: relative;
-              margin-top: -60px;
+              margin-top: -74px;
               margin-bottom: 16px;
               z-index: 10;
             }
             .avatar {
-              width: 100px;
-              height: 100px;
+              width: 104px;
+              height: 104px;
               border-radius: 50%;
               object-fit: cover;
               border: 4px solid #ffffff;
-              box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);
+              box-shadow: 0 8px 20px rgba(255, 140, 66, 0.15), 0 2px 4px rgba(0,0,0,0.05);
             }
             .avatar-placeholder {
-              width: 100px;
-              height: 100px;
+              width: 104px;
+              height: 104px;
               border-radius: 50%;
               display: flex;
               align-items: center;
               justify-content: center;
               color: #ffffff;
-              font-size: 2.2rem;
+              font-size: 2.3rem;
               font-weight: 800;
               border: 4px solid #ffffff;
-              box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);
-              background: ${student.photoBg || 'linear-gradient(135deg, #4f46e5, #7c3aed)'};
+              box-shadow: 0 8px 20px rgba(255, 140, 66, 0.15), 0 2px 4px rgba(0,0,0,0.05);
+              background: ${student.photoBg || 'linear-gradient(135deg, #FF8C42, #E05300)'};
             }
             .student-name {
-              font-size: 1.4rem;
+              font-size: 1.3rem;
               font-weight: 800;
-              color: #1e1b4b;
-              margin: 0 0 4px 0;
+              color: #0f172a;
+              margin: 0 0 6px 0;
               text-align: center;
+              letter-spacing: -0.02em;
             }
             .student-title {
-              font-size: 0.82rem;
+              font-size: 0.78rem;
               font-weight: 700;
-              color: #4f46e5;
+              color: #E05300;
               text-transform: uppercase;
-              letter-spacing: 0.05em;
+              letter-spacing: 0.06em;
               margin-bottom: 20px;
-              background: #f0f0ff;
-              padding: 4px 12px;
-              border-radius: 12px;
+              background: #fff5f0;
+              border: 1px solid rgba(255, 140, 66, 0.15);
+              padding: 4px 14px;
+              border-radius: 99px;
               display: inline-block;
             }
             .details-grid {
               width: 100%;
-              display: flex;
-              flex-direction: column;
-              gap: 12px;
+              display: grid;
+              grid-template-columns: 1fr 1fr;
+              gap: 16px 12px;
               border-top: 1px dashed #e2e8f0;
-              padding-top: 16px;
+              padding-top: 20px;
             }
             .detail-row {
               display: flex;
               flex-direction: column;
               gap: 2px;
             }
+            .detail-row.full-width {
+              grid-column: span 2;
+            }
             .detail-label {
-              font-size: 0.72rem;
+              font-size: 0.65rem;
               font-weight: 700;
               color: #64748b;
               text-transform: uppercase;
-              letter-spacing: 0.03em;
+              letter-spacing: 0.05em;
             }
             .detail-value {
-              font-size: 0.88rem;
+              font-size: 0.85rem;
               font-weight: 600;
-              color: #1e1b4b;
+              color: #1e293b;
+            }
+            .barcode-container {
+              margin-top: 20px;
+              display: flex;
+              flex-direction: column;
+              align-items: center;
+              gap: 4px;
+              opacity: 0.85;
+              width: 100%;
+              border-top: 1px dashed #e2e8f0;
+              padding-top: 16px;
+            }
+            .barcode-lines {
+              width: 180px;
+              height: 32px;
+              background: repeating-linear-gradient(
+                90deg,
+                #0f172a,
+                #0f172a 2px,
+                transparent 2px,
+                transparent 4px,
+                #0f172a 4px,
+                #0f172a 5px,
+                transparent 5px,
+                transparent 8px
+              );
+            }
+            .barcode-text {
+              font-size: 0.65rem;
+              font-family: monospace;
+              letter-spacing: 2px;
+              color: #64748b;
             }
             .footer-tag {
               background: #f8fafc;
               padding: 12px;
               text-align: center;
-              font-size: 0.75rem;
+              font-size: 0.72rem;
               font-weight: 700;
               color: #64748b;
               border-top: 1px solid #f1f5f9;
               text-transform: uppercase;
-              letter-spacing: 0.05em;
+              letter-spacing: 0.06em;
             }
           </style>
         </head>
@@ -263,12 +301,12 @@ export default function StudentDirectory({ readOnly = true, onAddClick, onEditCl
               
               <div class="details-grid">
                 <div class="detail-row">
-                  <span class="detail-label">Student Name</span>
-                  <span class="detail-value">${student.name}</span>
+                  <span class="detail-label">Reg ID</span>
+                  <span class="detail-value">STU-${student.id}</span>
                 </div>
                 <div class="detail-row">
-                  <span class="detail-label">Reg ID / Adm No</span>
-                  <span class="detail-value">${student.id} / ${student.admissionNumber || 'N/A'}</span>
+                  <span class="detail-label">Admission No</span>
+                  <span class="detail-value">${student.admissionNumber || 'N/A'}</span>
                 </div>
                 ${(student.rollNumber || student.roll) ? `
                 <div class="detail-row">
@@ -277,17 +315,22 @@ export default function StudentDirectory({ readOnly = true, onAddClick, onEditCl
                 </div>
                 ` : ''}
                 <div class="detail-row">
-                  <span class="detail-label">Father's Name</span>
-                  <span class="detail-value">${student.fatherName || 'N/A'}</span>
-                </div>
-                <div class="detail-row">
                   <span class="detail-label">Phone No</span>
                   <span class="detail-value">${student.phone || student.guardianContact || 'N/A'}</span>
                 </div>
-                <div class="detail-row">
-                  <span class="detail-label">Address</span>
+                <div class="detail-row full-width">
+                  <span class="detail-label">Father's Name</span>
+                  <span class="detail-value">${student.fatherName || 'N/A'}</span>
+                </div>
+                <div class="detail-row full-width">
+                  <span class="detail-label">Permanent Address</span>
                   <span class="detail-value">${student.permanentAddress || student.currentAddress || student.address || 'N/A'}</span>
                 </div>
+              </div>
+
+              <div class="barcode-container">
+                <div class="barcode-lines"></div>
+                <span class="barcode-text">STU-${student.id.toString().toUpperCase()}</span>
               </div>
             </div>
             <div class="footer-tag">
@@ -651,16 +694,18 @@ export default function StudentDirectory({ readOnly = true, onAddClick, onEditCl
                             <button 
                               onClick={() => setSelectedStudent(stu)}
                               className="btn-secondary" 
-                              style={{ padding: '6px 12px', fontSize: '0.8rem', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '4px' }}
+                              style={{ padding: '6px 8px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                              title="Inspect"
                             >
-                              <Info size={12} /> Inspect
+                              <Info size={13} />
                             </button>
                             <button 
                               onClick={() => handlePrintIDCard(stu)}
                               className="btn-secondary" 
-                              style={{ padding: '6px 12px', fontSize: '0.8rem', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '4px' }}
+                              style={{ padding: '6px 8px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                              title="Print ID Card"
                             >
-                              <Printer size={12} /> ID Card
+                              <Printer size={13} />
                             </button>
                             {!readOnly && (
                               <>
@@ -668,9 +713,10 @@ export default function StudentDirectory({ readOnly = true, onAddClick, onEditCl
                                   <button 
                                     onClick={() => onEditClick ? onEditClick(stu) : openEditModal(stu)}
                                     className="btn-secondary" 
-                                    style={{ padding: '6px 12px', fontSize: '0.8rem', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '4px' }}
+                                    style={{ padding: '6px 8px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                    title="Edit"
                                   >
-                                    <Edit3 size={12} /> Edit
+                                    <Edit3 size={13} />
                                   </button>
                                 )}
                                 {hasPermission('student-directory', 'delete') && (
@@ -1331,3 +1377,4 @@ export default function StudentDirectory({ readOnly = true, onAddClick, onEditCl
     </div>
   );
 }
+

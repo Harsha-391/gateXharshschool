@@ -997,7 +997,7 @@ export default function App() {
       if (activeView === 'profile') {
         return <UserProfile onProfileUpdate={setUserProfile} showToast={showToast} onLogout={handleLogout} />;
       }
-      return <SchoolProfile schoolDetails={schoolDetails} fetchSchoolDetails={fetchSchoolDetails} isDeveloperAdmin={isDeveloperAdmin} devActiveTab={activeView === 'school' ? 'schools' : 'dashboard'} />;
+      return <SchoolProfile schoolDetails={schoolDetails} fetchSchoolDetails={fetchSchoolDetails} isDeveloperAdmin={isDeveloperAdmin} devActiveTab={activeView === 'school' ? 'schools' : activeView === 'plans' ? 'plans' : 'dashboard'} />;
     }
 
     if (isAdmin) {
@@ -1014,9 +1014,9 @@ export default function App() {
           <StudentDirectory readOnly={true} onAddClick={() => setActiveView('register-student')} />
         </KeepAlive>
 
-        {activeView === 'register-student' && (
+        <KeepAlive active={activeView === 'register-student'}>
           <RegisterStudent setActiveView={setActiveView} />
-        )}
+        </KeepAlive>
 
         {activeView === 'add-staff' && (
           <AddStaff setActiveView={setActiveView} />
@@ -1227,3 +1227,4 @@ export default function App() {
     </div>
   );
 }
+

@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import './AddStaff.css';
 import { 
   User, 
@@ -26,6 +27,8 @@ import {
 function SearchableSelect({ options, value, onChange, placeholder, className, style, error }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef(null);
+  const [coords, setCoords] = useState({ top: 0, left: 0, width: 0 });
   
   const filteredOptions = options.filter(opt => 
     opt.label.toLowerCase().includes(searchTerm.toLowerCase())
@@ -33,16 +36,47 @@ function SearchableSelect({ options, value, onChange, placeholder, className, st
   
   const activeLabel = options.find(opt => opt.value === value)?.label || '';
 
-  // Close dropdown on click outside
+  const updateCoords = () => {
+    if (containerRef.current) {
+      const rect = containerRef.current.getBoundingClientRect();
+      setCoords({
+        top: rect.bottom + window.scrollY,
+        left: rect.left + window.scrollX,
+        width: rect.width
+      });
+    }
+  };
+
+  useEffect(() => {
+    if (isOpen) {
+      updateCoords();
+      window.addEventListener('resize', updateCoords);
+      window.addEventListener('scroll', updateCoords, true);
+      return () => {
+        window.removeEventListener('resize', updateCoords);
+        window.removeEventListener('scroll', updateCoords, true);
+      };
+    }
+  }, [isOpen]);
+
   useEffect(() => {
     if (!isOpen) return;
-    const handleOutsideClick = () => setIsOpen(false);
+    const handleOutsideClick = (e) => {
+      const portalElements = document.querySelectorAll('.searchable-select-portal');
+      let clickedInsidePortal = false;
+      portalElements.forEach(p => {
+        if (p.contains(e.target)) clickedInsidePortal = true;
+      });
+      if (containerRef.current && !containerRef.current.contains(e.target) && !clickedInsidePortal) {
+        setIsOpen(false);
+      }
+    };
     document.addEventListener('click', handleOutsideClick);
     return () => document.removeEventListener('click', handleOutsideClick);
   }, [isOpen]);
 
   return (
-    <div style={{ position: 'relative', width: '100%' }} onClick={(e) => e.stopPropagation()}>
+    <div ref={containerRef} style={{ position: 'relative', width: '100%' }} onClick={(e) => e.stopPropagation()}>
       <div 
         onClick={() => setIsOpen(!isOpen)}
         className={className}
@@ -58,22 +92,24 @@ function SearchableSelect({ options, value, onChange, placeholder, className, st
         <span style={{ color: activeLabel ? 'var(--text-main)' : '#94a3b8' }}>
           {activeLabel || placeholder || 'Select Option'}
         </span>
-        <span style={{ fontSize: '0.65rem', opacity: 0.7 }}>▼</span>
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" style={{ flexShrink: 0, marginLeft: '8px', transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s ease', color: 'var(--text-muted)' }}>
+          <path d="M2 4L6 8L10 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
       </div>
       
-      {isOpen && (
-        <div className="glass-panel" style={{
+      {isOpen && createPortal(
+        <div className="glass-panel searchable-select-portal" style={{
           position: 'absolute',
-          top: '100%',
-          left: 0,
-          right: 0,
-          zIndex: 1000,
-          marginTop: '6px',
-          maxHeight: '200px',
-          overflowY: 'auto',
+          top: `${coords.top}px`,
+          left: `${coords.left}px`,
+          width: `${coords.width}px`,
+          zIndex: 999999999,
           background: 'var(--bg-dropdown)',
           padding: '8px',
-          boxShadow: 'var(--shadow-lg)'
+          boxShadow: 'var(--shadow-lg)',
+          marginTop: '6px',
+          maxHeight: '200px',
+          overflowY: 'auto'
         }}>
           <input 
             type="text"
@@ -82,6 +118,7 @@ function SearchableSelect({ options, value, onChange, placeholder, className, st
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             style={{ marginBottom: '8px', padding: '8px', fontSize: '0.85rem' }}
+            autoFocus
           />
           {filteredOptions.length > 0 ? (
             filteredOptions.map(opt => (
@@ -96,25 +133,31 @@ function SearchableSelect({ options, value, onChange, placeholder, className, st
                   padding: '10px 12px',
                   borderRadius: '6px',
                   cursor: 'pointer',
-                  background: value === opt.value ? 'rgba(99, 102, 241, 0.1)' : 'transparent',
-                  color: value === opt.value ? 'rgb(99, 102, 241)' : 'var(--text-main)',
+                  background: value === opt.value ? 'rgba(255, 107, 0, 0.1)' : 'transparent',
+                  color: value === opt.value ? 'rgb(255, 107, 0)' : 'var(--text-main)',
                   fontWeight: value === opt.value ? '600' : 'normal',
                   fontSize: '0.85rem'
+                }}
+                onMouseEnter={(e) => {
+                  if (value !== opt.value) e.target.style.background = 'var(--bg-glass-active)';
+                }}
+                onMouseLeave={(e) => {
+                  if (value !== opt.value) e.target.style.background = 'transparent';
                 }}
               >
                 {opt.label}
               </div>
             ))
           ) : (
-            <div style={{ padding: '8px', color: 'var(--text-muted)', fontSize: '0.8rem' }}>No matches found</div>
+            <div style={{ padding: '8px', color: 'var(--text-muted)', fontSize: '0.8rem', textAlign: 'center' }}>No matches found</div>
           )}
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
 }
 
-// Drag & Drop File Upload Component
 function DragAndDropFile({ fieldName, label, file, onFileChange, onRemove, accept = "*" }) {
   const [dragOver, setDragOver] = useState(false);
 
@@ -157,8 +200,8 @@ function DragAndDropFile({ fieldName, label, file, onFileChange, onRemove, accep
         display: 'flex',
         flexDirection: 'column',
         gap: '10px',
-        background: dragOver ? 'rgba(99, 102, 241, 0.05)' : 'rgba(255,255,255,0.01)',
-        border: dragOver ? '2px dashed rgb(99, 102, 241)' : '1px solid var(--border-glass)',
+        background: dragOver ? 'rgba(255, 107, 0, 0.05)' : 'rgba(255,255,255,0.01)',
+        border: dragOver ? '2px dashed rgb(255, 107, 0)' : '1px solid var(--border-glass)',
         transition: 'all 0.3s ease',
         minHeight: '120px',
         justifyContent: 'center'
@@ -183,7 +226,7 @@ function DragAndDropFile({ fieldName, label, file, onFileChange, onRemove, accep
       ) : (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', background: 'rgba(255,255,255,0.03)', borderRadius: '8px', border: '1px solid var(--border-glass)' }}>
           <span style={{ fontSize: '0.75rem', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap', maxWidth: '180px', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-            <FileText size={12} style={{ color: 'rgb(99, 102, 241)' }} /> {file.name}
+            <FileText size={12} style={{ color: 'rgb(255, 107, 0)' }} /> {file.name}
           </span>
           <button type="button" onClick={() => onRemove(fieldName)} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '2px', display: 'flex' }}>
             <X size={14} />
@@ -236,6 +279,8 @@ export default function AddStaff({ setActiveView, editData }) {
     joiningDate: new Date().toISOString().split('T')[0],
     employmentType: '',
     role: '',
+    hasRole: 'Yes',
+    designation: '',
     department: '',
     primarySubject: '',
     secondarySubject: '',
@@ -323,6 +368,7 @@ export default function AddStaff({ setActiveView, editData }) {
   ];
 
   const [roleOptions, setRoleOptions] = useState([]);
+  const [designationOptions, setDesignationOptions] = useState([]);
 
   const [departmentOptions, setDepartmentOptions] = useState([]);
 
@@ -349,7 +395,7 @@ export default function AddStaff({ setActiveView, editData }) {
     }
   }, [editData]);
 
-  // Fetch active roles & departments from database dynamically
+  // Fetch active roles, designations & departments from database dynamically
   useEffect(() => {
     fetch('/api/rbac/roles')
       .then(res => res.json())
@@ -360,6 +406,17 @@ export default function AddStaff({ setActiveView, editData }) {
       })
       .catch(err => {
         console.error('Error fetching roles:', err);
+      });
+
+    fetch('/api/designations?type=staff')
+      .then(res => res.json())
+      .then(data => {
+        const activeDesigs = data.filter(d => d.status === 'Active' || !d.status);
+        const mapped = activeDesigs.map(d => ({ value: d.name, label: d.name }));
+        setDesignationOptions([{ value: '', label: 'None' }, ...mapped]);
+      })
+      .catch(err => {
+        console.error('Error fetching staff designations:', err);
       });
 
     fetch('/api/grades/departments')
@@ -477,6 +534,8 @@ export default function AddStaff({ setActiveView, editData }) {
         joiningDate: editData.joiningDate ? editData.joiningDate.split(/[ T]/)[0] : '',
         employmentType: editData.employmentType || '',
         role: editData.role || editData.designation || '',
+        hasRole: editData.hasRole || (editData.username ? 'Yes' : 'No'),
+        designation: editData.designation || (editData.hasRole === 'No' ? editData.role : ''),
         department: editData.department || '',
         primarySubject: editData.primarySubject || editData.subject || '',
         secondarySubject: editData.secondarySubject || '',
@@ -697,6 +756,13 @@ export default function AddStaff({ setActiveView, editData }) {
         errors.panNumber = 'PAN number must be in ABCDE1234F format';
       }
     }
+    if (step === 2) {
+      if (formData.hasRole === 'No') {
+        if (!formData.designation) errors.designation = 'Designation is required';
+      } else {
+        if (!formData.role) errors.role = 'Role is required';
+      }
+    }
     if (step === 3) {
       if (!formData.mobile.trim()) errors.mobile = 'Mobile number is required';
       else if (formData.mobile.length !== 10) errors.mobile = 'Mobile must be 10 digits';
@@ -714,7 +780,7 @@ export default function AddStaff({ setActiveView, editData }) {
       firstName: '', middleName: '', lastName: '', fullName: '', gender: '', dob: '', bloodGroup: '',
       nationality: 'Indian', maritalStatus: '', aadhaarNumber: '', panNumber: '',
       joiningDate: new Date().toISOString().split('T')[0],
-      employmentType: '', role: '', department: '', primarySubject: '', secondarySubject: '', status: 'Active',
+      employmentType: '', role: '', hasRole: 'Yes', designation: '', department: '', primarySubject: '', secondarySubject: '', status: 'Active',
       mobile: '', alternateMobile: '', email: '', password: '', emergencyContactNumber: '',
       currentAddress: '', currentCity: '', currentState: '', currentCountry: 'India', currentPostalCode: '',
       permanentAddress: '', permanentCity: '', permanentState: '', permanentCountry: 'India', permanentPostalCode: '', sameAsPermanent: false,
@@ -846,7 +912,7 @@ export default function AddStaff({ setActiveView, editData }) {
       {draftSaving && (
         <div style={{
           position: 'fixed', top: '20px', right: '20px', zIndex: 99999,
-          background: 'rgba(99, 102, 241, 0.95)', color: 'white',
+          background: 'rgba(255, 107, 0, 0.95)', color: 'white',
           padding: '10px 18px', borderRadius: '8px', fontSize: '0.8rem',
           fontWeight: 600, boxShadow: 'var(--shadow-md)', display: 'flex',
           alignItems: 'center', gap: '8px', pointerEvents: 'none'
@@ -1186,15 +1252,51 @@ export default function AddStaff({ setActiveView, editData }) {
               </div>
 
               <div className="form-group">
-                <label>Role *</label>
+                <label>Has Login Role Account? *</label>
                 <SearchableSelect 
-                  options={roleOptions}
-                  value={formData.role}
-                  onChange={(val) => handleSelectChange('role', val)}
-                  placeholder="Choose Role"
+                  options={[
+                    { value: 'Yes', label: 'Yes' },
+                    { value: 'No', label: 'No' }
+                  ]}
+                  value={formData.hasRole}
+                  onChange={(val) => {
+                    handleSelectChange('hasRole', val);
+                    handleSelectChange('role', '');
+                    handleSelectChange('designation', '');
+                  }}
+                  placeholder="Choose Options"
                   className="form-control"
                 />
               </div>
+
+              {formData.hasRole === 'No' ? (
+                <div className="form-group animate-slide-down">
+                  <label>Designation *</label>
+                  <SearchableSelect 
+                    options={designationOptions}
+                    value={formData.designation}
+                    onChange={(val) => {
+                      handleSelectChange('designation', val);
+                      handleSelectChange('role', val);
+                    }}
+                    placeholder="Choose Designation"
+                    className="form-control"
+                  />
+                  {formErrors.designation && <span style={{ color: '#ef4444', fontSize: '0.75rem', marginTop: '2px', display: 'block' }}>{formErrors.designation}</span>}
+                </div>
+              ) : (
+                <div className="form-group animate-slide-down">
+                  <label>Role *</label>
+                  <SearchableSelect 
+                    options={roleOptions}
+                    value={formData.role}
+                    onChange={(val) => handleSelectChange('role', val)}
+                    placeholder="Choose Role"
+                    className="form-control"
+                  />
+                  {formErrors.role && <span style={{ color: '#ef4444', fontSize: '0.75rem', marginTop: '2px', display: 'block' }}>{formErrors.role}</span>}
+                </div>
+              )}
 
               {(formData.role === 'Teacher' || formData.role === 'Staff') && (
                 <>
@@ -1292,10 +1394,11 @@ export default function AddStaff({ setActiveView, editData }) {
                 <input 
                   type="password"
                   name="password"
-                  value={formData.password}
+                  value={formData.hasRole === 'No' ? '' : formData.password}
                   onChange={handleTextChange}
+                  disabled={formData.hasRole === 'No'}
                   className="form-control"
-                  placeholder="Enter login password (default: teacher123)"
+                  placeholder={formData.hasRole === 'No' ? 'Disabled (No Login Account)' : 'Enter login password (default: staff123)'}
                 />
               </div>
 
@@ -1750,7 +1853,7 @@ export default function AddStaff({ setActiveView, editData }) {
         {/* STEP 8: FINAL REVIEW PAGE */}
         {activeStep === 8 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-            <div className="glass-panel" style={{ padding: '24px', background: 'rgba(99, 102, 241, 0.04)', borderColor: 'rgba(99, 102, 241, 0.2)', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div className="glass-panel" style={{ padding: '24px', background: 'rgba(255, 107, 0, 0.04)', borderColor: 'rgba(255, 107, 0, 0.2)', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '10px' }}>
               <AlertTriangle size={20} style={{ color: 'hsl(var(--color-warning))', flexShrink: 0 }} />
               <div>
                 <strong style={{ display: 'block', fontSize: '0.9rem' }}>Review Faculty Ledger Profile</strong>
@@ -1784,7 +1887,12 @@ export default function AddStaff({ setActiveView, editData }) {
                   <button type="button" onClick={() => setActiveStep(2)} style={{ background: 'none', border: 'none', color: 'hsl(var(--color-primary))', fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer' }}>Edit</button>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '0.85rem' }}>
-                  <div><strong>Role:</strong> {formData.role || 'N/A'}</div>
+                  <div><strong>Has Login Role Account:</strong> {formData.hasRole || 'Yes'}</div>
+                  {formData.hasRole === 'No' ? (
+                    <div><strong>Designation:</strong> {formData.designation || 'N/A'}</div>
+                  ) : (
+                    <div><strong>Role:</strong> {formData.role || 'N/A'}</div>
+                  )}
                   {(formData.role === 'Teacher' || formData.role === 'Staff') && (
                     <>
                       <div><strong>Subjects:</strong> {formData.primarySubject || 'N/A'} {formData.secondarySubject ? `, ${formData.secondarySubject}` : ''}</div>
@@ -1805,7 +1913,7 @@ export default function AddStaff({ setActiveView, editData }) {
                   <div><strong>Mobile Number:</strong> {formData.mobile} {formData.alternateMobile ? `/ ${formData.alternateMobile}` : ''}</div>
                   <div><strong>Email Address:</strong> {formData.email || 'N/A'}</div>
                   <div><strong>Emergency Number:</strong> {formData.emergencyContactNumber || 'N/A'}</div>
-                  <div><strong>Portal Access:</strong> Credentials will be auto-generated</div>
+                  <div><strong>Portal Access:</strong> {formData.hasRole === 'No' ? 'Disabled (No Login Account)' : (editData ? 'Unchanged (unless modified)' : 'Credentials will be auto-generated')}</div>
                 </div>
               </div>
 
@@ -1935,3 +2043,4 @@ export default function AddStaff({ setActiveView, editData }) {
     </div>
   );
 }
+

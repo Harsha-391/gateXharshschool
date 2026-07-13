@@ -1,4 +1,4 @@
-/* Admin Login Page */
+﻿/* Admin Login Page */
 .admin-login-wrapper {
   width: 100%;
   display: flex;
@@ -167,3 +167,4 @@
   text-transform: uppercase;
   letter-spacing: 0.03em;
 }
+

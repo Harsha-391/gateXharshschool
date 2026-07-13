@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import './SkeletonLoader.css';
 
 export default function SkeletonLoader({ type = 'page' }) {
@@ -97,3 +97,4 @@ export default function SkeletonLoader({ type = 'page' }) {
     </div>
   );
 }
+

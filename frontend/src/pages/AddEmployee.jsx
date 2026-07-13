@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+﻿import React, { useState, useEffect, useRef } from 'react';
 import './AddEmployee.css';
 import { 
   User, 
@@ -587,7 +587,14 @@ export default function AddEmployee({ setActiveView, editData }) {
   const addExperience = () => setExperiences(prev => [...prev, { organization: '', designation: '', fromDate: '', toDate: '', responsibilities: '' }]);
   const removeExperience = (i) => setExperiences(prev => prev.filter((_, idx) => idx !== i));
   const updateExperience = (i, field, value) => {
-    setExperiences(prev => prev.map((exp, idx) => idx === i ? { ...exp, [field]: value } : exp));
+    setExperiences(prev => prev.map((exp, idx) => {
+      if (idx !== i) return exp;
+      const updated = { ...exp, [field]: value };
+      if (field === 'fromDate' && updated.toDate && value > updated.toDate) {
+        updated.toDate = value;
+      }
+      return updated;
+    }));
   };
 
   const resetForm = () => {
@@ -1040,7 +1047,7 @@ export default function AddEmployee({ setActiveView, editData }) {
             </div>
             <div className="form-group">
               <label>To Date</label>
-              <input type="date" value={exp.toDate} onChange={(e) => updateExperience(i, 'toDate', e.target.value)} max={new Date().toLocaleDateString('en-CA')} className="form-control" style={inputStyle} />
+              <input type="date" value={exp.toDate} onChange={(e) => updateExperience(i, 'toDate', e.target.value)} max={new Date().toLocaleDateString('en-CA')} min={exp.fromDate} className="form-control" style={inputStyle} />
             </div>
             <div className="form-group" style={{ gridColumn: '1 / -1' }}>
               <label>Key Responsibilities</label>
@@ -1261,3 +1268,4 @@ export default function AddEmployee({ setActiveView, editData }) {
     </div>
   );
 }
+

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import './StudentManager.css';
 import { 
   Users, 
@@ -260,7 +260,7 @@ export default function StudentManager({ showToast }) {
         </div>
       ) : (!classFilter && !searchQuery) ? (
         <div className="glass-panel" style={{ padding: '48px', borderRadius: '12px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', border: '1px dashed var(--border-glass)', textAlign: 'center' }}>
-          <div style={{ padding: '16px', borderRadius: '50%', background: 'rgba(99, 102, 241, 0.08)', color: 'hsl(var(--color-primary))', marginBottom: '16px' }}>
+          <div style={{ padding: '16px', borderRadius: '50%', background: 'rgba(255, 107, 0, 0.08)', color: 'hsl(var(--color-primary))', marginBottom: '16px' }}>
             <Users size={32} />
           </div>
           <h4 style={{ fontSize: '1rem', fontWeight: 700 }}>Please Select a Grade / Class</h4>
@@ -324,7 +324,7 @@ export default function StudentManager({ showToast }) {
                             width: '36px', 
                             height: '36px', 
                             borderRadius: '50%', 
-                            background: student.photoBg || 'rgba(99,102,241,0.1)', 
+                            background: student.photoBg || 'rgba(255, 107, 0,0.1)', 
                             color: '#ffffff', 
                             display: 'flex', 
                             alignItems: 'center', 
@@ -339,7 +339,7 @@ export default function StudentManager({ showToast }) {
                           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                             <span style={{ fontWeight: 600, fontSize: '0.88rem' }}>{student.name}</span>
                             {(student.rollNumber || student.roll) && (
-                              <span style={{ fontSize: '0.72rem', background: 'rgba(99, 102, 241, 0.1)', color: 'rgb(99, 102, 241)', padding: '1px 6px', borderRadius: '4px', fontWeight: 600 }}>
+                              <span style={{ fontSize: '0.72rem', background: 'rgba(255, 107, 0, 0.1)', color: 'rgb(255, 107, 0)', padding: '1px 6px', borderRadius: '4px', fontWeight: 600 }}>
                                 Roll: {student.rollNumber || student.roll}
                               </span>
                             )}
@@ -425,7 +425,7 @@ export default function StudentManager({ showToast }) {
                           fontSize: '0.8rem', 
                           fontWeight: 600, 
                           cursor: 'pointer',
-                          boxShadow: student.status === 'Active' ? 'none' : '0 4px 6px -1px rgba(99, 102, 241, 0.2)',
+                          boxShadow: student.status === 'Active' ? 'none' : '0 4px 6px -1px rgba(255, 107, 0, 0.2)',
                           transition: 'all 0.2s ease'
                         }}
                       >
@@ -450,3 +450,4 @@ export default function StudentManager({ showToast }) {
     </div>
   );
 }
+

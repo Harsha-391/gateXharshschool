@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import './AcademicPanel.css';
+import CustomSelect from '../components/CustomSelect';
 import { createPortal } from 'react-dom';
 import {
   Clock,
@@ -265,14 +266,14 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
   const [modalType, setModalType] = useState('');
   const [calendarEventForm, setCalendarEventForm] = useState({
     title: '',
-    eventType: 'Holiday',
+    eventType: 'None',
     eventDate: '',
     startTime: '',
     endTime: '',
     description: '',
     applicableClasses: 'All',
     session: '2026-27',
-    color: '#6366f1',
+    color: '#FF8C42',
     audience: 'All',
     recurring: 'None',
     reminders: [],
@@ -1022,6 +1023,10 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
   // 2. Exam Configuration
   const handleExamSubmit = async (e) => {
     e.preventDefault();
+    if (examForm.startDate && examForm.endDate && examForm.startDate > examForm.endDate) {
+      showToast('Start Date must be earlier than or equal to End Date.', 'error');
+      return;
+    }
     try {
       const res = await fetch('/api/academics/exams', {
         method: 'POST',
@@ -1247,6 +1252,10 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
   // 6. Holidays
   const handleHolidaySubmit = async (e) => {
     e.preventDefault();
+    if (holidayForm.startDate && holidayForm.endDate && holidayForm.startDate > holidayForm.endDate) {
+      showToast('Start Date must be earlier than or equal to End Date.', 'error');
+      return;
+    }
     try {
       const url = editingId ? `/api/academics/holidays/${editingId}` : '/api/academics/holidays';
       const method = editingId ? 'PUT' : 'POST';
@@ -1916,7 +1925,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
               onClick={() => setIsManualSchedulerOpen(false)}
               style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '1.8rem', lineHeight: 1, padding: '4px' }}
             >
-              ×
+              {"\u00d7"}
             </button>
           </div>
 
@@ -1937,7 +1946,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                     alignItems: 'center',
                     gap: '16px',
                     padding: '16px',
-                    background: isDragged ? 'rgba(99,102,241,0.04)' : 'var(--bg-glass-active)',
+                    background: isDragged ? 'rgba(255, 107, 0,0.04)' : 'var(--bg-glass-active)',
                     border: isDragged ? '2px dashed hsl(var(--color-primary))' : '1px solid var(--border-glass)',
                     borderRadius: '12px',
                     opacity: isDragged ? 0.5 : 1,
@@ -1950,7 +1959,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                     <GripVertical size={18} />
                   </div>
 
-                  <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'rgba(99, 102, 241, 0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'hsl(var(--color-primary))', fontWeight: 800, fontSize: '0.9rem' }}>
+                  <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'rgba(255, 107, 0, 0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'hsl(var(--color-primary))', fontWeight: 800, fontSize: '0.9rem' }}>
                     {index + 1}
                   </div>
 
@@ -1959,7 +1968,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                       {slot.subject}
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
-                      <span style={{ fontSize: '0.72rem', padding: '2px 8px', borderRadius: '12px', background: 'rgba(99, 102, 241, 0.06)', color: 'hsl(var(--color-primary))', fontWeight: 700 }}>
+                      <span style={{ fontSize: '0.72rem', padding: '2px 8px', borderRadius: '12px', background: 'rgba(255, 107, 0, 0.06)', color: 'hsl(var(--color-primary))', fontWeight: 700 }}>
                         {getDayOfWeek(slot.examDate) || 'No day'}
                       </span>
                     </div>
@@ -2026,7 +2035,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
             <button className="btn-secondary" onClick={() => setIsManualSchedulerOpen(false)} style={{ padding: '8px 16px', borderRadius: '8px', fontSize: '0.85rem' }}>
               Cancel
             </button>
-            <button className="btn-primary" onClick={handleSaveCustomTimetable} style={{ padding: '8px 16px', borderRadius: '8px', fontSize: '0.85rem', background: 'linear-gradient(135deg, hsl(var(--color-primary)) 0%, #4f46e5 100%)', fontWeight: 700 }}>
+            <button className="btn-primary" onClick={handleSaveCustomTimetable} style={{ padding: '8px 16px', borderRadius: '8px', fontSize: '0.85rem', background: 'linear-gradient(135deg, hsl(var(--color-primary)) 0%, #e07830 100%)', fontWeight: 700 }}>
               Save Timetable
             </button>
           </div>
@@ -2058,7 +2067,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', width: '100%', height: 'fit-content' }}>
           <div className="glass-panel" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '20px', height: 'fit-content' }}>
             <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-              <div style={{ padding: '8px', borderRadius: '8px', background: 'rgba(99, 102, 241, 0.08)', color: 'hsl(var(--color-primary))' }}>
+              <div style={{ padding: '8px', borderRadius: '8px', background: 'rgba(255, 107, 0, 0.08)', color: 'hsl(var(--color-primary))' }}>
                 <BookOpen size={20} />
               </div>
               <div>
@@ -2070,8 +2079,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
             <div style={{ display: 'flex', gap: '16px', alignItems: 'flex-end', flexWrap: 'wrap', width: '100%' }}>
               <div className="form-group" style={{ margin: 0, flex: 1, minWidth: '200px' }}>
                 <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Grade Level</label>
-                <select
-                  className="select-custom"
+                <CustomSelect                  className="select-custom"
                   value={newSubjectGrade}
                   onChange={(e) => setNewSubjectGrade(e.target.value)}
                   style={{ width: '100%', marginTop: '4px', background: 'var(--bg-glass-active)', border: '1px solid var(--border-glass)' }}
@@ -2079,7 +2087,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                   {gradesList.map(g => (
                     <option key={g} value={g}>Grade {g}</option>
                   ))}
-                </select>
+                </CustomSelect>
               </div>
               <button
                 className="btn-secondary"
@@ -2112,7 +2120,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
               {activeGradesWithSubjects.map((g, idx) => {
                 const gradeSubjects = subjects.filter(s => s.grade === g);
                 const gradients = [
-                  'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)',
+                  'linear-gradient(135deg, #FF8C42 0%, #e07830 100%)',
                   'linear-gradient(135deg, #06b6d4 0%, #0891b2 100%)',
                   'linear-gradient(135deg, #10b981 0%, #059669 100%)',
                   'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
@@ -2154,7 +2162,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                         fontWeight: 700,
                         padding: '2px 8px',
                         borderRadius: '12px',
-                        background: 'rgba(99, 102, 241, 0.08)',
+                        background: 'rgba(255, 107, 0, 0.08)',
                         color: 'hsl(var(--color-primary))'
                       }}>
                         {gradeSubjects.length} {gradeSubjects.length === 1 ? 'Subject' : 'Subjects'}
@@ -2304,8 +2312,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                 <div className="form-group" style={{ margin: 0 }}>
                   <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Grade</label>
-                  <select
-                    className="select-custom"
+                  <CustomSelect                    className="select-custom"
                     value={activeClass.split('-')[0] || 'I'}
                     onChange={(e) => {
                       const currentSection = activeClass.split('-')[1] || 'A';
@@ -2316,12 +2323,11 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                     {activeGrades.map(g => (
                       <option key={g.id} value={g.name}>Grade {g.name}</option>
                     ))}
-                  </select>
+                  </CustomSelect>
                 </div>
                 <div className="form-group" style={{ margin: 0 }}>
                   <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Section</label>
-                  <select
-                    className="select-custom"
+                  <CustomSelect                    className="select-custom"
                     value={activeClass.split('-')[1] || 'A'}
                     onChange={(e) => {
                       const currentGrade = activeClass.split('-')[0] || 'I';
@@ -2340,7 +2346,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                         <option key={secName} value={secName}>Section {secName}</option>
                       ));
                     })()}
-                  </select>
+                  </CustomSelect>
                 </div>
               </div>
               <button
@@ -2348,7 +2354,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                 onClick={handleOpenBulkModal}
                 style={{
                   width: '100%',
-                  background: 'linear-gradient(135deg, hsl(var(--color-primary)) 0%, #4f46e5 100%)',
+                  background: 'linear-gradient(135deg, hsl(var(--color-primary)) 0%, #e07830 100%)',
                   borderRadius: '8px',
                   padding: '10px',
                   justifyContent: 'center',
@@ -2378,23 +2384,21 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
               style={{ width: '220px', padding: '6px 12px', borderRadius: '8px', fontSize: '0.82rem', background: 'var(--bg-glass-active)', border: '1px solid var(--border-glass)', color: 'var(--text-main)' }}
             />
 
-            <select
-              className="select-custom"
+            <CustomSelect              className="select-custom"
               value={searchGrade}
               onChange={(e) => setSearchGrade(e.target.value)}
-              style={{ padding: '6px 12px', borderRadius: '8px', fontSize: '0.82rem', background: 'var(--bg-glass-active)', border: '1px solid var(--border-glass)', color: 'var(--text-main)' }}
+              style={{ width: '180px', padding: '6px 12px', borderRadius: '8px', fontSize: '0.82rem', background: 'var(--bg-glass-active)', border: '1px solid var(--border-glass)', color: 'var(--text-main)' }}
             >
               <option value="All">All Grades</option>
               {activeGrades.map(g => (
                 <option key={g.id} value={g.name}>Grade {g.name}</option>
               ))}
-            </select>
+            </CustomSelect>
 
-            <select
-              className="select-custom"
+            <CustomSelect              className="select-custom"
               value={searchSection}
               onChange={(e) => setSearchSection(e.target.value)}
-              style={{ padding: '6px 12px', borderRadius: '8px', fontSize: '0.82rem', background: 'var(--bg-glass-active)', border: '1px solid var(--border-glass)', color: 'var(--text-main)' }}
+              style={{ width: '180px', padding: '6px 12px', borderRadius: '8px', fontSize: '0.82rem', background: 'var(--bg-glass-active)', border: '1px solid var(--border-glass)', color: 'var(--text-main)' }}
             >
               <option value="All">All Sections</option>
               {(() => {
@@ -2405,7 +2409,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                   <option key={secName} value={secName}>Section {secName}</option>
                 ));
               })()}
-            </select>
+            </CustomSelect>
 
             {(searchQuery || searchGrade !== 'All' || searchSection !== 'All') && (
               <button
@@ -2536,7 +2540,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                                   borderLeft: '1px solid var(--border-glass)',
                                   borderRadius: '8px'
                                 }}>
-                                  {breakType === 'Lunch Break' ? '🍱 ' : breakType === 'Short Break' ? '☕ ' : breakType === 'Recess' ? '🏃 ' : breakType === 'Assembly' ? '📢 ' : '⚡ '}{breakType}
+                                  {breakType === 'Lunch Break' ? 'ðŸ± ' : breakType === 'Short Break' ? '☕ ' : breakType === 'Recess' ? 'ðŸƒ ' : breakType === 'Assembly' ? '📢 ' : '⚡ '}{breakType}
                                 </td>
                               </tr>
                             );
@@ -2613,7 +2617,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
           {/* Card: Configure Teacher Timetable */}
           <div className="glass-panel" style={{ padding: '20px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '16px' }}>
             <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-              <div style={{ padding: '8px', borderRadius: '8px', background: 'rgba(99, 102, 241, 0.08)', color: 'hsl(var(--color-primary))' }}>
+              <div style={{ padding: '8px', borderRadius: '8px', background: 'rgba(255, 107, 0, 0.08)', color: 'hsl(var(--color-primary))' }}>
                 <Calendar size={20} />
               </div>
               <div>
@@ -2633,8 +2637,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                   style={{ width: '100%', padding: '6px 12px', borderRadius: '8px', fontSize: '0.82rem', background: 'var(--bg-glass-active)', border: '1px solid var(--border-glass)', color: 'var(--text-main)', marginTop: '4px', marginBottom: '8px' }}
                 />
                 <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Select Teacher</label>
-                <select
-                  className="select-custom"
+                <CustomSelect                  className="select-custom"
                   value={activeTeacher}
                   onChange={(e) => setActiveTeacher(e.target.value)}
                   style={{ width: '100%', marginTop: '4px', background: 'var(--bg-glass-active)', border: '1px solid var(--border-glass)' }}
@@ -2647,14 +2650,14 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                       <option key={idx} value={t.name}>{label}</option>
                     );
                   })}
-                </select>
+                </CustomSelect>
               </div>
               <button
                 className="btn-primary"
                 onClick={handleOpenTeacherBulkModal}
                 style={{
                   width: '100%',
-                  background: 'linear-gradient(135deg, hsl(var(--color-primary)) 0%, #4f46e5 100%)',
+                  background: 'linear-gradient(135deg, hsl(var(--color-primary)) 0%, #e07830 100%)',
                   borderRadius: '8px',
                   padding: '10px',
                   justifyContent: 'center',
@@ -2811,7 +2814,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                                 borderLeft: '1px solid var(--border-glass)',
                                 borderRadius: '8px'
                               }}>
-                                {breakType === 'Lunch Break' ? '🍱 ' : breakType === 'Short Break' ? '☕ ' : breakType === 'Recess' ? '🏃 ' : breakType === 'Assembly' ? '📢 ' : '⚡ '}{breakType}
+                                {breakType === 'Lunch Break' ? 'ðŸ± ' : breakType === 'Short Break' ? '☕ ' : breakType === 'Recess' ? 'ðŸƒ ' : breakType === 'Assembly' ? '📢 ' : '⚡ '}{breakType}
                               </td>
                             </tr>
                           );
@@ -2938,26 +2941,26 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
           </div>
           <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
             <input type="text" className="form-control" placeholder="Search exam name..." value={examSearch} onChange={e => setExamSearch(e.target.value)} style={{ width: '200px', padding: '6px 12px', borderRadius: '8px', fontSize: '0.82rem', background: 'var(--bg-glass-active)', border: '1px solid var(--border-glass)', color: 'var(--text-main)' }} />
-            <select className="select-custom" value={examSessionFilter} onChange={e => setExamSessionFilter(e.target.value)} style={{ padding: '6px 12px', borderRadius: '8px', fontSize: '0.82rem', background: 'var(--bg-glass-active)', border: '1px solid var(--border-glass)' }}>
+            <CustomSelect className="select-custom" value={examSessionFilter} onChange={e => setExamSessionFilter(e.target.value)} style={{ padding: '6px 12px', borderRadius: '8px', fontSize: '0.82rem', background: 'var(--bg-glass-active)', border: '1px solid var(--border-glass)' }}>
               <option value="All">All Sessions</option>
               {sessions.map(s => <option key={s} value={s}>{s}</option>)}
-            </select>
-            <select className="select-custom" value={examTypeFilter} onChange={e => { setExamTypeFilter(e.target.value); setSelectedCustomExamFilter('All'); }} style={{ padding: '6px 12px', borderRadius: '8px', fontSize: '0.82rem', background: 'var(--bg-glass-active)', border: '1px solid var(--border-glass)' }}>
+            </CustomSelect>
+            <CustomSelect className="select-custom" value={examTypeFilter} onChange={e => { setExamTypeFilter(e.target.value); setSelectedCustomExamFilter('All'); }} style={{ padding: '6px 12px', borderRadius: '8px', fontSize: '0.82rem', background: 'var(--bg-glass-active)', border: '1px solid var(--border-glass)' }}>
               <option value="All">All Types</option>
               {examTypes.map(t => <option key={t} value={t}>{t}</option>)}
-            </select>
+            </CustomSelect>
             {examTypeFilter === 'Custom Exam' && (
-              <select className="select-custom animate-slide-down" value={selectedCustomExamFilter} onChange={e => setSelectedCustomExamFilter(e.target.value)} style={{ padding: '6px 12px', borderRadius: '8px', fontSize: '0.82rem', background: 'var(--bg-glass-active)', border: '1px solid var(--border-glass)' }}>
+              <CustomSelect className="select-custom animate-slide-down" value={selectedCustomExamFilter} onChange={e => setSelectedCustomExamFilter(e.target.value)} style={{ padding: '6px 12px', borderRadius: '8px', fontSize: '0.82rem', background: 'var(--bg-glass-active)', border: '1px solid var(--border-glass)' }}>
                 <option value="All">All Custom Exams</option>
                 {[...new Set(exams.filter(ex => ex.examType === 'Custom Exam').map(ex => ex.examName).filter(Boolean))].sort().map(name => (
                   <option key={name} value={name}>{name}</option>
                 ))}
-              </select>
+              </CustomSelect>
             )}
-            <select className="select-custom" value={examGradeFilter} onChange={e => setExamGradeFilter(e.target.value)} style={{ padding: '6px 12px', borderRadius: '8px', fontSize: '0.82rem', background: 'var(--bg-glass-active)', border: '1px solid var(--border-glass)' }}>
+            <CustomSelect className="select-custom" value={examGradeFilter} onChange={e => setExamGradeFilter(e.target.value)} style={{ padding: '6px 12px', borderRadius: '8px', fontSize: '0.82rem', background: 'var(--bg-glass-active)', border: '1px solid var(--border-glass)' }}>
               <option value="All">All Grades</option>
               {activeGrades.map(g => <option key={g.id} value={g.name}>Grade {g.name}</option>)}
-            </select>
+            </CustomSelect>
           </div>
         </div>
 
@@ -2993,7 +2996,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                 }));
               };
 
-              const statusColors = { Draft: { bg: 'rgba(107,114,128,0.08)', color: '#6b7280', border: '1px solid rgba(107,114,128,0.15)' }, Scheduled: { bg: 'rgba(99,102,241,0.08)', color: 'hsl(var(--color-primary))', border: '1px solid rgba(99,102,241,0.15)' }, Published: { bg: 'rgba(16,185,129,0.08)', color: '#10b981', border: '1px solid rgba(16,185,129,0.15)' }, Completed: { bg: 'rgba(59,130,246,0.08)', color: '#3b82f6', border: '1px solid rgba(59,130,246,0.15)' } };
+              const statusColors = { Draft: { bg: 'rgba(107,114,128,0.08)', color: '#6b7280', border: '1px solid rgba(107,114,128,0.15)' }, Scheduled: { bg: 'rgba(255, 107, 0,0.08)', color: 'hsl(var(--color-primary))', border: '1px solid rgba(255, 107, 0,0.15)' }, Published: { bg: 'rgba(16,185,129,0.08)', color: '#10b981', border: '1px solid rgba(16,185,129,0.15)' }, Completed: { bg: 'rgba(59,130,246,0.08)', color: '#3b82f6', border: '1px solid rgba(59,130,246,0.15)' } };
               const sc = statusColors[ex.status] || statusColors.Draft;
 
 
@@ -3016,11 +3019,11 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                     <div>
                       <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'hsl(var(--color-primary))', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '4px' }}>
                         {gs ? (gs.section ? `Grade - ${gs.grade}-${gs.section}` : `Grade - ${gs.grade}`) : 'No Grades'}
-                        {ex.academicSession && ` · Session ${ex.academicSession}`}
+                        {ex.academicSession && ` Â· Session ${ex.academicSession}`}
                       </div>
                       <h3 style={{ fontSize: '1.05rem', fontWeight: 800, margin: 0, color: 'var(--text-main)' }}>{ex.examName}</h3>
                       <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '6px' }}>
-                        <span style={{ fontSize: '0.72rem', padding: '2px 8px', borderRadius: '10px', background: 'rgba(99, 102, 241, 0.08)', color: 'hsl(var(--color-primary))', border: '1px solid rgba(99, 102, 241, 0.15)', fontWeight: 600 }}>{ex.examType}</span>
+                        <span style={{ fontSize: '0.72rem', padding: '2px 8px', borderRadius: '10px', background: 'rgba(255, 107, 0, 0.08)', color: 'hsl(var(--color-primary))', border: '1px solid rgba(255, 107, 0, 0.15)', fontWeight: 600 }}>{ex.examType}</span>
                         <span style={{ fontSize: '0.72rem', padding: '2px 8px', borderRadius: '10px', background: 'rgba(245, 158, 11, 0.08)', color: '#f59e0b', border: '1px solid rgba(245, 158, 11, 0.15)', fontWeight: 600 }}>Total Marks: {ex.totalMarks || 100}</span>
                       </div>
                     </div>
@@ -3215,7 +3218,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                               type="button"
                               onClick={(e) => { e.stopPropagation(); handleOpenManualScheduler(gs.grade, gs.section, ex.id); }}
                               className="btn-primary"
-                              style={{ padding: '4px 10px', fontSize: '0.72rem', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '4px', background: 'linear-gradient(135deg, hsl(var(--color-primary)) 0%, #4f46e5 100%)' }}
+                              style={{ padding: '4px 10px', fontSize: '0.72rem', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '4px', background: 'linear-gradient(135deg, hsl(var(--color-primary)) 0%, #e07830 100%)' }}
                             >
                               <Plus size={12} /> Create Timetable
                             </button>
@@ -3273,7 +3276,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                     <button
                       onClick={(e) => { e.stopPropagation(); handleEditExam(ex); }}
                       className="btn-secondary"
-                      style={{ padding: '6px 10px', fontSize: '0.72rem', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '4px', border: '1px solid rgba(99,102,241,0.3)', color: 'hsl(var(--color-primary))' }}
+                      style={{ padding: '6px 10px', fontSize: '0.72rem', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '4px', border: '1px solid rgba(255, 107, 0,0.3)', color: 'hsl(var(--color-primary))' }}
                     >
                       <Edit3 size={13} /> Edit
                     </button>
@@ -3550,8 +3553,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
             <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Configure and view exam schedules manually.</p>
           </div>
           <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
-            <select
-              className="select-custom"
+            <CustomSelect              className="select-custom"
               value={timetableSession}
               onChange={(e) => {
                 setTimetableSession(e.target.value);
@@ -3565,9 +3567,8 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
               {sessions.map(s => (
                 <option key={s} value={s}>{s}</option>
               ))}
-            </select>
-            <select
-              className="select-custom"
+            </CustomSelect>
+            <CustomSelect              className="select-custom"
               value={activeExam}
               onChange={(e) => {
                 const selectedVal = e.target.value;
@@ -3596,12 +3597,11 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                     </option>
                   ));
               })()}
-            </select>
+            </CustomSelect>
 
             {activeExam && (
               <>
-                <select
-                  className="select-custom"
+                <CustomSelect                  className="select-custom"
                   value={manualGrade}
                   onChange={(e) => {
                     const gradeVal = e.target.value;
@@ -3619,7 +3619,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                   {uniqueGrades.map(g => (
                     <option key={g} value={g}>Grade {g}</option>
                   ))}
-                </select>
+                </CustomSelect>
                 <button
                   className="btn-primary"
                   disabled={!manualGrade}
@@ -3628,7 +3628,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                     const examId = matchingExam?.id || activeExam;
                     handleOpenManualScheduler(manualGrade, manualSection, examId);
                   }}
-                  style={{ padding: '6px 12px', fontSize: '0.8rem', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '6px', background: 'linear-gradient(135deg, hsl(var(--color-primary)) 0%, #4f46e5 100%)' }}
+                  style={{ padding: '6px 12px', fontSize: '0.8rem', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '6px', background: 'linear-gradient(135deg, hsl(var(--color-primary)) 0%, #e07830 100%)' }}
                 >
                   <Plus size={14} /> Create Timetable
                 </button>
@@ -3817,10 +3817,10 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-muted)' }}>Select Session:</span>
-            <select className="select-custom" value={examSessionFilter} onChange={e => setExamSessionFilter(e.target.value)} style={{ padding: '8px 16px', borderRadius: '8px', fontSize: '0.85rem', background: 'var(--bg-glass-active)', border: '1px solid var(--border-glass)', minWidth: '150px' }}>
+            <CustomSelect className="select-custom" value={examSessionFilter} onChange={e => setExamSessionFilter(e.target.value)} style={{ padding: '8px 16px', borderRadius: '8px', fontSize: '0.85rem', background: 'var(--bg-glass-active)', border: '1px solid var(--border-glass)', minWidth: '150px' }}>
               <option value="All">All Sessions</option>
               {sessions.map(s => <option key={s} value={s}>{s}</option>)}
-            </select>
+            </CustomSelect>
           </div>
         </div>
 
@@ -3832,22 +3832,22 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
           </div>
           <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
             <input type="text" className="form-control" placeholder="Search exam name..." value={examSearch} onChange={e => setExamSearch(e.target.value)} style={{ width: '200px', padding: '6px 12px', borderRadius: '8px', fontSize: '0.82rem', background: 'var(--bg-glass-active)', border: '1px solid var(--border-glass)', color: 'var(--text-main)' }} />
-            <select className="select-custom" value={examTypeFilter} onChange={e => { setExamTypeFilter(e.target.value); setSelectedCustomExamFilter('All'); }} style={{ padding: '6px 12px', borderRadius: '8px', fontSize: '0.82rem', background: 'var(--bg-glass-active)', border: '1px solid var(--border-glass)' }}>
+            <CustomSelect className="select-custom" value={examTypeFilter} onChange={e => { setExamTypeFilter(e.target.value); setSelectedCustomExamFilter('All'); }} style={{ padding: '6px 12px', borderRadius: '8px', fontSize: '0.82rem', background: 'var(--bg-glass-active)', border: '1px solid var(--border-glass)' }}>
               <option value="All">All Types</option>
               {examTypes.map(t => <option key={t} value={t}>{t}</option>)}
-            </select>
+            </CustomSelect>
             {examTypeFilter === 'Custom Exam' && (
-              <select className="select-custom animate-slide-down" value={selectedCustomExamFilter} onChange={e => setSelectedCustomExamFilter(e.target.value)} style={{ padding: '6px 12px', borderRadius: '8px', fontSize: '0.82rem', background: 'var(--bg-glass-active)', border: '1px solid var(--border-glass)' }}>
+              <CustomSelect className="select-custom animate-slide-down" value={selectedCustomExamFilter} onChange={e => setSelectedCustomExamFilter(e.target.value)} style={{ padding: '6px 12px', borderRadius: '8px', fontSize: '0.82rem', background: 'var(--bg-glass-active)', border: '1px solid var(--border-glass)' }}>
                 <option value="All">All Custom Exams</option>
                 {[...new Set(exams.filter(ex => ex.examType === 'Custom Exam').map(ex => ex.examName).filter(Boolean))].sort().map(name => (
                   <option key={name} value={name}>{name}</option>
                 ))}
-              </select>
+              </CustomSelect>
             )}
-            <select className="select-custom" value={examGradeFilter} onChange={e => setExamGradeFilter(e.target.value)} style={{ padding: '6px 12px', borderRadius: '8px', fontSize: '0.82rem', background: 'var(--bg-glass-active)', border: '1px solid var(--border-glass)' }}>
+            <CustomSelect className="select-custom" value={examGradeFilter} onChange={e => setExamGradeFilter(e.target.value)} style={{ padding: '6px 12px', borderRadius: '8px', fontSize: '0.82rem', background: 'var(--bg-glass-active)', border: '1px solid var(--border-glass)' }}>
               <option value="All">All Grades</option>
               {activeGrades.map(g => <option key={g.id} value={g.name}>Grade {g.name}</option>)}
-            </select>
+            </CustomSelect>
           </div>
         </div>
 
@@ -3871,7 +3871,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
               });
               const totalSubjects = gs ? cohortSubjects.length : (ex.scheduleCount || 0);
 
-              const statusColors = { Draft: { bg: 'rgba(107,114,128,0.08)', color: '#6b7280', border: '1px solid rgba(107,114,128,0.15)' }, Scheduled: { bg: 'rgba(99,102,241,0.08)', color: 'hsl(var(--color-primary))', border: '1px solid rgba(99,102,241,0.15)' }, Published: { bg: 'rgba(16,185,129,0.08)', color: '#10b981', border: '1px solid rgba(16,185,129,0.15)' }, Completed: { bg: 'rgba(59,130,246,0.08)', color: '#3b82f6', border: '1px solid rgba(59,130,246,0.15)' } };
+              const statusColors = { Draft: { bg: 'rgba(107,114,128,0.08)', color: '#6b7280', border: '1px solid rgba(107,114,128,0.15)' }, Scheduled: { bg: 'rgba(255, 107, 0,0.08)', color: 'hsl(var(--color-primary))', border: '1px solid rgba(255, 107, 0,0.15)' }, Published: { bg: 'rgba(16,185,129,0.08)', color: '#10b981', border: '1px solid rgba(16,185,129,0.15)' }, Completed: { bg: 'rgba(59,130,246,0.08)', color: '#3b82f6', border: '1px solid rgba(59,130,246,0.15)' } };
               const sc = statusColors[ex.status] || statusColors.Draft;
 
               return (
@@ -3892,10 +3892,10 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                     <div>
                       <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'hsl(var(--color-primary))', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '4px' }}>
                         {gs ? (gs.section ? `Grade - ${gs.grade}-${gs.section}` : `Grade - ${gs.grade}`) : 'No Grades'}
-                        {ex.academicSession && ` · Session ${ex.academicSession}`}
+                        {ex.academicSession && ` Â· Session ${ex.academicSession}`}
                       </div>
                       <h3 style={{ fontSize: '1.05rem', fontWeight: 800, margin: 0, color: 'var(--text-main)' }}>{ex.examName}</h3>
-                      <span style={{ fontSize: '0.72rem', padding: '2px 8px', borderRadius: '10px', background: 'rgba(99, 102, 241, 0.08)', color: 'hsl(var(--color-primary))', border: '1px solid rgba(99, 102, 241, 0.15)', display: 'inline-block', marginTop: '6px', fontWeight: 600 }}>{ex.examType}</span>
+                      <span style={{ fontSize: '0.72rem', padding: '2px 8px', borderRadius: '10px', background: 'rgba(255, 107, 0, 0.08)', color: 'hsl(var(--color-primary))', border: '1px solid rgba(255, 107, 0, 0.15)', display: 'inline-block', marginTop: '6px', fontWeight: 600 }}>{ex.examType}</span>
                     </div>
                     <span style={{ padding: '4px 10px', borderRadius: '20px', fontSize: '0.68rem', fontWeight: 700, ...sc }}>{ex.status}</span>
                   </div>
@@ -4019,8 +4019,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
               style={{ width: '220px', padding: '6px 12px', borderRadius: '8px', fontSize: '0.82rem', background: 'var(--bg-glass-active)', border: '1px solid var(--border-glass)', color: 'var(--text-main)' }}
             />
 
-            <select
-              className="select-custom"
+            <CustomSelect              className="select-custom"
               value={pubExamGrade}
               onChange={(e) => setPubExamGrade(e.target.value)}
               style={{ padding: '6px 12px', borderRadius: '8px', fontSize: '0.82rem', background: 'var(--bg-glass-active)', border: '1px solid var(--border-glass)', color: 'var(--text-main)' }}
@@ -4029,7 +4028,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
               {activeGrades.map(g => (
                 <option key={g.id} value={g.name}>Grade {g.name}</option>
               ))}
-            </select>
+            </CustomSelect>
 
             {(pubExamSearch || pubExamGrade !== 'All') && (
               <button
@@ -4104,11 +4103,11 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                     <div>
                       <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'hsl(var(--color-primary))', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '4px' }}>
                         {gs ? (gs.section ? `Grade - ${gs.grade}-${gs.section}` : `Grade - ${gs.grade}`) : 'No Grades'}
-                        {ex.academicSession && ` · Session ${ex.academicSession}`}
+                        {ex.academicSession && ` Â· Session ${ex.academicSession}`}
                       </div>
                       <h3 style={{ fontSize: '1.05rem', fontWeight: 800, margin: 0, color: 'var(--text-main)' }}>{ex.examName}</h3>
                       <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '6px' }}>
-                        <span style={{ fontSize: '0.72rem', padding: '2px 8px', borderRadius: '10px', background: 'rgba(99, 102, 241, 0.08)', color: 'hsl(var(--color-primary))', border: '1px solid rgba(99, 102, 241, 0.15)', fontWeight: 600 }}>{ex.examType}</span>
+                        <span style={{ fontSize: '0.72rem', padding: '2px 8px', borderRadius: '10px', background: 'rgba(255, 107, 0, 0.08)', color: 'hsl(var(--color-primary))', border: '1px solid rgba(255, 107, 0, 0.15)', fontWeight: 600 }}>{ex.examType}</span>
                         <span style={{ fontSize: '0.72rem', padding: '2px 8px', borderRadius: '10px', background: 'rgba(245, 158, 11, 0.08)', color: '#f59e0b', border: '1px solid rgba(245, 158, 11, 0.15)', fontWeight: 600 }}>Total Marks: {ex.totalMarks || 100}</span>
                       </div>
                     </div>
@@ -4292,8 +4291,8 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
             className={`tab-btn-custom ${publishedSubTab === 'class' ? 'active' : ''}`}
             style={{
               display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px', borderRadius: '8px', fontSize: '0.85rem', fontWeight: 600, border: 'none', cursor: 'pointer',
-              background: publishedSubTab === 'class' ? 'rgba(99,102,241,0.1)' : 'transparent',
-              color: publishedSubTab === 'class' ? 'rgb(99,102,241)' : 'var(--text-muted)',
+              background: publishedSubTab === 'class' ? 'rgba(255, 107, 0,0.1)' : 'transparent',
+              color: publishedSubTab === 'class' ? 'rgb(255, 107, 0)' : 'var(--text-muted)',
               transition: 'all 0.2s ease'
             }}
           >
@@ -4304,8 +4303,8 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
             className={`tab-btn-custom ${publishedSubTab === 'teacher' ? 'active' : ''}`}
             style={{
               display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px', borderRadius: '8px', fontSize: '0.85rem', fontWeight: 600, border: 'none', cursor: 'pointer',
-              background: publishedSubTab === 'teacher' ? 'rgba(99,102,241,0.1)' : 'transparent',
-              color: publishedSubTab === 'teacher' ? 'rgb(99,102,241)' : 'var(--text-muted)',
+              background: publishedSubTab === 'teacher' ? 'rgba(255, 107, 0,0.1)' : 'transparent',
+              color: publishedSubTab === 'teacher' ? 'rgb(255, 107, 0)' : 'var(--text-muted)',
               transition: 'all 0.2s ease'
             }}
           >
@@ -4330,8 +4329,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                 style={{ width: '220px', padding: '6px 12px', borderRadius: '8px', fontSize: '0.82rem', background: 'var(--bg-glass-active)', border: '1px solid var(--border-glass)', color: 'var(--text-main)' }}
               />
 
-              <select
-                className="select-custom"
+              <CustomSelect                className="select-custom"
                 value={pubTtGrade}
                 onChange={(e) => setPubTtGrade(e.target.value)}
                 style={{ padding: '6px 12px', borderRadius: '8px', fontSize: '0.82rem', background: 'var(--bg-glass-active)', border: '1px solid var(--border-glass)', color: 'var(--text-main)' }}
@@ -4340,10 +4338,9 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                 {activeGrades.map(g => (
                   <option key={g.id} value={g.name}>Grade {g.name}</option>
                 ))}
-              </select>
+              </CustomSelect>
 
-              <select
-                className="select-custom"
+              <CustomSelect                className="select-custom"
                 value={pubTtSection}
                 onChange={(e) => setPubTtSection(e.target.value)}
                 style={{ padding: '6px 12px', borderRadius: '8px', fontSize: '0.82rem', background: 'var(--bg-glass-active)', border: '1px solid var(--border-glass)', color: 'var(--text-main)' }}
@@ -4352,7 +4349,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                 {activeSections.map(s => (
                   <option key={s.id} value={s.name}>Section {s.name}</option>
                 ))}
-              </select>
+              </CustomSelect>
 
               {(pubTtSearch || pubTtGrade !== 'All' || pubTtSection !== 'All') && (
                 <button
@@ -4379,8 +4376,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                 style={{ width: '220px', padding: '6px 12px', borderRadius: '8px', fontSize: '0.82rem', background: 'var(--bg-glass-active)', border: '1px solid var(--border-glass)', color: 'var(--text-main)' }}
               />
 
-              <select
-                className="select-custom"
+              <CustomSelect                className="select-custom"
                 value={pubTtTeacher}
                 onChange={(e) => setPubTtTeacher(e.target.value)}
                 style={{ padding: '6px 12px', borderRadius: '8px', fontSize: '0.82rem', background: 'var(--bg-glass-active)', border: '1px solid var(--border-glass)', color: 'var(--text-main)' }}
@@ -4389,7 +4385,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                 {teachers.map((t, idx) => (
                   <option key={idx} value={t.name}>{t.fullName || t.name}</option>
                 ))}
-              </select>
+              </CustomSelect>
 
               {(pubTtSearch || pubTtTeacher) && (
                 <button
@@ -4693,8 +4689,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', width: '200px' }}>
               <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)' }}>Filter by Type</label>
-              <select
-                className="select-custom"
+              <CustomSelect                className="select-custom"
                 value={historyTypeFilter}
                 onChange={(e) => setHistoryTypeFilter(e.target.value)}
                 style={{
@@ -4713,7 +4708,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                 {eventTypes.map(t => (
                   <option key={t} value={t}>{t}</option>
                 ))}
-              </select>
+              </CustomSelect>
             </div>
           </div>
         )}
@@ -4733,7 +4728,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                                        : lowerType.includes('health') || lowerType.includes('well') ? { bg: 'rgba(34,197,94,0.1)', text: '#16a34a' }
                                        : lowerType.includes('celebr') ? { bg: 'rgba(251,146,60,0.1)', text: '#ea580c' }
                                        : lowerType.includes('cultur') ? { bg: 'rgba(168,85,247,0.1)', text: '#9333ea' }
-                                       : { bg: 'rgba(99,102,241,0.1)', text: 'hsl(var(--color-primary))' };
+                                       : { bg: 'rgba(255, 107, 0,0.1)', text: 'hsl(var(--color-primary))' };
                       return (
                         <span style={{
                           padding: '3px 8px', borderRadius: '12px', fontSize: '0.65rem', fontWeight: 700,
@@ -4808,8 +4803,8 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                     borderTop: '1px solid var(--border-glass)', paddingTop: '10px', color: 'var(--text-muted)'
                   }}>
                     <span>📅 Date: <strong>{new Date(evt.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</strong></span>
-                    <span>⏰ Time: {evt.startTime || evt.time || ''}{evt.endTime ? ` - ${evt.endTime}` : ''}</span>
-                    <span>📍 Venue: {evt.venue}</span>
+                    <span>â° Time: {evt.startTime || evt.time || ''}{evt.endTime ? ` - ${evt.endTime}` : ''}</span>
+                    <span>ðŸ“ Venue: {evt.venue}</span>
                     <span>👥 Target: {evt.participants}</span>
                   </div>
                   <div style={{
@@ -4863,7 +4858,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                                        : lowerType.includes('health') || lowerType.includes('well') ? { bg: 'rgba(34,197,94,0.1)', text: '#16a34a' }
                                        : lowerType.includes('celebr') ? { bg: 'rgba(251,146,60,0.1)', text: '#ea580c' }
                                        : lowerType.includes('cultur') ? { bg: 'rgba(168,85,247,0.1)', text: '#9333ea' }
-                                       : { bg: 'rgba(99,102,241,0.1)', text: 'hsl(var(--color-primary))' };
+                                       : { bg: 'rgba(255, 107, 0,0.1)', text: 'hsl(var(--color-primary))' };
                       return (
                         <span style={{
                           padding: '3px 8px', borderRadius: '12px', fontSize: '0.65rem', fontWeight: 700,
@@ -4889,8 +4884,8 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                     borderTop: '1px solid var(--border-glass)', paddingTop: '10px', color: 'var(--text-muted)'
                   }}>
                     <span>📅 Date: <strong>{new Date(evt.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</strong></span>
-                    <span>⏰ Time: {evt.startTime || evt.time || ''}{evt.endTime ? ` - ${evt.endTime}` : ''}</span>
-                    <span>📍 Venue: {evt.venue}</span>
+                    <span>â° Time: {evt.startTime || evt.time || ''}{evt.endTime ? ` - ${evt.endTime}` : ''}</span>
+                    <span>ðŸ“ Venue: {evt.venue}</span>
                     <span>👥 Target: {evt.participants}</span>
                   </div>
                 </div>
@@ -4984,8 +4979,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', width: '200px' }}>
               <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)' }}>Filter by Category</label>
-              <select
-                className="select-custom"
+              <CustomSelect                className="select-custom"
                 value={noticeCategoryFilter}
                 onChange={(e) => setNoticeCategoryFilter(e.target.value)}
                 style={{
@@ -5004,7 +4998,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                 {noticeCategories.map(c => (
                   <option key={c} value={c}>{c}</option>
                 ))}
-              </select>
+              </CustomSelect>
             </div>
           </div>
         )}
@@ -5017,7 +5011,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                     <span style={{
                       padding: '3px 8px', borderRadius: '12px', fontSize: '0.65rem', fontWeight: 700,
-                      background: 'rgba(99, 102, 241, 0.1)', color: 'hsl(var(--color-primary))',
+                      background: 'rgba(255, 107, 0, 0.1)', color: 'hsl(var(--color-primary))',
                     }}>{nt.category}</span>
                     <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                       <span style={{ fontSize: '0.68rem', padding: '3px 8px', borderRadius: '10px', background: 'var(--bg-glass-active)', border: '1px solid var(--border-glass)', fontWeight: 600 }}>Audience: {nt.visibility === 'Teachers' ? 'Staff' : nt.visibility}</span>
@@ -5076,7 +5070,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                   <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
                     <div style={{
                       padding: '8px', borderRadius: '8px',
-                      background: 'rgba(99, 102, 241, 0.08)',
+                      background: 'rgba(255, 107, 0, 0.08)',
                       color: 'hsl(var(--color-primary))',
                       display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
                     }}>
@@ -5092,7 +5086,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                     borderTop: '1px solid var(--border-glass)', paddingTop: '10px', color: 'var(--text-muted)'
                   }}>
                     <span>📅 Publish Date: <strong>{new Date(nt.publishDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</strong></span>
-                    {nt.expiryDate && <span>⏳ Expiry Date: <strong>{new Date(nt.expiryDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</strong></span>}
+                    {nt.expiryDate && <span>â³ Expiry Date: <strong>{new Date(nt.expiryDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</strong></span>}
 
                   </div>
 
@@ -5139,7 +5133,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                     <span style={{
                       padding: '3px 8px', borderRadius: '12px', fontSize: '0.65rem', fontWeight: 700,
-                      background: 'rgba(99, 102, 241, 0.1)', color: 'hsl(var(--color-primary))',
+                      background: 'rgba(255, 107, 0, 0.1)', color: 'hsl(var(--color-primary))',
                     }}>{nt.category}</span>
                     <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                       <span style={{ fontSize: '0.68rem', padding: '3px 8px', borderRadius: '10px', background: 'var(--bg-glass-active)', border: '1px solid var(--border-glass)', fontWeight: 600 }}>Audience: {nt.visibility === 'Teachers' ? 'Staff' : nt.visibility}</span>
@@ -5158,7 +5152,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                   <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
                     <div style={{
                       padding: '8px', borderRadius: '8px',
-                      background: 'rgba(99, 102, 241, 0.08)',
+                      background: 'rgba(255, 107, 0, 0.08)',
                       color: 'hsl(var(--color-primary))',
                       display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
                     }}>
@@ -5174,7 +5168,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                     borderTop: '1px solid var(--border-glass)', paddingTop: '10px', color: 'var(--text-muted)'
                   }}>
                     <span>📅 Publish Date: <strong>{new Date(nt.publishDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</strong></span>
-                    {nt.expiryDate && <span>⏳ Expiry Date: <strong>{new Date(nt.expiryDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</strong></span>}
+                    {nt.expiryDate && <span>â³ Expiry Date: <strong>{new Date(nt.expiryDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</strong></span>}
 
                   </div>
                 </div>
@@ -5269,8 +5263,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', width: '200px' }}>
               <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)' }}>Filter by Classification</label>
-              <select
-                className="select-custom"
+              <CustomSelect                className="select-custom"
                 value={holidayClassificationFilter}
                 onChange={(e) => setHolidayClassificationFilter(e.target.value)}
                 style={{
@@ -5289,7 +5282,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                 {holidayClassifications.map(c => (
                   <option key={c} value={c}>{c}</option>
                 ))}
-              </select>
+              </CustomSelect>
             </div>
           </div>
         )}
@@ -5566,6 +5559,17 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
 
   const handleCalendarEventSubmit = async (e) => {
     e.preventDefault();
+    const isDateRegex = /^\d{4}-\d{2}-\d{2}$/;
+    if (
+      calendarEventForm.eventDate && 
+      calendarEventForm.endTime && 
+      isDateRegex.test(calendarEventForm.endTime)
+    ) {
+      if (calendarEventForm.eventDate > calendarEventForm.endTime) {
+        showToast('Start Date must be earlier than or equal to End Date.', 'error');
+        return;
+      }
+    }
     const isEdit = !!editingCalendarEventId;
     const url = isEdit ? `/api/academics/calendar-events/${editingCalendarEventId}` : '/api/academics/calendar-events';
     const method = isEdit ? 'PUT' : 'POST';
@@ -5592,14 +5596,14 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
         setEditingCalendarEventId(null);
         setCalendarEventForm({
           title: '',
-          eventType: 'Holiday',
+          eventType: 'None',
           eventDate: '',
           startTime: '',
           endTime: '',
           description: '',
           applicableClasses: 'All',
           session: '2026-27',
-          color: '#6366f1',
+          color: '#FF8C42',
           audience: 'All',
           recurring: 'None',
           reminders: [],
@@ -5796,16 +5800,353 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
     } else if (t.includes('workshop') || t.includes('seminar')) {
       return { bg: 'rgba(6, 182, 212, 0.08)', border: 'rgba(6, 182, 212, 0.15)', text: '#06b6d4', dot: '#06b6d4' };
     } else if (t.includes('meeting') || t.includes('parent-teacher')) {
-      return { bg: 'rgba(99, 102, 241, 0.08)', border: 'rgba(99, 102, 241, 0.15)', text: '#6366f1', dot: '#6366f1' };
+      return { bg: 'rgba(255, 107, 0, 0.08)', border: 'rgba(255, 107, 0, 0.15)', text: '#FF8C42', dot: '#FF8C42' };
     } else if (t.includes('vacation')) {
       return { bg: 'rgba(244, 63, 94, 0.08)', border: 'rgba(244, 63, 94, 0.15)', text: '#f43f5e', dot: '#f43f5e' };
     } else if (t.includes('admissions') || t.includes('admission')) {
-      return { bg: 'rgba(79, 70, 229, 0.08)', border: 'rgba(79, 70, 229, 0.15)', text: '#4f46e5', dot: '#4f46e5' };
+      return { bg: 'rgba(224, 94, 0, 0.08)', border: 'rgba(224, 94, 0, 0.15)', text: '#e07830', dot: '#e07830' };
     }
     return { bg: 'rgba(107, 114, 128, 0.08)', border: 'rgba(107, 114, 128, 0.15)', text: '#6b7280', dot: '#6b7280' };
   };
 
+  const handlePublishAllEvents = async () => {
+    try {
+      const unpublished = calendarEvents.filter(e => !publishedEventIds.includes(e.id));
+      if (unpublished.length === 0) {
+        showToast('All events are already published.', 'info');
+        return;
+      }
+      showToast('Publishing all events...', 'info');
+      await Promise.all(unpublished.map(e => 
+        fetch('/api/academics/calendar/publish', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ eventId: e.id })
+        })
+      ));
+      showToast('All events published successfully!', 'success');
+      fetchAllData();
+    } catch (err) {
+      showToast('Error publishing events.', 'error');
+    }
+  };
+
+  const handleUnpublishAllEvents = async () => {
+    try {
+      const published = calendarEvents.filter(e => publishedEventIds.includes(e.id));
+      if (published.length === 0) {
+        showToast('No events are currently published.', 'info');
+        return;
+      }
+      showToast('Unpublishing all events...', 'info');
+      await Promise.all(published.map(e => 
+        fetch('/api/academics/calendar/unpublish', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ eventId: e.id })
+        })
+      ));
+      showToast('All events unpublished successfully.', 'success');
+      fetchAllData();
+    } catch (err) {
+      showToast('Error unpublishing events.', 'error');
+    }
+  };
+
   const renderAcademicCalendar = () => {
+    const userRole = (localStorage.getItem('portal_role') || localStorage.getItem('role') || 'Student').toLowerCase();
+    const isCalendarAdmin = ['developer admin', 'main admin', 'admin dashboard', 'principal', 'admin'].includes(userRole);
+
+    const sortedEvents = [...calendarEvents]
+      .filter(e => isCalendarAdmin || publishedEventIds.includes(e.id))
+      .sort((a, b) => (a.eventDate || '').localeCompare(b.eventDate || ''));
+
+    if (!isCalendarAdmin && sortedEvents.length === 0) {
+      return (
+        <div className="glass-panel" style={{ padding: '60px 40px', textAlign: 'center', color: 'var(--text-muted)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px', borderRadius: '16px', border: '1px solid var(--border-glass)' }}>
+          <Calendar size={48} style={{ opacity: 0.5, color: 'hsl(var(--color-primary))' }} />
+          <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-main)', margin: 0 }}>Academic Calendar Unpublished</h3>
+          <p style={{ fontSize: '0.88rem', margin: 0, maxWidth: '400px', lineHeight: '1.5' }}>The academic calendar is currently offline and has been unpublished by the administration.</p>
+        </div>
+      );
+    }
+
+    const colWidths = isCalendarAdmin 
+      ? { start: '18%', end: '18%', title: '28%', type: '18%', actions: '18%' }
+      : { start: '25%', end: '25%', title: '30%', type: '20%' };
+
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+        {/* Title panel */}
+        <div className="glass-panel" style={{ padding: '20px 24px' }}>
+          <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-main)', margin: 0 }}>Academic Calendar</h3>
+          <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', margin: '4px 0 0 0' }}>Declare, list, and coordinate all academic milestones, holidays, and examination schedules.</p>
+        </div>
+
+        {/* Declaration Form Card */}
+        {isCalendarAdmin && (
+        <div className="glass-panel" style={{ padding: '24px' }}>
+          <h4 style={{ fontSize: '1.05rem', fontWeight: 800, color: 'var(--text-main)', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Plus size={16} style={{ color: 'hsl(var(--color-primary))' }} />
+            {editingCalendarEventId ? 'Edit Calendar Milestone' : 'Declare New Calendar Milestone / Event'}
+          </h4>
+
+          <form onSubmit={handleCalendarEventSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', width: '100%' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <label style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Start Date</label>
+                <input
+                  type="date"
+                  required
+                  className="form-control"
+                  value={calendarEventForm.eventDate}
+                  onChange={e => {
+                    const val = e.target.value;
+                    const nextEnd = (calendarEventForm.endTime && val > calendarEventForm.endTime) ? val : calendarEventForm.endTime;
+                    setCalendarEventForm(prev => ({ ...prev, eventDate: val, endTime: nextEnd }));
+                  }}
+                  style={{ height: '38px', fontSize: '0.85rem', width: '100%' }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <label style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>End Date</label>
+                <input
+                  type="date"
+                  required
+                  className="form-control"
+                  value={calendarEventForm.endTime}
+                  min={calendarEventForm.eventDate}
+                  onChange={e => setCalendarEventForm(prev => ({ ...prev, endTime: e.target.value }))}
+                  style={{ height: '38px', fontSize: '0.85rem', width: '100%' }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <label style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Event / Milestone Title</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Summer Vacation, Mid-Term Examination..."
+                  className="form-control"
+                  value={calendarEventForm.title}
+                  onChange={e => setCalendarEventForm(prev => ({ ...prev, title: e.target.value }))}
+                  style={{ height: '38px', fontSize: '0.85rem', width: '100%' }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <label style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Type</label>
+                <CustomSelect                  required
+                  className="select-custom"
+                  value={calendarEventForm.eventType}
+                  onChange={e => setCalendarEventForm(prev => ({ ...prev, eventType: e.target.value }))}
+                  style={{ height: '38px', fontSize: '0.85rem', padding: '0 12px', borderRadius: '8px', width: '100%' }}
+                >
+                  <option value="None">None</option>
+                  <option value="Holiday">Holiday</option>
+                  <option value="Exam">Exam</option>
+                  <option value="Event">Event</option>
+                </CustomSelect>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '10px' }}>
+              {editingCalendarEventId && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditingCalendarEventId(null);
+                    setCalendarEventForm({
+                      title: '',
+                      eventType: 'None',
+                      eventDate: '',
+                      startTime: '',
+                      endTime: '',
+                      description: '',
+                      applicableClasses: 'All',
+                      session: '2026-27',
+                      color: '#FF8C42',
+                      audience: 'All',
+                      recurring: 'None',
+                      reminders: [],
+                      attachments: '',
+                      notifications: []
+                    });
+                  }}
+                  className="btn-secondary"
+                  style={{ height: '38px', padding: '0 20px', borderRadius: '8px', fontSize: '0.85rem', fontWeight: 700 }}
+                >
+                  Cancel
+                </button>
+              )}
+              <button
+                type="submit"
+                className="btn-primary"
+                style={{ height: '38px', padding: '0 24px', borderRadius: '8px', fontSize: '0.85rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px' }}
+              >
+                {editingCalendarEventId ? 'Update Event' : 'Add Event'}
+              </button>
+            </div>
+          </form>
+        </div>
+        )}
+
+        {/* Calendar Milestones Table Card */}
+        <div className="glass-panel" style={{ padding: '24px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
+            <h4 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--text-main)', margin: 0 }}>Academic Calendar Milestones</h4>
+            {isCalendarAdmin && (() => {
+              const isAllPublished = calendarEvents.length > 0 && calendarEvents.every(e => publishedEventIds.includes(e.id));
+              return (
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                  {isAllPublished ? (
+                    <>
+                      <span style={{
+                        padding: '6px 12px',
+                        fontSize: '0.75rem',
+                        fontWeight: 800,
+                        textTransform: 'uppercase',
+                        background: 'rgba(16, 185, 129, 0.08)',
+                        color: '#10b981',
+                        border: '1px solid rgba(16, 185, 129, 0.15)',
+                        borderRadius: '6px',
+                        letterSpacing: '0.03em',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px'
+                      }}>
+                        Published
+                      </span>
+                      <button
+                        onClick={handleUnpublishAllEvents}
+                        className="btn-secondary"
+                        style={{ padding: '6px 12px', fontSize: '0.75rem', fontWeight: 700, borderRadius: '6px', display: 'flex', alignItems: 'center', gap: '4px' }}
+                      >
+                        <X size={12} /> Unpublish All
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      onClick={handlePublishAllEvents}
+                      className="btn-primary"
+                      style={{ padding: '6px 12px', fontSize: '0.75rem', fontWeight: 700, borderRadius: '6px', display: 'flex', alignItems: 'center', gap: '4px' }}
+                    >
+                      <Send size={12} /> Publish All
+                    </button>
+                  )}
+                </div>
+              );
+            })()}
+          </div>
+
+          <div style={{ overflowX: 'auto', borderRadius: '12px', border: '1px solid var(--border-glass)' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.85rem' }}>
+              <thead>
+                <tr style={{ background: 'var(--bg-glass-active)', borderBottom: '2px solid var(--border-glass)' }}>
+                  <th style={{ padding: '12px 16px', fontWeight: 700, color: 'var(--text-muted)', width: colWidths.start }}>Start Date</th>
+                  <th style={{ padding: '12px 16px', fontWeight: 700, color: 'var(--text-muted)', width: colWidths.end }}>End Date</th>
+                  <th style={{ padding: '12px 16px', fontWeight: 700, color: 'var(--text-muted)', width: colWidths.title }}>Title</th>
+                  <th style={{ padding: '12px 16px', fontWeight: 700, color: 'var(--text-muted)', width: colWidths.type }}>Type</th>
+                  {isCalendarAdmin && (
+                    <th style={{ padding: '12px 16px', fontWeight: 700, color: 'var(--text-muted)', width: colWidths.actions, textAlign: 'right' }}>Actions</th>
+                  )}
+                </tr>
+              </thead>
+              <tbody>
+                {sortedEvents.length > 0 ? (
+                  sortedEvents.map(e => {
+                    const typeColors = {
+                      Holiday: { bg: 'rgba(245, 158, 11, 0.08)', color: '#f59e0b', border: 'rgba(245, 158, 11, 0.15)' },
+                      Exam: { bg: 'rgba(16, 185, 129, 0.08)', color: '#10b981', border: 'rgba(16, 185, 129, 0.15)' },
+                      Event: { bg: 'rgba(255, 107, 0, 0.08)', color: '#FF8C42', border: 'rgba(255, 107, 0, 0.15)' }
+                    };
+                    const badge = typeColors[e.eventType] || { bg: 'rgba(107, 114, 128, 0.08)', color: '#6b7280', border: 'rgba(107, 114, 128, 0.15)' };
+                    const isPublished = publishedEventIds.includes(e.id);
+
+                    return (
+                      <tr key={e.id} style={{ borderBottom: '1px solid var(--border-glass)', transition: 'background 0.2s' }}>
+                        <td style={{ padding: '12px 16px', color: 'var(--text-main)', fontWeight: 600 }}>
+                          {e.eventDate ? new Date(e.eventDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}
+                        </td>
+                        <td style={{ padding: '12px 16px', color: 'var(--text-main)', fontWeight: 600 }}>
+                          {e.endTime ? new Date(e.endTime).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}
+                        </td>
+                        <td style={{ padding: '12px 16px', color: 'var(--text-main)', fontWeight: 700 }}>{e.title}</td>
+                        <td style={{ padding: '12px 16px' }}>
+                          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                            <span style={{
+                              padding: '3px 8px',
+                              borderRadius: '6px',
+                              fontSize: '0.72rem',
+                              fontWeight: 800,
+                              textTransform: 'uppercase',
+                              background: badge.bg,
+                              color: badge.color,
+                              border: `1px solid ${badge.border}`,
+                              letterSpacing: '0.03em'
+                            }}>
+                              {e.eventType}
+                            </span>
+                          </div>
+                        </td>
+                        {isCalendarAdmin && (
+                          <td style={{ padding: '12px 16px', textAlign: 'right' }}>
+                            <div style={{ display: 'inline-flex', gap: '8px' }}>
+                              <button
+                                onClick={() => {
+                                  setEditingCalendarEventId(e.id);
+                                  setCalendarEventForm({
+                                    title: e.title,
+                                    eventType: e.eventType,
+                                    eventDate: e.eventDate,
+                                    startTime: e.startTime || '',
+                                    endTime: e.endTime || '',
+                                    description: e.description || '',
+                                    applicableClasses: e.applicableClasses || 'All',
+                                    session: e.session || '2026-27',
+                                    color: e.color || '#FF8C42',
+                                    audience: e.audience || 'All',
+                                    recurring: e.recurring || 'None',
+                                    reminders: e.reminders || [],
+                                    attachments: e.attachments || '',
+                                    notifications: e.notifications || []
+                                  });
+                                }}
+                                className="btn-secondary"
+                                style={{ padding: '6px 10px', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                              >
+                                <Edit3 size={12} /> Edit
+                              </button>
+                              <button
+                                onClick={() => handleDeleteCalendarEvent(e.id)}
+                                className="btn-secondary"
+                                style={{ padding: '6px 10px', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 600, color: '#ef4444', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                              >
+                                <Trash2 size={12} /> Delete
+                              </button>
+                            </div>
+                          </td>
+                        )}
+                      </tr>
+                    );
+                  })
+                ) : (
+                  <tr>
+                    <td colSpan="4" style={{ padding: '32px 16px', textAlign: 'center', color: 'var(--text-muted)', fontStyle: 'italic' }}>
+                      No academic milestones declared yet. Declare milestones using the form above.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const ignoreLegacyAcademicCalendar = () => {
     const now = new Date();
     const currentYear = now.getFullYear();
     const yearsList = [];
@@ -5895,19 +6236,19 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
             <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Session:</span>
-                <select className="select-custom" value={calendarSession} onChange={(e) => setCalendarSession(e.target.value)} style={{ padding: '6px 12px', borderRadius: '8px', height: '36px', width: '110px' }}>
+                <CustomSelect className="select-custom" value={calendarSession} onChange={(e) => setCalendarSession(e.target.value)} style={{ padding: '6px 12px', borderRadius: '8px', height: '36px', width: '110px' }}>
                   <option value="2026-27">2026-27</option>
                   <option value="2027-28">2027-28</option>
                   <option value="2028-29">2028-29</option>
-                </select>
+                </CustomSelect>
               </div>
 
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Type:</span>
-                <select className="select-custom" value={calendarTypeFilter} onChange={(e) => setCalendarTypeFilter(e.target.value)} style={{ padding: '6px 12px', borderRadius: '8px', height: '36px', width: '130px' }}>
+                <CustomSelect className="select-custom" value={calendarTypeFilter} onChange={(e) => setCalendarTypeFilter(e.target.value)} style={{ padding: '6px 12px', borderRadius: '8px', height: '36px', width: '130px' }}>
                   <option value="All">All Types</option>
                   {calendarEventTypes.map(t => <option key={t} value={t}>{t}</option>)}
-                </select>
+                </CustomSelect>
               </div>
 
               <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
@@ -5948,7 +6289,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                     } else {
                       setActiveMonth(activeMonth - 1);
                     }
-                  }} style={{ padding: '6px 12px', borderRadius: '8px' }}>← Prev</button>
+                  }} style={{ padding: '6px 12px', borderRadius: '8px' }}>â† Prev</button>
                   <button className="btn-secondary" onClick={() => {
                     if (activeMonth === 11) {
                       setActiveMonth(0);
@@ -5956,7 +6297,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                     } else {
                       setActiveMonth(activeMonth + 1);
                     }
-                  }} style={{ padding: '6px 12px', borderRadius: '8px' }}>Next →</button>
+                  }} style={{ padding: '6px 12px', borderRadius: '8px' }}>Next â†’</button>
                 </div>
 
                 <h4 style={{ fontSize: '1.15rem', fontWeight: 800, margin: 0, color: 'var(--text-main)' }}>
@@ -5964,8 +6305,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                 </h4>
 
                 <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                  <select
-                    onChange={(e) => {
+                  <CustomSelect                    onChange={(e) => {
                       if (e.target.value) {
                         handleExportCalendar(e.target.value);
                         e.target.value = '';
@@ -5989,7 +6329,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                     <option value="ics">Calendar (ICS)</option>
                     <option value="excel">Excel Sheet</option>
                     <option value="csv">CSV Format</option>
-                  </select>
+                  </CustomSelect>
                   <button className="btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '6px', height: '36px', padding: '0 12px', borderRadius: '8px' }} onClick={handlePrintCalendar}>
                     <Printer size={15} /> Print Sheet
                   </button>
@@ -6048,7 +6388,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                                     description: e.description || '',
                                     applicableClasses: e.applicableClasses || 'All',
                                     session: e.session || '2026-27',
-                                    color: e.color || '#6366f1',
+                                    color: e.color || '#FF8C42',
                                     audience: e.audience || 'All',
                                     recurring: e.recurring || 'None',
                                     reminders: e.reminders || [],
@@ -6100,12 +6440,12 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                     const prev = new Date(weekAnchor);
                     prev.setDate(prev.getDate() - 7);
                     setWeekAnchor(prev);
-                  }} style={{ padding: '6px 12px', borderRadius: '8px' }}>← Prev Week</button>
+                  }} style={{ padding: '6px 12px', borderRadius: '8px' }}>â† Prev Week</button>
                   <button className="btn-secondary" onClick={() => {
                     const next = new Date(weekAnchor);
                     next.setDate(next.getDate() + 7);
                     setWeekAnchor(next);
-                  }} style={{ padding: '6px 12px', borderRadius: '8px' }}>Next Week →</button>
+                  }} style={{ padding: '6px 12px', borderRadius: '8px' }}>Next Week â†’</button>
                 </div>
 
                 <h4 style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-main)', margin: 0 }}>
@@ -6113,8 +6453,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                 </h4>
 
                 <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                  <select
-                    onChange={(e) => {
+                  <CustomSelect                    onChange={(e) => {
                       if (e.target.value) {
                         handleExportCalendar(e.target.value);
                         e.target.value = '';
@@ -6138,7 +6477,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                     <option value="ics">Calendar (ICS)</option>
                     <option value="excel">Excel Sheet</option>
                     <option value="csv">CSV Format</option>
-                  </select>
+                  </CustomSelect>
                   <button className="btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '6px', height: '36px', padding: '0 12px', borderRadius: '8px' }} onClick={handlePrintCalendar}>
                     <Printer size={15} /> Print Sheet
                   </button>
@@ -6191,7 +6530,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                                       description: e.description || '',
                                       applicableClasses: e.applicableClasses || 'All',
                                       session: e.session || '2026-27',
-                                      color: e.color || '#6366f1',
+                                      color: e.color || '#FF8C42',
                                       audience: e.audience || 'All',
                                       recurring: e.recurring || 'None',
                                       reminders: e.reminders || [],
@@ -6247,8 +6586,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                 </h4>
 
                 <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                  <select
-                    onChange={(e) => {
+                  <CustomSelect                    onChange={(e) => {
                       if (e.target.value) {
                         handleExportCalendar(e.target.value);
                         e.target.value = '';
@@ -6272,7 +6610,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                     <option value="ics">Calendar (ICS)</option>
                     <option value="excel">Excel Sheet</option>
                     <option value="csv">CSV Format</option>
-                  </select>
+                  </CustomSelect>
                   <button className="btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '6px', height: '36px', padding: '0 12px', borderRadius: '8px' }} onClick={handlePrintCalendar}>
                     <Printer size={15} /> Print Sheet
                   </button>
@@ -6335,7 +6673,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                                         description: e.description || '',
                                         applicableClasses: e.applicableClasses || 'All',
                                         session: e.session || '2026-27',
-                                        color: e.color || '#6366f1',
+                                        color: e.color || '#FF8C42',
                                         audience: e.audience || 'All',
                                         recurring: e.recurring || 'None',
                                         reminders: e.reminders || [],
@@ -6344,9 +6682,9 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                                       });
                                       setShowCalendarEventModal(true);
                                     }}
-                                    style={{ padding: '5px 10px', borderRadius: '6px', border: '1px solid var(--border-glass)', background: 'rgba(99,102,241,0.06)', cursor: 'pointer', color: 'hsl(var(--color-primary))', fontSize: '0.72rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px', transition: 'all 0.2s ease' }}
-                                    onMouseEnter={el => el.currentTarget.style.background = 'rgba(99,102,241,0.15)'}
-                                    onMouseLeave={el => el.currentTarget.style.background = 'rgba(99,102,241,0.06)'}
+                                    style={{ padding: '5px 10px', borderRadius: '6px', border: '1px solid var(--border-glass)', background: 'rgba(255, 107, 0,0.06)', cursor: 'pointer', color: 'hsl(var(--color-primary))', fontSize: '0.72rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px', transition: 'all 0.2s ease' }}
+                                    onMouseEnter={el => el.currentTarget.style.background = 'rgba(255, 107, 0,0.15)'}
+                                    onMouseLeave={el => el.currentTarget.style.background = 'rgba(255, 107, 0,0.06)'}
                                   >
                                     <Edit3 size={12} /> Edit
                                   </button>
@@ -6406,8 +6744,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                   Chronological Agenda View ({filteredEvents.length} items found)
                 </h4>
                 <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                  <select
-                    onChange={(e) => {
+                  <CustomSelect                    onChange={(e) => {
                       if (e.target.value) {
                         handleExportCalendar(e.target.value);
                         e.target.value = '';
@@ -6431,7 +6768,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                     <option value="ics">Calendar (ICS)</option>
                     <option value="excel">Excel Sheet</option>
                     <option value="csv">CSV Format</option>
-                  </select>
+                  </CustomSelect>
                   <button className="btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '6px', height: '36px', padding: '0 12px', borderRadius: '8px' }} onClick={handlePrintCalendar}>
                     <Printer size={15} /> Print Sheet
                   </button>
@@ -6493,7 +6830,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                                     <span>👤 Audience: <strong>{e.audience === 'Teachers' ? 'Staff' : (e.audience || 'All')}</strong></span>
                                     <span>📚 Classes: <strong>{e.applicableClasses || 'All'}</strong></span>
                                     {e.recurring && e.recurring !== 'None' && (
-                                      <span>🔁 Recurrence: <strong>{e.recurring}</strong></span>
+                                      <span>ðŸ” Recurrence: <strong>{e.recurring}</strong></span>
                                     )}
                                     {e.attachments && (
                                       <span>📎 Attachment: <a href={e.attachments} target="_blank" rel="noopener noreferrer" style={{ color: 'hsl(var(--color-primary))', fontWeight: 600, textDecoration: 'underline' }}>{e.attachments.split('/').pop()}</a></span>
@@ -6515,7 +6852,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                                           description: e.description || '',
                                           applicableClasses: e.applicableClasses || 'All',
                                           session: e.session || '2026-27',
-                                          color: e.color || '#6366f1',
+                                          color: e.color || '#FF8C42',
                                           audience: e.audience || 'All',
                                           recurring: e.recurring || 'None',
                                           reminders: e.reminders || [],
@@ -6565,7 +6902,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                 <h3 style={{ fontSize: '1.15rem', fontWeight: 800, margin: 0 }}>
                   {editingCalendarEventId ? 'Edit Event Details' : 'Declare New Academic Event'}
                 </h3>
-                <button style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '1.6rem' }} onClick={() => setShowCalendarEventModal(false)}>×</button>
+                <button style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '1.6rem' }} onClick={() => setShowCalendarEventModal(false)}>{"\u00d7"}</button>
               </div>
 
               <form onSubmit={handleCalendarEventSubmit}>
@@ -6577,9 +6914,9 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
 
                   <div className="form-group">
                     <label style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-muted)' }}>Event Type *</label>
-                    <select className="form-control" value={calendarEventForm.eventType} onChange={e => setCalendarEventForm({ ...calendarEventForm, eventType: e.target.value })}>
+                    <CustomSelect className="form-control" value={calendarEventForm.eventType} onChange={e => setCalendarEventForm({ ...calendarEventForm, eventType: e.target.value })}>
                       {calendarEventTypes.map(t => <option key={t} value={t}>{t}</option>)}
-                    </select>
+                    </CustomSelect>
                   </div>
 
                   <div className="form-group">
@@ -6606,7 +6943,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                   <div className="form-group">
                     <label style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-muted)' }}>Event Color Palette</label>
                     <div style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
-                      {['#6366f1', '#10b981', '#ef4444', '#f59e0b', '#06b6d4', '#8b5cf6', '#f43f5e', '#4f46e5'].map(c => (
+                      {['#FF8C42', '#10b981', '#ef4444', '#f59e0b', '#06b6d4', '#8b5cf6', '#f43f5e', '#e07830'].map(c => (
                         <button
                           key={c}
                           type="button"
@@ -6629,8 +6966,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                     <div className="form-group">
                       <label style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-muted)' }}>Target Audience *</label>
-                      <select
-                        className="form-control"
+                      <CustomSelect                        className="form-control"
                         value={calendarEventForm.audience}
                         onChange={e => setCalendarEventForm({ ...calendarEventForm, audience: e.target.value })}
                         required
@@ -6640,12 +6976,11 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                         <option value="Teachers">Staff Only</option>
                         <option value="Students">Students Only</option>
                         <option value="Parents">Parents Only</option>
-                      </select>
+                      </CustomSelect>
                     </div>
                     <div className="form-group">
                       <label style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-muted)' }}>Recurring Interval</label>
-                      <select
-                        className="form-control"
+                      <CustomSelect                        className="form-control"
                         value={calendarEventForm.recurring}
                         onChange={e => setCalendarEventForm({ ...calendarEventForm, recurring: e.target.value })}
                         style={{ background: 'var(--bg-form)', color: 'var(--text-main)' }}
@@ -6654,7 +6989,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                         <option value="Daily">Daily</option>
                         <option value="Weekly">Weekly</option>
                         <option value="Monthly">Monthly</option>
-                      </select>
+                      </CustomSelect>
                     </div>
                   </div>
 
@@ -6748,13 +7083,13 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                   </h3>
                   <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: '4px 0 0 0' }}>Supports PDF, Excel, CSV, and ICS/iCal formats. Upload to validate and confirm import.</p>
                 </div>
-                <button style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '1.8rem', lineHeight: 1 }} onClick={() => { setShowUploadModal(false); setUploadPreviewRows([]); setUploadFileName(''); setReplaceExistingOnImport(false); }}>×</button>
+                <button style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '1.8rem', lineHeight: 1 }} onClick={() => { setShowUploadModal(false); setUploadPreviewRows([]); setUploadFileName(''); setReplaceExistingOnImport(false); }}>{"\u00d7"}</button>
               </div>
 
               {uploadPreviewRows.length === 0 ? (
                 /* Stage 1: File selection drag & drop area */
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', alignItems: 'center', padding: '40px 20px', border: '2px dashed var(--border-glass)', borderRadius: '16px', background: 'rgba(255,255,255,0.01)' }}>
-                  <div style={{ width: '64px', height: '64px', borderRadius: '50%', background: 'rgba(99,102,241,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'hsl(var(--color-primary))' }}>
+                  <div style={{ width: '64px', height: '64px', borderRadius: '50%', background: 'rgba(255, 107, 0,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'hsl(var(--color-primary))' }}>
                     <Upload size={32} />
                   </div>
                   <div style={{ textAlign: 'center' }}>
@@ -6789,11 +7124,11 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                     <div style={{ display: 'flex', alignItems: 'center', gap: '20px', flexWrap: 'wrap' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-muted)' }}>Target Session:</span>
-                        <select className="select-custom" value={uploadSession} onChange={e => setUploadSession(e.target.value)} style={{ padding: '4px 10px', borderRadius: '6px', height: '30px', background: 'var(--bg-card)', color: 'var(--text-main)', border: '1px solid var(--border-glass)' }}>
+                        <CustomSelect className="select-custom" value={uploadSession} onChange={e => setUploadSession(e.target.value)} style={{ padding: '4px 10px', borderRadius: '6px', height: '30px', background: 'var(--bg-card)', color: 'var(--text-main)', border: '1px solid var(--border-glass)' }}>
                           <option value="2026-27">2026-27</option>
                           <option value="2027-28">2027-28</option>
                           <option value="2028-29">2028-29</option>
-                        </select>
+                        </CustomSelect>
                       </div>
                       <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.82rem', color: 'var(--text-main)', cursor: 'pointer', margin: 0 }}>
                         <input
@@ -6856,7 +7191,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
 
                   <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid var(--border-glass)', paddingTop: '16px', marginTop: '10px' }}>
                     <button className="btn-secondary" style={{ padding: '10px 20px', borderRadius: '8px' }} onClick={() => { setUploadPreviewRows([]); setUploadFileName(''); }}>
-                      ← Upload Different File
+                      â† Upload Different File
                     </button>
                     <div style={{ display: 'flex', gap: '12px' }}>
                       <button className="btn-secondary" style={{ padding: '10px 20px', borderRadius: '8px' }} onClick={() => { setShowUploadModal(false); setUploadPreviewRows([]); setUploadFileName(''); }}>
@@ -6885,7 +7220,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
             <div className="modal-content glass-panel animate-scale-up" style={{ width: '90%', maxWidth: '650px', borderRadius: '16px', padding: '24px' }}>
               <div className="modal-header" style={{ borderBottom: '1px solid var(--border-glass)', paddingBottom: '12px', marginBottom: '16px' }}>
                 <h3 style={{ fontSize: '1.15rem', fontWeight: 800, margin: 0 }}>Import History & Track Logs</h3>
-                <button style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '1.6rem' }} onClick={() => setShowImportHistoryModal(false)}>×</button>
+                <button style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '1.6rem' }} onClick={() => setShowImportHistoryModal(false)}>{"\u00d7"}</button>
               </div>
 
               <div style={{ overflowX: 'auto', borderRadius: '12px', border: '1px solid var(--border-glass)', maxHeight: '300px', overflowY: 'auto' }}>
@@ -6956,8 +7291,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
               </p>
             </div>
             <div style={{ display: 'flex', gap: '8px' }}>
-              <select
-                onChange={(e) => {
+              <CustomSelect                onChange={(e) => {
                   if (e.target.value) {
                     handleExportCalendar(e.target.value);
                     e.target.value = '';
@@ -6981,7 +7315,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                 <option value="ics">Calendar (ICS)</option>
                 <option value="excel">Excel Sheet</option>
                 <option value="csv">CSV Format</option>
-              </select>
+              </CustomSelect>
               <button className="btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '6px', height: '36px', padding: '0 12px', borderRadius: '8px' }} onClick={() => window.print()}>
                 <Printer size={15} /> Print
               </button>
@@ -7100,19 +7434,19 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
             <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Input student marks, calculate class rankings, GPA, and render printable marksheet report cards.</p>
           </div>
           <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-            <select className="select-custom" value={activeClass} onChange={(e) => { setActiveClass(e.target.value); setResultsEntry({}); }}>
+            <CustomSelect className="select-custom" value={activeClass} onChange={(e) => { setActiveClass(e.target.value); setResultsEntry({}); }}>
               {classesList.map((cls, idx) => <option key={idx} value={cls}>Class {cls}</option>)}
-            </select>
-            <select className="select-custom" value={activeSubject} onChange={(e) => { setActiveSubject(e.target.value); setResultsEntry({}); }}>
+            </CustomSelect>
+            <CustomSelect className="select-custom" value={activeSubject} onChange={(e) => { setActiveSubject(e.target.value); setResultsEntry({}); }}>
               <option value="">Select Subject</option>
               {subjects.filter(s => s.grade === activeClass.split('-')[0]).map(sub => (
                 <option key={sub.id} value={sub.subjectName}>{sub.subjectName}</option>
               ))}
-            </select>
-            <select className="select-custom" value={activeExam} onChange={(e) => { setActiveExam(e.target.value); setResultsEntry({}); }}>
+            </CustomSelect>
+            <CustomSelect className="select-custom" value={activeExam} onChange={(e) => { setActiveExam(e.target.value); setResultsEntry({}); }}>
               <option value="">Select Exam Set</option>
               {exams.map(ex => <option key={ex.id} value={ex.id}>{ex.examName}</option>)}
-            </select>
+            </CustomSelect>
           </div>
         </div>
 
@@ -7225,7 +7559,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
             <div className="modal-content glass-panel" style={{ maxWidth: '600px' }}>
               <div className="modal-header">
                 <h2 style={{ fontSize: '1.2rem', display: 'flex', alignItems: 'center', gap: '8px' }}><Award size={20} /> Academic Progress Marksheet</h2>
-                <button className="modal-close" onClick={() => setActiveMarksheetStudent(null)}>×</button>
+                <button className="modal-close" onClick={() => setActiveMarksheetStudent(null)}>{"\u00d7"}</button>
               </div>
               <div className="modal-body" id="printable-marksheet" style={{ display: 'flex', flexDirection: 'column', gap: '20px', padding: '24px' }}>
                 <div style={{ borderBottom: '2px solid var(--border-glass)', paddingBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -7326,27 +7660,26 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
               <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                 <div className="form-group">
                   <label>Day of Week</label>
-                  <select className="form-control" value={timetableForm.day} onChange={(e) => setTimetableForm({ ...timetableForm, day: e.target.value })}>
+                  <CustomSelect className="form-control" value={timetableForm.day} onChange={(e) => setTimetableForm({ ...timetableForm, day: e.target.value })}>
                     {daysOfWeek.map(d => <option key={d} value={d}>{d}</option>)}
-                  </select>
+                  </CustomSelect>
                 </div>
                 <div className="form-group">
                   <label>Time Slot</label>
-                  <select className="form-control" value={timetableForm.time} onChange={(e) => setTimetableForm({ ...timetableForm, time: e.target.value })}>
+                  <CustomSelect className="form-control" value={timetableForm.time} onChange={(e) => setTimetableForm({ ...timetableForm, time: e.target.value })}>
                     {timeslots.map(slot => <option key={slot} value={slot}>{slot}</option>)}
-                  </select>
+                  </CustomSelect>
                 </div>
                 <div className="form-group">
                   <label>Subject</label>
-                  <select
-                    className="form-control"
+                  <CustomSelect                    className="form-control"
                     value={timetableForm.subject}
                     onChange={(e) => setTimetableForm({ ...timetableForm, subject: e.target.value })}
                     required
                   >
                     <option value="">Select Subject</option>
                     {gradeSubjects.map(sub => <option key={sub.id} value={sub.subjectName}>{sub.subjectName}</option>)}
-                  </select>
+                  </CustomSelect>
                 </div>
                 <div className="form-group">
                   <label>Room Allocation</label>
@@ -7407,7 +7740,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                     <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 1000, background: 'var(--bg-dropdown)', border: '1px solid var(--border-glass)', borderRadius: '8px', maxHeight: '250px', overflowY: 'auto', boxShadow: '0 8px 30px rgba(0,0,0,0.3)' }}>
                       {eventTypes.length > 0 ? (
                         eventTypes.map(type => (
-                          <div key={type} style={{ padding: '8px 12px', cursor: 'pointer', background: eventForm.type === type ? 'rgba(99,102,241,0.15)' : 'transparent', color: eventForm.type === type ? 'hsl(var(--color-primary))' : 'inherit' }} onClick={() => { setEventForm({ ...eventForm, type }); setEventTypeOpen(false); }} onMouseEnter={e => e.target.style.background = 'rgba(99,102,241,0.08)'} onMouseLeave={e => e.target.style.background = eventForm.type === type ? 'rgba(99,102,241,0.15)' : 'transparent'}>
+                          <div key={type} style={{ padding: '8px 12px', cursor: 'pointer', background: eventForm.type === type ? 'rgba(255, 107, 0,0.15)' : 'transparent', color: eventForm.type === type ? 'hsl(var(--color-primary))' : 'inherit' }} onClick={() => { setEventForm({ ...eventForm, type }); setEventTypeOpen(false); }} onMouseEnter={e => e.target.style.background = 'rgba(255, 107, 0,0.08)'} onMouseLeave={e => e.target.style.background = eventForm.type === type ? 'rgba(255, 107, 0,0.15)' : 'transparent'}>
                             {type}
                           </div>
                         ))
@@ -7484,7 +7817,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                     <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 1000, background: 'var(--bg-dropdown)', border: '1px solid var(--border-glass)', borderRadius: '8px', maxHeight: '200px', overflowY: 'auto', boxShadow: '0 8px 30px rgba(0,0,0,0.3)' }}>
                       {noticeCategories.length > 0 ? (
                         noticeCategories.map(cat => (
-                          <div key={cat} style={{ padding: '8px 12px', cursor: 'pointer', background: noticeForm.category === cat ? 'rgba(99,102,241,0.15)' : 'transparent', color: noticeForm.category === cat ? 'hsl(var(--color-primary))' : 'inherit' }} onClick={() => { setNoticeForm({ ...noticeForm, category: cat }); setNoticeCategoryOpen(false); }} onMouseEnter={e => e.target.style.background = 'rgba(99,102,241,0.08)'} onMouseLeave={e => e.target.style.background = noticeForm.category === cat ? 'rgba(99,102,241,0.15)' : 'transparent'}>
+                          <div key={cat} style={{ padding: '8px 12px', cursor: 'pointer', background: noticeForm.category === cat ? 'rgba(255, 107, 0,0.15)' : 'transparent', color: noticeForm.category === cat ? 'hsl(var(--color-primary))' : 'inherit' }} onClick={() => { setNoticeForm({ ...noticeForm, category: cat }); setNoticeCategoryOpen(false); }} onMouseEnter={e => e.target.style.background = 'rgba(255, 107, 0,0.08)'} onMouseLeave={e => e.target.style.background = noticeForm.category === cat ? 'rgba(255, 107, 0,0.15)' : 'transparent'}>
                             {cat}
                           </div>
                         ))
@@ -7512,7 +7845,13 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                       const dd = String(today.getDate()).padStart(2, '0');
                       return `${yyyy}-${mm}-${dd}`;
                     })()}
-                    onChange={(e) => { const val = e.target.value; if (!val || val.split('-')[0].length <= 4) setNoticeForm({ ...noticeForm, publishDate: val }); }}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (!val || val.split('-')[0].length <= 4) {
+                        const nextExpiry = (noticeForm.expiryDate && val > noticeForm.expiryDate) ? val : noticeForm.expiryDate;
+                        setNoticeForm({ ...noticeForm, publishDate: val, expiryDate: nextExpiry });
+                      }
+                    }}
                     required
                   />
                 </div>
@@ -7522,7 +7861,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                     type="date"
                     className="form-control"
                     value={noticeForm.expiryDate || ''}
-                    min={(() => {
+                    min={noticeForm.publishDate || (() => {
                       const today = new Date();
                       const yyyy = today.getFullYear();
                       const mm = String(today.getMonth() + 1).padStart(2, '0');
@@ -7535,13 +7874,13 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
               </div>
               <div className="form-group">
                 <label>Target Audience Visibility</label>
-                <select className="form-control" value={noticeForm.visibility} onChange={(e) => setNoticeForm({ ...noticeForm, visibility: e.target.value })}>
+                <CustomSelect className="form-control" value={noticeForm.visibility} onChange={(e) => setNoticeForm({ ...noticeForm, visibility: e.target.value })}>
                   <option value="All">All School</option>
                   <option value="Students">Students Only</option>
                   <option value="Teachers">Staff Only</option>
                   <option value="Staff">Employee Only</option>
                   <option value="Parents">Parents Only</option>
-                </select>
+                </CustomSelect>
               </div>
             </div>
             <div className="modal-footer">
@@ -7568,7 +7907,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                     <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 1000, background: 'var(--bg-dropdown)', border: '1px solid var(--border-glass)', borderRadius: '8px', maxHeight: '200px', overflowY: 'auto', boxShadow: '0 8px 30px rgba(0,0,0,0.3)' }}>
                       {holidayClassifications.length > 0 ? (
                         holidayClassifications.map(cls => (
-                          <div key={cls} style={{ padding: '8px 12px', cursor: 'pointer', background: holidayForm.type === cls ? 'rgba(99,102,241,0.15)' : 'transparent', color: holidayForm.type === cls ? 'hsl(var(--color-primary))' : 'inherit' }} onClick={() => { setHolidayForm({ ...holidayForm, type: cls }); setHolidayClassificationOpen(false); }} onMouseEnter={e => e.target.style.background = 'rgba(99,102,241,0.08)'} onMouseLeave={e => e.target.style.background = holidayForm.type === cls ? 'rgba(99,102,241,0.15)' : 'transparent'}>
+                          <div key={cls} style={{ padding: '8px 12px', cursor: 'pointer', background: holidayForm.type === cls ? 'rgba(255, 107, 0,0.15)' : 'transparent', color: holidayForm.type === cls ? 'hsl(var(--color-primary))' : 'inherit' }} onClick={() => { setHolidayForm({ ...holidayForm, type: cls }); setHolidayClassificationOpen(false); }} onMouseEnter={e => e.target.style.background = 'rgba(255, 107, 0,0.08)'} onMouseLeave={e => e.target.style.background = holidayForm.type === cls ? 'rgba(255, 107, 0,0.15)' : 'transparent'}>
                             {cls}
                           </div>
                         ))
@@ -7594,7 +7933,13 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                     const dd = String(today.getDate()).padStart(2, '0');
                     return `${yyyy}-${mm}-${dd}`;
                   })()}
-                  onChange={(e) => { const val = e.target.value; if (!val || val.split('-')[0].length <= 4) setHolidayForm({ ...holidayForm, startDate: val }); }}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (!val || val.split('-')[0].length <= 4) {
+                      const nextEnd = (holidayForm.endDate && val > holidayForm.endDate) ? val : holidayForm.endDate;
+                      setHolidayForm({ ...holidayForm, startDate: val, endDate: nextEnd });
+                    }
+                  }}
                   required
                 />
               </div>
@@ -7604,7 +7949,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                   type="date"
                   className="form-control"
                   value={holidayForm.endDate}
-                  min={(() => {
+                  min={holidayForm.startDate || (() => {
                     const today = new Date();
                     const yyyy = today.getFullYear();
                     const mm = String(today.getMonth() + 1).padStart(2, '0');
@@ -7716,8 +8061,8 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
             className={`tab-btn-custom ${['academic-manager', 'academic-class-timetable'].includes(subView) ? 'active' : ''}`}
             style={{
               display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px', borderRadius: '8px', fontSize: '0.85rem', fontWeight: 600, border: 'none', cursor: 'pointer',
-              background: ['academic-manager', 'academic-class-timetable'].includes(subView) ? 'rgba(99,102,241,0.1)' : 'transparent',
-              color: ['academic-manager', 'academic-class-timetable'].includes(subView) ? 'rgb(99,102,241)' : 'var(--text-muted)',
+              background: ['academic-manager', 'academic-class-timetable'].includes(subView) ? 'rgba(255, 107, 0,0.1)' : 'transparent',
+              color: ['academic-manager', 'academic-class-timetable'].includes(subView) ? 'rgb(255, 107, 0)' : 'var(--text-muted)',
               transition: 'all 0.2s ease'
             }}
           >
@@ -7730,8 +8075,8 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
             className={`tab-btn-custom ${subView === 'academic-teacher-timetable' ? 'active' : ''}`}
             style={{
               display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px', borderRadius: '8px', fontSize: '0.85rem', fontWeight: 600, border: 'none', cursor: 'pointer',
-              background: subView === 'academic-teacher-timetable' ? 'rgba(99,102,241,0.1)' : 'transparent',
-              color: subView === 'academic-teacher-timetable' ? 'rgb(99,102,241)' : 'var(--text-muted)',
+              background: subView === 'academic-teacher-timetable' ? 'rgba(255, 107, 0,0.1)' : 'transparent',
+              color: subView === 'academic-teacher-timetable' ? 'rgb(255, 107, 0)' : 'var(--text-muted)',
               transition: 'all 0.2s ease'
             }}
           >
@@ -7744,8 +8089,8 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
             className={`tab-btn-custom ${subView === 'academic-exams' ? 'active' : ''}`}
             style={{
               display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px', borderRadius: '8px', fontSize: '0.85rem', fontWeight: 600, border: 'none', cursor: 'pointer',
-              background: subView === 'academic-exams' ? 'rgba(99,102,241,0.1)' : 'transparent',
-              color: subView === 'academic-exams' ? 'rgb(99,102,241)' : 'var(--text-muted)',
+              background: subView === 'academic-exams' ? 'rgba(255, 107, 0,0.1)' : 'transparent',
+              color: subView === 'academic-exams' ? 'rgb(255, 107, 0)' : 'var(--text-muted)',
               transition: 'all 0.2s ease'
             }}
           >
@@ -7758,8 +8103,8 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
             className={`tab-btn-custom ${subView === 'academic-exams-history' ? 'active' : ''}`}
             style={{
               display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px', borderRadius: '8px', fontSize: '0.85rem', fontWeight: 600, border: 'none', cursor: 'pointer',
-              background: subView === 'academic-exams-history' ? 'rgba(99,102,241,0.1)' : 'transparent',
-              color: subView === 'academic-exams-history' ? 'rgb(99,102,241)' : 'var(--text-muted)',
+              background: subView === 'academic-exams-history' ? 'rgba(255, 107, 0,0.1)' : 'transparent',
+              color: subView === 'academic-exams-history' ? 'rgb(255, 107, 0)' : 'var(--text-muted)',
               transition: 'all 0.2s ease'
             }}
           >
@@ -7778,8 +8123,8 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
             className={`tab-btn-custom ${['academic-activities', 'academic-events'].includes(subView) ? 'active' : ''}`}
             style={{
               display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px', borderRadius: '8px', fontSize: '0.85rem', fontWeight: 600, border: 'none', cursor: 'pointer',
-              background: ['academic-activities', 'academic-events'].includes(subView) ? 'rgba(99,102,241,0.1)' : 'transparent',
-              color: ['academic-activities', 'academic-events'].includes(subView) ? 'rgb(99,102,241)' : 'var(--text-muted)',
+              background: ['academic-activities', 'academic-events'].includes(subView) ? 'rgba(255, 107, 0,0.1)' : 'transparent',
+              color: ['academic-activities', 'academic-events'].includes(subView) ? 'rgb(255, 107, 0)' : 'var(--text-muted)',
               transition: 'all 0.2s ease'
             }}
           >
@@ -7792,8 +8137,8 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
             className={`tab-btn-custom ${subView === 'academic-notices' ? 'active' : ''}`}
             style={{
               display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px', borderRadius: '8px', fontSize: '0.85rem', fontWeight: 600, border: 'none', cursor: 'pointer',
-              background: subView === 'academic-notices' ? 'rgba(99,102,241,0.1)' : 'transparent',
-              color: subView === 'academic-notices' ? 'rgb(99,102,241)' : 'var(--text-muted)',
+              background: subView === 'academic-notices' ? 'rgba(255, 107, 0,0.1)' : 'transparent',
+              color: subView === 'academic-notices' ? 'rgb(255, 107, 0)' : 'var(--text-muted)',
               transition: 'all 0.2s ease'
             }}
           >
@@ -7806,8 +8151,8 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
             className={`tab-btn-custom ${subView === 'academic-holidays' ? 'active' : ''}`}
             style={{
               display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px', borderRadius: '8px', fontSize: '0.85rem', fontWeight: 600, border: 'none', cursor: 'pointer',
-              background: subView === 'academic-holidays' ? 'rgba(99,102,241,0.1)' : 'transparent',
-              color: subView === 'academic-holidays' ? 'rgb(99,102,241)' : 'var(--text-muted)',
+              background: subView === 'academic-holidays' ? 'rgba(255, 107, 0,0.1)' : 'transparent',
+              color: subView === 'academic-holidays' ? 'rgb(255, 107, 0)' : 'var(--text-muted)',
               transition: 'all 0.2s ease'
             }}
           >
@@ -7830,7 +8175,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
               <h2 style={{ fontSize: '1.25rem', textTransform: 'capitalize' }}>
                 {editingId ? 'Edit' : 'Add'} {['academic-activities', 'academic-events'].includes(subView) ? 'Event' : subView.replace('academic-', '').replace('-', ' ')}
               </h2>
-              <button className="modal-close" onClick={() => setShowAddModal(false)}>×</button>
+              <button className="modal-close" onClick={() => setShowAddModal(false)}>{"\u00d7"}</button>
             </div>
             {renderModalForm()}
           </div>
@@ -7856,7 +8201,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                   Step {examWizardStep} of 4
                 </p>
               </div>
-              <button onClick={() => { resetWizardForm(); setShowExamWizard(false); }} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '1.8rem', lineHeight: 1, padding: '4px' }}>×</button>
+              <button onClick={() => { resetWizardForm(); setShowExamWizard(false); }} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '1.8rem', lineHeight: 1, padding: '4px' }}>{"\u00d7"}</button>
             </div>
 
             {/* Step Progress */}
@@ -7878,19 +8223,19 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                 <h4 style={{ fontSize: '1rem', fontWeight: 700, margin: 0 }}>Basic Information</h4>
                 <div className="form-group">
                   <label>Academic Session *</label>
-                  <select className="form-control" value={wizardForm.academicSession} onChange={e => setWizardForm({ ...wizardForm, academicSession: e.target.value })} style={{ marginTop: '4px' }}>
+                  <CustomSelect className="form-control" value={wizardForm.academicSession} onChange={e => setWizardForm({ ...wizardForm, academicSession: e.target.value })} style={{ marginTop: '4px' }}>
                     {Array.from({ length: 2030 - 2026 + 1 }, (_, i) => {
                       const s = 2026 + i;
                       return `${s}-${s + 1}`;
                     }).map(sy => <option key={sy} value={sy}>{sy}</option>)}
-                  </select>
+                  </CustomSelect>
                 </div>
                 <div className="form-group">
                   <label>Exam Type *</label>
-                  <select className="form-control" value={wizardForm.examType} onChange={e => setWizardForm({ ...wizardForm, examType: e.target.value })} style={{ marginTop: '4px' }}>
+                  <CustomSelect className="form-control" value={wizardForm.examType} onChange={e => setWizardForm({ ...wizardForm, examType: e.target.value })} style={{ marginTop: '4px' }}>
                     <option value="">Select Exam Type</option>
                     {examTypes.map(t => <option key={t} value={t}>{t}</option>)}
-                  </select>
+                  </CustomSelect>
                 </div>
                 {wizardForm.examType === 'Custom Exam' && (
                   <div className="form-group animate-slide-down">
@@ -7981,7 +8326,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                             setWizardForm({ ...wizardForm, selectedGrades: updated, startDates: newStartDates, endDates: newEndDates });
                           }} style={{
                             padding: '12px', borderRadius: '10px', cursor: 'pointer', userSelect: 'none',
-                            background: isSelected ? 'rgba(99,102,241,0.12)' : 'var(--bg-glass-active)',
+                            background: isSelected ? 'rgba(255, 107, 0,0.12)' : 'var(--bg-glass-active)',
                             border: isSelected ? '2px solid hsl(var(--color-primary))' : '1px solid var(--border-glass)',
                             textAlign: 'center', fontWeight: 600, fontSize: '0.85rem',
                             transition: 'all 0.15s'
@@ -8038,8 +8383,8 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                                   return (
                                     <div key={i} style={{
                                       display: 'grid', gridTemplateColumns: '1fr 120px 100px', gap: '12px', padding: '10px 12px',
-                                      background: isIncluded ? 'rgba(99,102,241,0.04)' : 'rgba(239,68,68,0.03)',
-                                      border: isIncluded ? '1px solid rgba(99,102,241,0.15)' : '1px solid rgba(239,68,68,0.12)',
+                                      background: isIncluded ? 'rgba(255, 107, 0,0.04)' : 'rgba(239,68,68,0.03)',
+                                      border: isIncluded ? '1px solid rgba(255, 107, 0,0.15)' : '1px solid rgba(239,68,68,0.12)',
                                       borderRadius: '10px', alignItems: 'center',
                                       opacity: isIncluded ? 1 : 0.6,
                                       transition: 'all 0.2s ease'
@@ -8148,7 +8493,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
               <div>
                 {examWizardStep > 1 && (
                   <button className="btn-secondary" onClick={() => setExamWizardStep(examWizardStep - 1)} style={{ padding: '10px 20px', borderRadius: '8px', fontWeight: 600 }}>
-                    ← Back
+                    â† Back
                   </button>
                 )}
               </div>
@@ -8163,11 +8508,11 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                     if (examWizardStep === 2 && wizardForm.selectedGrades.length === 0) { showToast('Please select at least one grade-section.', 'error'); return; }
                     setExamWizardStep(examWizardStep + 1);
                   }} style={{ padding: '10px 20px', borderRadius: '8px', fontWeight: 700 }}>
-                    Next →
+                    Next â†’
                   </button>
                 ) : (
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <span style={{ fontSize: '0.9rem', fontWeight: 600, color: 'hsl(var(--color-primary))', background: 'rgba(99,102,241,0.1)', padding: '6px 12px', borderRadius: '6px' }}>
+                    <span style={{ fontSize: '0.9rem', fontWeight: 600, color: 'hsl(var(--color-primary))', background: 'rgba(255, 107, 0,0.1)', padding: '6px 12px', borderRadius: '6px' }}>
                       {wizardForm.examType === 'Custom Exam' ? wizardForm.customExamName : wizardForm.examType}
                     </span>
                     <button className="btn-primary" onClick={async () => {
@@ -8236,7 +8581,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                       } catch (e) {
                         showToast('Network error.', 'error');
                       }
-                    }} style={{ padding: '10px 24px', borderRadius: '8px', fontWeight: 700, background: 'linear-gradient(135deg, hsl(var(--color-primary)) 0%, #4f46e5 100%)', border: 'none', color: '#fff', cursor: 'pointer' }}>
+                    }} style={{ padding: '10px 24px', borderRadius: '8px', fontWeight: 700, background: 'linear-gradient(135deg, hsl(var(--color-primary)) 0%, #e07830 100%)', border: 'none', color: '#fff', cursor: 'pointer' }}>
                       {wizardForm.id ? 'Save Exam' : 'Create Exam'}
                     </button>
                   </div>
@@ -8259,10 +8604,10 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
               <div>
                 <h3 style={{ fontSize: '1.15rem', fontWeight: 800, margin: 0 }}>{viewScheduleExam.examName}</h3>
                 <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: '2px 0 0 0' }}>
-                  {viewScheduleExam.examType} · {viewScheduleExam.academicSession || 'N/A'}
+                  {viewScheduleExam.examType} Â· {viewScheduleExam.academicSession || 'N/A'}
                 </p>
               </div>
-              <button onClick={() => setViewScheduleExam(null)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '1.8rem', lineHeight: 1, padding: '4px' }}>×</button>
+              <button onClick={() => setViewScheduleExam(null)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '1.8rem', lineHeight: 1, padding: '4px' }}>{"\u00d7"}</button>
             </div>
 
             {(() => {
@@ -8342,7 +8687,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                 onClick={() => setShowTimeslotsModal(false)}
                 style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '1.5rem', lineHeight: 1 }}
               >
-                ×
+                {"\u00d7"}
               </button>
             </div>
 
@@ -8400,15 +8745,14 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                       required
                       style={{ flex: 1 }}
                     />
-                    <select
-                      className="select-custom"
+                    <CustomSelect                      className="select-custom"
                       value={startAmPm}
                       onChange={e => setStartAmPm(e.target.value)}
-                      style={{ width: '60px', padding: '0 4px', fontSize: '0.8rem', borderRadius: '8px' }}
+                      style={{ width: '85px', flexShrink: 0, padding: '6px 8px', fontSize: '0.8rem', borderRadius: '8px' }}
                     >
                       <option value="AM">AM</option>
                       <option value="PM">PM</option>
-                    </select>
+                    </CustomSelect>
                   </div>
                 </div>
                 <div className="form-group">
@@ -8423,22 +8767,20 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                       required
                       style={{ flex: 1 }}
                     />
-                    <select
-                      className="select-custom"
+                    <CustomSelect                      className="select-custom"
                       value={endAmPm}
                       onChange={e => setEndAmPm(e.target.value)}
-                      style={{ width: '60px', padding: '0 4px', fontSize: '0.8rem', borderRadius: '8px' }}
+                      style={{ width: '85px', flexShrink: 0, padding: '6px 8px', fontSize: '0.8rem', borderRadius: '8px' }}
                     >
                       <option value="AM">AM</option>
                       <option value="PM">PM</option>
-                    </select>
+                    </CustomSelect>
                   </div>
                 </div>
               </div>
               <div className="form-group" style={{ margin: 0 }}>
                 <label style={{ fontSize: '0.75rem' }}>Slot Type</label>
-                <select
-                  className="form-control"
+                <CustomSelect                  className="form-control"
                   value={timeslotType}
                   onChange={e => setTimeslotType(e.target.value)}
                   style={{ marginTop: '4px' }}
@@ -8446,7 +8788,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                   <option value="Regular">Regular Period</option>
                   <option value="Lunch Break">Lunch Break</option>
                   <option value="Short Break">Short Break</option>
-                </select>
+                </CustomSelect>
               </div>
 
               <button type="submit" className="btn-primary" style={{ borderRadius: '8px', padding: '10px', fontSize: '0.85rem' }}>
@@ -8474,15 +8816,14 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                 onClick={() => setShowSubjectsModal(false)}
                 style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '1.5rem', lineHeight: 1 }}
               >
-                ×
+                {"\u00d7"}
               </button>
             </div>
 
             {/* Filter by Grade */}
             <div className="form-group" style={{ margin: 0 }}>
               <label style={{ fontSize: '0.75rem', fontWeight: 700 }}>Select Grade Level</label>
-              <select
-                className="form-control"
+              <CustomSelect                className="form-control"
                 value={newSubjectGrade}
                 onChange={(e) => {
                   const newGrade = e.target.value;
@@ -8500,7 +8841,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                 {activeGrades.map(g => g.name).map(g => (
                   <option key={g} value={g}>{g.startsWith('LKG') || g.startsWith('UKG') || g.startsWith('NURSERY') ? g : `Grade ${g}`}</option>
                 ))}
-              </select>
+              </CustomSelect>
             </div>
 
             {/* List of custom subjects for the selected grade */}
@@ -8593,7 +8934,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                 onClick={() => setShowBulkModal(false)}
                 style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '2rem', lineHeight: 1, padding: '4px' }}
               >
-                ×
+                {"\u00d7"}
               </button>
             </div>
 
@@ -8637,7 +8978,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                                 color: '#d97706',
                                 fontSize: '0.8rem'
                               }}>
-                                {breakType === 'Lunch Break' ? '🍱 ' : breakType === 'Short Break' ? '☕ ' : breakType === 'Recess' ? '🏃 ' : breakType === 'Assembly' ? '📢 ' : '⚡ '}{breakType}
+                                {breakType === 'Lunch Break' ? 'ðŸ± ' : breakType === 'Short Break' ? '☕ ' : breakType === 'Recess' ? 'ðŸƒ ' : breakType === 'Assembly' ? '📢 ' : '⚡ '}{breakType}
                               </td>
                             );
                           }
@@ -8645,8 +8986,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                           return (
                             <td key={slot} style={{ padding: '12px', verticalAlign: 'top', borderLeft: '1px solid var(--border-glass)' }}>
                               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                <select
-                                  value={cell.subject}
+                                <CustomSelect                                  value={cell.subject}
                                   onChange={(e) => handleBulkCellChange(day, slot, 'subject', e.target.value)}
                                   style={{
                                     width: '100%',
@@ -8662,7 +9002,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                                 >
                                   <option value="">Select Subject</option>
                                   {gradeSubjects.map(s => <option key={s.id} value={s.subjectName}>{s.subjectName}</option>)}
-                                </select>
+                                </CustomSelect>
                               </div>
                             </td>
                           );
@@ -8695,12 +9035,12 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                     type="submit"
                     className="btn-primary"
                     style={{
-                      background: 'linear-gradient(135deg, hsl(var(--color-primary)) 0%, #4f46e5 100%)',
+                      background: 'linear-gradient(135deg, hsl(var(--color-primary)) 0%, #e07830 100%)',
                       border: 'none',
                       borderRadius: '8px',
                       padding: '10px 24px',
                       fontWeight: 700,
-                      boxShadow: '0 4px 12px rgba(99, 102, 241, 0.3)'
+                      boxShadow: '0 4px 12px rgba(255, 107, 0, 0.3)'
                     }}
                   >
                     Save Timetable Matrix
@@ -8735,7 +9075,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                 onClick={() => setShowTeacherBulkModal(false)}
                 style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '2rem', lineHeight: 1, padding: '4px' }}
               >
-                ×
+                {"\u00d7"}
               </button>
             </div>
 
@@ -8808,7 +9148,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                                   color: '#d97706',
                                   fontSize: '0.8rem'
                                 }}>
-                                  {breakType === 'Lunch Break' ? '🍱 ' : breakType === 'Short Break' ? '☕ ' : breakType === 'Recess' ? '🏃 ' : breakType === 'Assembly' ? '📢 ' : '⚡ '}{breakType}
+                                  {breakType === 'Lunch Break' ? 'ðŸ± ' : breakType === 'Short Break' ? '☕ ' : breakType === 'Recess' ? 'ðŸƒ ' : breakType === 'Assembly' ? '📢 ' : '⚡ '}{breakType}
                                 </td>
                               );
                             }
@@ -8816,8 +9156,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                             return (
                               <td key={slot} style={{ padding: '12px', verticalAlign: 'top', borderLeft: '1px solid var(--border-glass)' }}>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                  <select
-                                    value={cell.cohort}
+                                  <CustomSelect                                    value={cell.cohort}
                                     onChange={(e) => handleTeacherBulkCellChange(day, slot, 'cohort', e.target.value)}
                                     style={{
                                       width: '100%',
@@ -8842,7 +9181,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                                         <option key={cohort} value={cohort}>{displayLabel}</option>
                                       );
                                     })}
-                                  </select>
+                                  </CustomSelect>
                                 </div>
                               </td>
                             );
@@ -8876,12 +9215,12 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                     type="submit"
                     className="btn-primary"
                     style={{
-                      background: 'linear-gradient(135deg, hsl(var(--color-primary)) 0%, #4f46e5 100%)',
+                      background: 'linear-gradient(135deg, hsl(var(--color-primary)) 0%, #e07830 100%)',
                       border: 'none',
                       borderRadius: '8px',
                       padding: '10px 24px',
                       fontWeight: 700,
-                      boxShadow: '0 4px 12px rgba(99, 102, 241, 0.3)'
+                      boxShadow: '0 4px 12px rgba(255, 107, 0, 0.3)'
                     }}
                   >
                     Save Timetable Matrix
@@ -8970,7 +9309,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                 }}
                 style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '1.5rem', lineHeight: 1 }}
               >
-                ×
+                {"\u00d7"}
               </button>
             </div>
 
@@ -9113,7 +9452,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                 }}
                 style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '1.5rem', lineHeight: 1 }}
               >
-                ×
+                {"\u00d7"}
               </button>
             </div>
 
@@ -9256,7 +9595,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                 }}
                 style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '1.5rem', lineHeight: 1 }}
               >
-                ×
+                {"\u00d7"}
               </button>
             </div>
 
@@ -9399,7 +9738,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                 }}
                 style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '1.5rem', lineHeight: 1 }}
               >
-                ×
+                {"\u00d7"}
               </button>
             </div>
 
@@ -9526,3 +9865,4 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
     </div>
   );
 }
+

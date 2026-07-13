@@ -356,9 +356,9 @@ export default function Settings({ showToast }) {
           style={{
             padding: '12px 24px', borderRadius: '12px', fontSize: '0.9rem', fontWeight: 700, cursor: 'pointer',
             border: '1px solid var(--border-glass)',
-            background: settingsTab === 'attendance' ? 'var(--color-primary)' : 'var(--bg-card)',
+            background: settingsTab === 'attendance' ? 'hsl(var(--color-primary))' : 'var(--bg-card)',
             color: settingsTab === 'attendance' ? '#ffffff' : 'var(--text-main)',
-            boxShadow: settingsTab === 'attendance' ? '0 4px 12px rgba(99,102,241,0.2)' : 'none',
+            boxShadow: settingsTab === 'attendance' ? '0 4px 12px rgba(255, 107, 0, 0.2)' : 'none',
             display: 'flex', alignItems: 'center', gap: '8px', transition: 'all 0.2s ease-out'
           }}
         >
@@ -369,9 +369,9 @@ export default function Settings({ showToast }) {
           style={{
             padding: '12px 24px', borderRadius: '12px', fontSize: '0.9rem', fontWeight: 700, cursor: 'pointer',
             border: '1px solid var(--border-glass)',
-            background: settingsTab === 'leaves' ? 'var(--color-primary)' : 'var(--bg-card)',
+            background: settingsTab === 'leaves' ? 'hsl(var(--color-primary))' : 'var(--bg-card)',
             color: settingsTab === 'leaves' ? '#ffffff' : 'var(--text-main)',
-            boxShadow: settingsTab === 'leaves' ? '0 4px 12px rgba(99,102,241,0.2)' : 'none',
+            boxShadow: settingsTab === 'leaves' ? '0 4px 12px rgba(255, 107, 0, 0.2)' : 'none',
             display: 'flex', alignItems: 'center', gap: '8px', transition: 'all 0.2s ease-out'
           }}
         >
@@ -810,3 +810,4 @@ export default function Settings({ showToast }) {
     </div>
   );
 }
+

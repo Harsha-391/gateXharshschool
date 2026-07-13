@@ -116,7 +116,7 @@ export const DEFAULT_TEMPLATES = [
       </div>
     </div>
     <div style="text-align: right; display: flex; flex-direction: column; align-items: flex-end; gap: 4px;">
-      <span style="font-size: 0.72rem; padding: 4px 10px; border-radius: 99px; background: rgba(99,102,241,0.08); color: #4f46e5; font-weight: 800; text-transform: uppercase;">
+      <span style="font-size: 0.72rem; padding: 4px 10px; border-radius: 99px; background: rgba(255, 107, 0,0.08); color: #e05e00; font-weight: 800; text-transform: uppercase;">
         Report Summary
       </span>
       <span style="font-size: 0.8rem; color: #64748b;">Session: <strong>{{session}}</strong></span>
@@ -124,7 +124,7 @@ export const DEFAULT_TEMPLATES = [
   </div>
 
   <!-- Student Header -->
-  <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 25px; background: #f8fafc; padding: 15px 20px; border-radius: 10px; border-left: 4px solid #4f46e5;">
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 25px; background: #f8fafc; padding: 15px 20px; border-radius: 10px; border-left: 4px solid #e05e00;">
     <div style="display: flex; gap: 18px; align-items: center;">
       <div style="display: flex; align-items: center; justify-content: center;">{{studentPhoto}}</div>
       <div>
@@ -167,7 +167,7 @@ export const DEFAULT_TEMPLATES = [
     </div>
     <div style="background: #f8fafc; padding: 12px; border-radius: 8px; text-align: center; border: 1px solid #f1f5f9;">
       <span style="font-size: 0.7rem; color: #64748b; display: block; text-transform: uppercase;">Percentage</span>
-      <strong style="font-size: 1.1rem; color: #4f46e5; display: block; margin-top: 4px;">{{percentage}}</strong>
+      <strong style="font-size: 1.1rem; color: #e05e00; display: block; margin-top: 4px;">{{percentage}}</strong>
     </div>
     <div style="background: #f8fafc; padding: 12px; border-radius: 8px; text-align: center; border: 1px solid #f1f5f9;">
       <span style="font-size: 0.7rem; color: #64748b; display: block; text-transform: uppercase;">Grade</span>
@@ -180,8 +180,8 @@ export const DEFAULT_TEMPLATES = [
   </div>
 
   <!-- Remarks -->
-  <div style="margin-top: 20px; background: rgba(99,102,241,0.02); border: 1px dashed rgba(99,102,241,0.2); padding: 12px 16px; border-radius: 8px;">
-    <strong style="font-size: 0.8rem; color: #4f46e5; text-transform: uppercase;">Teacher Remarks</strong>
+  <div style="margin-top: 20px; background: rgba(255, 107, 0,0.02); border: 1px dashed rgba(255, 107, 0,0.2); padding: 12px 16px; border-radius: 8px;">
+    <strong style="font-size: 0.8rem; color: #e05e00; text-transform: uppercase;">Teacher Remarks</strong>
     <p style="margin: 4px 0 0 0; font-size: 0.8rem; color: #475569; font-style: italic;">"{{remarks}}"</p>
   </div>
 
@@ -312,7 +312,7 @@ export const compileTemplate = (html, data) => {
     // HTML Component structures
     '{{schoolLogo}}': data.schoolLogoUrl
       ? `<img src="${data.schoolLogoUrl}" alt="School Logo" style="max-height: 50px; object-fit: contain; max-width: 100px;" />`
-      : `<div style="width: 50px; height: 50px; border-radius: 8px; background: #4f46e5; display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 900; font-size: 1.25rem;">GV</div>`,
+      : `<div style="width: 50px; height: 50px; border-radius: 8px; background: #e05e00; display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 900; font-size: 1.25rem;">GV</div>`,
 
     '{{studentPhoto}}': data.studentPhotoUrl
       ? `<img src="${data.studentPhotoUrl}" alt="Student Photo" style="width: 80px; height: 100px; border-radius: 6px; border: 1px solid #cbd5e1; object-fit: cover;" />`

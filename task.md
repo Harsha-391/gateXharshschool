@@ -5,8 +5,8 @@
 - `[x]` Create the frontend `AttendanceSettings.jsx` page
 - `[x]` Update `backend/utils/authHelper.js` with failed login tracking, lockout checks, and password strength check
 - [x] Add `vendor` and `paymentDetails` columns in database migration (`db.js`)
-- [x] Implement file upload route `/api/upload` in `server.js`
-- [x] Wire `addExpense`, `getExpenses`, `updateExpense`, and `deleteExpense` to be fully SQL-driven in `accountManagementController.js`
+- [x] Connect school onboarding & plan mutations to the broadcast handler in `server.js`
+- [/] Replace interval polling with browser-native WebSockets in `SchoolProfile.jsx`, and `deleteExpense` to be fully SQL-driven in `accountManagementController.js`
 - [x] Update frontend `ExpensePanel.jsx` to upload screenshots using the file browser
 - [x] Update frontend `AllExpensesView` details modal to show clickable screenshot link
 - [x] Verify functionality with test expense entries

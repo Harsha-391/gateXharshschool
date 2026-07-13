@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState, useEffect, useRef } from 'react';
 import './Header.css';
 import { 
   Menu,
@@ -99,7 +99,105 @@ export default function Header({
 
   const currentMeta = viewTitles[activeView] || { title: 'Academy Portal', desc: 'Overview and administration console' };
 
-  const notifications = [];
+  const [notifications, setNotifications] = useState([]);
+  const notificationRef = useRef(null);
+
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (notificationRef.current && !notificationRef.current.contains(event.target)) {
+        setShowNotifications(false);
+      }
+    }
+    if (showNotifications) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showNotifications]);
+
+  const fetchNotifications = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const tenant = localStorage.getItem('tenant_subdomain');
+      if (!token) return;
+      const res = await fetch(`/api/notifications?tenantId=${tenant || ''}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setNotifications(data || []);
+      }
+    } catch (err) {
+      console.error('Error fetching notifications:', err.message);
+    }
+  };
+
+  useEffect(() => {
+    fetchNotifications();
+    const interval = setInterval(fetchNotifications, 5000); // Poll every 5 seconds for real-time
+    return () => clearInterval(interval);
+  }, []);
+
+  const handleMarkAllRead = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const tenant = localStorage.getItem('tenant_subdomain');
+      if (!token) return;
+      const res = await fetch(`/api/notifications/read?tenantId=${tenant || ''}`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      if (res.ok) {
+        fetchNotifications();
+      }
+    } catch (err) {
+      console.error('Error marking all notifications read:', err.message);
+    }
+  };
+
+  const handleMarkRead = async (id) => {
+    try {
+      const token = localStorage.getItem('token');
+      const tenant = localStorage.getItem('tenant_subdomain');
+      if (!token) return;
+      const res = await fetch(`/api/notifications/read?tenantId=${tenant || ''}`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ id })
+      });
+      if (res.ok) {
+        fetchNotifications();
+      }
+    } catch (err) {
+      console.error('Error marking notification read:', err.message);
+    }
+  };
+
+  const handleNotificationClick = async (n) => {
+    try {
+      const isUnread = !n.read || n.read === 0;
+      if (isUnread) {
+        await handleMarkRead(n.id);
+      }
+      if (n.type === 'leave_request') {
+        setAdminView('leave-management');
+      } else if (n.type === 'task_submission') {
+        setAdminView('report-management');
+      } else if (n.type === 'leave_status') {
+        setAdminView('my-leave');
+      }
+      setShowNotifications(false);
+    } catch (err) {
+      console.error('Error handling notification click:', err.message);
+    }
+  };
 
   const toggleTheme = () => {
     const nextTheme = theme === 'dark' ? 'light' : 'dark';
@@ -129,9 +227,19 @@ export default function Header({
 
         <div className="header-title">
           <h1>
-            {activeView === 'overview' && userProfile?.role && userProfile.role !== 'Main Admin' && userProfile.role !== 'Admin Dashboard' && userProfile.role !== 'Principal'
-              ? `${userProfile.role} Overview`
-              : currentMeta.title}
+            {(() => {
+              const fullTitle = activeView === 'overview' && userProfile?.role && userProfile.role !== 'Main Admin' && userProfile.role !== 'Admin Dashboard' && userProfile.role !== 'Principal'
+                ? `${userProfile.role} Overview`
+                : currentMeta.title;
+              const words = fullTitle.split(' ');
+              const firstWord = words[0];
+              const rest = words.slice(1).join(' ');
+              return (
+                <>
+                  <span style={{ color: '#FF8C42' }}>{firstWord}</span> {rest}
+                </>
+              );
+            })()}
           </h1>
           <p>
             {activeView === 'overview' && userProfile?.role && userProfile.role !== 'Main Admin' && userProfile.role !== 'Admin Dashboard' && userProfile.role !== 'Principal'
@@ -148,7 +256,7 @@ export default function Header({
         </button>
 
         {/* Notifications Icon and Dropdown */}
-        <div style={{ position: 'relative' }}>
+        <div ref={notificationRef} style={{ position: 'relative' }}>
           <button 
             onClick={() => {
               setShowNotifications(!showNotifications);
@@ -157,7 +265,11 @@ export default function Header({
             title="Notifications"
           >
             <Bell size={20} />
-            {notifications.some(n => !n.read) && <span className="badge-dot"></span>}
+            {notifications.filter(n => !n.read || n.read === 0).length > 0 && (
+              <span className="badge-count">
+                {notifications.filter(n => !n.read || n.read === 0).length}
+              </span>
+            )}
           </button>
 
           {showNotifications && (
@@ -172,22 +284,47 @@ export default function Header({
               flexDirection: 'column',
               gap: '12px',
               background: 'var(--bg-elevated)',
-              boxShadow: 'var(--shadow-lg)'
+              boxShadow: 'var(--shadow-lg)',
+              borderRadius: '12px',
+              border: '1px solid var(--border-glass)'
             }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-glass)', paddingBottom: '8px' }}>
                 <span style={{ fontWeight: 700, fontSize: '0.9rem' }}>Notifications</span>
-                <span style={{ fontSize: '0.75rem', color: 'hsl(var(--color-primary))', cursor: 'pointer', fontWeight: 600 }}>Mark all read</span>
+                <span onClick={handleMarkAllRead} style={{ fontSize: '0.75rem', color: 'hsl(var(--color-primary))', cursor: 'pointer', fontWeight: 600 }}>Mark all read</span>
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '280px', overflowY: 'auto', paddingRight: '4px' }}>
                 {notifications.length > 0 ? (
-                  notifications.map(n => (
-                    <div key={n.id} style={{ display: 'flex', flexDirection: 'column', gap: '2px', padding: '6px', borderRadius: '8px', background: n.read ? 'transparent' : 'rgba(hsl(var(--color-primary)), 0.05)' }}>
-                      <span style={{ fontSize: '0.8rem', fontWeight: n.read ? 400 : 600 }}>{n.text}</span>
-                      <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{n.time}</span>
-                    </div>
-                  ))
+                  notifications.map(n => {
+                    const isUnread = !n.read || n.read === 0;
+                    return (
+                      <div 
+                        key={n.id} 
+                        onClick={() => handleNotificationClick(n)}
+                        style={{ 
+                          display: 'flex', 
+                          flexDirection: 'column', 
+                          gap: '4px', 
+                          padding: '10px', 
+                          borderRadius: '8px', 
+                          background: isUnread ? 'rgba(255, 107, 0, 0.08)' : 'transparent',
+                          border: isUnread ? '1px solid rgba(255, 107, 0, 0.15)' : '1px solid transparent',
+                          cursor: 'pointer',
+                          transition: 'all 0.2s ease'
+                        }}
+                      >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span style={{ fontSize: '0.8rem', fontWeight: isUnread ? 700 : 500, color: 'var(--text-main)' }}>{n.title}</span>
+                          {isUnread && <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'hsl(var(--color-primary))' }}></span>}
+                        </div>
+                        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', lineHeight: '1.3' }}>{n.message}</span>
+                        <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', marginTop: '2px', textAlign: 'right' }}>
+                          {new Date(n.createdAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      </div>
+                    );
+                  })
                 ) : (
-                  <div style={{ textAlign: 'center', padding: '16px 8px', color: 'var(--text-muted)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+                  <div style={{ textAlign: 'center', padding: '24px 8px', color: 'var(--text-muted)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
                     <Bell size={24} style={{ opacity: 0.5 }} />
                     <span style={{ fontSize: '0.8rem', fontWeight: 600 }}>No new notifications</span>
                     <span style={{ fontSize: '0.7rem' }}>You're all caught up!</span>
@@ -215,3 +352,4 @@ export default function Header({
     </header>
   );
 }
+

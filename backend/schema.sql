@@ -1164,6 +1164,19 @@ CREATE TABLE IF NOT EXISTS report_card_templates (
   tenantId VARCHAR(100) NOT NULL
 );
 
+-- 62. Notifications Table
+CREATE TABLE IF NOT EXISTS notifications (
+  id VARCHAR(50) PRIMARY KEY,
+  title VARCHAR(255) NOT NULL,
+  message TEXT NOT NULL,
+  type VARCHAR(50) NOT NULL,
+  recipientId VARCHAR(50) NULL,
+  recipientRole VARCHAR(50) NULL,
+  `read` TINYINT DEFAULT 0,
+  createdAt VARCHAR(100) NOT NULL,
+  tenantId VARCHAR(100) NOT NULL
+);
+
 -- Re-enable foreign key checks
 SET FOREIGN_KEY_CHECKS = 1;
 

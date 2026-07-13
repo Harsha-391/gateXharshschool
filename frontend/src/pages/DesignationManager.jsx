@@ -23,6 +23,7 @@ export default function DesignationManager({ showToast }) {
   const canEdit = hasPermission('designation-manager', 'edit');
   const canDelete = hasPermission('designation-manager', 'delete');
 
+  const [activeTab, setActiveTab] = useState('employee'); // 'employee' or 'staff'
   const [designations, setDesignations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -38,7 +39,7 @@ export default function DesignationManager({ showToast }) {
   const fetchDesignations = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/designations');
+      const res = await fetch(`/api/designations?type=${activeTab}`);
       if (res.ok) {
         const data = await res.json();
         setDesignations(data);
@@ -53,9 +54,18 @@ export default function DesignationManager({ showToast }) {
     }
   };
 
+  const handleTabChange = (tab) => {
+    setActiveTab(tab);
+    setName('');
+    setStatus('Active');
+    setEditingId(null);
+    setSearchQuery('');
+    setPage(1);
+  };
+
   useEffect(() => {
     fetchDesignations();
-  }, []);
+  }, [activeTab]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -76,7 +86,7 @@ export default function DesignationManager({ showToast }) {
     try {
       const url = editingId ? `/api/designations/${editingId}` : '/api/designations';
       const method = editingId ? 'PUT' : 'POST';
-      const body = JSON.stringify({ name: name.trim(), status });
+      const body = JSON.stringify({ name: name.trim(), status, type: activeTab });
 
       const res = await fetch(url, {
         method,
@@ -199,8 +209,8 @@ export default function DesignationManager({ showToast }) {
       {/* Title Header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
         <div style={{
-          background: 'rgba(59, 130, 246, 0.1)',
-          color: '#3b82f6',
+          background: 'rgba(255, 140, 66, 0.1)',
+          color: '#FF8C42',
           padding: '10px',
           borderRadius: '12px',
           display: 'flex',
@@ -212,9 +222,57 @@ export default function DesignationManager({ showToast }) {
         <div>
           <h2 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 700, color: 'var(--text-main)' }}>Designation Management</h2>
           <p style={{ margin: '4px 0 0 0', fontSize: '0.875rem', color: 'var(--text-muted)' }}>
-            Create and configure dynamic employee designations.
+            Create and configure dynamic designations for employees and staff.
           </p>
         </div>
+      </div>
+
+      {/* Tabs */}
+      <div style={{
+        display: 'flex',
+        gap: '4px',
+        background: 'var(--bg-card-subtle)',
+        padding: '4px',
+        borderRadius: '10px',
+        border: '1px solid var(--border-glass)',
+        width: 'fit-content'
+      }}>
+        <button
+          type="button"
+          onClick={() => handleTabChange('employee')}
+          style={{
+            padding: '8px 18px',
+            borderRadius: '8px',
+            border: 'none',
+            fontWeight: 600,
+            fontSize: '0.875rem',
+            cursor: 'pointer',
+            background: activeTab === 'employee' ? '#FF8C42' : 'transparent',
+            color: activeTab === 'employee' ? '#ffffff' : 'var(--text-muted)',
+            boxShadow: activeTab === 'employee' ? '0 2px 8px rgba(255,140,66,0.25)' : 'none',
+            transition: 'all 0.2s ease'
+          }}
+        >
+          Employee Designations
+        </button>
+        <button
+          type="button"
+          onClick={() => handleTabChange('staff')}
+          style={{
+            padding: '8px 18px',
+            borderRadius: '8px',
+            border: 'none',
+            fontWeight: 600,
+            fontSize: '0.875rem',
+            cursor: 'pointer',
+            background: activeTab === 'staff' ? '#FF8C42' : 'transparent',
+            color: activeTab === 'staff' ? '#ffffff' : 'var(--text-muted)',
+            boxShadow: activeTab === 'staff' ? '0 2px 8px rgba(255,140,66,0.25)' : 'none',
+            transition: 'all 0.2s ease'
+          }}
+        >
+          Staff Designations
+        </button>
       </div>
 
       <div style={{
@@ -285,7 +343,7 @@ export default function DesignationManager({ showToast }) {
                     flex: 1,
                     padding: '10px',
                     borderRadius: '8px',
-                    background: '#3b82f6',
+                    background: 'linear-gradient(135deg, #FF8C42 0%, #ffaa70 100%)',
                     color: '#ffffff',
                     fontSize: '0.9rem',
                     fontWeight: 600,
@@ -295,6 +353,7 @@ export default function DesignationManager({ showToast }) {
                     alignItems: 'center',
                     justifyContent: 'center',
                     gap: '6px',
+                    boxShadow: '0 4px 12px rgba(255,140,66,0.3)',
                     opacity: submitting ? 0.7 : 1
                   }}
                 >
@@ -420,7 +479,7 @@ export default function DesignationManager({ showToast }) {
                       key={item.id} 
                       style={{ 
                         borderBottom: '1px solid rgba(255,255,255,0.02)',
-                        background: editingId === item.id ? 'rgba(59, 130, 246, 0.03)' : 'transparent'
+                        background: editingId === item.id ? 'rgba(255, 140, 66, 0.04)' : 'transparent'
                       }}
                     >
                       <td style={{ padding: '12px 8px', fontWeight: 500, color: 'var(--text-main)' }}>
@@ -470,7 +529,7 @@ export default function DesignationManager({ showToast }) {
                                 alignItems: 'center',
                                 justifyContent: 'center'
                               }}
-                              onMouseEnter={(e) => e.currentTarget.style.color = '#3b82f6'}
+                              onMouseEnter={(e) => e.currentTarget.style.color = '#FF8C42'}
                               onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text-muted)'}
                             >
                               <Edit3 size={16} />
@@ -567,3 +626,4 @@ export default function DesignationManager({ showToast }) {
     </div>
   );
 }
+

@@ -1,4 +1,4 @@
-import './AuxiliaryIncome.css';
+﻿import './AuxiliaryIncome.css';
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import {
@@ -447,9 +447,9 @@ export default function AuxiliaryIncome({ showToast }) {
               setShowEntryModal(true);
             }} 
             style={{
-              padding: '10px 18px', background: 'linear-gradient(135deg, #10b981, #059669)', border: 'none',
+              padding: '10px 18px', background: 'linear-gradient(135deg, #FF8C42, #E05300)', border: 'none',
               borderRadius: '10px', color: '#fff', fontWeight: 700, cursor: 'pointer',
-              display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.82rem', boxShadow: '0 4px 12px rgba(16, 185, 129, 0.2)'
+              display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.82rem', boxShadow: '0 4px 12px rgba(255, 140, 66, 0.2)'
             }}
           >
             <Plus size={16} /> Record Income Entry
@@ -472,16 +472,16 @@ export default function AuxiliaryIncome({ showToast }) {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '20px' }}>
         
         {/* KPI: Total Auxiliary Revenue */}
-        <div className="glass-panel" style={{ padding: '24px 28px', borderRadius: '16px', borderLeft: '4px solid #10b981' }}>
+        <div className="glass-panel" style={{ padding: '24px 28px', borderRadius: '16px', borderLeft: '4px solid #FF8C42' }}>
           <p style={{ fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '8px' }}>Total Collected Revenue</p>
           <h3 style={{ fontSize: '1.8rem', fontWeight: 800, color: 'var(--text-main)', margin: 0, display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <span style={{ color: '#10b981' }}>₹</span>{totalCollected.toLocaleString()}
+            <span style={{ color: '#FF8C42' }}>₹</span>{totalCollected.toLocaleString()}
           </h3>
           <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '6px', display: 'block' }}>All time custom auxiliary collections</span>
         </div>
 
         {/* KPI: Category Count */}
-        <div className="glass-panel" style={{ padding: '24px 28px', borderRadius: '16px', borderLeft: '4px solid #3b82f6' }}>
+        <div className="glass-panel" style={{ padding: '24px 28px', borderRadius: '16px', borderLeft: '4px solid #FF8C42' }}>
           <p style={{ fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '8px' }}>Configured Categories</p>
           <h3 style={{ fontSize: '1.8rem', fontWeight: 800, color: 'var(--text-main)', margin: 0 }}>
             {categoriesCount} <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 600 }}>active types</span>
@@ -505,7 +505,7 @@ export default function AuxiliaryIncome({ showToast }) {
           onClick={() => setActiveTab('entries')}
           style={{
             padding: '12px 6px', background: 'none', border: 'none',
-            borderBottom: activeTab === 'entries' ? '3px solid #10b981' : '3px solid transparent',
+            borderBottom: activeTab === 'entries' ? '3px solid #FF8C42' : '3px solid transparent',
             color: activeTab === 'entries' ? 'var(--text-main)' : 'var(--text-muted)',
             fontWeight: 700, cursor: 'pointer', fontSize: '0.88rem', transition: 'all 0.2s'
           }}
@@ -516,7 +516,7 @@ export default function AuxiliaryIncome({ showToast }) {
           onClick={() => setActiveTab('categories')}
           style={{
             padding: '12px 6px', background: 'none', border: 'none',
-            borderBottom: activeTab === 'categories' ? '3px solid #10b981' : '3px solid transparent',
+            borderBottom: activeTab === 'categories' ? '3px solid #FF8C42' : '3px solid transparent',
             color: activeTab === 'categories' ? 'var(--text-main)' : 'var(--text-muted)',
             fontWeight: 700, cursor: 'pointer', fontSize: '0.88rem', transition: 'all 0.2s'
           }}
@@ -527,7 +527,7 @@ export default function AuxiliaryIncome({ showToast }) {
           onClick={() => setActiveTab('history')}
           style={{
             padding: '12px 6px', background: 'none', border: 'none',
-            borderBottom: activeTab === 'history' ? '3px solid #10b981' : '3px solid transparent',
+            borderBottom: activeTab === 'history' ? '3px solid #FF8C42' : '3px solid transparent',
             color: activeTab === 'history' ? 'var(--text-main)' : 'var(--text-muted)',
             fontWeight: 700, cursor: 'pointer', fontSize: '0.88rem', transition: 'all 0.2s'
           }}
@@ -546,7 +546,7 @@ export default function AuxiliaryIncome({ showToast }) {
             {/* Category Breakdown list */}
             <div className="glass-panel" style={{ padding: '24px', borderRadius: '16px' }}>
               <h4 style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-main)', margin: '0 0 16px 0', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <TrendingUp size={16} style={{ color: '#10b981' }} /> Category Collections Share
+                <TrendingUp size={16} style={{ color: '#FF8C42' }} /> Category Collections Share
               </h4>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 {Object.keys(categorySummary).length === 0 ? (
@@ -561,7 +561,7 @@ export default function AuxiliaryIncome({ showToast }) {
                           <span style={{ fontWeight: 700, color: 'var(--text-muted)' }}>₹{val.toLocaleString()} ({percent}%)</span>
                         </div>
                         <div style={{ width: '100%', height: '6px', background: 'rgba(255,255,255,0.03)', borderRadius: '3px', overflow: 'hidden' }}>
-                          <div style={{ width: `${percent}%`, height: '100%', background: '#10b981', borderRadius: '3px' }} />
+                          <div style={{ width: `${percent}%`, height: '100%', background: '#FF8C42', borderRadius: '3px' }} />
                         </div>
                       </div>
                     );
@@ -636,7 +636,7 @@ export default function AuxiliaryIncome({ showToast }) {
               <button 
                 onClick={() => window.print()} 
                 style={{
-                  padding: '8px 18px', background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)', border: 'none',
+                  padding: '8px 18px', background: 'linear-gradient(135deg, #FF8C42, #E05300)', border: 'none',
                   borderRadius: '8px', color: '#fff', fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer',
                   display: 'flex', alignItems: 'center', gap: '6px'
                 }}
@@ -684,7 +684,7 @@ export default function AuxiliaryIncome({ showToast }) {
                         onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.015)'}
                         onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                       >
-                        <td style={{ padding: '12px 16px', fontSize: '0.8rem', fontWeight: 700, color: '#10b981' }}>
+                        <td style={{ padding: '12px 16px', fontSize: '0.8rem', fontWeight: 700, color: '#FF8C42' }}>
                           {entry.receiptNumber}
                         </td>
                         <td style={{ padding: '12px 16px', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-main)' }}>
@@ -769,7 +769,7 @@ export default function AuxiliaryIncome({ showToast }) {
                                 background: 'transparent', border: 'none', color: 'var(--text-muted)',
                                 cursor: 'pointer', transition: 'color 0.2s', padding: '4px'
                               }}
-                              onMouseEnter={e => e.currentTarget.style.color = '#3b82f6'}
+                              onMouseEnter={e => e.currentTarget.style.color = '#FF8C42'}
                               onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}
                             >
                               <Edit3 size={15} />
@@ -804,13 +804,13 @@ export default function AuxiliaryIncome({ showToast }) {
           
           {/* Filter Stats Summary */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px' }}>
-            <div className="glass-panel" style={{ padding: '16px 20px', borderRadius: '12px', borderLeft: '3px solid #10b981' }}>
+            <div className="glass-panel" style={{ padding: '16px 20px', borderRadius: '12px', borderLeft: '3px solid #FF8C42' }}>
               <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Filtered Total Collected</span>
               <h4 style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--text-main)', margin: '4px 0 0 0' }}>
                 ₹{historyTotalCollected.toLocaleString()}
               </h4>
             </div>
-            <div className="glass-panel" style={{ padding: '16px 20px', borderRadius: '12px', borderLeft: '3px solid #3b82f6' }}>
+            <div className="glass-panel" style={{ padding: '16px 20px', borderRadius: '12px', borderLeft: '3px solid #FF8C42' }}>
               <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Transactions Count</span>
               <h4 style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--text-main)', margin: '4px 0 0 0' }}>
                 {filteredHistoryEntries.length} records
@@ -903,7 +903,7 @@ export default function AuxiliaryIncome({ showToast }) {
               <button
                 onClick={() => window.print()}
                 style={{
-                  padding: '8px 18px', background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)', border: 'none',
+                  padding: '8px 18px', background: 'linear-gradient(135deg, #FF8C42, #E05300)', border: 'none',
                   borderRadius: '8px', color: '#fff', fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer',
                   display: 'flex', alignItems: 'center', gap: '6px'
                 }}
@@ -943,7 +943,7 @@ export default function AuxiliaryIncome({ showToast }) {
                         onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.015)'}
                         onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                       >
-                        <td style={{ padding: '12px 16px', fontSize: '0.8rem', fontWeight: 700, color: '#10b981' }}>
+                        <td style={{ padding: '12px 16px', fontSize: '0.8rem', fontWeight: 700, color: '#FF8C42' }}>
                           {entry.receiptNumber}
                         </td>
                         <td style={{ padding: '12px 16px', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-main)' }}>
@@ -989,7 +989,7 @@ export default function AuxiliaryIncome({ showToast }) {
             <form onSubmit={handleSaveEntry} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <h3 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
-                  <Banknote size={18} style={{ color: '#10b981' }} /> {selectedEntry ? 'Edit Entry Details' : 'Record Income Entry'}
+                  <Banknote size={18} style={{ color: '#FF8C42' }} /> {selectedEntry ? 'Edit Entry Details' : 'Record Income Entry'}
                 </h3>
                 <button 
                   type="button" 
@@ -1089,7 +1089,7 @@ export default function AuxiliaryIncome({ showToast }) {
 
               <div style={{ display: 'flex', gap: '12px', marginTop: '10px' }}>
                 <button type="submit" style={{
-                  padding: '12px 24px', background: 'linear-gradient(135deg, #10b981, #059669)', border: 'none',
+                  padding: '12px 24px', background: 'linear-gradient(135deg, #FF8C42, #E05300)', border: 'none',
                   borderRadius: '10px', color: '#fff', fontWeight: 700, cursor: 'pointer',
                   display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem'
                 }}>
@@ -1122,7 +1122,7 @@ export default function AuxiliaryIncome({ showToast }) {
             <form onSubmit={handleSaveCategory} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <h3 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
-                  <Tags size={18} style={{ color: '#10b981' }} /> {selectedCategory ? 'Edit Category' : 'Create Custom Category'}
+                  <Tags size={18} style={{ color: '#FF8C42' }} /> {selectedCategory ? 'Edit Category' : 'Create Custom Category'}
                 </h3>
                 <button 
                   type="button" 
@@ -1157,7 +1157,7 @@ export default function AuxiliaryIncome({ showToast }) {
 
               <div style={{ display: 'flex', gap: '12px', marginTop: '10px' }}>
                 <button type="submit" style={{
-                  padding: '12px 24px', background: 'linear-gradient(135deg, #10b981, #059669)', border: 'none',
+                  padding: '12px 24px', background: 'linear-gradient(135deg, #FF8C42, #E05300)', border: 'none',
                   borderRadius: '10px', color: '#fff', fontWeight: 700, cursor: 'pointer',
                   display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem'
                 }}>
@@ -1191,7 +1191,7 @@ export default function AuxiliaryIncome({ showToast }) {
             {/* Printable Receipt Frame */}
             <div id="auxiliary-receipt-print" style={{ color: '#111' }}>
               <div style={{ textAlign: 'center', borderBottom: '2px dashed #e2e8f0', paddingBottom: '16px', marginBottom: '20px' }}>
-                <h2 style={{ fontSize: '1.2rem', fontWeight: 800, margin: '0 0 4px 0', color: '#10b981' }}>OFFICIAL PAYMENT RECEIPT</h2>
+                <h2 style={{ fontSize: '1.2rem', fontWeight: 800, margin: '0 0 4px 0', color: '#FF8C42' }}>OFFICIAL PAYMENT RECEIPT</h2>
                 <p style={{ fontSize: '0.78rem', color: '#64748b', textTransform: 'uppercase', fontWeight: 600, margin: 0 }}>Auxiliary & Revenue Ledger</p>
               </div>
 
@@ -1214,12 +1214,12 @@ export default function AuxiliaryIncome({ showToast }) {
               <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '8px', border: '1px solid #e2e8f0', marginBottom: '20px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#64748b' }}>TOTAL RECEIVED AMOUNT:</span>
-                  <span style={{ fontSize: '1.4rem', fontWeight: 800, color: '#10b981' }}>₹{Number(receiptData.amount).toLocaleString()}</span>
+                  <span style={{ fontSize: '1.4rem', fontWeight: 800, color: '#FF8C42' }}>₹{Number(receiptData.amount).toLocaleString()}</span>
                 </div>
               </div>
 
               {receiptData.description && (
-                <div style={{ marginBottom: '24px', padding: '10px', background: '#fdfdfd', borderLeft: '3px solid #10b981', fontSize: '0.78rem', color: '#475569', fontStyle: 'italic' }}>
+                <div style={{ marginBottom: '24px', padding: '10px', background: '#fdfdfd', borderLeft: '3px solid #FF8C42', fontSize: '0.78rem', color: '#475569', fontStyle: 'italic' }}>
                   Remarks: {receiptData.description}
                 </div>
               )}
@@ -1235,7 +1235,7 @@ export default function AuxiliaryIncome({ showToast }) {
               <button 
                 onClick={() => window.print()} 
                 style={{
-                  flex: 1, padding: '10px', background: '#10b981', color: '#fff', border: 'none',
+                  flex: 1, padding: '10px', background: '#FF8C42', color: '#fff', border: 'none',
                   borderRadius: '8px', fontWeight: 700, cursor: 'pointer', display: 'flex',
                   alignItems: 'center', justifyContent: 'center', gap: '6px', fontSize: '0.8rem'
                 }}
@@ -1343,3 +1343,4 @@ export default function AuxiliaryIncome({ showToast }) {
     </div>
   );
 }
+

@@ -1,4 +1,4 @@
-import './TeacherWorkReport.css';
+﻿import './TeacherWorkReport.css';
 import React, { useState, useEffect } from 'react';
 import {
   FileText, ClipboardList, Send, Plus, X,
@@ -264,7 +264,7 @@ export default function TeacherWorkReport({ showToast, userProfile }) {
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
       {/* Header */}
       <div style={{
-        background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)', borderRadius: '18px',
+        background: 'linear-gradient(135deg, #FF8C42 0%, #8b5cf6 100%)', borderRadius: '18px',
         padding: '28px 32px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: '#ffffff'
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
@@ -280,7 +280,7 @@ export default function TeacherWorkReport({ showToast, userProfile }) {
           <button onClick={fetchReports} style={{ padding: '10px 12px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.3)', background: 'rgba(255,255,255,0.15)', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.82rem', fontWeight: 600 }}>
             <RefreshCw size={16} />
           </button>
-          <button onClick={handleOpenNew} style={{ padding: '10px 20px', borderRadius: '10px', border: 'none', background: '#ffffff', color: '#6366f1', fontWeight: 700, fontSize: '0.88rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <button onClick={handleOpenNew} style={{ padding: '10px 20px', borderRadius: '10px', border: 'none', background: '#ffffff', color: '#FF8C42', fontWeight: 700, fontSize: '0.88rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Plus size={16} /> Submit Report
           </button>
         </div>
@@ -304,10 +304,16 @@ export default function TeacherWorkReport({ showToast, userProfile }) {
             <Calendar size={16} /> Filter by Date Range:
           </div>
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-            <input type="date" value={fromDate} onChange={e => setFromDate(e.target.value)} max={new Date().toISOString().split('T')[0]}
+            <input type="date" value={fromDate} onChange={e => {
+              const val = e.target.value;
+              setFromDate(val);
+              if (toDate && val > toDate) {
+                setToDate(val);
+              }
+            }} max={new Date().toISOString().split('T')[0]}
               style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#ffffff', fontSize: '0.84rem', color: '#000000' }} />
             <span style={{ fontSize: '0.84rem', color: '#64748b' }}>to</span>
-            <input type="date" value={toDate} onChange={e => setToDate(e.target.value)} max={new Date().toISOString().split('T')[0]}
+            <input type="date" value={toDate} onChange={e => setToDate(e.target.value)} max={new Date().toISOString().split('T')[0]} min={fromDate}
               style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#ffffff', fontSize: '0.84rem', color: '#000000' }} />
           </div>
         </div>
@@ -374,7 +380,7 @@ export default function TeacherWorkReport({ showToast, userProfile }) {
                       </td>
                       <td style={{ padding: '14px 8px', textAlign: 'left' }}>
                         {entries.map((e, idx) => (
-                          <div key={idx} style={{ margin: idx > 0 ? '4px 0 0 0' : 0, fontWeight: 700, color: '#6366f1' }}>{e.subject}</div>
+                          <div key={idx} style={{ margin: idx > 0 ? '4px 0 0 0' : 0, fontWeight: 700, color: '#FF8C42' }}>{e.subject}</div>
                         ))}
                       </td>
                       <td style={{ padding: '14px 8px', textAlign: 'left' }}>
@@ -392,7 +398,7 @@ export default function TeacherWorkReport({ showToast, userProfile }) {
                       </td>
                       <td style={{ padding: '14px 8px', textAlign: 'center' }}>
                         <div style={{ display: 'flex', justifyContent: 'center', gap: '6px' }}>
-                          <button onClick={() => setViewModalReport(report)} style={{ padding: '6px', borderRadius: '8px', border: '1px solid #cbd5e1', background: 'transparent', color: '#6366f1', cursor: 'pointer' }} title="View details"><Eye size={14} /></button>
+                          <button onClick={() => setViewModalReport(report)} style={{ padding: '6px', borderRadius: '8px', border: '1px solid #cbd5e1', background: 'transparent', color: '#FF8C42', cursor: 'pointer' }} title="View details"><Eye size={14} /></button>
                           <button onClick={() => handleOpenEdit(report)} style={{ padding: '6px', borderRadius: '8px', border: '1px solid #cbd5e1', background: 'transparent', color: '#3b82f6', cursor: 'pointer' }} title="Edit"><Edit2 size={14} /></button>
                           <button onClick={() => handleDelete(report.id)} style={{ padding: '6px', borderRadius: '8px', border: '1px solid #cbd5e1', background: 'transparent', color: '#ef4444', cursor: 'pointer' }} title="Delete"><Trash2 size={14} /></button>
                         </div>
@@ -414,7 +420,7 @@ export default function TeacherWorkReport({ showToast, userProfile }) {
             {/* Modal Header */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <div style={{ width: '42px', height: '42px', borderRadius: '12px', background: 'rgba(99,102,241,0.1)', color: '#6366f1', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <div style={{ width: '42px', height: '42px', borderRadius: '12px', background: 'rgba(255, 107, 0,0.1)', color: '#FF8C42', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <ClipboardList size={22} />
                 </div>
                 <div>
@@ -448,14 +454,14 @@ export default function TeacherWorkReport({ showToast, userProfile }) {
               <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <h4 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 800, color: '#334155', textTransform: 'uppercase', letterSpacing: '0.03em' }}>Class Reports ({classEntries.length})</h4>
-                  <button type="button" onClick={addClassEntry} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', borderRadius: '10px', border: 'none', background: 'rgba(99,102,241,0.1)', color: '#6366f1', fontWeight: 700, fontSize: '0.82rem', cursor: 'pointer' }}>
+                  <button type="button" onClick={addClassEntry} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', borderRadius: '10px', border: 'none', background: 'rgba(255, 107, 0,0.1)', color: '#FF8C42', fontWeight: 700, fontSize: '0.82rem', cursor: 'pointer' }}>
                     <Plus size={14} /> Add Class Report
                   </button>
                 </div>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                   {classEntries.map((entry, index) => (
-                    <div key={index} style={{ position: 'relative', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '24px', background: '#ffffff', transition: 'box-shadow 0.2s', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }} onMouseEnter={e => e.currentTarget.style.boxShadow = '0 4px 12px rgba(99,102,241,0.04)'} onMouseLeave={e => e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.02)'}>
+                    <div key={index} style={{ position: 'relative', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '24px', background: '#ffffff', transition: 'box-shadow 0.2s', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }} onMouseEnter={e => e.currentTarget.style.boxShadow = '0 4px 12px rgba(255, 107, 0,0.04)'} onMouseLeave={e => e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.02)'}>
                       
                       {/* Delete Entry Button */}
                       <button type="button" onClick={() => removeClassEntry(index)} style={{ position: 'absolute', top: '16px', right: '16px', background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '6px', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center' }} title="Remove class entry">
@@ -511,7 +517,7 @@ export default function TeacherWorkReport({ showToast, userProfile }) {
               {/* Submit Buttons */}
               <button type="submit" disabled={submitting} style={{
                 width: '100%', padding: '14px', borderRadius: '12px', border: 'none', cursor: submitting ? 'not-allowed' : 'pointer',
-                background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', color: '#ffffff', fontSize: '0.92rem', fontWeight: 700,
+                background: 'linear-gradient(135deg, #FF8C42, #8b5cf6)', color: '#ffffff', fontSize: '0.92rem', fontWeight: 700,
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', opacity: submitting ? 0.7 : 1
               }}>
                 <Send size={16} /> {submitting ? 'Submitting...' : (editingReport ? 'Update Report' : 'Submit Report')}
@@ -550,7 +556,7 @@ export default function TeacherWorkReport({ showToast, userProfile }) {
               {/* Modal Header */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <div style={{ width: '42px', height: '42px', borderRadius: '12px', background: 'rgba(99,102,241,0.1)', color: '#6366f1', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <div style={{ width: '42px', height: '42px', borderRadius: '12px', background: 'rgba(255, 107, 0,0.1)', color: '#FF8C42', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <Eye size={22} />
                   </div>
                   <div>
@@ -603,7 +609,7 @@ export default function TeacherWorkReport({ showToast, userProfile }) {
                           </div>
                           <div>
                             <span style={{ fontSize: '0.68rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', display: 'block', marginBottom: '4px', letterSpacing: '0.05em' }}>Subject</span>
-                            <span style={{ fontSize: '0.86rem', fontWeight: 700, color: '#6366f1' }}>{entry.subject}</span>
+                            <span style={{ fontSize: '0.86rem', fontWeight: 700, color: '#FF8C42' }}>{entry.subject}</span>
                           </div>
                           <div>
                             <span style={{ fontSize: '0.68rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', display: 'block', marginBottom: '4px', letterSpacing: '0.05em' }}>Chapter</span>
@@ -641,3 +647,4 @@ export default function TeacherWorkReport({ showToast, userProfile }) {
     </div>
   );
 }
+

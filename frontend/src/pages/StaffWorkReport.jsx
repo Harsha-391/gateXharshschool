@@ -1,4 +1,4 @@
-import './StaffWorkReport.css';
+﻿import './StaffWorkReport.css';
 import React, { useState, useEffect } from 'react';
 import {
   FileText, ClipboardList, Send, Plus, X,
@@ -269,3 +269,4 @@ export default function StaffWorkReport({ showToast, userProfile }) {
     </div>
   );
 }
+

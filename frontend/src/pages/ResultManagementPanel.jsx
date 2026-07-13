@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+﻿import React, { useState, useEffect, useMemo, useRef } from 'react';
 import './ResultManagementPanel.css';
 import { createPortal } from 'react-dom';
 import { fetchActiveGrades } from '../utils/grades';
@@ -93,6 +93,7 @@ export default function ResultManagementPanel({ activeTab: propActiveTab = 'anal
   // Analytics Dashboard Filter States
   const [analyticsSession, setAnalyticsSession] = useState('2026-2027');
   const [analyticsClass, setAnalyticsClass] = useState('');
+  const [analyticsDepartment, setAnalyticsDepartment] = useState('');
   const [analyticsSection, setAnalyticsSection] = useState('All');
   const [analyticsExam, setAnalyticsExam] = useState('All');
 
@@ -189,14 +190,55 @@ export default function ResultManagementPanel({ activeTab: propActiveTab = 'anal
     }
   }, [allowedSections, selectedSection]);
 
+  const analyticsHasDepartments = useMemo(() => {
+    if (!analyticsClass) return false;
+    return activeGrades.some(g => g.gradeName === analyticsClass && g.departmentName);
+  }, [analyticsClass, activeGrades]);
+
+  const analyticsAvailableDepartments = useMemo(() => {
+    if (!analyticsClass) return [];
+    const depts = activeGrades
+      .filter(g => g.gradeName === analyticsClass && g.departmentName)
+      .map(g => g.departmentName);
+    return [...new Set(depts)].filter(Boolean);
+  }, [analyticsClass, activeGrades]);
+
+  // Handle department resetting on analytics class change
+  useEffect(() => {
+    if (analyticsClass) {
+      const hasDepts = activeGrades.some(g => g.gradeName === analyticsClass && g.departmentName);
+      if (hasDepts) {
+        const depts = activeGrades.filter(g => g.gradeName === analyticsClass && g.departmentName);
+        if (depts.length > 0) {
+          setAnalyticsDepartment(depts[0].departmentName);
+        } else {
+          setAnalyticsDepartment('');
+        }
+      } else {
+        setAnalyticsDepartment('');
+      }
+    } else {
+      setAnalyticsDepartment('');
+    }
+  }, [analyticsClass, activeGrades]);
+
+  const analyticsTargetClass = useMemo(() => {
+    if (!analyticsClass) return '';
+    const hasDepts = activeGrades.some(g => g.gradeName === analyticsClass && g.departmentName);
+    if (hasDepts && analyticsDepartment) {
+      return `${analyticsClass} (${analyticsDepartment})`;
+    }
+    return analyticsClass;
+  }, [analyticsClass, analyticsDepartment, activeGrades]);
+
   const analyticsAllowedSections = useMemo(() => {
     if (userProfile?.role === 'Teacher') {
       return teacherSectionName ? [teacherSectionName] : [];
     }
-    if (!analyticsClass) return [];
-    const matchedGrade = activeGrades.find(g => g.gradeName === analyticsClass || g.name === analyticsClass);
+    if (!analyticsTargetClass) return [];
+    const matchedGrade = activeGrades.find(g => g.name === analyticsTargetClass || g.gradeName === analyticsTargetClass);
     return matchedGrade ? (matchedGrade.sections || []) : [];
-  }, [analyticsClass, activeGrades, userProfile, teacherSectionName]);
+  }, [analyticsTargetClass, activeGrades, userProfile, teacherSectionName]);
 
   useEffect(() => {
     if (analyticsAllowedSections.length > 0) {
@@ -1006,16 +1048,15 @@ export default function ResultManagementPanel({ activeTab: propActiveTab = 'anal
   // Computations for Analytics Dashboard (SaaS Cumulative Grouping)
   const analyticsFilteredStudents = useMemo(() => {
     return students.filter(s => {
-      if (analyticsClass) {
-        const matchesClass = s.studentClass === analyticsClass || (s.studentClass && (s.studentClass.startsWith(`${analyticsClass}-`) || s.studentClass.startsWith(`${analyticsClass} `)));
-        if (!matchesClass) return false;
+      if (analyticsTargetClass) {
+        if (s.studentClass !== analyticsTargetClass) return false;
       }
       if (analyticsSection !== 'All' && s.section !== analyticsSection) {
         return false;
       }
       return true;
     });
-  }, [students, analyticsClass, analyticsSection]);
+  }, [students, analyticsTargetClass, analyticsSection]);
 
   const cumulativeStudentResults = useMemo(() => {
     return analyticsFilteredStudents.map(student => {
@@ -1746,8 +1787,8 @@ export default function ResultManagementPanel({ activeTab: propActiveTab = 'anal
             className={`tab-btn-custom ${activeTab === 'analytics' ? 'active' : ''}`}
             style={{
               display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px', borderRadius: '8px', fontSize: '0.85rem', fontWeight: 600, border: 'none', cursor: 'pointer',
-              background: activeTab === 'analytics' ? 'rgba(99,102,241,0.1)' : 'transparent',
-              color: activeTab === 'analytics' ? 'rgb(99,102,241)' : 'var(--text-muted)',
+              background: activeTab === 'analytics' ? 'rgba(255, 107, 0,0.1)' : 'transparent',
+              color: activeTab === 'analytics' ? 'rgb(255, 107, 0)' : 'var(--text-muted)',
               transition: 'all 0.2s ease'
             }}
           >
@@ -1761,8 +1802,8 @@ export default function ResultManagementPanel({ activeTab: propActiveTab = 'anal
             className={`tab-btn-custom ${activeTab === 'report-cards' ? 'active' : ''}`}
             style={{
               display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px', borderRadius: '8px', fontSize: '0.85rem', fontWeight: 600, border: 'none', cursor: 'pointer',
-              background: activeTab === 'report-cards' ? 'rgba(99,102,241,0.1)' : 'transparent',
-              color: activeTab === 'report-cards' ? 'rgb(99,102,241)' : 'var(--text-muted)',
+              background: activeTab === 'report-cards' ? 'rgba(255, 107, 0,0.1)' : 'transparent',
+              color: activeTab === 'report-cards' ? 'rgb(255, 107, 0)' : 'var(--text-muted)',
               transition: 'all 0.2s ease'
             }}
           >
@@ -1830,6 +1871,26 @@ export default function ResultManagementPanel({ activeTab: propActiveTab = 'anal
                     </select>
                   </div>
 
+                  {/* Department Selection (Only if class has departments) */}
+                  {analyticsHasDepartments && (
+                    <div style={{ minWidth: '180px', flex: 1 }} className="animate-scale-up">
+                      <select 
+                        className="select-custom" 
+                        style={{ width: '100%' }} 
+                        value={analyticsDepartment} 
+                        onChange={e => {
+                          setAnalyticsDepartment(e.target.value);
+                          setAnalyticsExam('All');
+                        }}
+                        disabled={userProfile?.role === 'Teacher'}
+                      >
+                        {analyticsAvailableDepartments.map(dept => (
+                          <option key={dept} value={dept}>{dept}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
                   {/* Section Selection */}
                   <div style={{ minWidth: '180px', flex: 1 }}>
                     <select 
@@ -1840,7 +1901,7 @@ export default function ResultManagementPanel({ activeTab: propActiveTab = 'anal
                         setAnalyticsSection(e.target.value);
                         setAnalyticsExam('All');
                       }} 
-                      disabled={!analyticsClass || userProfile?.role === 'Teacher'}
+                      disabled={!analyticsTargetClass || userProfile?.role === 'Teacher'}
                     >
                       {userProfile?.role !== 'Teacher' && <option value="All">All Sections</option>}
                       {analyticsAllowedSections.map(sec => (
@@ -1860,8 +1921,8 @@ export default function ResultManagementPanel({ activeTab: propActiveTab = 'anal
                       <option value="All">All Exams (Cumulative)</option>
                       {exams.filter(ex => {
                         if (ex.academicSession !== analyticsSession) return false;
-                        if (analyticsClass) {
-                          const matches = (ex.gradeSections || []).some(gs => gs.grade === analyticsClass && (analyticsSection === 'All' || gs.section === analyticsSection || !gs.section));
+                        if (analyticsTargetClass) {
+                          const matches = (ex.gradeSections || []).some(gs => gs.grade === analyticsTargetClass && (analyticsSection === 'All' || gs.section === analyticsSection || !gs.section));
                           if (!matches) return false;
                         }
                         return true;
@@ -1878,8 +1939,8 @@ export default function ResultManagementPanel({ activeTab: propActiveTab = 'anal
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '20px' }}>
                 
                 {/* KPI 1: Total Students */}
-                <div className="glass-panel" style={{ padding: '20px', display: 'flex', alignItems: 'center', gap: '16px', background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.05) 0%, rgba(99, 102, 241, 0.01) 100%)', borderLeft: '4px solid hsl(var(--color-primary))' }}>
-                  <div style={{ padding: '12px', background: 'rgba(99, 102, 241, 0.1)', color: 'hsl(var(--color-primary))', borderRadius: '12px' }}>
+                <div className="glass-panel" style={{ padding: '20px', display: 'flex', alignItems: 'center', gap: '16px', background: '#ffffff', borderLeft: '4px solid hsl(var(--color-primary))' }}>
+                  <div style={{ padding: '12px', background: 'rgba(255, 107, 0, 0.1)', color: 'hsl(var(--color-primary))', borderRadius: '12px' }}>
                     <Users size={24} />
                   </div>
                   <div>
@@ -1889,7 +1950,7 @@ export default function ResultManagementPanel({ activeTab: propActiveTab = 'anal
                 </div>
 
                 {/* KPI 2: Passed Students */}
-                <div className="glass-panel" style={{ padding: '20px', display: 'flex', alignItems: 'center', gap: '16px', background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.05) 0%, rgba(16, 185, 129, 0.01) 100%)', borderLeft: '4px solid #10b981' }}>
+                <div className="glass-panel" style={{ padding: '20px', display: 'flex', alignItems: 'center', gap: '16px', background: '#ffffff', borderLeft: '4px solid #10b981' }}>
                   <div style={{ padding: '12px', background: 'rgba(16, 185, 129, 0.1)', color: '#10b981', borderRadius: '12px' }}>
                     <Check size={24} />
                   </div>
@@ -1900,7 +1961,7 @@ export default function ResultManagementPanel({ activeTab: propActiveTab = 'anal
                 </div>
 
                 {/* KPI 3: Failed Students */}
-                <div className="glass-panel" style={{ padding: '20px', display: 'flex', alignItems: 'center', gap: '16px', background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.05) 0%, rgba(239, 68, 68, 0.01) 100%)', borderLeft: '4px solid #ef4444' }}>
+                <div className="glass-panel" style={{ padding: '20px', display: 'flex', alignItems: 'center', gap: '16px', background: '#ffffff', borderLeft: '4px solid #ef4444' }}>
                   <div style={{ padding: '12px', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', borderRadius: '12px' }}>
                     <AlertCircle size={24} />
                   </div>
@@ -1911,7 +1972,7 @@ export default function ResultManagementPanel({ activeTab: propActiveTab = 'anal
                 </div>
 
                 {/* KPI 4: Pass Rate */}
-                <div className="glass-panel" style={{ padding: '20px', display: 'flex', alignItems: 'center', gap: '16px', background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.05) 0%, rgba(59, 130, 246, 0.01) 100%)', borderLeft: '4px solid #3b82f6' }}>
+                <div className="glass-panel" style={{ padding: '20px', display: 'flex', alignItems: 'center', gap: '16px', background: '#ffffff', borderLeft: '4px solid #3b82f6' }}>
                   <div style={{ padding: '12px', background: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6', borderRadius: '12px' }}>
                     <TrendingUp size={24} />
                   </div>
@@ -1922,7 +1983,7 @@ export default function ResultManagementPanel({ activeTab: propActiveTab = 'anal
                 </div>
 
                 {/* KPI 5: Fail Rate */}
-                <div className="glass-panel" style={{ padding: '20px', display: 'flex', alignItems: 'center', gap: '16px', background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.05) 0%, rgba(239, 68, 68, 0.01) 100%)', borderLeft: '4px solid #f43f5e' }}>
+                <div className="glass-panel" style={{ padding: '20px', display: 'flex', alignItems: 'center', gap: '16px', background: '#ffffff', borderLeft: '4px solid #f43f5e' }}>
                   <div style={{ padding: '12px', background: 'rgba(239, 68, 68, 0.1)', color: '#f43f5e', borderRadius: '12px' }}>
                     <BarChart3 size={24} />
                   </div>
@@ -1984,17 +2045,17 @@ export default function ResultManagementPanel({ activeTab: propActiveTab = 'anal
                               <span style={{ width: '28px', height: '28px', borderRadius: '50%', background: rankColor, color: '#fff', fontSize: '0.8rem', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
                                 {idx + 1}
                               </span>
-                              <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: 'linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 100%)', color: '#4f46e5', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '0.8rem' }}>
+                              <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: 'linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 100%)', color: '#e07830', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '0.8rem' }}>
                                 {initials}
                               </div>
                               <div>
                                 <span style={{ fontWeight: 700, fontSize: '0.85rem', display: 'block', color: 'var(--text-main)' }}>{p.studentName}</span>
-                                <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>Roll: {p.roll} · Class: {p.cohort}</span>
+                                <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>Roll: {p.roll} Â· Class: {p.cohort}</span>
                               </div>
                             </div>
                             <div style={{ textAlign: 'right' }}>
                               <strong style={{ color: 'hsl(var(--color-primary))', fontSize: '0.95rem', display: 'block', fontWeight: 800 }}>{p.percentage}%</strong>
-                              <span style={{ fontSize: '0.74rem', background: 'rgba(99,102,241,0.08)', color: '#4f46e5', padding: '1px 6px', borderRadius: '4px', fontWeight: 600 }}>Grade {p.grade}</span>
+                              <span style={{ fontSize: '0.74rem', background: 'rgba(255, 107, 0,0.08)', color: '#e07830', padding: '1px 6px', borderRadius: '4px', fontWeight: 600 }}>Grade {p.grade}</span>
                             </div>
                           </div>
                         );
@@ -2251,9 +2312,9 @@ export default function ResultManagementPanel({ activeTab: propActiveTab = 'anal
                                                     display: 'inline-flex', 
                                                     alignItems: 'center', 
                                                     justifyContent: 'center',
-                                                    background: 'rgba(99, 102, 241, 0.08)',
+                                                    background: 'rgba(255, 107, 0, 0.08)',
                                                     color: 'hsl(var(--color-primary))',
-                                                    border: '1px solid rgba(99, 102, 241, 0.15)',
+                                                    border: '1px solid rgba(255, 107, 0, 0.15)',
                                                     opacity: isActionDisabled ? 0.5 : 1,
                                                     cursor: isActionDisabled ? 'not-allowed' : 'pointer'
                                                   }}
@@ -2517,7 +2578,7 @@ export default function ResultManagementPanel({ activeTab: propActiveTab = 'anal
                             >
                               <strong style={{ color: 'hsl(var(--color-primary))' }}>{student.name}</strong>
                               <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                                Roll {student.rollNumber || student.roll || '-'} · {displayGrade} ({student.section || 'A'})
+                                Roll {student.rollNumber || student.roll || '-'} Â· {displayGrade} ({student.section || 'A'})
                               </span>
                             </div>
                           );
@@ -2576,12 +2637,12 @@ export default function ResultManagementPanel({ activeTab: propActiveTab = 'anal
                           display: 'inline-flex',
                           alignItems: 'center',
                           gap: '6px',
-                          background: 'linear-gradient(135deg, hsl(var(--color-primary)) 0%, #4f46e5 100%)',
+                          background: 'linear-gradient(135deg, hsl(var(--color-primary)) 0%, #e07830 100%)',
                           border: 'none',
                           color: '#ffffff',
                           cursor: isBulkExporting ? 'not-allowed' : 'pointer',
                           fontWeight: 600,
-                          boxShadow: '0 2px 8px rgba(99, 102, 241, 0.2)'
+                          boxShadow: '0 2px 8px rgba(255, 107, 0, 0.2)'
                         }}
                         onClick={handleBulkPrintPDF}
                         disabled={isBulkExporting}
@@ -2631,7 +2692,7 @@ export default function ResultManagementPanel({ activeTab: propActiveTab = 'anal
                                 key={student.id} 
                                 style={{ 
                                   borderBottom: '1px solid var(--border-glass, rgba(0,0,0,0.05))',
-                                  background: isSelected ? 'rgba(99, 102, 241, 0.08)' : 'transparent',
+                                  background: isSelected ? 'rgba(255, 107, 0, 0.08)' : 'transparent',
                                   transition: 'background 0.2s ease'
                                 }}
                               >
@@ -2758,7 +2819,7 @@ export default function ResultManagementPanel({ activeTab: propActiveTab = 'anal
                           className="btn-danger-hover"
                           title="Close Live Preview"
                         >
-                          Close Preview ×
+                          Close Preview {"\u00d7"}
                         </button>
                       </div>
                       <div style={{ display: 'flex', gap: '8px' }}>
@@ -2771,12 +2832,12 @@ export default function ResultManagementPanel({ activeTab: propActiveTab = 'anal
                             display: 'inline-flex',
                             alignItems: 'center',
                             gap: '6px',
-                            background: 'linear-gradient(135deg, hsl(var(--color-primary)) 0%, #4f46e5 100%)',
+                            background: 'linear-gradient(135deg, hsl(var(--color-primary)) 0%, #e07830 100%)',
                             border: 'none',
                             color: '#ffffff',
                             cursor: 'pointer',
                             fontWeight: 600,
-                            boxShadow: '0 2px 8px rgba(99, 102, 241, 0.2)'
+                            boxShadow: '0 2px 8px rgba(255, 107, 0, 0.2)'
                           }}
                           onClick={() => handlePrint('printable-dynamic-report')}
                         >
@@ -2940,7 +3001,7 @@ export default function ResultManagementPanel({ activeTab: propActiveTab = 'anal
                           {student.studentName}
                         </strong>
                         <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                          Roll No {student.roll} · Grade {student.studentClass}-{student.section}
+                          Roll No {student.roll} Â· Grade {student.studentClass}-{student.section}
                         </span>
                       </div>
 
@@ -3022,10 +3083,10 @@ export default function ResultManagementPanel({ activeTab: propActiveTab = 'anal
                   Add/Edit Result: {activeStudentForModal.name}
                 </h3>
                 <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: '4px 0 0 0' }}>
-                  Roll Number: {activeStudentForModal.rollNumber || activeStudentForModal.roll || '-'} · Class {modalClass}-{modalSection}
+                  Roll Number: {activeStudentForModal.rollNumber || activeStudentForModal.roll || '-'} Â· Class {modalClass}-{modalSection}
                 </p>
               </div>
-              <button className="modal-close" onClick={() => { setActiveStudentForModal(null); setActiveExamForModal(null); setStudentHistoryExams([]); setHistorySelectedExam(null); }} style={{ fontSize: '1.5rem', lineHeight: 1 }}>×</button>
+              <button className="modal-close" onClick={() => { setActiveStudentForModal(null); setActiveExamForModal(null); setStudentHistoryExams([]); setHistorySelectedExam(null); }} style={{ fontSize: '1.5rem', lineHeight: 1 }}>{"\u00d7"}</button>
             </div>
             
             <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
@@ -3047,7 +3108,7 @@ export default function ResultManagementPanel({ activeTab: propActiveTab = 'anal
                   </select>
                 </div>
               )}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(99, 102, 241, 0.06)', border: '1px solid rgba(99, 102, 241, 0.15)', borderRadius: '10px', padding: '12px 16px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(255, 107, 0, 0.06)', border: '1px solid rgba(255, 107, 0, 0.15)', borderRadius: '10px', padding: '12px 16px' }}>
                 <div>
                   <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block' }}>Exam Target</span>
                   <strong style={{ fontSize: '0.9rem', color: 'hsl(var(--color-primary))' }}>
@@ -3299,7 +3360,7 @@ export default function ResultManagementPanel({ activeTab: propActiveTab = 'anal
           <div className="modal-content glass-panel" style={{ maxWidth: '500px', borderRadius: '16px', padding: '24px' }}>
             <div className="modal-header">
               <h3 style={{ fontSize: '1.1rem', fontWeight: 700 }}>CSV Bulk Scores Import</h3>
-              <button className="modal-close" onClick={() => { setShowBulkModal(false); setBulkInputText(''); }}>×</button>
+              <button className="modal-close" onClick={() => { setShowBulkModal(false); setBulkInputText(''); }}>{"\u00d7"}</button>
             </div>
             <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
               <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
@@ -3326,3 +3387,4 @@ export default function ResultManagementPanel({ activeTab: propActiveTab = 'anal
     </div>
   );
 }
+

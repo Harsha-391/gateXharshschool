@@ -1,4 +1,4 @@
-/* Overview Layout */
+﻿/* Overview Layout */
 .dashboard-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -326,3 +326,4 @@
 .search-item-hover:hover {
   background: rgba(var(--color-primary-rgb), 0.08) !important;
 }
+

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import './StaffPanel.css';
 import { 
   Users, 
@@ -677,7 +677,7 @@ export function MarkAttendanceView({ date, setDate, studentClass, setClass, sect
                         width: '38px',
                         height: '38px',
                         borderRadius: '50px',
-                        background: stu.photoBg || 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)',
+                        background: stu.photoBg || 'linear-gradient(135deg, #FF8C42 0%, #a855f7 100%)',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
@@ -713,8 +713,8 @@ export function MarkAttendanceView({ date, setDate, studentClass, setClass, sect
                         <span style={{ 
                           padding: '4px 8px', 
                           borderRadius: '6px', 
-                          background: 'rgba(99, 102, 241, 0.08)', 
-                          border: '1px solid rgba(99, 102, 241, 0.2)',
+                          background: 'rgba(255, 107, 0, 0.08)', 
+                          border: '1px solid rgba(255, 107, 0, 0.2)',
                           color: 'hsl(var(--color-primary))',
                           fontSize: '0.75rem',
                           fontWeight: 600
@@ -744,7 +744,7 @@ export function MarkAttendanceView({ date, setDate, studentClass, setClass, sect
                               opacity: 0.85
                             }}
                           >
-                            {stu.attendanceStatus} ✕
+                            {stu.attendanceStatus} ✖
                           </button>
                         ) : (
                           <>
@@ -856,9 +856,9 @@ export function MarkAttendanceView({ date, setDate, studentClass, setClass, sect
             disabled={saving || roster.length === 0}
             className="btn-primary"
             style={{ 
-              background: '#6366f1', 
+              background: '#FF8C42', 
               border: 'none', 
-              boxShadow: '0 4px 14px rgba(99, 102, 241, 0.3)',
+              boxShadow: '0 4px 14px rgba(255, 107, 0, 0.3)',
               display: 'flex',
               alignItems: 'center',
               gap: '8px',
@@ -1161,7 +1161,7 @@ export function AttendanceHistoryView({ date, showToast, userProfile }) {
           onClick={() => setActiveTab('all')}
           style={{
             padding: '8px 20px', borderRadius: '8px', cursor: 'pointer', fontWeight: 700, fontSize: '0.85rem',
-            background: activeTab === 'all' ? '#6366f1' : 'rgba(255,255,255,0.03)',
+            background: activeTab === 'all' ? '#FF8C42' : 'rgba(255,255,255,0.03)',
             color: activeTab === 'all' ? '#fff' : 'var(--text-muted)',
             border: activeTab === 'all' ? 'none' : '1px solid var(--border-glass)'
           }}
@@ -1365,8 +1365,8 @@ export function AttendanceHistoryView({ date, showToast, userProfile }) {
                         <span style={{ 
                           padding: '4px 8px', 
                           borderRadius: '6px', 
-                          background: 'rgba(99, 102, 241, 0.08)', 
-                          border: '1px solid rgba(99, 102, 241, 0.2)',
+                          background: 'rgba(255, 107, 0, 0.08)', 
+                          border: '1px solid rgba(255, 107, 0, 0.2)',
                           color: 'hsl(var(--color-primary))',
                           fontSize: '0.75rem',
                           fontWeight: 600
@@ -1460,8 +1460,8 @@ export function AttendanceHistoryView({ date, showToast, userProfile }) {
             disabled={saving}
             className="btn-primary"
             style={{ 
-              background: '#6366f1', border: 'none', 
-              boxShadow: '0 4px 14px rgba(99, 102, 241, 0.3)',
+              background: '#FF8C42', border: 'none', 
+              boxShadow: '0 4px 14px rgba(255, 107, 0, 0.3)',
               display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 24px', borderRadius: '8px', fontWeight: 700
             }}
           >
@@ -2723,4 +2723,5 @@ export function YearlyAttendanceView({ showToast }) {
     </div>
   );
 }
+
 

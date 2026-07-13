@@ -1168,6 +1168,7 @@ const applySchemaUpdates = async (pool, isMaster = false, tenantId = null) => {
       "ALTER TABLE fee_structures ADD COLUMN totalFee DECIMAL(10,2) DEFAULT 0.00",
       "ALTER TABLE fee_structures ADD COLUMN monthRange VARCHAR(100) DEFAULT NULL",
       "CREATE TABLE IF NOT EXISTS designations (id VARCHAR(50) PRIMARY KEY, name VARCHAR(100) NOT NULL, status VARCHAR(50) DEFAULT 'Active', createdAt VARCHAR(100), updatedAt VARCHAR(100), tenantId VARCHAR(100))",
+      "CREATE TABLE IF NOT EXISTS staff_designations (id VARCHAR(50) PRIMARY KEY, name VARCHAR(100) NOT NULL, status VARCHAR(50) DEFAULT 'Active', createdAt VARCHAR(100), updatedAt VARCHAR(100), tenantId VARCHAR(100))",
       "ALTER TABLE events ADD COLUMN status VARCHAR(50) DEFAULT 'Scheduled'",
       "ALTER TABLE events ADD COLUMN type VARCHAR(100)",
       "ALTER TABLE events ADD COLUMN organizer VARCHAR(100)",
@@ -1904,6 +1905,26 @@ export const loadTenantSqlIntoMemory = async (tenantId) => {
     const tId = queryTenantId;
 
     return await tenantStorage.run(tId, async () => {
+      // Ensure notifications table exists in this database
+      try {
+        const pool = sqlDb.getPoolForTenant(tId);
+        await pool.query(`
+          CREATE TABLE IF NOT EXISTS notifications (
+            id VARCHAR(50) PRIMARY KEY,
+            title VARCHAR(255) NOT NULL,
+            message TEXT NOT NULL,
+            type VARCHAR(50) NOT NULL,
+            recipientId VARCHAR(50) NULL,
+            recipientRole VARCHAR(50) NULL,
+            \`read\` TINYINT DEFAULT 0,
+            createdAt VARCHAR(100) NOT NULL,
+            tenantId VARCHAR(100) NOT NULL
+          )
+        `);
+      } catch (err) {
+        console.error(`[SQL Init WARNING] Failed to create notifications table for tenant ${tId}:`, err.message);
+      }
+
       if (!isGlobal) {
         const pool = sqlDb.getPoolForTenant(tId);
         const schoolAlters = [
@@ -2019,6 +2040,7 @@ export const loadTenantSqlIntoMemory = async (tenantId) => {
       dbGradeDepts,
       dbFeePeriods,
       dbDesignations,
+      dbStaffDesignations,
       dbAttSettings,
       dbReportCardTemplates
     ] = await Promise.all([
@@ -2074,6 +2096,7 @@ export const loadTenantSqlIntoMemory = async (tenantId) => {
       sqlDb.query('SELECT * FROM grade_departments WHERE tenantId = ?', [tId]),
       sqlDb.query('SELECT * FROM fee_periods WHERE tenantId = ? ORDER BY sortOrder', [tId]),
       !isGlobal ? sqlDb.query('SELECT * FROM designations WHERE tenantId = ?', [tId]) : Promise.resolve([]),
+      !isGlobal ? sqlDb.query('SELECT * FROM staff_designations WHERE tenantId = ?', [tId]) : Promise.resolve([]),
       sqlDb.query('SELECT * FROM attendance_settings WHERE tenantId = ?', [tId]),
       !isGlobal ? sqlDb.query('SELECT * FROM report_card_templates WHERE tenantId = ?', [tId]) : Promise.resolve([])
     ]);
@@ -2679,6 +2702,11 @@ export const loadTenantSqlIntoMemory = async (tenantId) => {
     }));
 
     data.designations = dbDesignations.map(d => ({
+      ...d,
+      status: d.status || 'Active'
+    }));
+
+    data.staffDesignations = dbStaffDesignations.map(d => ({
       ...d,
       status: d.status || 'Active'
     }));
@@ -4171,6 +4199,25 @@ export const saveMemoryDbToSql = async (tenantId, db, changedKeys, newUpdatedAt)
         })());
       }
 
+      // Sync central staffDesignations
+      if (db.staffDesignations && Array.isArray(db.staffDesignations) && hasTableChanged('staffDesignations')) {
+        tasks.push((async () => {
+          const activeDesigIds = db.staffDesignations.map(d => d.id).filter(Boolean);
+          if (activeDesigIds.length > 0) {
+            await sqlDb.query(`DELETE FROM staff_designations WHERE tenantId = ? AND id NOT IN (${activeDesigIds.map(() => '?').join(',')})`, [tId, ...activeDesigIds]);
+          } else {
+            await sqlDb.query('DELETE FROM staff_designations WHERE tenantId = ?', [tId]);
+          }
+
+          const columns = ['id', 'name', 'status', 'createdAt', 'updatedAt', 'tenantId'];
+          const updateColumns = ['name', 'status', 'updatedAt'];
+          const valueRows = db.staffDesignations.filter(d => d.id).map(d => [
+            d.id, d.name, d.status || 'Active', d.createdAt || new Date().toISOString(), d.updatedAt || new Date().toISOString(), tId
+          ]);
+          await bulkInsertOrUpdate('staff_designations', columns, valueRows, updateColumns);
+        })());
+      }
+
       // Sync attendance settings
       if (db.attendanceSettings && Array.isArray(db.attendanceSettings) && hasTableChanged('attendanceSettings')) {
         tasks.push((async () => {
@@ -4395,7 +4442,7 @@ export const readDb = () => {
     attendance: [], userAccess: [], auditLogs: [], employeeQrCodes: [],
     attendanceRecords: [], attendanceLogs: [], attendanceReports: [],
     academicCalendarEvents: [], academicCalendarImports: [], publishedCalendarEvents: [],
-    grades: [], departments: [], designations: [], gradeDepartments: [],
+    grades: [], departments: [], designations: [], staffDesignations: [], gradeDepartments: [],
     sections: [], publishedClassTimetables: [], publishedTeacherTimetables: [],
     attendanceSettings: [], reportCardTemplates: [], subscriptionPlans: []
   };
@@ -4434,7 +4481,7 @@ export const writeDb = (data) => {
       'attendance', 'roles', 'userAccess', 'auditLogs', 'employeeQrCodes',
       'attendanceRecords', 'attendanceLogs', 'attendanceReports',
       'academicCalendarEvents', 'academicCalendarImports',
-      'publishedCalendarEvents', 'grades', 'departments', 'designations', 'gradeDepartments',
+      'publishedCalendarEvents', 'grades', 'departments', 'designations', 'staffDesignations', 'gradeDepartments',
       'sections', 'publishedClassTimetables', 'publishedTeacherTimetables', 'attendanceSettings'
     ];
 

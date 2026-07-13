@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import './AdminAttendanceViews.css';
 import { 
   Search, 
@@ -468,7 +468,7 @@ export function MarkAttendanceView({ date, setDate, studentClass, setClass, sect
                         width: '38px',
                         height: '38px',
                         borderRadius: '50px',
-                        background: stu.photoBg || 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)',
+                        background: stu.photoBg || 'linear-gradient(135deg, #FF8C42 0%, #a855f7 100%)',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
@@ -504,8 +504,8 @@ export function MarkAttendanceView({ date, setDate, studentClass, setClass, sect
                         <span style={{ 
                           padding: '4px 8px', 
                           borderRadius: '6px', 
-                          background: 'rgba(99, 102, 241, 0.08)', 
-                          border: '1px solid rgba(99, 102, 241, 0.2)',
+                          background: 'rgba(255, 107, 0, 0.08)', 
+                          border: '1px solid rgba(255, 107, 0, 0.2)',
                           color: 'hsl(var(--color-primary))',
                           fontSize: '0.75rem',
                           fontWeight: 600
@@ -700,8 +700,8 @@ export function MarkAttendanceView({ date, setDate, studentClass, setClass, sect
                             style={{
                               padding: '5px 14px',
                               borderRadius: '6px',
-                              background: 'rgba(99, 102, 241, 0.08)',
-                              border: '1px solid rgba(99, 102, 241, 0.2)',
+                              background: 'rgba(255, 107, 0, 0.08)',
+                              border: '1px solid rgba(255, 107, 0, 0.2)',
                               color: 'hsl(var(--color-primary))',
                               fontSize: '0.75rem',
                               fontWeight: 700,
@@ -1122,7 +1122,7 @@ export function AttendanceHistoryView({ date, showToast, userProfile }) {
                         width: '38px',
                         height: '38px',
                         borderRadius: '50px',
-                        background: stu.photoBg || 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)',
+                        background: stu.photoBg || 'linear-gradient(135deg, #FF8C42 0%, #a855f7 100%)',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
@@ -1158,8 +1158,8 @@ export function AttendanceHistoryView({ date, showToast, userProfile }) {
                         <span style={{ 
                           padding: '4px 8px', 
                           borderRadius: '6px', 
-                          background: 'rgba(99, 102, 241, 0.08)', 
-                          border: '1px solid rgba(99, 102, 241, 0.2)',
+                          background: 'rgba(255, 107, 0, 0.08)', 
+                          border: '1px solid rgba(255, 107, 0, 0.2)',
                           color: 'hsl(var(--color-primary))',
                           fontSize: '0.75rem',
                           fontWeight: 600
@@ -1192,3 +1192,4 @@ export function AttendanceHistoryView({ date, showToast, userProfile }) {
     </div>
   );
 }
+

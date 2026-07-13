@@ -1,4 +1,4 @@
-import './StaffLeaveManagement.css';
+﻿import './StaffLeaveManagement.css';
 import React, { useState, useEffect } from 'react';
 import { 
   Check, 
@@ -288,7 +288,13 @@ export default function StaffLeaveManagement({ showToast }) {
             <input
               type="date"
               value={fromDate}
-              onChange={e => setFromDate(e.target.value)}
+              onChange={e => {
+                const val = e.target.value;
+                setFromDate(val);
+                if (toDate && val > toDate) {
+                  setToDate(val);
+                }
+              }}
               style={{ padding: '6px 8px', borderRadius: '6px', border: '1px solid var(--border-glass)', background: 'var(--bg-card)', color: 'inherit' }}
             />
           </div>
@@ -299,6 +305,7 @@ export default function StaffLeaveManagement({ showToast }) {
               type="date"
               value={toDate}
               onChange={e => setToDate(e.target.value)}
+              min={fromDate}
               style={{ padding: '6px 8px', borderRadius: '6px', border: '1px solid var(--border-glass)', background: 'var(--bg-card)', color: 'inherit' }}
             />
           </div>
@@ -500,3 +507,4 @@ export default function StaffLeaveManagement({ showToast }) {
     </div>
   );
 }
+

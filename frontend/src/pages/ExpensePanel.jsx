@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import './ExpensePanel.css';
 import {
   LayoutDashboard, DollarSign, Wallet, ClipboardList, BarChart3, Bell, CheckCircle,
@@ -2813,3 +2813,4 @@ function HistoryView({ expenses, expenseHistory, fetchExpenses, showToast, budge
     </div>
   );
 }
+

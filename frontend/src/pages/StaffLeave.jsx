@@ -1,4 +1,4 @@
-import './StaffLeave.css';
+﻿import './StaffLeave.css';
 import React, { useState, useEffect } from 'react';
 import { 
   Calendar, 
@@ -406,7 +406,7 @@ export default function StaffLeave({ showToast, userProfile }) {
             <h3 style={{ margin: '6px 0 2px 0', fontSize: '1.8rem', fontWeight: 800, color: 'var(--text-main)' }}>{totalUsed}</h3>
             <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Approved days taken</span>
           </div>
-          <div style={{ padding: '12px', borderRadius: '12px', background: 'rgba(99, 102, 241, 0.1)', color: '#6366f1' }}>
+          <div style={{ padding: '12px', borderRadius: '12px', background: 'rgba(255, 107, 0, 0.1)', color: '#FF8C42' }}>
             <Clock size={22} />
           </div>
         </div>
@@ -690,7 +690,7 @@ export default function StaffLeave({ showToast, userProfile }) {
                       {h.startDate} {h.endDate !== h.startDate ? `to ${h.endDate}` : ''}
                     </div>
                   </div>
-                  <span style={{ fontSize: '0.68rem', background: 'rgba(99,102,241,0.08)', color: '#6366f1', padding: '2px 8px', borderRadius: '10px', fontWeight: 700 }}>
+                  <span style={{ fontSize: '0.68rem', background: 'rgba(255, 107, 0,0.08)', color: '#FF8C42', padding: '2px 8px', borderRadius: '10px', fontWeight: 700 }}>
                     {h.type || 'Holiday'}
                   </span>
                 </div>
@@ -777,7 +777,11 @@ export default function StaffLeave({ showToast, userProfile }) {
                     type="date"
                     required
                     value={form.fromDate}
-                    onChange={e => setForm({ ...form, fromDate: e.target.value })}
+                    onChange={e => {
+                      const val = e.target.value;
+                      const nextToDate = (form.toDate && val > form.toDate) ? val : form.toDate;
+                      setForm({ ...form, fromDate: val, toDate: nextToDate });
+                    }}
                     style={{ padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#f8fafc', color: '#000000', fontSize: '0.86rem' }}
                   />
                 </div>
@@ -789,6 +793,7 @@ export default function StaffLeave({ showToast, userProfile }) {
                     required
                     disabled={form.halfDay}
                     value={form.halfDay ? form.fromDate : form.toDate}
+                    min={form.fromDate}
                     onChange={e => setForm({ ...form, toDate: e.target.value })}
                     style={{ padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', background: form.halfDay ? '#e2e8f0' : '#f8fafc', color: '#000000', fontSize: '0.86rem' }}
                   />
@@ -923,3 +928,4 @@ export default function StaffLeave({ showToast, userProfile }) {
     </div>
   );
 }
+

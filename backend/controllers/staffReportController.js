@@ -25,6 +25,19 @@ export const submitReport = async (req, res) => {
     invalidateTenantCache(tenantId);
     logAudit('Submit Report', 'Staff Report', `Submitted ${reportType} report: ${title}`, req);
 
+    try {
+      const staffRows = await sqlDb.query('SELECT name FROM staff WHERE id = ? AND tenantId = ?', [staffId, tenantId]);
+      const staffName = staffRows && staffRows[0] ? staffRows[0].name : (req.admin.username || 'Staff');
+      const notifId = `NT-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
+      await sqlDb.query(
+        `INSERT INTO notifications (id, title, message, type, recipientId, recipientRole, \`read\`, createdAt, tenantId)
+         VALUES (?, ?, ?, 'task_submission', NULL, 'main admin', 0, ?, ?)`,
+        [notifId, 'Task Submitted', `${staffName} (Staff) submitted a task report: "${title}".`, new Date().toISOString(), tenantId]
+      );
+    } catch (errNotif) {
+      console.error('Error creating task report submission notification:', errNotif.message);
+    }
+
     res.json({ success: true, message: 'Report submitted successfully.', id: reportId });
   } catch (err) {
     console.error('[Staff Report Submit Error]', err);

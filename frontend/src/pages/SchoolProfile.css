@@ -1,4 +1,4 @@
-/* School Profile (Platform Admin) Page SaaS Styling */
+﻿/* School Profile (Platform Admin) Page SaaS Styling */
 
 /* Overwrite hardcoded white backgrounds in modals and result card boxes for Dark Theme compatibility */
 [data-theme='dark'] div[style*="background: '#ffffff'"],
@@ -55,3 +55,4 @@
   color: hsl(var(--color-primary));
   border: 1px solid rgba(hsl(var(--color-primary)), 0.2);
 }
+

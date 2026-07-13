@@ -1,4 +1,4 @@
-import './LeaveManagement.css';
+﻿import './LeaveManagement.css';
 import React, { useState, useEffect } from 'react';
 import { 
   FileSpreadsheet, 
@@ -281,7 +281,7 @@ export default function LeaveManagement({ showToast }) {
             display: 'flex', alignItems: 'center', gap: '8px',
             padding: '8px 20px', borderRadius: '8px', border: 'none',
             background: roleTab === 'teacher' ? '#ffffff' : 'transparent',
-            color: roleTab === 'teacher' ? '#2563eb' : '#475569',
+            color: roleTab === 'teacher' ? '#FF8C42' : '#475569',
             fontWeight: 700, fontSize: '0.88rem', cursor: 'pointer',
             boxShadow: roleTab === 'teacher' ? '0 2px 8px rgba(0,0,0,0.06)' : 'none',
             transition: 'all 0.15s ease'
@@ -296,7 +296,7 @@ export default function LeaveManagement({ showToast }) {
             display: 'flex', alignItems: 'center', gap: '8px',
             padding: '8px 20px', borderRadius: '8px', border: 'none',
             background: roleTab === 'staff' ? '#ffffff' : 'transparent',
-            color: roleTab === 'staff' ? '#2563eb' : '#475569',
+            color: roleTab === 'staff' ? '#FF8C42' : '#475569',
             fontWeight: 700, fontSize: '0.88rem', cursor: 'pointer',
             boxShadow: roleTab === 'staff' ? '0 2px 8px rgba(0,0,0,0.06)' : 'none',
             transition: 'all 0.15s ease'
@@ -312,7 +312,7 @@ export default function LeaveManagement({ showToast }) {
         
         {/* Card 1: Total */}
         <div style={{ background: '#ffffff', border: '1px solid #cbd5e1', borderRadius: '16px', padding: '20px', display: 'flex', alignItems: 'center', gap: '16px', boxShadow: '0 2px 10px rgba(0,0,0,0.01)' }}>
-          <div style={{ width: '46px', height: '46px', borderRadius: '12px', background: 'rgba(99,102,241,0.1)', color: '#6366f1', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+          <div style={{ width: '46px', height: '46px', borderRadius: '12px', background: 'rgba(255, 107, 0,0.1)', color: '#FF8C42', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
             <ClipboardList size={22} />
           </div>
           <div>
@@ -404,7 +404,7 @@ export default function LeaveManagement({ showToast }) {
                   setFromDate('');
                   setToDate('');
                 }}
-                style={{ background: 'none', border: 'none', color: '#2563eb', fontWeight: 700, fontSize: '0.84rem', cursor: 'pointer' }}
+                style={{ background: 'none', border: 'none', color: '#FF8C42', fontWeight: 700, fontSize: '0.84rem', cursor: 'pointer' }}
               >
                 Clear Filters
               </button>
@@ -464,7 +464,13 @@ export default function LeaveManagement({ showToast }) {
                   <input 
                     type="date"
                     value={fromDate}
-                    onChange={e => setFromDate(e.target.value)}
+                    onChange={e => {
+                      const val = e.target.value;
+                      setFromDate(val);
+                      if (toDate && val > toDate) {
+                        setToDate(val);
+                      }
+                    }}
                     style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#f8fafc', fontSize: '0.8rem', color: '#000000' }}
                   />
                   <span style={{ fontSize: '0.8rem', color: '#64748b' }}>to</span>
@@ -472,6 +478,7 @@ export default function LeaveManagement({ showToast }) {
                     type="date"
                     value={toDate}
                     onChange={e => setToDate(e.target.value)}
+                    min={fromDate}
                     style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#f8fafc', fontSize: '0.8rem', color: '#000000' }}
                   />
                 </div>
@@ -492,14 +499,14 @@ export default function LeaveManagement({ showToast }) {
                   style={{
                     display: 'flex', alignItems: 'center', gap: '6px',
                     padding: '8px 16px', borderRadius: '8px', border: 'none',
-                    background: tableTab === 'pending' ? 'rgba(37,99,235,0.08)' : 'transparent',
-                    color: tableTab === 'pending' ? '#2563eb' : '#64748b',
+                    background: tableTab === 'pending' ? 'rgba(255,140,66,0.08)' : 'transparent',
+                    color: tableTab === 'pending' ? '#FF8C42' : '#64748b',
                     fontWeight: 700, fontSize: '0.84rem', cursor: 'pointer',
                     transition: 'all 0.15s ease'
                   }}
                 >
                   Pending Requests
-                  <span style={{ padding: '2px 6px', borderRadius: '10px', background: tableTab === 'pending' ? '#2563eb' : '#e2e8f0', color: tableTab === 'pending' ? '#ffffff' : '#475569', fontSize: '0.7rem', fontWeight: 800 }}>
+                  <span style={{ padding: '2px 6px', borderRadius: '10px', background: tableTab === 'pending' ? '#FF8C42' : '#e2e8f0', color: tableTab === 'pending' ? '#ffffff' : '#475569', fontSize: '0.7rem', fontWeight: 800 }}>
                     {leaves.filter(l => l.status === 'Pending').length}
                   </span>
                 </button>
@@ -543,14 +550,14 @@ export default function LeaveManagement({ showToast }) {
                   style={{
                     display: 'flex', alignItems: 'center', gap: '6px',
                     padding: '8px 16px', borderRadius: '8px', border: 'none',
-                    background: tableTab === 'today' ? 'rgba(59,130,246,0.08)' : 'transparent',
-                    color: tableTab === 'today' ? '#3b82f6' : '#64748b',
+                    background: tableTab === 'today' ? 'rgba(255,140,66,0.08)' : 'transparent',
+                    color: tableTab === 'today' ? '#FF8C42' : '#64748b',
                     fontWeight: 700, fontSize: '0.84rem', cursor: 'pointer',
                     transition: 'all 0.15s ease'
                   }}
                 >
                   On Leave Today
-                  <span style={{ padding: '2px 6px', borderRadius: '10px', background: tableTab === 'today' ? '#3b82f6' : '#e2e8f0', color: tableTab === 'today' ? '#ffffff' : '#475569', fontSize: '0.7rem', fontWeight: 800 }}>
+                  <span style={{ padding: '2px 6px', borderRadius: '10px', background: tableTab === 'today' ? '#FF8C42' : '#e2e8f0', color: tableTab === 'today' ? '#ffffff' : '#475569', fontSize: '0.7rem', fontWeight: 800 }}>
                     {onLeaveTodayCount}
                   </span>
                 </button>
@@ -613,7 +620,7 @@ export default function LeaveManagement({ showToast }) {
                     setFromDate('');
                     setToDate('');
                   }}
-                  style={{ padding: '8px 16px', borderRadius: '8px', border: 'none', background: '#2563eb', color: '#ffffff', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer', marginTop: '4px' }}
+                  style={{ padding: '8px 16px', borderRadius: '8px', border: 'none', background: '#FF8C42', color: '#ffffff', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer', marginTop: '4px' }}
                 >
                   Clear Filters
                 </button>
@@ -796,7 +803,7 @@ export default function LeaveManagement({ showToast }) {
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #e2e8f0', paddingBottom: '12px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <SettingsIcon size={20} style={{ color: '#2563eb' }} />
+                <SettingsIcon size={20} style={{ color: '#FF8C42' }} />
                 <span style={{ fontSize: '1.1rem', fontWeight: 800, color: '#0f172a' }}>
                   Active {roleTab === 'teacher' ? 'Teacher' : 'Staff'} Policies
                 </span>
@@ -819,7 +826,7 @@ export default function LeaveManagement({ showToast }) {
                   <div key={p.id} style={{ padding: '12px 14px', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#f8fafc' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <span style={{ fontWeight: 700, fontSize: '0.88rem' }}>{p.leaveType} ({p.leaveCode})</span>
-                      <span style={{ fontWeight: 800, color: '#2563eb', fontSize: '0.88rem' }}>{p.maxDays} Days</span>
+                      <span style={{ fontWeight: 800, color: '#FF8C42', fontSize: '0.88rem' }}>{p.maxDays} Days</span>
                     </div>
                     {p.description && <p style={{ margin: '4px 0 0 0', fontSize: '0.78rem', color: '#64748b' }}>{p.description}</p>}
                     <div style={{ display: 'flex', gap: '8px', marginTop: '6px', fontSize: '0.72rem' }}>
@@ -840,7 +847,7 @@ export default function LeaveManagement({ showToast }) {
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '10px' }}>
               <button 
                 onClick={() => setShowPolicyModal(false)}
-                style={{ padding: '8px 20px', borderRadius: '8px', border: 'none', background: '#2563eb', color: '#ffffff', fontWeight: 700, fontSize: '0.8rem', cursor: 'pointer' }}
+                style={{ padding: '8px 20px', borderRadius: '8px', border: 'none', background: '#FF8C42', color: '#ffffff', fontWeight: 700, fontSize: '0.8rem', cursor: 'pointer' }}
               >
                 Close View
               </button>
@@ -853,3 +860,4 @@ export default function LeaveManagement({ showToast }) {
     </div>
   );
 }
+

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import './Academics.css';
 import { createPortal } from 'react-dom';
 import { 
@@ -431,3 +431,4 @@ export default function Academics() {
     </div>
   );
 }
+

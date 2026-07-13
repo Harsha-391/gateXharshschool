@@ -1,4 +1,4 @@
-/* Student Directory Styling Overrides for SaaS Visuals */
+﻿/* Student Directory Styling Overrides for SaaS Visuals */
 
 /* Overwrite hardcoded white backgrounds in modals and result card boxes for Dark Theme compatibility */
 [data-theme='dark'] div[style*="background: '#ffffff'"],
@@ -43,3 +43,4 @@
   color: hsl(var(--color-primary)) !important;
   border-color: rgba(hsl(var(--color-primary)), 0.35) !important;
 }
+

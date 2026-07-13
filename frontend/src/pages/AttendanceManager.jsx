@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+﻿import React, { useState, useEffect, useRef } from 'react';
 import './AttendanceManager.css';
 import jsQR from 'jsqr';
 import { 
@@ -667,9 +667,9 @@ export default function AttendanceManager() {
               display: 'flex',
               alignItems: 'center',
               gap: '6px',
-              background: 'linear-gradient(135deg, hsl(var(--color-primary)) 0%, #4f46e5 100%)',
+              background: 'linear-gradient(135deg, hsl(var(--color-primary)) 0%, #e07830 100%)',
               border: 'none',
-              boxShadow: '0 4px 12px rgba(99, 102, 241, 0.25)'
+              boxShadow: '0 4px 12px rgba(255, 107, 0, 0.25)'
             }}
           >
             <Clock size={16} />
@@ -1147,7 +1147,7 @@ export default function AttendanceManager() {
                               setShowEditModal(true);
                             }}
                             style={{
-                              background: 'rgba(99, 102, 241, 0.1)',
+                              background: 'rgba(255, 107, 0, 0.1)',
                               border: 'none',
                               color: 'hsl(var(--color-primary))',
                               padding: '6px',
@@ -1247,7 +1247,13 @@ export default function AttendanceManager() {
                   type="date"
                   className="select-custom"
                   value={filterStartDate}
-                  onChange={(e) => setFilterStartDate(e.target.value)}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setFilterStartDate(val);
+                    if (filterEndDate && val > filterEndDate) {
+                      setFilterEndDate(val);
+                    }
+                  }}
                   style={{ height: '36px', borderRadius: '8px', padding: '0 8px', fontSize: '0.8rem', width: '130px', color: 'var(--text-main)', background: 'var(--bg-glass)', border: '1px solid var(--border-glass)' }}
                 />
               </div>
@@ -1259,6 +1265,7 @@ export default function AttendanceManager() {
                   className="select-custom"
                   value={filterEndDate}
                   onChange={(e) => setFilterEndDate(e.target.value)}
+                  min={filterStartDate}
                   style={{ height: '36px', borderRadius: '8px', padding: '0 8px', fontSize: '0.8rem', width: '130px', color: 'var(--text-main)', background: 'var(--bg-glass)', border: '1px solid var(--border-glass)' }}
                 />
               </div>
@@ -1338,7 +1345,7 @@ export default function AttendanceManager() {
                               setShowEditModal(true);
                             }}
                             style={{
-                              background: 'rgba(99, 102, 241, 0.1)',
+                              background: 'rgba(255, 107, 0, 0.1)',
                               border: 'none',
                               color: 'hsl(var(--color-primary))',
                               padding: '6px',
@@ -1582,3 +1589,4 @@ export default function AttendanceManager() {
     </div>
   );
 }
+

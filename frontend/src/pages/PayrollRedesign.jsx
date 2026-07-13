@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+﻿import React, { useState, useEffect, useRef } from 'react';
 import './PayrollRedesign.css';
 import { 
   DollarSign, Users, UserCheck, UserCog, History, Plus, Search, Settings, 
@@ -206,8 +206,8 @@ export function PayrollHubRedesign({ type, showToast }) {
                 padding: '14px 4px',
                 background: 'none',
                 border: 'none',
-                borderBottom: active ? '3px solid #4f46e5' : '3px solid transparent',
-                color: active ? '#4f46e5' : '#475569',
+                borderBottom: active ? '3px solid #e07830' : '3px solid transparent',
+                color: active ? '#e07830' : '#475569',
                 fontWeight: active ? 700 : 500,
                 cursor: 'pointer',
                 fontSize: '0.96rem',
@@ -360,7 +360,7 @@ function SalaryConfigurationTab({ directoryData, loading, searchQuery, setSearch
             borderRadius: '8px',
             background: '#e0e7ff',
             border: 'none',
-            color: '#4f46e5',
+            color: '#e07830',
             cursor: 'pointer',
             fontWeight: 700,
             fontSize: '0.85rem',
@@ -639,7 +639,7 @@ function PaymentsTab({ directoryData, loading, onPaySalary, showToast, type, all
         
         <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#0f172a' }}>
-            <Calendar size={18} style={{ color: '#4f46e5' }} />
+            <Calendar size={18} style={{ color: '#e07830' }} />
             <span style={{ fontWeight: 700 }}>Period:</span>
           </div>
           <select 
@@ -946,7 +946,7 @@ function SalaryConfigurationDrawer({ employee, onClose, onSave, revisionHistory,
           <div style={{ background: '#f1f5f9', border: '1px solid #cbd5e1', padding: '20px', borderRadius: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
               <div style={{ fontSize: '0.85rem', color: '#475569', fontWeight: 700 }}>Monthly Take-home Salary (Net)</div>
-              <div style={{ fontSize: '1.65rem', fontWeight: 800, color: '#4f46e5' }}>{formatCurrency(netSalary)}</div>
+              <div style={{ fontSize: '1.65rem', fontWeight: 800, color: '#e07830' }}>{formatCurrency(netSalary)}</div>
             </div>
             <button
               type="submit"
@@ -954,7 +954,7 @@ function SalaryConfigurationDrawer({ employee, onClose, onSave, revisionHistory,
               style={{
                 padding: '14px 28px',
                 borderRadius: '8px',
-                background: '#4f46e5',
+                background: '#e07830',
                 border: 'none',
                 color: '#ffffff',
                 fontWeight: 700,
@@ -963,7 +963,7 @@ function SalaryConfigurationDrawer({ employee, onClose, onSave, revisionHistory,
                 display: 'flex',
                 alignItems: 'center',
                 gap: '8px',
-                boxShadow: '0 4px 6px -1px rgba(79, 70, 229, 0.2)'
+                boxShadow: '0 4px 6px -1px rgba(224, 94, 0, 0.2)'
               }}
             >
               {submitting ? 'Saving...' : 'Save Configuration'}
@@ -1092,7 +1092,7 @@ function PayrollDashboardRedesign({ type, showToast }) {
         <div style={{ fontWeight: 705, color: '#64748b' }}>{error || 'Failed to load dashboard metrics'}</div>
         <button 
           onClick={fetchMetrics}
-          style={{ padding: '10px 20px', background: '#4f46e5', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 700 }}
+          style={{ padding: '10px 20px', background: '#e07830', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 700 }}
         >
           Retry
         </button>
@@ -1110,11 +1110,11 @@ function PayrollDashboardRedesign({ type, showToast }) {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
-        background: 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)',
+        background: 'linear-gradient(135deg, #e07830 0%, #7c3aed 100%)',
         padding: '14px 22px',
         borderRadius: '14px',
         color: '#fff',
-        boxShadow: '0 4px 16px rgba(79,70,229,0.25)'
+        boxShadow: '0 4px 16px rgba(224, 94, 0,0.25)'
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <Calendar size={20} style={{ opacity: 0.9 }} />
@@ -1145,10 +1145,10 @@ function PayrollDashboardRedesign({ type, showToast }) {
                 cursor: 'pointer',
                 border: selectedRole === r ? 'none' : '1px solid #cbd5e1',
                 background: selectedRole === r
-                  ? 'linear-gradient(135deg, #4f46e5, #7c3aed)'
+                  ? 'linear-gradient(135deg, #e07830, #7c3aed)'
                   : '#f8fafc',
                 color: selectedRole === r ? '#fff' : '#475569',
-                boxShadow: selectedRole === r ? '0 4px 12px rgba(79,70,229,0.3)' : 'none',
+                boxShadow: selectedRole === r ? '0 4px 12px rgba(224, 94, 0,0.3)' : 'none',
                 transition: 'all 0.2s ease',
                 transform: selectedRole === r ? 'translateY(-1px)' : 'none'
               }}
@@ -1164,13 +1164,13 @@ function PayrollDashboardRedesign({ type, showToast }) {
         {(() => {
           const cards = [];
           if (type === 'Teacher') {
-            cards.push({ label: 'Total Teachers', val: summary.totalTeachers, icon: UserCheck, color: '#e0e7ff', iconColor: '#4f46e5' });
+            cards.push({ label: 'Total Teachers', val: summary.totalTeachers, icon: UserCheck, color: '#e0e7ff', iconColor: '#e07830' });
           } else if (type === 'Staff') {
             cards.push({ label: selectedRole !== 'All' ? `${selectedRole}s` : 'Total Staff', val: summary.totalStaff, icon: Users, color: '#d1fae5', iconColor: '#059669' });
           } else if (type === 'Employee') {
             cards.push({ label: selectedRole !== 'All' ? `${selectedRole}s` : 'Total Employees', val: summary.totalEmployees, icon: UserCog, color: '#eff6ff', iconColor: '#2563eb' });
           } else {
-            cards.push({ label: 'Total Teachers', val: summary.totalTeachers, icon: UserCheck, color: '#e0e7ff', iconColor: '#4f46e5' });
+            cards.push({ label: 'Total Teachers', val: summary.totalTeachers, icon: UserCheck, color: '#e0e7ff', iconColor: '#e07830' });
             cards.push({ label: 'Total Staff', val: summary.totalStaff, icon: Users, color: '#d1fae5', iconColor: '#059669' });
             cards.push({ label: 'Total Employees', val: summary.totalEmployees, icon: UserCog, color: '#eff6ff', iconColor: '#2563eb' });
           }
@@ -1225,7 +1225,7 @@ function PayrollDashboardRedesign({ type, showToast }) {
                   return (
                     <div key={idx} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', flex: 1 }}>
                       <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#0f172a' }}>{formatCurrency(t.totalPaid).split('.')[0]}</span>
-                      <div style={{ width: '100%', maxWidth: '38px', height: `${pct * 1.3}px`, background: 'linear-gradient(to top, #4f46e5, #818cf8)', borderRadius: '6px 6px 0 0', minHeight: '8px' }}></div>
+                      <div style={{ width: '100%', maxWidth: '38px', height: `${pct * 1.3}px`, background: 'linear-gradient(to top, #e07830, #818cf8)', borderRadius: '6px 6px 0 0', minHeight: '8px' }}></div>
                       <span style={{ fontSize: '0.78rem', color: '#475569', fontWeight: 600 }}>{t.month.substring(0,3)} {t.year}</span>
                     </div>
                   );
@@ -1640,12 +1640,12 @@ export function PayrollHistoryViewRedesign({ showToast }) {
               padding: '10px 20px',
               borderRadius: '8px',
               border: 'none',
-              background: '#4f46e5',
+              background: '#e07830',
               color: '#ffffff',
               cursor: 'pointer',
               fontSize: '0.9rem',
               fontWeight: 700,
-              boxShadow: '0 2px 4px rgba(79, 70, 229, 0.15)'
+              boxShadow: '0 2px 4px rgba(224, 94, 0, 0.15)'
             }}
           >
             <Download size={16} /> Export CSV
@@ -1700,7 +1700,7 @@ export function PayrollHistoryViewRedesign({ showToast }) {
                     background: index % 2 === 0 ? '#ffffff' : '#f8fafc',
                     transition: 'all 0.15s'
                   }}>
-                    <td style={{ padding: '14px 16px', fontWeight: 800, color: '#4f46e5' }}>{p.receiptNo}</td>
+                    <td style={{ padding: '14px 16px', fontWeight: 800, color: '#e07830' }}>{p.receiptNo}</td>
                     <td style={{ padding: '14px 16px', color: '#1e293b' }}>{p.employeeId}</td>
                     <td style={{ padding: '14px 16px', fontWeight: 700, color: '#0f172a' }}>{p.employeeName}</td>
                     <td style={{ padding: '14px 16px', color: '#334155' }}>{p.employeeType}</td>
@@ -1800,7 +1800,7 @@ function ReceiptSlipModal({ receipt, onClose }) {
           <div style={{ display: 'flex', gap: '10px' }}>
             <button 
               onClick={handlePrint}
-              style={{ padding: '10px 18px', border: 'none', background: '#4f46e5', color: '#fff', borderRadius: '8px', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', boxShadow: '0 2px 4px rgba(79, 70, 229, 0.15)' }}
+              style={{ padding: '10px 18px', border: 'none', background: '#e07830', color: '#fff', borderRadius: '8px', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', boxShadow: '0 2px 4px rgba(224, 94, 0, 0.15)' }}
             >
               <Printer size={16} /> Print Slip
             </button>
@@ -1971,3 +1971,4 @@ function ReceiptSlipModal({ receipt, onClose }) {
     </div>
   );
 }
+

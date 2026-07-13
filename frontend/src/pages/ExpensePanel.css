@@ -1,4 +1,4 @@
-/* Expense Panel Styling Overrides for SaaS Visuals */
+﻿/* Expense Panel Styling Overrides for SaaS Visuals */
 
 /* Overwrite hardcoded white backgrounds in modals and forms for Dark Mode */
 [data-theme='dark'] div[style*="background: '#ffffff'"],
@@ -51,3 +51,4 @@
   background: linear-gradient(90deg, hsl(var(--color-primary)) 0%, hsl(var(--color-secondary)) 100%);
   transition: width 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
+

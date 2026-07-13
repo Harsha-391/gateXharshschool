@@ -1,4 +1,4 @@
-/* Admin Attendance Views Overrides for SaaS Visuals */
+﻿/* Admin Attendance Views Overrides for SaaS Visuals */
 
 /* Overwrite hardcoded white backgrounds in modals and result card boxes for Dark Theme compatibility */
 [data-theme='dark'] div[style*="background: '#ffffff'"],
@@ -39,3 +39,4 @@
   transform: scale(1.05);
   box-shadow: var(--shadow-sm);
 }
+
