@@ -477,7 +477,12 @@ export default function SchoolProfile({ schoolDetails, fetchSchoolDetails, isDev
     // 1. Run initial REST load as a fallback/initial state
     fetchPlatformData();
 
-    // 2. Establish WebSocket connection
+    // 2. Establish WebSocket connection (Only on local environments to prevent browser console network errors in production)
+    const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.hostname.startsWith('192.168.');
+    if (!isLocal) {
+      return;
+    }
+
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const wsHost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
       ? `${window.location.hostname}:5000`
