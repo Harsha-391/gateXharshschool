@@ -1399,7 +1399,7 @@ app.get('/api/auth/profile', auth, restoreTenantContext, (req, res) => {
       username: schoolRecord.adminUsername,
       email: schoolRecord.adminEmail,
       phone: schoolRecord.phone,
-      photo: '',
+      photo: schoolRecord.adminPhoto || '',
       password: schoolRecord.adminPassword
     });
   }
@@ -1505,6 +1505,99 @@ app.get('/api/auth/profile', auth, restoreTenantContext, (req, res) => {
       password: employeeMember.password || '',
       permissions: permissions
     });
+  }
+});
+
+// UPLOAD Profile Photo
+app.post('/api/auth/profile/photo', auth, restoreTenantContext, async (req, res) => {
+  const user = req.admin;
+  if (!user) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  const { photo } = req.body;
+  if (photo === undefined) {
+    return res.status(400).json({ error: 'Photo data is required.' });
+  }
+
+  const tenantId = tenantStorage.getStore() || user.tenantId;
+
+  try {
+    if (user.role === 'Developer Admin') {
+      const globalDb = tenantStorage.run(null, () => readDb());
+      if (!globalDb.platformOwner) {
+        globalDb.platformOwner = {
+          name: "Platform Owner",
+          username: "dev@admin.com",
+          password: "admin123",
+          email: "dev@admin.com",
+          phone: "",
+          photo: ""
+        };
+      }
+      globalDb.platformOwner.photo = photo;
+      tenantStorage.run(null, () => writeDb(globalDb));
+      return res.json({ success: true, photo });
+    }
+
+    if (user.role === 'Main Admin') {
+      if (!tenantId) {
+        return res.status(400).json({ error: 'Tenant context is missing.' });
+      }
+      const platformDb = tenantStorage.run(null, () => readDb());
+      const index = (platformDb.schools || []).findIndex(s => slugify(s.subdomain) === slugify(tenantId));
+      if (index === -1) {
+        return res.status(404).json({ error: 'School domain registration not found.' });
+      }
+      platformDb.schools[index].adminPhoto = photo;
+      tenantStorage.run(null, () => writeDb(platformDb));
+
+      if (isSqlActive()) {
+        await sqlDb.query('UPDATE schools SET adminPhoto = ? WHERE id = ?', [photo, platformDb.schools[index].id], 'platform');
+      }
+      return res.json({ success: true, photo });
+    }
+
+    if (!tenantId) {
+      return res.status(400).json({ error: 'Tenant context is missing.' });
+    }
+
+    const db = readDb();
+
+    if (user.userType === 'Teacher') {
+      const teacherIndex = (db.teachers || []).findIndex(t => t.id === user.id);
+      if (teacherIndex === -1) {
+        return res.status(404).json({ error: 'Teacher profile not found.' });
+      }
+      db.teachers[teacherIndex].photo = photo;
+      writeDb(db);
+      return res.json({ success: true, photo });
+    }
+
+    if (user.userType === 'Staff') {
+      const staffIndex = (db.staff || []).findIndex(s => s.id === user.id);
+      if (staffIndex === -1) {
+        return res.status(404).json({ error: 'Staff profile not found.' });
+      }
+      db.staff[staffIndex].photo = photo;
+      writeDb(db);
+      return res.json({ success: true, photo });
+    }
+
+    if (user.userType === 'Employee') {
+      const employeeIndex = (db.employees || []).findIndex(e => e.id === user.id);
+      if (employeeIndex === -1) {
+        return res.status(404).json({ error: 'Employee profile not found.' });
+      }
+      db.employees[employeeIndex].photo = photo;
+      writeDb(db);
+      return res.json({ success: true, photo });
+    }
+
+    return res.status(400).json({ error: 'Unsupported user type for photo upload.' });
+  } catch (err) {
+    console.error('Failed to update profile photo:', err);
+    return res.status(500).json({ error: 'Internal server error.' });
   }
 });
 

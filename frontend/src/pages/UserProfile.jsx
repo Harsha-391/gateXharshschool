@@ -71,6 +71,59 @@ export default function UserProfile({ onProfileUpdate, showToast, onLogout }) {
     }
   };
 
+  const handlePhotoUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      if (showToast) showToast('File size must be less than 5MB.', 'error');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = async () => {
+      const base64Photo = reader.result;
+      try {
+        const token = localStorage.getItem('token');
+        let headers = {
+          'Content-Type': 'application/json'
+        };
+        if (token) {
+          headers['Authorization'] = `Bearer ${token}`;
+        }
+
+        const res = await fetch('/api/auth/profile/photo', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ photo: base64Photo })
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          setProfile(prev => prev ? { ...prev, photo: data.photo } : prev);
+          
+          if (onProfileUpdate) {
+            onProfileUpdate(prev => prev ? { ...prev, photo: data.photo } : { photo: data.photo });
+          }
+
+          localStorage.setItem('photo', data.photo);
+
+          if (showToast) showToast('Profile picture updated successfully!', 'success');
+        } else {
+          const errData = await res.json().catch(() => ({}));
+          if (showToast) showToast(errData.error || 'Failed to upload photo.', 'error');
+        }
+      } catch (err) {
+        console.error('Photo upload failed:', err);
+        if (showToast) showToast('Failed to connect to server.', 'error');
+      }
+    };
+    reader.onerror = () => {
+      if (showToast) showToast('Failed to read selected image file.', 'error');
+    };
+    reader.readAsDataURL(file);
+  };
+
   const [schoolDetails, setSchoolDetails] = useState(null);
 
   useEffect(() => {
@@ -173,27 +226,65 @@ export default function UserProfile({ onProfileUpdate, showToast, onLogout }) {
         
         {/* Avatar Display */}
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
-          <div 
-            style={{
-              width: '90px',
-              height: '90px',
-              borderRadius: '50%',
-              overflow: 'hidden',
-              position: 'relative',
-              border: '3px solid hsl(var(--color-primary))',
-              background: 'var(--bg-form)',
-              boxShadow: '0 6px 16px rgba(hsl(var(--color-primary)), 0.2)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              transition: 'all 0.3s ease'
-            }}
-          >
-            {profile?.photo ? (
-              <img src={profile.photo} alt="User Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-            ) : (
-              <User size={40} style={{ color: 'var(--text-muted)' }} />
-            )}
+          <div style={{ position: 'relative' }}>
+            <div 
+              style={{
+                width: '90px',
+                height: '90px',
+                borderRadius: '50%',
+                overflow: 'hidden',
+                position: 'relative',
+                border: '3px solid hsl(var(--color-primary))',
+                background: 'var(--bg-form)',
+                boxShadow: '0 6px 16px rgba(hsl(var(--color-primary)), 0.2)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                transition: 'all 0.3s ease'
+              }}
+            >
+              {profile?.photo ? (
+                <img src={profile.photo} alt="User Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              ) : (
+                <User size={40} style={{ color: 'var(--text-muted)' }} />
+              )}
+            </div>
+            
+            {/* Camera Overlay Icon */}
+            <label 
+              htmlFor="profile-photo-upload-input"
+              style={{
+                position: 'absolute',
+                bottom: '2px',
+                right: '2px',
+                width: '28px',
+                height: '28px',
+                borderRadius: '50%',
+                background: 'hsl(var(--color-primary))',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: 'white',
+                cursor: 'pointer',
+                boxShadow: '0 2px 6px rgba(0, 0, 0, 0.3)',
+                transition: 'all 0.2s ease',
+                border: '2px solid var(--bg-card)'
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.transform = 'scale(1.1)'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)'; }}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+                <circle cx="12" cy="13" r="4"></circle>
+              </svg>
+            </label>
+            <input 
+              type="file" 
+              id="profile-photo-upload-input" 
+              accept="image/*" 
+              style={{ display: 'none' }} 
+              onChange={handlePhotoUpload}
+            />
           </div>
           
           <div style={{ textAlign: 'center' }}>

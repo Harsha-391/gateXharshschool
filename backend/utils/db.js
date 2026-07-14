@@ -1054,6 +1054,7 @@ const applySchemaUpdates = async (pool, isMaster = false, tenantId = null) => {
       "ALTER TABLE schools ADD COLUMN eventTypes TEXT NULL",
       "ALTER TABLE schools ADD COLUMN noticeCategories TEXT NULL",
       "ALTER TABLE schools ADD COLUMN holidayClassifications TEXT NULL",
+      "ALTER TABLE schools ADD COLUMN adminPhoto LONGTEXT NULL",
       "ALTER TABLE student_accounts DROP FOREIGN KEY student_accounts_ibfk_1",
       "ALTER TABLE parent_accounts DROP FOREIGN KEY parent_accounts_ibfk_1",
       "CREATE TABLE IF NOT EXISTS attendance_settings (id VARCHAR(50) PRIMARY KEY, checkInStart VARCHAR(50) DEFAULT '08:00 AM', lateTime VARCHAR(50) DEFAULT '09:00 AM', halfDayTime VARCHAR(50) DEFAULT '11:00 AM', checkOutTime VARCHAR(50) DEFAULT '05:00 PM', minWorkingHours DECIMAL(5,2) DEFAULT 8.00, gracePeriod INT DEFAULT 15, tenantId VARCHAR(100) NOT NULL, createdAt VARCHAR(100), updatedAt VARCHAR(100), INDEX idx_att_sett_tenant (tenantId))",
@@ -2999,7 +3000,7 @@ export const saveMemoryDbToSql = async (tenantId, db, changedKeys, newUpdatedAt)
             'assignedGradeId', 'assignedSectionId', 'isClassTeacher', 'attendancePermission'
           ];
           const updateColumns = [
-            'name', 'email', 'phone', 'username', 'password', 'status', 'address', 'qualification', 'experience',
+            'name', 'email', 'phone', 'username', 'password', 'status', 'address', 'qualification', 'experience', 'photo',
             'firstName', 'middleName', 'lastName', 'fullName', 'dob', 'bloodGroup', 'nationality', 'maritalStatus',
             'aadhaarNumber', 'panNumber', 'joiningDate', 'employmentType', 'role', 'department', 'primarySubject',
             'secondarySubject', 'alternateMobile', 'currentAddress', 'currentCity', 'currentState', 'currentCountry',
@@ -3050,7 +3051,7 @@ export const saveMemoryDbToSql = async (tenantId, db, changedKeys, newUpdatedAt)
             'permanentPostalCode', 'sameAsPermanent', 'panFile', 'resumeFile', 'joiningLetterFile', 'otherFile', 'experiences'
           ];
           const updateColumns = [
-            'name', 'email', 'phone', 'username', 'password', 'status', 'address', 'qualification', 'experience',
+            'name', 'email', 'phone', 'username', 'password', 'status', 'address', 'qualification', 'experience', 'photo',
             'firstName', 'middleName', 'lastName', 'fullName', 'dob', 'bloodGroup', 'nationality', 'maritalStatus',
             'aadhaarNumber', 'panNumber', 'joiningDate', 'employmentType', 'role', 'department', 'primarySubject',
             'secondarySubject', 'alternateMobile', 'currentAddress', 'currentCity', 'currentState', 'currentCountry',
@@ -3088,7 +3089,7 @@ export const saveMemoryDbToSql = async (tenantId, db, changedKeys, newUpdatedAt)
           }
 
           const columns = ['id', 'name', 'fullName', 'role', 'department', 'email', 'phone', 'gender', 'qualification', 'experience', 'dateOfJoining', 'salaryGrade', 'reportingTo', 'address', 'city', 'state', 'pincode', 'emergencyContact', 'emergencyPhone', 'photo', 'aadharFile', 'certificateFile', 'status', 'avatarBg', 'password', 'tenantId', 'designation', 'designationLevel', 'employmentType'];
-          const updateColumns = ['name', 'role', 'department', 'email', 'phone', 'status', 'password', 'designation', 'designationLevel', 'employmentType'];
+          const updateColumns = ['name', 'role', 'department', 'email', 'phone', 'status', 'password', 'designation', 'designationLevel', 'employmentType', 'photo'];
           const valueRows = db.employees.filter(e => e.id).map(e => [
             e.id, e.name, e.fullName, e.role, e.department, e.email, e.phone, e.gender, e.qualification, 
             e.experience, e.dateOfJoining, e.salaryGrade, e.reportingTo, e.address, e.city, e.state, e.pincode, 
