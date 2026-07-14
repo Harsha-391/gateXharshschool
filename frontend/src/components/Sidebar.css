@@ -282,6 +282,7 @@
   color: white;
   font-weight: 700;
   flex-shrink: 0;
+  overflow: hidden;
 }
 
 .profile-details {

@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import './UserProfile.css';
 import { 
   User, 
@@ -71,8 +71,22 @@ export default function UserProfile({ onProfileUpdate, showToast, onLogout }) {
     }
   };
 
+  const [schoolDetails, setSchoolDetails] = useState(null);
+
   useEffect(() => {
     fetchProfile();
+    const fetchSchool = async () => {
+      try {
+        const res = await fetch('/api/school');
+        if (res.ok) {
+          const data = await res.json();
+          setSchoolDetails(data);
+        }
+      } catch (err) {
+        console.error('Error fetching school details in profile:', err);
+      }
+    };
+    fetchSchool();
   }, []);
 
   if (loading) {
@@ -175,7 +189,9 @@ export default function UserProfile({ onProfileUpdate, showToast, onLogout }) {
               transition: 'all 0.3s ease'
             }}
           >
-            {profile?.photo ? (
+            {((profile?.role === 'Main Admin' || profile?.role === 'Principal') && schoolDetails?.logo) ? (
+              <img src={schoolDetails.logo} alt="School Logo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            ) : profile?.photo ? (
               <img src={profile.photo} alt="User Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
             ) : (
               <User size={40} style={{ color: 'var(--text-muted)' }} />

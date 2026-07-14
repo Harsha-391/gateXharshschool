@@ -821,6 +821,18 @@ export default function App() {
 
     if (faviconLink) {
       faviconLink.setAttribute('href', logoUrl);
+      if (logoUrl.startsWith('data:image/')) {
+        const mimeType = logoUrl.split(';')[0].split(':')[1];
+        faviconLink.setAttribute('type', mimeType);
+      } else if (logoUrl.endsWith('.png')) {
+        faviconLink.setAttribute('type', 'image/png');
+      } else if (logoUrl.endsWith('.ico')) {
+        faviconLink.setAttribute('type', 'image/x-icon');
+      } else if (logoUrl.endsWith('.svg')) {
+        faviconLink.setAttribute('type', 'image/svg+xml');
+      } else {
+        faviconLink.removeAttribute('type');
+      }
     }
 
     // Determine current user context/role

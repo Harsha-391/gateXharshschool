@@ -485,12 +485,15 @@ export default function SchoolProfile({ schoolDetails, fetchSchoolDetails, isDev
 
     let ws;
     let reconnectTimeout;
+    let reconnectAttempts = 0;
+    const maxReconnectAttempts = 5;
 
     const connectWS = () => {
       ws = new WebSocket(`${protocol}//${wsHost}`);
 
       ws.onopen = () => {
         console.log('[WebSocket] Connected to real-time update stream.');
+        reconnectAttempts = 0; // Reset attempts on successful connection
       };
 
       ws.onmessage = (event) => {
@@ -508,12 +511,19 @@ export default function SchoolProfile({ schoolDetails, fetchSchoolDetails, isDev
       };
 
       ws.onclose = () => {
-        console.log('[WebSocket] Connection closed. Reconnecting in 3 seconds...');
-        reconnectTimeout = setTimeout(connectWS, 3000);
+        if (reconnectAttempts < maxReconnectAttempts) {
+          reconnectAttempts++;
+          console.log(`[WebSocket] Connection closed. Reconnecting in 3 seconds (Attempt ${reconnectAttempts}/${maxReconnectAttempts})...`);
+          reconnectTimeout = setTimeout(connectWS, 3000);
+        } else {
+          console.warn('[WebSocket] Maximum reconnection attempts reached. Real-time updates disabled (page will use static REST data).');
+        }
       };
 
       ws.onerror = (err) => {
-        console.error('[WebSocket] Error caught:', err);
+        if (reconnectAttempts < maxReconnectAttempts) {
+          console.error('[WebSocket] Error caught:', err);
+        }
         ws.close();
       };
     };

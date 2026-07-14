@@ -992,12 +992,13 @@ app.put('/api/platform/schools/:id', (req, res) => {
     return res.status(404).json({ error: 'School not found.' });
   }
 
-  const { name, principalName, email, phone, address, city, state, country, academicSession, subscriptionPlan } = req.body;
+  const { name, logo, principalName, email, phone, address, city, state, country, academicSession, subscriptionPlan } = req.body;
   const currentSchool = db.schools[index];
 
   db.schools[index] = {
     ...currentSchool,
     name: name || currentSchool.name,
+    logo: logo !== undefined ? logo : currentSchool.logo,
     principalName: principalName || currentSchool.principalName,
     email: email || currentSchool.email,
     phone: phone || currentSchool.phone,
@@ -2282,6 +2283,7 @@ app.get('/api/school', restoreTenantContext, (req, res) => {
 app.post('/api/school', restoreTenantContext, (req, res) => {
   const { 
     name, 
+    logo,
     subdomain, 
     address, 
     city, 
@@ -2313,6 +2315,7 @@ app.post('/api/school', restoreTenantContext, (req, res) => {
   db.school = {
     ...db.school,
     name,
+    logo: logo !== undefined ? logo : db.school.logo,
     subdomain: subdomain || '',
     address: address || '',
     city: city || '',

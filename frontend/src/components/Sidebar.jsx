@@ -248,8 +248,16 @@ export default function Sidebar({
     <aside className={`app-sidebar ${isCollapsed ? 'sidebar-collapsed' : ''} ${mobileOpen ? 'mobile-open' : ''}`}>
       <div className="sidebar-brand">
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, minWidth: 0 }}>
-          <div className="brand-icon-wrapper">
-            <GraduationCap size={24} />
+          <div className="brand-icon-wrapper" style={schoolDetails?.logo ? { background: 'none', boxShadow: 'none', padding: 0, borderRadius: '50%', overflow: 'hidden' } : {}}>
+            {schoolDetails?.logo ? (
+              <img 
+                src={schoolDetails.logo} 
+                alt="School Logo" 
+                style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+              />
+            ) : (
+              <GraduationCap size={24} />
+            )}
           </div>
           <div style={{ display: isCollapsed ? 'none' : 'flex', flexDirection: 'column', minWidth: 0, lineHeight: 1.15 }}>
             <span style={{ fontSize: '1.15rem', fontWeight: 700, color: 'var(--text-main)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={rawSchoolName}>
@@ -1115,24 +1123,26 @@ export default function Sidebar({
         }}
       >
         <div className="profile-avatar">
-          {userProfile?.photo ? (
-            <img src={userProfile.photo} alt={userProfile.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-          ) : (
-            (() => {
-              const userRole = userProfile?.role || localStorage.getItem('role') || localStorage.getItem('portal_role');
-              const isSchoolAdmin = userRole === 'Main Admin' || userRole === 'Principal';
-              const principalNameFromSchool = schoolDetails?.principal || schoolDetails?.principalName;
-              const name = (isSchoolAdmin && principalNameFromSchool && principalNameFromSchool !== 'Principal')
-                ? principalNameFromSchool
-                : (userProfile?.name && userProfile.name !== 'Principal' ? userProfile.name : (principalNameFromSchool || localStorage.getItem('name') || 'Principal'));
-              
-              const parts = name.split(' ');
-              if (parts.length > 1) {
-                return (parts[0][0] + parts[1][0]).toUpperCase();
-              }
-              return name.substring(0, 2).toUpperCase();
-            })()
-          )}
+          {(() => {
+            const userRole = userProfile?.role || localStorage.getItem('role') || localStorage.getItem('portal_role');
+            const isSchoolAdmin = userRole === 'Main Admin' || userRole === 'Principal';
+            if (isSchoolAdmin && schoolDetails?.logo) {
+              return <img src={schoolDetails.logo} alt="School Logo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />;
+            }
+            if (userProfile?.photo) {
+              return <img src={userProfile.photo} alt={userProfile.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />;
+            }
+            const principalNameFromSchool = schoolDetails?.principal || schoolDetails?.principalName;
+            const name = (isSchoolAdmin && principalNameFromSchool && principalNameFromSchool !== 'Principal')
+              ? principalNameFromSchool
+              : (userProfile?.name && userProfile.name !== 'Principal' ? userProfile.name : (principalNameFromSchool || localStorage.getItem('name') || 'Principal'));
+            
+            const parts = name.split(' ');
+            if (parts.length > 1) {
+              return (parts[0][0] + parts[1][0]).toUpperCase();
+            }
+            return name.substring(0, 2).toUpperCase();
+          })()}
         </div>
         <div className="profile-details" style={{ display: isCollapsed ? 'none' : 'flex', flexDirection: 'row', alignItems: 'center', flex: 1, minWidth: 0, justifyContent: 'space-between' }}>
           <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>

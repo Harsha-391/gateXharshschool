@@ -1046,6 +1046,7 @@ const applySchemaUpdates = async (pool, isMaster = false, tenantId = null) => {
   await dropGradeIdForeignKey(pool);
   if (isMaster) {
     const masterAlters = [
+      "ALTER TABLE schools MODIFY COLUMN logo LONGTEXT",
       "ALTER TABLE schools ADD COLUMN ratePerStudent VARCHAR(50) DEFAULT '250.00'",
       "ALTER TABLE schools ADD COLUMN updatedAt VARCHAR(100)",
       "ALTER TABLE schools ADD COLUMN dbName VARCHAR(255)",
@@ -1065,6 +1066,34 @@ const applySchemaUpdates = async (pool, isMaster = false, tenantId = null) => {
     }
   } else {
     const schoolAlters = [
+      "ALTER TABLE students MODIFY COLUMN photo LONGTEXT",
+      "ALTER TABLE students MODIFY COLUMN photoBg LONGTEXT",
+      "ALTER TABLE staff MODIFY COLUMN photo LONGTEXT",
+      "ALTER TABLE staff MODIFY COLUMN aadharFile LONGTEXT",
+      "ALTER TABLE staff MODIFY COLUMN certificateFile LONGTEXT",
+      "ALTER TABLE staff MODIFY COLUMN panFile LONGTEXT",
+      "ALTER TABLE staff MODIFY COLUMN resumeFile LONGTEXT",
+      "ALTER TABLE staff MODIFY COLUMN joiningLetterFile LONGTEXT",
+      "ALTER TABLE staff MODIFY COLUMN otherFile LONGTEXT",
+      "ALTER TABLE teachers MODIFY COLUMN photo LONGTEXT",
+      "ALTER TABLE teachers MODIFY COLUMN aadharFile LONGTEXT",
+      "ALTER TABLE teachers MODIFY COLUMN certificateFile LONGTEXT",
+      "ALTER TABLE teachers MODIFY COLUMN panFile LONGTEXT",
+      "ALTER TABLE teachers MODIFY COLUMN resumeFile LONGTEXT",
+      "ALTER TABLE teachers MODIFY COLUMN joiningLetterFile LONGTEXT",
+      "ALTER TABLE teachers MODIFY COLUMN otherFile LONGTEXT",
+      "ALTER TABLE employees MODIFY COLUMN photo LONGTEXT",
+      "ALTER TABLE employees MODIFY COLUMN aadharFile LONGTEXT",
+      "ALTER TABLE employees MODIFY COLUMN certificateFile LONGTEXT",
+      "ALTER TABLE employees MODIFY COLUMN panFile LONGTEXT",
+      "ALTER TABLE employees MODIFY COLUMN resumeFile LONGTEXT",
+      "ALTER TABLE employees MODIFY COLUMN joiningLetterFile LONGTEXT",
+      "ALTER TABLE employees MODIFY COLUMN otherFile LONGTEXT",
+      "ALTER TABLE teacher_reports MODIFY COLUMN attachment LONGTEXT",
+      "ALTER TABLE staff_reports MODIFY COLUMN attachment LONGTEXT",
+      "ALTER TABLE expenses MODIFY COLUMN attachment LONGTEXT",
+      "ALTER TABLE teacher_leaves MODIFY COLUMN attachment LONGTEXT",
+      "ALTER TABLE staff_leaves MODIFY COLUMN attachment LONGTEXT",
       "CREATE TABLE IF NOT EXISTS attendance_settings (id VARCHAR(50) PRIMARY KEY, checkInStart VARCHAR(50) DEFAULT '08:00 AM', lateTime VARCHAR(50) DEFAULT '09:00 AM', halfDayTime VARCHAR(50) DEFAULT '11:00 AM', checkOutTime VARCHAR(50) DEFAULT '05:00 PM', minWorkingHours DECIMAL(5,2) DEFAULT 8.00, gracePeriod INT DEFAULT 15, tenantId VARCHAR(100) NOT NULL, createdAt VARCHAR(100), updatedAt VARCHAR(100), INDEX idx_att_sett_tenant (tenantId))",
       "ALTER TABLE grades ADD COLUMN sections JSON NULL",
       "ALTER TABLE grade_departments MODIFY COLUMN id VARCHAR(100)",
@@ -1562,109 +1591,7 @@ export const initializeOnboardedSchoolDatabase = async (subdomain) => {
 };
 
 const ensureSubdomainsRegistered = async (masterPool) => {
-  try {
-    // 1. Delete all schools starting with gate
-    await masterPool.query("DELETE FROM schools WHERE subdomain LIKE 'gate%'");
-
-    // 2. Drop all databases starting with school_gate
-    const [dbs] = await masterPool.query("SHOW DATABASES");
-    for (const dbRow of dbs) {
-      const dbName = dbRow.Database || dbRow.database || '';
-      if (dbName.startsWith('school_gate')) {
-        console.log(`[SQL Clean] Dropped database: ${dbName}`);
-        await masterPool.query(`DROP DATABASE IF EXISTS \`${dbName}\``);
-      }
-    }
-
-    const [existingRows] = await masterPool.query("SELECT * FROM schools");
-    let existing = existingRows[0];
-    if (!existing) {
-      existing = {
-        logo: '',
-        principalName: 'Principal',
-        email: 'admin@gmail.com',
-        phone: '',
-        address: '',
-        city: 'Default City',
-        state: 'Default State',
-        country: 'India',
-        academicSession: '2026-2027',
-        subscriptionPlan: 'Premium',
-        adminName: 'School Admin',
-        adminEmail: 'admin@gmail.com',
-        adminUsername: 'school_admin',
-        adminPassword: '',
-        ratePerStudent: 0,
-        examTypes: '[]',
-        eventTypes: '[]',
-        noticeCategories: '[]',
-        holidayClassifications: '[]'
-      };
-    }
-
-    const targets = [
-      'sitfg'
-    ];
-    for (const sub of targets) {
-      const exists = existingRows.some(s => s.subdomain && s.subdomain.toLowerCase().trim() === sub.toLowerCase().trim());
-      if (!exists) {
-        console.log(`[SQL Init] Auto-registering missing subdomain for Render/Local: ${sub}`);
-        const id = `SCH-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-        const dbName = `school_${sub}`;
-        
-        // Generate valid password hash dynamically
-        const bcrypt = (await import('bcrypt')).default;
-        const passwordHash = await bcrypt.hash('admin123', 10);
-
-        await masterPool.query(
-          `INSERT INTO schools 
-           (id, name, code, subdomain, logo, principalName, email, phone, address, city, state, country, 
-            academicSession, subscriptionPlan, url, status, adminName, adminEmail, adminUsername, adminPassword, 
-            ratePerStudent, examTypes, eventTypes, noticeCategories, holidayClassifications, createdAt, updatedAt, dbName) 
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          [
-            id,
-            `SITFG School`,
-            `SCH-${Math.floor(100 + Math.random() * 900)}`,
-            sub,
-            existing.logo,
-            existing.principalName,
-            existing.email,
-            existing.phone,
-            existing.address,
-            existing.city,
-            existing.state,
-            existing.country,
-            existing.academicSession,
-            existing.subscriptionPlan,
-            `https://${sub}.onrender.com`,
-            'Active',
-            existing.adminName,
-            existing.adminEmail,
-            existing.adminUsername || 'school_admin',
-            passwordHash,
-            existing.ratePerStudent || 0,
-            existing.examTypes || '[]',
-            existing.eventTypes || '[]',
-            existing.noticeCategories || '[]',
-            existing.holidayClassifications || '[]',
-            new Date().toISOString(),
-            new Date().toISOString(),
-            dbName
-          ]
-        );
-      }
-
-      // Ensure the subdomain database exists and has all existing master data migrated/merged
-      try {
-        await migrateTenantDataToDedicatedDb(sub);
-      } catch (migErr) {
-        console.error(`[SQL Init ERROR] Failed data migration for tenant ${sub}:`, migErr.message);
-      }
-    }
-  } catch (err) {
-    console.error('[SQL Init ERROR] Failed in ensureSubdomainsRegistered:', err.message);
-  }
+  // Auto-seeding and cleanup utilities removed to prevent automatic deletion of subdomains starting with 'gate' and seeding of 'sitfg'.
 };
 
 // Initial database check called on server boot
@@ -1674,6 +1601,10 @@ export const initSqlDb = async () => {
     throw new Error('MySQL Database connection is unavailable. Check credentials or network.');
   }
   const masterPool = sqlDb.getPoolForTenant(null);
+
+  // Initialize master schema and apply structural updates
+  await executeSchemaOnPool(masterPool, true);
+  await applySchemaUpdates(masterPool, true);
 
   // Load subdomain-to-dbName mappings
   await sqlDb.loadDbMappings();
@@ -2186,6 +2117,7 @@ export const loadTenantSqlIntoMemory = async (tenantId) => {
         data.school = {
           name: matchedSchool.name,
           subdomain: matchedSchool.subdomain,
+          logo: matchedSchool.logo || '',
           address: matchedSchool.address || '',
           city: matchedSchool.city || '',
           state: matchedSchool.state || '',
@@ -3030,11 +2962,11 @@ export const saveMemoryDbToSql = async (tenantId, db, changedKeys, newUpdatedAt)
          const sch = db.school;
          tasks.push(sqlDb.query(
            `UPDATE schools SET 
-             name = ?, address = ?, city = ?, state = ?, phone = ?, email = ?, 
+             name = ?, logo = ?, address = ?, city = ?, state = ?, phone = ?, email = ?, 
              principalName = ?, adminName = ?, adminEmail = ?, adminUsername = ?, adminPassword = ?, ratePerStudent = ?, examTypes = ?, eventTypes = ?, noticeCategories = ?, holidayClassifications = ?, updatedAt = ?
             WHERE subdomain = ?`,
            [
-             sch.name, sch.address, sch.city, sch.state, sch.phone, sch.email, 
+             sch.name, sch.logo || '', sch.address, sch.city, sch.state, sch.phone, sch.email, 
              sch.principal, sch.adminName, sch.adminEmail, sch.adminUsername || '', sch.adminPassword, sch.ratePerStudent || '250.00',
              sch.examTypes ? (typeof sch.examTypes === 'string' ? sch.examTypes : JSON.stringify(sch.examTypes)) : null,
              sch.eventTypes ? (typeof sch.eventTypes === 'string' ? sch.eventTypes : JSON.stringify(sch.eventTypes)) : null,
