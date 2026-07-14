@@ -492,7 +492,8 @@ export const regenerateEmployeeQr = async (req, res) => {
     }
 
     // Generate new QR code file
-    const qrPath = await generateQrCode(employeeId, employeeType);
+    const tenantId = req.admin?.tenantId || 'platform';
+    const qrPath = await generateQrCode(employeeId, employeeType, tenantId);
 
     // Save in DB
     if (!db.employeeQrCodes) db.employeeQrCodes = [];

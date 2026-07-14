@@ -1,23 +1,16 @@
 import QRCode from 'qrcode';
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
 import crypto from 'crypto';
+import { uploadToImageKit } from './imagekit.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const UPLOADS_DIR = path.join(__dirname, '..', 'uploads');
-const QRCODES_DIR = path.join(UPLOADS_DIR, 'qrcodes');
-
-// Ensure directories exist
-if (!fs.existsSync(UPLOADS_DIR)) {
-  fs.mkdirSync(UPLOADS_DIR, { recursive: true });
-}
-if (!fs.existsSync(QRCODES_DIR)) {
-  fs.mkdirSync(QRCODES_DIR, { recursive: true });
-}
-
-export const generateQrCode = async (employeeId, employeeType) => {
+/**
+ * Generates a QR Code for an employee, uploads it to ImageKit, and returns the cloud URL.
+ * Falls back to local base64 data URL on error.
+ * @param {string} employeeId - Unique employee ID
+ * @param {string} employeeType - 'Teacher', 'Staff', or 'Employee'
+ * @param {string} tenantId - Tenant subdomain
+ * @returns {Promise<string>} Cloud URL or base64 fallback
+ */
+export const generateQrCode = async (employeeId, employeeType, tenantId = 'platform') => {
   try {
     const secret = process.env.JWT_SECRET || 'aether-erp-dashboard-super-secure-key-2026';
     const dataToSign = `${employeeId}:${employeeType}`;
@@ -25,7 +18,7 @@ export const generateQrCode = async (employeeId, employeeType) => {
     
     const payload = JSON.stringify({ employeeId, employeeType, sig });
     
-    // Generate QR code as Base64 data URL (works everywhere on live/local without filesystem)
+    // Generate QR code as Base64 data URL for fallback
     const dataUrl = await QRCode.toDataURL(payload, {
       color: {
         dark: '#1e1b4b', // Deep dark navy indigo for scannability
@@ -35,11 +28,9 @@ export const generateQrCode = async (employeeId, employeeType) => {
       margin: 2
     });
 
-    // Try to write to file as a backup for local development, ignoring any write errors on live
     try {
-      const fileName = `${employeeId.replace(/[^a-zA-Z0-9-]/g, '_')}.png`;
-      const filePath = path.join(QRCODES_DIR, fileName);
-      await QRCode.toFile(filePath, payload, {
+      // Generate binary buffer for uploading to ImageKit
+      const buffer = await QRCode.toBuffer(payload, {
         type: 'png',
         color: {
           dark: '#1e1b4b',
@@ -48,11 +39,18 @@ export const generateQrCode = async (employeeId, employeeType) => {
         width: 300,
         margin: 2
       });
-    } catch (fsErr) {
-      console.warn(`[QR Backup Save Warning] Could not save QR file to disk:`, fsErr.message);
+
+      const fileName = `qr-${employeeId.replace(/[^a-zA-Z0-9-]/g, '_')}-${Date.now()}.png`;
+      const folder = `school/${tenantId}/qrcodes`;
+
+      const uploadResult = await uploadToImageKit(buffer, fileName, folder, ['qrcode', employeeType]);
+
+      console.log(`[QR Service] Successfully uploaded QR code for ${employeeId} to ImageKit.`);
+      return uploadResult.url;
+    } catch (uploadErr) {
+      console.warn(`[QR Service Warning] Could not upload QR code to ImageKit, using base64 fallback:`, uploadErr.message);
+      return dataUrl;
     }
-    
-    return dataUrl;
   } catch (error) {
     console.error(`[QR Service Error] Failed to generate QR for ${employeeId}:`, error);
     throw error;

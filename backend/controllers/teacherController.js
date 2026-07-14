@@ -2,6 +2,7 @@ import { readDb, writeDb, addActivity } from '../utils/db.js';
 import { hashPassword } from '../utils/authHelper.js';
 import { encrypt, decrypt } from '../utils/encryptionHelper.js';
 import { logAudit } from '../utils/logger.js';
+import { uploadToImageKit, deleteFromImageKit } from '../utils/imagekit.js';
 
 // ========================================================
 // TEACHER CRUD CONTROLLERS
@@ -64,11 +65,13 @@ export const registerTeacher = async (req, res) => {
     });
     const employeeId = `${yearPrefix}${maxNum + 1}`;
 
+    const tenantId = req.admin?.tenantId || 'platform';
+
     // Generate QR Code
     let qrPath = '';
     try {
       const { generateQrCode } = await import('../utils/qrService.js');
-      qrPath = await generateQrCode(employeeId, 'Teacher');
+      qrPath = await generateQrCode(employeeId, 'Teacher', tenantId);
     } catch (qrErr) {
       console.error('Failed to generate QR Code during teacher registration:', qrErr);
     }
@@ -84,14 +87,22 @@ export const registerTeacher = async (req, res) => {
     }
 
     const files = req.files || {};
-    const photoPath = files.photo ? `/uploads/${files.photo[0].filename}` : '';
-    const aadhaarPath = files.aadhaarFile ? `/uploads/${files.aadhaarFile[0].filename}` : '';
-    const panPath = files.panFile ? `/uploads/${files.panFile[0].filename}` : '';
-    const resumePath = files.resumeFile ? `/uploads/${files.resumeFile[0].filename}` : '';
-    const qualificationPath = files.qualificationFile ? `/uploads/${files.qualificationFile[0].filename}` : '';
-    const experiencePath = files.experienceFile ? `/uploads/${files.experienceFile[0].filename}` : '';
-    const joiningLetterPath = files.joiningLetterFile ? `/uploads/${files.joiningLetterFile[0].filename}` : '';
-    const otherPath = files.otherFile ? `/uploads/${files.otherFile[0].filename}` : '';
+    const folder = `school/${tenantId}/teachers`;
+
+    const processUpload = async (fileArray) => {
+      if (!fileArray || !fileArray[0]) return '';
+      const uploadRes = await uploadToImageKit(fileArray[0].buffer, fileArray[0].originalname, folder);
+      return uploadRes.url;
+    };
+
+    const photoPath = await processUpload(files.photo);
+    const aadhaarPath = await processUpload(files.aadhaarFile);
+    const panPath = await processUpload(files.panFile);
+    const resumePath = await processUpload(files.resumeFile);
+    const qualificationPath = await processUpload(files.qualificationFile);
+    const experiencePath = await processUpload(files.experienceFile);
+    const joiningLetterPath = await processUpload(files.joiningLetterFile);
+    const otherPath = await processUpload(files.otherFile);
 
     let parsedQualifications = qualification;
     if (typeof qualification === 'string') {
@@ -319,14 +330,26 @@ export const updateTeacher = async (req, res) => {
     }
 
     const files = req.files || {};
-    const photoPath = files.photo ? `/uploads/${files.photo[0].filename}` : currentTeacher.photo;
-    const aadhaarPath = files.aadhaarFile ? `/uploads/${files.aadhaarFile[0].filename}` : currentTeacher.aadhaarFile;
-    const panPath = files.panFile ? `/uploads/${files.panFile[0].filename}` : currentTeacher.panFile;
-    const resumePath = files.resumeFile ? `/uploads/${files.resumeFile[0].filename}` : currentTeacher.resumeFile;
-    const qualificationPath = files.qualificationFile ? `/uploads/${files.qualificationFile[0].filename}` : currentTeacher.qualificationFile;
-    const experiencePath = files.experienceFile ? `/uploads/${files.experienceFile[0].filename}` : currentTeacher.experienceFile;
-    const joiningLetterPath = files.joiningLetterFile ? `/uploads/${files.joiningLetterFile[0].filename}` : currentTeacher.joiningLetterFile;
-    const otherPath = files.otherFile ? `/uploads/${files.otherFile[0].filename}` : currentTeacher.otherFile;
+    const tenantId = req.admin?.tenantId || 'platform';
+    const folder = `school/${tenantId}/teachers`;
+
+    const processUpdateUpload = async (fileArray, oldPath) => {
+      if (!fileArray || !fileArray[0]) return oldPath;
+      if (oldPath) {
+        deleteFromImageKit(oldPath).catch(e => console.error('[ImageKit Delete Error]', e));
+      }
+      const uploadRes = await uploadToImageKit(fileArray[0].buffer, fileArray[0].originalname, folder);
+      return uploadRes.url;
+    };
+
+    const photoPath = await processUpdateUpload(files.photo, currentTeacher.photo);
+    const aadhaarPath = await processUpdateUpload(files.aadhaarFile, currentTeacher.aadhaarFile);
+    const panPath = await processUpdateUpload(files.panFile, currentTeacher.panFile);
+    const resumePath = await processUpdateUpload(files.resumeFile, currentTeacher.resumeFile);
+    const qualificationPath = await processUpdateUpload(files.qualificationFile, currentTeacher.qualificationFile);
+    const experiencePath = await processUpdateUpload(files.experienceFile, currentTeacher.experienceFile);
+    const joiningLetterPath = await processUpdateUpload(files.joiningLetterFile, currentTeacher.joiningLetterFile);
+    const otherPath = await processUpdateUpload(files.otherFile, currentTeacher.otherFile);
 
     let parsedQualifications = updateData.qualification || currentTeacher.qualification;
     if (typeof updateData.qualification === 'string') {
@@ -416,8 +439,21 @@ export const deleteTeacher = async (req, res) => {
       return res.status(404).json({ error: 'Teacher profile not found.' });
     }
 
-    const teacherName = db.teachers[teacherIndex].name;
-    const deletedId = db.teachers[teacherIndex].id || db.teachers[teacherIndex].employeeId;
+    const teacher = db.teachers[teacherIndex];
+    const teacherName = teacher.name;
+    const deletedId = teacher.id || teacher.employeeId;
+
+    // Delete files from ImageKit
+    const filesToDelete = [
+      teacher.photo, teacher.aadhaarFile, teacher.panFile, teacher.resumeFile,
+      teacher.qualificationFile, teacher.experienceFile, teacher.joiningLetterFile, teacher.otherFile
+    ];
+    for (const fileUrl of filesToDelete) {
+      if (fileUrl) {
+        await deleteFromImageKit(fileUrl);
+      }
+    }
+
     db.teachers.splice(teacherIndex, 1);
 
     if (db.employeeQrCodes) {

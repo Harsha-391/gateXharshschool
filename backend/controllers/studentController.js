@@ -2,6 +2,7 @@ import { readDb, writeDb, addActivity } from '../utils/db.js';
 import { hashPassword } from '../utils/authHelper.js';
 import { logAudit } from '../utils/logger.js';
 import { encrypt, decrypt } from '../utils/encryptionHelper.js';
+import { uploadToImageKit, deleteFromImageKit } from '../utils/imagekit.js';
 
 
 // ==========================================
@@ -107,16 +108,24 @@ export const registerStudent = async (req, res) => {
       return res.status(400).json({ error: 'Invalid Aadhaar number. Must be exactly 12 digits.' });
     }
 
-    // Map uploaded file path indicators
     const files = req.files || {};
-    const photoPath = files.photo ? `/uploads/${files.photo[0].filename}` : '';
-    const aadhaarPath = files.aadhaarFile ? `/uploads/${files.aadhaarFile[0].filename}` : '';
-    const birthCertPath = files.birthCertificateFile ? `/uploads/${files.birthCertificateFile[0].filename}` : '';
-    const marksheetPath = files.marksheetFile ? `/uploads/${files.marksheetFile[0].filename}` : '';
-    const tcPath = files.transferCertificateFile ? `/uploads/${files.transferCertificateFile[0].filename}` : '';
-    const addressProofPath = files.addressProofFile ? `/uploads/${files.addressProofFile[0].filename}` : '';
-    const medicalCertPath = files.medicalCertificateFile ? `/uploads/${files.medicalCertificateFile[0].filename}` : '';
-    const additionalPath = files.additionalFile ? `/uploads/${files.additionalFile[0].filename}` : '';
+    const tenantId = req.admin?.tenantId || 'platform';
+    const folder = `school/${tenantId}/students`;
+
+    const processUpload = async (fileArray) => {
+      if (!fileArray || !fileArray[0]) return '';
+      const uploadRes = await uploadToImageKit(fileArray[0].buffer, fileArray[0].originalname, folder);
+      return uploadRes.url;
+    };
+
+    const photoPath = await processUpload(files.photo);
+    const aadhaarPath = await processUpload(files.aadhaarFile);
+    const birthCertPath = await processUpload(files.birthCertificateFile);
+    const marksheetPath = await processUpload(files.marksheetFile);
+    const tcPath = await processUpload(files.transferCertificateFile);
+    const addressProofPath = await processUpload(files.addressProofFile);
+    const medicalCertPath = await processUpload(files.medicalCertificateFile);
+    const additionalPath = await processUpload(files.additionalFile);
 
     // Student & Parent account logins creation
     const studentUsername = admissionNumber;
@@ -358,14 +367,26 @@ export const updateStudent = async (req, res) => {
     }
 
     const files = req.files || {};
-    const photoPath = files.photo ? `/uploads/${files.photo[0].filename}` : currentStudent.photo;
-    const aadhaarPath = files.aadhaarFile ? `/uploads/${files.aadhaarFile[0].filename}` : currentStudent.aadhaarFile;
-    const birthCertPath = files.birthCertificateFile ? `/uploads/${files.birthCertificateFile[0].filename}` : currentStudent.birthCertificateFile;
-    const marksheetPath = files.marksheetFile ? `/uploads/${files.marksheetFile[0].filename}` : currentStudent.marksheetFile;
-    const tcPath = files.transferCertificateFile ? `/uploads/${files.transferCertificateFile[0].filename}` : currentStudent.transferCertificateFile;
-    const addressProofPath = files.addressProofFile ? `/uploads/${files.addressProofFile[0].filename}` : currentStudent.addressProofFile;
-    const medicalCertPath = files.medicalCertificateFile ? `/uploads/${files.medicalCertificateFile[0].filename}` : currentStudent.medicalCertificateFile;
-    const additionalPath = files.additionalFile ? `/uploads/${files.additionalFile[0].filename}` : currentStudent.additionalFile;
+    const tenantId = req.admin?.tenantId || 'platform';
+    const folder = `school/${tenantId}/students`;
+
+    const processUpdateUpload = async (fileArray, oldPath) => {
+      if (!fileArray || !fileArray[0]) return oldPath;
+      if (oldPath) {
+        deleteFromImageKit(oldPath).catch(e => console.error('[ImageKit Delete Error]', e));
+      }
+      const uploadRes = await uploadToImageKit(fileArray[0].buffer, fileArray[0].originalname, folder);
+      return uploadRes.url;
+    };
+
+    const photoPath = await processUpdateUpload(files.photo, currentStudent.photo);
+    const aadhaarPath = await processUpdateUpload(files.aadhaarFile, currentStudent.aadhaarFile);
+    const birthCertPath = await processUpdateUpload(files.birthCertificateFile, currentStudent.birthCertificateFile);
+    const marksheetPath = await processUpdateUpload(files.marksheetFile, currentStudent.marksheetFile);
+    const tcPath = await processUpdateUpload(files.transferCertificateFile, currentStudent.transferCertificateFile);
+    const addressProofPath = await processUpdateUpload(files.addressProofFile, currentStudent.addressProofFile);
+    const medicalCertPath = await processUpdateUpload(files.medicalCertificateFile, currentStudent.medicalCertificateFile);
+    const additionalPath = await processUpdateUpload(files.additionalFile, currentStudent.additionalFile);
 
     const updatedStudent = {
       ...currentStudent,
@@ -421,7 +442,20 @@ export const deleteStudent = async (req, res) => {
       return res.status(404).json({ error: 'Student profile not found.' });
     }
 
-    const studentName = db.students[studentIndex].name;
+    const student = db.students[studentIndex];
+    const studentName = student.name;
+
+    // Delete files from ImageKit
+    const filesToDelete = [
+      student.photo, student.aadhaarFile, student.birthCertificateFile, student.marksheetFile,
+      student.transferCertificateFile, student.addressProofFile, student.medicalCertificateFile, student.additionalFile
+    ];
+    for (const fileUrl of filesToDelete) {
+      if (fileUrl) {
+        await deleteFromImageKit(fileUrl);
+      }
+    }
+
     db.students.splice(studentIndex, 1);
     addActivity(db, 'alert', 'Student Dismissed', `${studentName} was removed from the registry`, 'rgb(var(--color-danger-rgb))', 'rgba(var(--color-danger-rgb), 0.1)');
     writeDb(db);

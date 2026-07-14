@@ -1123,8 +1123,8 @@ export default function Sidebar({
         }}
       >
         <div className="profile-avatar">
-          {userProfile?.photo ? (
-            <img src={userProfile.photo} alt={userProfile.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          {(userProfile?.photo || localStorage.getItem('photo')) ? (
+            <img src={userProfile?.photo || localStorage.getItem('photo')} alt={userProfile?.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           ) : (
             (() => {
               const userRole = userProfile?.role || localStorage.getItem('role') || localStorage.getItem('portal_role');

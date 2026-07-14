@@ -26,7 +26,7 @@ export default function UserProfile({ onProfileUpdate, showToast, onLogout }) {
           username: localStorage.getItem('username') || 'dev@admin.com',
           email: 'dev@admin.com',
           phone: 'N/A',
-          photo: ''
+          photo: localStorage.getItem('photo') || ''
         });
         return;
       }
@@ -40,7 +40,7 @@ export default function UserProfile({ onProfileUpdate, showToast, onLogout }) {
             username: localStorage.getItem('username') || 'local_user',
             email: savedRole.toLowerCase().includes('admin') ? 'dev@admin.com' : 'local@example.com',
             phone: 'N/A',
-            photo: ''
+            photo: localStorage.getItem('photo') || ''
           });
           return;
         }
@@ -83,6 +83,15 @@ export default function UserProfile({ onProfileUpdate, showToast, onLogout }) {
     const reader = new FileReader();
     reader.onload = async () => {
       const base64Photo = reader.result;
+      const oldPhoto = profile?.photo || '';
+      
+      // OPTIMISTIC UPDATE: Instantly show preview
+      setProfile(prev => prev ? { ...prev, photo: base64Photo } : prev);
+      if (onProfileUpdate) {
+        onProfileUpdate(prev => prev ? { ...prev, photo: base64Photo } : { photo: base64Photo });
+      }
+      localStorage.setItem('photo', base64Photo);
+
       try {
         const token = localStorage.getItem('token');
         let headers = {
@@ -110,11 +119,25 @@ export default function UserProfile({ onProfileUpdate, showToast, onLogout }) {
 
           if (showToast) showToast('Profile picture updated successfully!', 'success');
         } else {
+          // ROLLBACK ON FAILURE
+          setProfile(prev => prev ? { ...prev, photo: oldPhoto } : prev);
+          if (onProfileUpdate) {
+            onProfileUpdate(prev => prev ? { ...prev, photo: oldPhoto } : { photo: oldPhoto });
+          }
+          localStorage.setItem('photo', oldPhoto);
+
           const errData = await res.json().catch(() => ({}));
           if (showToast) showToast(errData.error || 'Failed to upload photo.', 'error');
         }
       } catch (err) {
         console.error('Photo upload failed:', err);
+        // ROLLBACK ON FAILURE
+        setProfile(prev => prev ? { ...prev, photo: oldPhoto } : prev);
+        if (onProfileUpdate) {
+          onProfileUpdate(prev => prev ? { ...prev, photo: oldPhoto } : { photo: oldPhoto });
+        }
+        localStorage.setItem('photo', oldPhoto);
+
         if (showToast) showToast('Failed to connect to server.', 'error');
       }
     };

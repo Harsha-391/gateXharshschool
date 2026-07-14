@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import './StudentManager.css';
 import { 
   Users, 
@@ -176,7 +176,7 @@ export default function StudentManager({ showToast }) {
   });
 
   return (
-    <div className="glass-panel" style={{ padding: '24px', borderRadius: '16px', border: '1px solid var(--border-glass)' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
       {/* View Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px', flexWrap: 'wrap', gap: '12px' }}>
         <div>
@@ -187,68 +187,70 @@ export default function StudentManager({ showToast }) {
             Allocate grades and sections (A to E) to register students. Pending students will only appear in attendance, results, and directory listings after activation.
           </p>
         </div>
-        
-        {/* Search Input */}
-        <div style={{ position: 'relative', width: '280px' }}>
-          <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-          <input
-            type="text"
-            className="form-control"
-            placeholder="Search students by name / ID..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            style={{ paddingLeft: '38px', borderRadius: '10px', height: '40px', fontSize: '0.85rem' }}
-          />
-        </div>
       </div>
 
-      {/* Dynamic Dropdown Filters */}
+      {/* Control Panel: Search Bar + Filters in ONE DIV */}
       <div style={{ display: 'flex', gap: '16px', marginBottom: '24px', flexWrap: 'wrap', alignItems: 'center', background: 'rgba(255,255,255,0.01)', padding: '16px', borderRadius: '12px', border: '1px solid var(--border-glass)' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-          <label style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-muted)' }}>1. Session / Academic Year</label>
-          <select
-            className="form-control"
-            value={sessionFilter}
-            onChange={(e) => setSessionFilter(e.target.value)}
-            style={{ width: '160px', height: '38px', borderRadius: '8px', fontSize: '0.82rem', padding: '0 8px', cursor: 'pointer' }}
-          >
-            <option value="All">All Sessions</option>
-            {Array.from({ length: 2030 - 2026 + 1 }, (_, i) => {
-              const s = 2026 + i;
-              return `${s}-${s + 1}`;
-            }).map(sy => (
-              <option key={sy} value={sy}>{sy}</option>
-            ))}
-          </select>
+        {/* Search Box */}
+        <div style={{ display: 'flex', flex: '1', minWidth: '240px' }}>
+          <div style={{ position: 'relative', width: '100%' }}>
+            <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+            <input
+              type="text"
+              className="form-control"
+              placeholder="Search students by name / ID..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              style={{ paddingLeft: '38px', borderRadius: '8px', height: '38px', fontSize: '0.82rem', width: '100%' }}
+            />
+          </div>
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-          <label style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-muted)' }}>2. Class / Grade</label>
-          <select
-            className="form-control"
-            value={classFilter}
-            onChange={(e) => setClassFilter(e.target.value)}
-            style={{ width: '160px', height: '38px', borderRadius: '8px', fontSize: '0.82rem', padding: '0 8px', cursor: 'pointer' }}
-          >
-            <option value="">Select Grade</option>
-            {gradeOptions.map(g => (
-              <option key={g} value={g}>{g}</option>
-            ))}
-          </select>
-        </div>
+        {/* Dropdowns */}
+        <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', alignItems: 'center' }}>
+          <div>
+            <select
+              className="form-control"
+              value={sessionFilter}
+              onChange={(e) => setSessionFilter(e.target.value)}
+              style={{ width: '160px', height: '38px', borderRadius: '8px', fontSize: '0.82rem', padding: '0 8px', cursor: 'pointer' }}
+            >
+              <option value="All">All Sessions</option>
+              {Array.from({ length: 2030 - 2026 + 1 }, (_, i) => {
+                const s = 2026 + i;
+                return `${s}-${s + 1}`;
+              }).map(sy => (
+                <option key={sy} value={sy}>{sy}</option>
+              ))}
+            </select>
+          </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-          <label style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-muted)' }}>3. Status</label>
-          <select
-            className="form-control"
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            style={{ width: '140px', height: '38px', borderRadius: '8px', fontSize: '0.82rem', padding: '0 8px', cursor: 'pointer' }}
-          >
-            <option value="All">All Status</option>
-            <option value="Active">Active</option>
-            <option value="Pending">Pending</option>
-          </select>
+          <div>
+            <select
+              className="form-control"
+              value={classFilter}
+              onChange={(e) => setClassFilter(e.target.value)}
+              style={{ width: '160px', height: '38px', borderRadius: '8px', fontSize: '0.82rem', padding: '0 8px', cursor: 'pointer' }}
+            >
+              <option value="">Select Grade</option>
+              {gradeOptions.map(g => (
+                <option key={g} value={g}>{g}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <select
+              className="form-control"
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              style={{ width: '140px', height: '38px', borderRadius: '8px', fontSize: '0.82rem', padding: '0 8px', cursor: 'pointer' }}
+            >
+              <option value="All">All Status</option>
+              <option value="Active">Active</option>
+              <option value="Pending">Pending</option>
+            </select>
+          </div>
         </div>
       </div>
 

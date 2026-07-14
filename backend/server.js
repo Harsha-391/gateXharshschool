@@ -81,6 +81,7 @@ import { decrypt } from './utils/encryptionHelper.js';
 import { auth, generateToken, generateRefreshToken, verifyRefreshToken, blacklistToken, setAuthCookie, clearAuthCookie } from './middleware/auth.js';
 import multer from 'multer';
 import * as sqlDb from './utils/sqlDb.js';
+import { uploadToImageKit, deleteFromImageKit } from './utils/imagekit.js';
 
 // Database cache refresh trigger
 const __filename = fileURLToPath(import.meta.url);
@@ -971,16 +972,21 @@ app.post('/api/platform/schools', schoolValidation, async (req, res) => {
   addActivity(db, 'alert', 'New School Onboarded', `School "${name}" registered on the platform.`, 'hsl(var(--color-primary))', 'rgba(hsl(var(--color-primary)), 0.1)');
   writeDb(db); // Write to global DB
 
-  // If SQL is active, automatically provision and seed the school database
+  // If SQL is active, automatically provision and seed the school database in the background
   if (isSqlActive()) {
-    try {
-      await initializeOnboardedSchoolDatabase(cleanSubdomain);
-    } catch (err) {
-      console.error('Failed to initialize school SQL database:', err);
-    }
+    setImmediate(async () => {
+      try {
+        await initializeOnboardedSchoolDatabase(cleanSubdomain);
+        console.log(`[Background Init] Finished provisioning database for: ${cleanSubdomain}`);
+        broadcastPlatformUpdate();
+      } catch (err) {
+        console.error(`[Background Init Error] Failed to initialize school SQL database for ${cleanSubdomain}:`, err);
+      }
+    });
+  } else {
+    broadcastPlatformUpdate();
   }
 
-  broadcastPlatformUpdate();
   res.status(201).json(newSchool);
 });
 
@@ -1293,14 +1299,14 @@ app.get('/api/platform/analytics', async (req, res) => {
 
 // GET subscription plans
 app.get('/api/platform/plans', (req, res) => {
-  const db = readDb();
+  const db = tenantStorage.run(null, () => readDb());
   let plans = db.plans || [];
   res.json(plans);
 });
 
 // POST create plan
 app.post('/api/platform/plans', (req, res) => {
-  const db = readDb();
+  const db = tenantStorage.run(null, () => readDb());
   if (!db.plans) db.plans = [];
   const { name, price, features } = req.body;
   if (!name || price === undefined) {
@@ -1309,14 +1315,14 @@ app.post('/api/platform/plans', (req, res) => {
   const id = 'Plan-' + Date.now();
   const newPlan = { id, name, price: parseFloat(price) || 0, features: features || '' };
   db.plans.push(newPlan);
-  writeDb(db);
+  tenantStorage.run(null, () => writeDb(db));
   broadcastPlatformUpdate();
   res.json({ success: true, plan: newPlan });
 });
 
 // PUT edit plan
 app.put('/api/platform/plans/:id', (req, res) => {
-  const db = readDb();
+  const db = tenantStorage.run(null, () => readDb());
   const { id } = req.params;
   const { name, price, features } = req.body;
   if (!db.plans) db.plans = [];
@@ -1330,18 +1336,18 @@ app.put('/api/platform/plans/:id', (req, res) => {
     price: price !== undefined ? parseFloat(price) : db.plans[idx].price,
     features: features !== undefined ? features : db.plans[idx].features
   };
-  writeDb(db);
+  tenantStorage.run(null, () => writeDb(db));
   broadcastPlatformUpdate();
   res.json({ success: true, plan: db.plans[idx] });
 });
 
 // DELETE plan
 app.delete('/api/platform/plans/:id', (req, res) => {
-  const db = readDb();
+  const db = tenantStorage.run(null, () => readDb());
   const { id } = req.params;
   if (!db.plans) db.plans = [];
   db.plans = db.plans.filter(p => p.id !== id);
-  writeDb(db);
+  tenantStorage.run(null, () => writeDb(db));
   broadcastPlatformUpdate();
   res.json({ success: true });
 });
@@ -1360,6 +1366,7 @@ app.get('/api/auth/profile', auth, restoreTenantContext, (req, res) => {
   const globalDb = readDb();
 
   if (user.role === 'Developer Admin') {
+    const globalDb = tenantStorage.run(null, () => readDb());
     if (!globalDb.platformOwner) {
       globalDb.platformOwner = {
         name: "Platform Owner",
@@ -1369,7 +1376,7 @@ app.get('/api/auth/profile', auth, restoreTenantContext, (req, res) => {
         phone: "",
         photo: ""
       };
-      writeDb(globalDb);
+      tenantStorage.run(null, () => writeDb(globalDb));
     }
     return res.json({
       role: 'Developer Admin',
@@ -1523,8 +1530,19 @@ app.post('/api/auth/profile/photo', auth, restoreTenantContext, async (req, res)
   const tenantId = tenantStorage.getStore() || user.tenantId;
 
   try {
+    const folder = `school/${tenantId}/profiles`;
+    const fileName = `profile-${user.id || 'owner'}-${Date.now()}`;
+    
+    // Upload base64 image to ImageKit
+    const uploadResult = await uploadToImageKit(photo, fileName, folder, ['profile-photo']);
+    const newPhotoUrl = uploadResult.url;
+
     if (user.role === 'Developer Admin') {
       const globalDb = tenantStorage.run(null, () => readDb());
+      const oldPhoto = globalDb.platformOwner?.photo;
+      if (oldPhoto) {
+        deleteFromImageKit(oldPhoto).catch(e => console.error('[ImageKit Delete Error]', e));
+      }
       if (!globalDb.platformOwner) {
         globalDb.platformOwner = {
           name: "Platform Owner",
@@ -1535,9 +1553,23 @@ app.post('/api/auth/profile/photo', auth, restoreTenantContext, async (req, res)
           photo: ""
         };
       }
-      globalDb.platformOwner.photo = photo;
+      globalDb.platformOwner.photo = newPhotoUrl;
       tenantStorage.run(null, () => writeDb(globalDb));
-      return res.json({ success: true, photo });
+
+      // Persist platformOwner directly to db.json file so it is not lost on nodemon reload
+      try {
+        const dbPath = path.join(__dirname, 'db.json');
+        if (fs.existsSync(dbPath)) {
+          const fileData = JSON.parse(fs.readFileSync(dbPath, 'utf8'));
+          fileData.platformOwner = globalDb.platformOwner;
+          fs.writeFileSync(dbPath, JSON.stringify(fileData, null, 2), 'utf8');
+          console.log('[Profile Photo] Saved platformOwner photo to backend/db.json successfully.');
+        }
+      } catch (fsErr) {
+        console.error('[Profile Photo Error] Failed to write platformOwner to db.json:', fsErr);
+      }
+
+      return res.json({ success: true, photo: newPhotoUrl });
     }
 
     if (user.role === 'Main Admin') {
@@ -1549,13 +1581,17 @@ app.post('/api/auth/profile/photo', auth, restoreTenantContext, async (req, res)
       if (index === -1) {
         return res.status(404).json({ error: 'School domain registration not found.' });
       }
-      platformDb.schools[index].adminPhoto = photo;
+      const oldPhoto = platformDb.schools[index].adminPhoto;
+      if (oldPhoto) {
+        deleteFromImageKit(oldPhoto).catch(e => console.error('[ImageKit Delete Error]', e));
+      }
+      platformDb.schools[index].adminPhoto = newPhotoUrl;
       tenantStorage.run(null, () => writeDb(platformDb));
 
       if (isSqlActive()) {
-        await sqlDb.query('UPDATE schools SET adminPhoto = ? WHERE id = ?', [photo, platformDb.schools[index].id], 'platform');
+        await sqlDb.query('UPDATE schools SET adminPhoto = ? WHERE id = ?', [newPhotoUrl, platformDb.schools[index].id], 'platform');
       }
-      return res.json({ success: true, photo });
+      return res.json({ success: true, photo: newPhotoUrl });
     }
 
     if (!tenantId) {
@@ -1569,9 +1605,13 @@ app.post('/api/auth/profile/photo', auth, restoreTenantContext, async (req, res)
       if (teacherIndex === -1) {
         return res.status(404).json({ error: 'Teacher profile not found.' });
       }
-      db.teachers[teacherIndex].photo = photo;
+      const oldPhoto = db.teachers[teacherIndex].photo;
+      if (oldPhoto) {
+        await deleteFromImageKit(oldPhoto);
+      }
+      db.teachers[teacherIndex].photo = newPhotoUrl;
       writeDb(db);
-      return res.json({ success: true, photo });
+      return res.json({ success: true, photo: newPhotoUrl });
     }
 
     if (user.userType === 'Staff') {
@@ -1579,9 +1619,13 @@ app.post('/api/auth/profile/photo', auth, restoreTenantContext, async (req, res)
       if (staffIndex === -1) {
         return res.status(404).json({ error: 'Staff profile not found.' });
       }
-      db.staff[staffIndex].photo = photo;
+      const oldPhoto = db.staff[staffIndex].photo;
+      if (oldPhoto) {
+        await deleteFromImageKit(oldPhoto);
+      }
+      db.staff[staffIndex].photo = newPhotoUrl;
       writeDb(db);
-      return res.json({ success: true, photo });
+      return res.json({ success: true, photo: newPhotoUrl });
     }
 
     if (user.userType === 'Employee') {
@@ -1589,9 +1633,13 @@ app.post('/api/auth/profile/photo', auth, restoreTenantContext, async (req, res)
       if (employeeIndex === -1) {
         return res.status(404).json({ error: 'Employee profile not found.' });
       }
-      db.employees[employeeIndex].photo = photo;
+      const oldPhoto = db.employees[employeeIndex].photo;
+      if (oldPhoto) {
+        await deleteFromImageKit(oldPhoto);
+      }
+      db.employees[employeeIndex].photo = newPhotoUrl;
       writeDb(db);
-      return res.json({ success: true, photo });
+      return res.json({ success: true, photo: newPhotoUrl });
     }
 
     return res.status(400).json({ error: 'Unsupported user type for photo upload.' });
@@ -1822,12 +1870,30 @@ app.put('/api/auth/profile', auth, upload.single('photo'), restoreTenantContext,
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // General File Upload Endpoint
-app.post('/api/upload', auth, restoreTenantContext, upload.single('file'), (req, res) => {
+app.post('/api/upload', auth, restoreTenantContext, upload.single('file'), async (req, res) => {
   if (!req.file) {
     return res.status(400).json({ error: 'No file uploaded.' });
   }
-  const filePath = `/uploads/${req.file.filename}`;
-  res.json({ success: true, filePath, filename: req.file.originalname });
+
+  try {
+    const tenantId = tenantStorage.getStore() || req.admin?.tenantId || 'platform';
+    const folder = `school/${tenantId}/general`;
+    
+    const uploadResult = await uploadToImageKit(
+      req.file.buffer,
+      req.file.originalname,
+      folder
+    );
+
+    res.json({ 
+      success: true, 
+      filePath: uploadResult.url, 
+      filename: req.file.originalname 
+    });
+  } catch (err) {
+    console.error('[Upload Endpoint Error] Failed:', err);
+    res.status(500).json({ error: 'Failed to upload file to cloud storage.' });
+  }
 });
 
 app.use('/api/students', studentRoutes);
@@ -2756,7 +2822,7 @@ app.use((err, req, res, next) => {
 
 // Start Server
 startSqlDbInit().then(() => {
-  const server = app.listen(PORT, () => {
+  const server = app.listen(PORT, '0.0.0.0', () => {
     console.log(`Aether Server running at http://localhost:${PORT}`);
   });
   setupWebSocketServer(server);

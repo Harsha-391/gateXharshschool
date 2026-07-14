@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import './GradeManagement.css';
 import { 
   GraduationCap, 
@@ -699,47 +699,7 @@ export default function GradeManagement({ currentSubView, setAdminView, showToas
           {activeTab === 'grade-list' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
 
-              {/* Stats summary bar */}
-              <div className="gm-stats-bar">
-                <div className="gm-stat-card">
-                  <div className="gm-stat-icon" style={{ background: 'rgba(255,107,0,0.1)' }}>
-                    <GraduationCap size={20} style={{ color: '#FF8C42' }} />
-                  </div>
-                  <div>
-                    <div className="gm-stat-value">{displayGrades.length}</div>
-                    <div className="gm-stat-label">Total Grades</div>
-                  </div>
-                </div>
-                <div className="gm-stat-card">
-                  <div className="gm-stat-icon" style={{ background: 'rgba(59,130,246,0.1)' }}>
-                    <Users size={20} style={{ color: '#3b82f6' }} />
-                  </div>
-                  <div>
-                    <div className="gm-stat-value" style={{ color: '#3b82f6' }}>
-                      {displayGrades.reduce((sum, g) => sum + (g.sections?.length || 0), 0)}
-                    </div>
-                    <div className="gm-stat-label">Total Sections</div>
-                  </div>
-                </div>
-                <div className="gm-stat-card">
-                  <div className="gm-stat-icon" style={{ background: 'rgba(16,185,129,0.1)' }}>
-                    <BookOpen size={20} style={{ color: '#10b981' }} />
-                  </div>
-                  <div>
-                    <div className="gm-stat-value" style={{ color: '#10b981' }}>{subjects.length}</div>
-                    <div className="gm-stat-label">Total Subjects</div>
-                  </div>
-                </div>
-                <div className="gm-stat-card">
-                  <div className="gm-stat-icon" style={{ background: 'rgba(168,85,247,0.1)' }}>
-                    <Settings size={20} style={{ color: '#a855f7' }} />
-                  </div>
-                  <div>
-                    <div className="gm-stat-value" style={{ color: '#a855f7' }}>{departments.length}</div>
-                    <div className="gm-stat-label">Departments</div>
-                  </div>
-                </div>
-              </div>
+
 
               {/* Search + bulk-delete toolbar */}
               <div className="glass-panel" style={{ padding: '14px 18px', display: 'flex', flexWrap: 'wrap', gap: '12px', justifyContent: 'space-between', alignItems: 'center', border: '1.5px solid rgba(255,107,0,0.1)', borderRadius: '14px', background: 'var(--bg-card)' }}>
@@ -760,143 +720,164 @@ export default function GradeManagement({ currentSubView, setAdminView, showToas
                 )}
               </div>
 
-              {/* Cards grid */}
-              <div className="gm-cards-grid">
-                {displayGrades.length > 0 ? displayGrades.map(g => {
-                  const rowKey = g.displayId || g.id;
-                  const gradeSections = g.sections || [];
-                  const gradeSubjectsList = subjects.filter(sub => sub.grade?.toUpperCase() === g.displayName?.toUpperCase());
-
-                  return (
-                    <div key={rowKey} className="gm-grade-card">
-
-                      {/* Checkbox */}
-                      <div style={{ position: 'absolute', top: '20px', left: '18px' }}>
+              {/* SaaS Table Form */}
+              <div className="glass-panel" style={{ overflowX: 'auto', padding: '0', borderRadius: '12px', border: '1px solid var(--border-glass)', background: 'var(--bg-card)' }}>
+                <table className="table-custom" style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                  <thead>
+                    <tr style={{ borderBottom: '1px solid var(--border-glass)', background: 'rgba(255,107,0,0.02)' }}>
+                      <th style={{ padding: '14px 18px', width: '50px' }}>
                         <input
                           type="checkbox"
-                          checked={selectedGrades.includes(rowKey)}
+                          checked={displayGrades.length > 0 && selectedGrades.length === displayGrades.length}
                           onChange={e => {
-                            if (e.target.checked) setSelectedGrades(prev => [...prev, rowKey]);
-                            else setSelectedGrades(prev => prev.filter(id => id !== rowKey));
+                            if (e.target.checked) setSelectedGrades(displayGrades.map(g => g.displayId || g.id));
+                            else setSelectedGrades([]);
                           }}
                           style={{ width: '15px', height: '15px', cursor: 'pointer', accentColor: '#FF8C42' }}
                         />
-                      </div>
+                      </th>
+                      <th style={{ padding: '14px 18px', fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600 }}>Class / Grade</th>
+                      <th style={{ padding: '14px 18px', fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600 }}>Sections</th>
+                      <th style={{ padding: '14px 18px', fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600 }}>Subjects</th>
+                      <th style={{ padding: '14px 18px', fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600, textAlign: 'right' }}>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {displayGrades.length > 0 ? displayGrades.map(g => {
+                      const rowKey = g.displayId || g.id;
+                      const gradeSections = g.sections || [];
+                      const gradeSubjectsList = subjects.filter(sub => sub.grade?.toUpperCase() === g.displayName?.toUpperCase());
 
-                      {/* Header */}
-                      <div className="gm-grade-card-header">
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1, minWidth: 0 }}>
-                          <div className="gm-grade-avatar">{g.name?.charAt(0)}</div>
-                          <div style={{ minWidth: 0 }}>
-                            <h4 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 800, color: 'var(--text-main)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                              Grade {g.name}
-                            </h4>
-                            {g.deptName !== 'None' && (
-                              <span className="gm-grade-badge">{g.deptName}</span>
-                            )}
+                      return (
+                        <tr key={rowKey} style={{ borderBottom: '1px solid var(--border-glass)' }} className="hover-row">
+                          {/* Checkbox */}
+                          <td style={{ padding: '16px 18px' }}>
+                            <input
+                              type="checkbox"
+                              checked={selectedGrades.includes(rowKey)}
+                              onChange={e => {
+                                if (e.target.checked) setSelectedGrades(prev => [...prev, rowKey]);
+                                else setSelectedGrades(prev => prev.filter(id => id !== rowKey));
+                              }}
+                              style={{ width: '15px', height: '15px', cursor: 'pointer', accentColor: '#FF8C42' }}
+                            />
+                          </td>
+
+                          {/* Class / Grade Name */}
+                          <td style={{ padding: '16px 18px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                              <div className="gm-grade-avatar" style={{ margin: 0, fontSize: (g.name || '').length > 2 ? '0.7rem' : '0.85rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{g.name}</div>
+                              <div>
+                                <div style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--text-main)' }}>
+                                  Grade {g.name}
+                                </div>
+                                {g.deptName !== 'None' && (
+                                  <span className="gm-grade-badge" style={{ marginTop: '2px', display: 'inline-block' }}>{g.deptName}</span>
+                                )}
+                              </div>
+                            </div>
+                          </td>
+
+                          {/* Sections */}
+                          <td style={{ padding: '16px 18px', maxWidth: '280px' }}>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px' }}>
+                              {gradeSections.length > 0 ? gradeSections.map((secName, idx) => (
+                                <span key={idx} className="gm-chip gm-chip-section">
+                                  {secName}
+                                  <button
+                                    type="button"
+                                    className="gm-chip-del"
+                                    title={`Remove ${secName}`}
+                                    onClick={e => { e.stopPropagation(); handleRemoveSectionDirectly(g, secName); }}
+                                  >
+                                    <X size={9} />
+                                  </button>
+                                </span>
+                              )) : (
+                                <span style={{ color: 'var(--text-muted)', fontSize: '0.78rem', fontStyle: 'italic' }}>No sections</span>
+                              )}
+                            </div>
+                          </td>
+
+                          {/* Subjects */}
+                          <td style={{ padding: '16px 18px', maxWidth: '380px' }}>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px' }}>
+                              {gradeSubjectsList.length > 0 ? gradeSubjectsList.map((sub, idx) => (
+                                <span key={idx} className="gm-chip gm-chip-subject">
+                                  {sub.subjectName}
+                                  <button
+                                    type="button"
+                                    className="gm-chip-del"
+                                    style={{ color: '#10b981', opacity: 0.7 }}
+                                    title={`Delete ${sub.subjectName}`}
+                                    onClick={e => { e.stopPropagation(); handleDeleteModalSubject(sub.id, sub.subjectName); }}
+                                  >
+                                    <X size={9} />
+                                  </button>
+                                </span>
+                              )) : (
+                                <span style={{ color: 'var(--text-muted)', fontSize: '0.78rem', fontStyle: 'italic' }}>No subjects</span>
+                              )}
+                            </div>
+                          </td>
+
+                          {/* Actions */}
+                          <td style={{ padding: '16px 18px', textAlign: 'right' }}>
+                            <div style={{ display: 'inline-flex', gap: '6px', alignItems: 'center' }}>
+                              <button
+                                type="button"
+                                className="btn-secondary"
+                                style={{ padding: '6px 10px', fontSize: '0.78rem', display: 'flex', alignItems: 'center', gap: '4px', height: '32px' }}
+                                onClick={() => setSectionModalGrade(g)}
+                              >
+                                <Plus size={12} /> Sections
+                              </button>
+                              <button
+                                type="button"
+                                className="btn-secondary"
+                                style={{ padding: '6px 10px', fontSize: '0.78rem', display: 'flex', alignItems: 'center', gap: '4px', height: '32px' }}
+                                onClick={() => setSubjectModalGrade(g)}
+                              >
+                                <BookOpen size={12} /> Subjects
+                              </button>
+                              <button
+                                type="button"
+                                className="gm-icon-btn"
+                                style={{ height: '32px', width: '32px' }}
+                                title="Edit Grade"
+                                onClick={() => {
+                                  const mappedDepts = mappings.filter(m => m.gradeId === g.id).map(m => m.departmentId);
+                                  setEditingGrade({ ...g, selectedDepts: mappedDepts });
+                                }}
+                              >
+                                <Edit3 size={13} />
+                              </button>
+                              <button
+                                type="button"
+                                className="gm-icon-btn danger"
+                                style={{ height: '32px', width: '32px' }}
+                                title="Delete Grade"
+                                onClick={() => handleDeleteGrade(g)}
+                              >
+                                <Trash2 size={13} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    }) : (
+                      <tr>
+                        <td colSpan="5">
+                          <div className="gm-empty" style={{ padding: '40px' }}>
+                            <div className="gm-empty-icon"><GraduationCap size={26} /></div>
+                            <div style={{ fontWeight: 700, fontSize: '0.95rem' }}>No grades found</div>
+                            <div style={{ fontSize: '0.82rem' }}>Click "Add Grade" to create your first grade.</div>
                           </div>
-                        </div>
-                        <div style={{ display: 'flex', gap: '5px', flexShrink: 0 }}>
-                          <button
-                            type="button"
-                            className="gm-icon-btn"
-                            title="Edit Grade"
-                            onClick={() => {
-                              const mappedDepts = mappings.filter(m => m.gradeId === g.id).map(m => m.departmentId);
-                              setEditingGrade({ ...g, selectedDepts: mappedDepts });
-                            }}
-                          >
-                            <Edit3 size={13} />
-                          </button>
-                          <button
-                            type="button"
-                            className="gm-icon-btn danger"
-                            title="Delete Grade"
-                            onClick={() => handleDeleteGrade(g)}
-                          >
-                            <Trash2 size={13} />
-                          </button>
-                        </div>
-                      </div>
-
-                      <div className="gm-divider" style={{ marginBottom: '12px' }} />
-
-                      {/* Body */}
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', flex: 1 }}>
-
-                        {/* Sections */}
-                        <div>
-                          <div className="gm-card-section-label">
-                            <Users size={12} style={{ color: '#FF8C42' }} />
-                            Sections ({gradeSections.length})
-                          </div>
-                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px' }}>
-                            {gradeSections.length > 0 ? gradeSections.map((secName, idx) => (
-                              <span key={idx} className="gm-chip gm-chip-section">
-                                {secName}
-                                <button
-                                  type="button"
-                                  className="gm-chip-del"
-                                  title={`Remove ${secName}`}
-                                  onClick={e => { e.stopPropagation(); handleRemoveSectionDirectly(g, secName); }}
-                                >
-                                  <X size={9} />
-                                </button>
-                              </span>
-                            )) : (
-                              <span style={{ color: 'var(--text-muted)', fontSize: '0.78rem', fontStyle: 'italic' }}>No sections assigned</span>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* Subjects */}
-                        <div>
-                          <div className="gm-card-section-label">
-                            <BookOpen size={12} style={{ color: '#10b981' }} />
-                            Subjects ({gradeSubjectsList.length})
-                          </div>
-                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px' }}>
-                            {gradeSubjectsList.length > 0 ? gradeSubjectsList.map((sub, idx) => (
-                              <span key={idx} className="gm-chip gm-chip-subject">
-                                {sub.subjectName}
-                                <button
-                                  type="button"
-                                  className="gm-chip-del"
-                                  style={{ color: '#10b981', opacity: 0.7 }}
-                                  title={`Delete ${sub.subjectName}`}
-                                  onClick={e => { e.stopPropagation(); handleDeleteModalSubject(sub.id, sub.subjectName); }}
-                                >
-                                  <X size={9} />
-                                </button>
-                              </span>
-                            )) : (
-                              <span style={{ color: 'var(--text-muted)', fontSize: '0.78rem', fontStyle: 'italic' }}>No subjects registered</span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Footer */}
-                      <div className="gm-card-footer">
-                        <button type="button" className="gm-btn-outline" onClick={() => setSectionModalGrade(g)}>
-                          <Plus size={13} /> Sections
-                        </button>
-                        <button type="button" className="gm-btn-solid" onClick={() => setSubjectModalGrade(g)}>
-                          <BookOpen size={13} /> Subjects
-                        </button>
-                      </div>
-
-                    </div>
-                  );
-                }) : (
-                  <div style={{ gridColumn: '1 / -1' }}>
-                    <div className="gm-empty">
-                      <div className="gm-empty-icon"><GraduationCap size={26} /></div>
-                      <div style={{ fontWeight: 700, fontSize: '0.95rem' }}>No grades found</div>
-                      <div style={{ fontSize: '0.82rem' }}>Click "Add Grade" to create your first grade.</div>
-                    </div>
-                  </div>
-                )}
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
               </div>
 
               {/* Edit Grade Modal */}
