@@ -189,9 +189,7 @@ export default function UserProfile({ onProfileUpdate, showToast, onLogout }) {
               transition: 'all 0.3s ease'
             }}
           >
-            {((profile?.role === 'Main Admin' || profile?.role === 'Principal') && schoolDetails?.logo) ? (
-              <img src={schoolDetails.logo} alt="School Logo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-            ) : profile?.photo ? (
+            {profile?.photo ? (
               <img src={profile.photo} alt="User Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
             ) : (
               <User size={40} style={{ color: 'var(--text-muted)' }} />

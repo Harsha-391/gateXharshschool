@@ -1399,7 +1399,7 @@ app.get('/api/auth/profile', auth, restoreTenantContext, (req, res) => {
       username: schoolRecord.adminUsername,
       email: schoolRecord.adminEmail,
       phone: schoolRecord.phone,
-      photo: schoolRecord.logo,
+      photo: '',
       password: schoolRecord.adminPassword
     });
   }
