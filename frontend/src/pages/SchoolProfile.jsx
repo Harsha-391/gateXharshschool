@@ -335,7 +335,7 @@ export default function SchoolProfile({ schoolDetails, fetchSchoolDetails, isDev
       setPlanForm({
         name: plan.name,
         price: plan.price,
-        features: plan.features
+        features: Array.isArray(plan.features) ? plan.features.join(', ') : (plan.features || '')
       });
     } else {
       setPlanForm({
@@ -1384,7 +1384,7 @@ export default function SchoolProfile({ schoolDetails, fetchSchoolDetails, isDev
                   <div style={{ borderTop: '1px solid var(--border-glass)', paddingTop: '16px', flex: 1, marginTop: '16px', display: 'flex', flexDirection: 'column', gap: '8px', overflowY: 'auto' }}>
                     <span style={{ fontSize: '0.68rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>Plan Entitlements</span>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                      {p.features ? (p.features.split(',').map((feat, idx) => (
+                      {p.features ? ((Array.isArray(p.features) ? p.features : p.features.split(',')).map((feat, idx) => (
                         <div key={idx} style={{ display: 'flex', alignItems: 'start', gap: '8px', fontSize: '0.82rem', color: 'var(--text-main)', fontWeight: 550 }}>
                           <span style={{ color: '#10b981', fontWeight: 'bold', fontSize: '0.9rem', lineHeight: 1 }}>✓</span>
                           <span style={{ lineHeight: '1.2' }}>{feat.trim()}</span>

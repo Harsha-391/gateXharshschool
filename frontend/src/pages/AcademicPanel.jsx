@@ -23,6 +23,7 @@ import {
   TrendingUp,
   Activity,
   ArrowLeft,
+  ArrowRight,
   ChevronLeft,
   Settings,
   Eye,
@@ -1166,7 +1167,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
 
   const togglePublishEvent = async (evt) => {
     try {
-      const updatedStatus = evt.status === 'Published' ? 'Scheduled' : 'Published';
+      const updatedStatus = evt.status === 'Published' ? 'Draft' : 'Published';
       const res = await fetch(`/api/academics/events/${evt.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -2866,10 +2867,33 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
     );
   };
 
+  const isExamExpiredOrCompleted = (ex) => {
+    if (!ex) return false;
+    if (ex.status === 'Completed') return true;
+
+    const todayStr = new Date().toISOString().split('T')[0];
+
+    // Check root level endDate
+    if (ex.endDate && ex.endDate.trim() !== '') {
+      if (todayStr > ex.endDate.trim()) return true;
+    }
+
+    // Check gradeSections end dates: if all gradeSections have end dates and all are past todayStr
+    const gsList = ex.gradeSections || [];
+    if (gsList.length > 0) {
+      const endDates = gsList.map(gs => gs.endDate).filter(Boolean);
+      if (endDates.length > 0 && endDates.every(ed => todayStr > ed.trim())) {
+        return true;
+      }
+    }
+
+    return false;
+  };
+
   const renderExams = () => {
     const sessions = [...new Set(exams.map(e => e.academicSession).filter(Boolean))].sort().reverse();
 
-    const filteredExams = exams.filter(ex => ex.status !== 'Completed').filter(ex => {
+    const filteredExams = exams.filter(ex => !isExamExpiredOrCompleted(ex)).filter(ex => {
       const matchSearch = examSearch === '' || ex.examName.toLowerCase().includes(examSearch.toLowerCase());
       const matchSession = examSessionFilter === 'All' || ex.academicSession === examSessionFilter;
       const matchType = examTypeFilter === 'All' || ex.examType === examTypeFilter;
@@ -3244,35 +3268,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                         <Send size={13} /> Publish
                       </button>
                     )}
-                    {ex.status !== 'Completed' && (
-                      <button
-                        onClick={async (e) => {
-                          e.stopPropagation();
-                          if (confirm('Are you sure you want to mark this exam as completed? It will be moved to Exam History.')) {
-                            try {
-                              const res = await fetch(`/api/academics/exams/${ex.id}`, {
-                                method: 'PUT',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ status: 'Completed' })
-                              });
-                              if (res.ok) {
-                                showToast('Exam marked as completed!', 'success');
-                                fetchAllData();
-                              } else {
-                                const data = await res.json();
-                                showToast(data.error || 'Failed to complete exam.', 'error');
-                              }
-                            } catch (err) {
-                              showToast('Network error.', 'error');
-                            }
-                          }
-                        }}
-                        className="btn-primary"
-                        style={{ padding: '6px 10px', fontSize: '0.72rem', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '4px', background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', border: 'none', color: '#fff' }}
-                      >
-                        <CheckCircle size={13} /> Mark Completed
-                      </button>
-                    )}
+
                     <button
                       onClick={(e) => { e.stopPropagation(); handleEditExam(ex); }}
                       className="btn-secondary"
@@ -3311,14 +3307,14 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
   const renderExamTimetable = () => {
     const selectedExamObj = exams.find(e => e.id === activeExam);
     const timetableExamName = selectedExamObj ? selectedExamObj.examName : null;
-    const matchingExams = timetableExamName ? exams.filter(e => e.examName === timetableExamName && e.status !== 'Completed') : [];
+    const matchingExams = timetableExamName ? exams.filter(e => e.examName === timetableExamName && !isExamExpiredOrCompleted(e)) : [];
     const matchingExamIds = matchingExams.map(e => e.id);
     const schedules = examTimetables.filter(et => matchingExamIds.includes(et.examId));
     const cohorts = [...new Set(schedules.map(s => s.cohort).filter(Boolean))].sort();
     const sessions = [...new Set(exams.map(e => e.academicSession).filter(Boolean))].sort().reverse();
     const visibleExams = activeExam
       ? matchingExams
-      : exams.filter(ex => ex.status !== 'Completed' && (timetableSession === 'All' || ex.academicSession === timetableSession));
+      : exams.filter(ex => !isExamExpiredOrCompleted(ex) && (timetableSession === 'All' || ex.academicSession === timetableSession));
 
     const examsWithSchedules = visibleExams.filter(ex => {
       const examSchedules = examTimetables.filter(et => et.examId === ex.id);
@@ -3772,7 +3768,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
 
   const renderExamsHistory = () => {
     const sessions = [...new Set(exams.map(e => e.academicSession).filter(Boolean))].sort().reverse();
-    const completedExams = exams.filter(ex => ex.status === 'Completed');
+    const completedExams = exams.filter(ex => isExamExpiredOrCompleted(ex));
 
     const filteredHistory = completedExams.filter(ex => {
       const matchSearch = examSearch === '' || ex.examName.toLowerCase().includes(examSearch.toLowerCase());
@@ -3982,7 +3978,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
 
   const renderPublishedExams = () => {
     const isFiltered = pubExamSearch.trim() !== '' || pubExamGrade !== 'All';
-    const showExams = exams.filter(ex => ex.status === 'Published');
+    const showExams = exams.filter(ex => ex.status === 'Published' && !isExamExpiredOrCompleted(ex));
     const filteredPublishedExams = isFiltered
       ? showExams.filter(ex => {
           const query = pubExamSearch.toLowerCase().trim();
@@ -6289,7 +6285,11 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                     } else {
                       setActiveMonth(activeMonth - 1);
                     }
-                  }} style={{ padding: '6px 12px', borderRadius: '8px' }}>â† Prev</button>
+                  }} style={{ padding: '6px 12px', borderRadius: '8px' }}>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                      <ArrowLeft size={14} /> Prev
+                    </span>
+                  </button>
                   <button className="btn-secondary" onClick={() => {
                     if (activeMonth === 11) {
                       setActiveMonth(0);
@@ -6297,7 +6297,11 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                     } else {
                       setActiveMonth(activeMonth + 1);
                     }
-                  }} style={{ padding: '6px 12px', borderRadius: '8px' }}>Next â†’</button>
+                  }} style={{ padding: '6px 12px', borderRadius: '8px' }}>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                      Next <ArrowRight size={14} />
+                    </span>
+                  </button>
                 </div>
 
                 <h4 style={{ fontSize: '1.15rem', fontWeight: 800, margin: 0, color: 'var(--text-main)' }}>
@@ -6440,12 +6444,12 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                     const prev = new Date(weekAnchor);
                     prev.setDate(prev.getDate() - 7);
                     setWeekAnchor(prev);
-                  }} style={{ padding: '6px 12px', borderRadius: '8px' }}>â† Prev Week</button>
+                  }} style={{ padding: '6px 12px', borderRadius: '8px' }}><span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}><ArrowLeft size={14} /> Prev Week</span></button>
                   <button className="btn-secondary" onClick={() => {
                     const next = new Date(weekAnchor);
                     next.setDate(next.getDate() + 7);
                     setWeekAnchor(next);
-                  }} style={{ padding: '6px 12px', borderRadius: '8px' }}>Next Week â†’</button>
+                  }} style={{ padding: '6px 12px', borderRadius: '8px' }}><span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>Next Week <ArrowRight size={14} /></span></button>
                 </div>
 
                 <h4 style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-main)', margin: 0 }}>
@@ -7191,7 +7195,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
 
                   <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid var(--border-glass)', paddingTop: '16px', marginTop: '10px' }}>
                     <button className="btn-secondary" style={{ padding: '10px 20px', borderRadius: '8px' }} onClick={() => { setUploadPreviewRows([]); setUploadFileName(''); }}>
-                      â† Upload Different File
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}><ArrowLeft size={14} /> Upload Different File</span>
                     </button>
                     <div style={{ display: 'flex', gap: '12px' }}>
                       <button className="btn-secondary" style={{ padding: '10px 20px', borderRadius: '8px' }} onClick={() => { setShowUploadModal(false); setUploadPreviewRows([]); setUploadFileName(''); }}>
@@ -7753,22 +7757,56 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                   )}
                 </div>
               </div>
-              <div className="form-group">
-                <label>Date</label>
-                <input
-                  type="date"
-                  className="form-control"
-                  value={eventForm.date}
-                  min={(() => {
-                    const today = new Date();
-                    const yyyy = today.getFullYear();
-                    const mm = String(today.getMonth() + 1).padStart(2, '0');
-                    const dd = String(today.getDate()).padStart(2, '0');
-                    return `${yyyy}-${mm}-${dd}`;
-                  })()}
-                  onChange={(e) => { const val = e.target.value; if (!val || val.split('-')[0].length <= 4) setEventForm({ ...eventForm, date: val }); }}
-                  required
-                />
+              <div style={{ display: 'flex', gap: '12px' }}>
+                <div className="form-group" style={{ flex: 1 }}>
+                  <label>Start Date</label>
+                  <input
+                    type="date"
+                    className="form-control"
+                    value={eventForm.startDate || eventForm.date || ''}
+                    min={(() => {
+                      const today = new Date();
+                      const yyyy = today.getFullYear();
+                      const mm = String(today.getMonth() + 1).padStart(2, '0');
+                      const dd = String(today.getDate()).padStart(2, '0');
+                      return `${yyyy}-${mm}-${dd}`;
+                    })()}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (!val || val.split('-')[0].length <= 4) {
+                        setEventForm({ 
+                          ...eventForm, 
+                          date: val, 
+                          startDate: val, 
+                          endDate: eventForm.endDate && eventForm.endDate < val ? val : (eventForm.endDate || val) 
+                        });
+                      }
+                    }}
+                    required
+                  />
+                </div>
+                <div className="form-group" style={{ flex: 1 }}>
+                  <label>End Date</label>
+                  <input
+                    type="date"
+                    className="form-control"
+                    value={eventForm.endDate || eventForm.startDate || eventForm.date || ''}
+                    min={eventForm.startDate || eventForm.date || (() => {
+                      const today = new Date();
+                      const yyyy = today.getFullYear();
+                      const mm = String(today.getMonth() + 1).padStart(2, '0');
+                      const dd = String(today.getDate()).padStart(2, '0');
+                      return `${yyyy}-${mm}-${dd}`;
+                    })()}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (!val || val.split('-')[0].length <= 4) {
+                        setEventForm({ ...eventForm, endDate: val });
+                      }
+                    }}
+                    required
+                  />
+                </div>
               </div>
               <div style={{ display: 'flex', gap: '12px' }}>
                 <div className="form-group" style={{ flex: 1 }}>
@@ -8493,7 +8531,9 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
               <div>
                 {examWizardStep > 1 && (
                   <button className="btn-secondary" onClick={() => setExamWizardStep(examWizardStep - 1)} style={{ padding: '10px 20px', borderRadius: '8px', fontWeight: 600 }}>
-                    â† Back
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                      <ArrowLeft size={16} /> Back
+                    </span>
                   </button>
                 )}
               </div>
@@ -8508,7 +8548,9 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                     if (examWizardStep === 2 && wizardForm.selectedGrades.length === 0) { showToast('Please select at least one grade-section.', 'error'); return; }
                     setExamWizardStep(examWizardStep + 1);
                   }} style={{ padding: '10px 20px', borderRadius: '8px', fontWeight: 700 }}>
-                    Next â†’
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                      Next <ArrowRight size={16} />
+                    </span>
                   </button>
                 ) : (
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -8674,7 +8716,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
       {showTimeslotsModal && createPortal(
         <div className="modal-overlay" style={{ zIndex: 20000000 }}>
           <div className="animate-scale-up" style={{
-            width: '100%', maxWidth: '440px', padding: '28px', borderRadius: '16px',
+            width: '100%', maxWidth: '520px', padding: '28px', borderRadius: '16px',
             background: 'var(--bg-card)', border: '1px solid var(--border-glass)',
             boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)', display: 'flex', flexDirection: 'column', gap: '20px'
           }}>

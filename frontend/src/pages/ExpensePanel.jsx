@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import './ExpensePanel.css';
 import {
   LayoutDashboard, DollarSign, Wallet, ClipboardList, BarChart3, Bell, CheckCircle,
@@ -130,8 +130,8 @@ export default function ExpensePanel({ setActiveView, onLogout, expenseView, set
             <div style={{
               padding: '10px',
               borderRadius: '12px',
-              background: 'rgba(hsl(var(--color-danger)), 0.1)',
-              color: 'hsl(var(--color-danger))'
+              background: 'rgba(hsl(var(--color-primary)), 0.1)',
+              color: 'hsl(var(--color-primary))'
             }}>
               <Wallet size={24} />
             </div>
@@ -155,7 +155,7 @@ export default function ExpensePanel({ setActiveView, onLogout, expenseView, set
             <button 
               onClick={() => setExpenseView('add-expense')} 
               className="btn-secondary" 
-              style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.78rem', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer', background: 'linear-gradient(135deg, #ef4444, #dc2626)', color: '#fff', border: 'none', fontWeight: 700 }}
+              style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.78rem', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer', background: 'linear-gradient(135deg, hsl(var(--color-primary)), #e65c00)', color: '#fff', border: 'none', fontWeight: 700 }}
             >
               <Plus size={14} /> Record Expense
             </button>
@@ -174,8 +174,8 @@ export default function ExpensePanel({ setActiveView, onLogout, expenseView, set
             fontWeight: 700,
             border: 'none',
             cursor: 'pointer',
-            background: expenseView === 'dashboard' ? 'rgba(239, 68, 68, 0.1)' : 'transparent',
-            color: expenseView === 'dashboard' ? '#ef4444' : 'var(--text-muted)',
+            background: expenseView === 'dashboard' ? 'rgba(255, 107, 0, 0.1)' : 'transparent',
+            color: expenseView === 'dashboard' ? 'hsl(var(--color-primary))' : 'var(--text-muted)',
             transition: 'all 0.2s',
             display: 'flex',
             alignItems: 'center',
@@ -194,8 +194,8 @@ export default function ExpensePanel({ setActiveView, onLogout, expenseView, set
             fontWeight: 700,
             border: 'none',
             cursor: 'pointer',
-            background: ['all-expenses', 'add-expense'].includes(expenseView) ? 'rgba(239, 68, 68, 0.1)' : 'transparent',
-            color: ['all-expenses', 'add-expense'].includes(expenseView) ? '#ef4444' : 'var(--text-muted)',
+            background: ['all-expenses', 'add-expense'].includes(expenseView) ? 'rgba(255, 107, 0, 0.1)' : 'transparent',
+            color: ['all-expenses', 'add-expense'].includes(expenseView) ? 'hsl(var(--color-primary))' : 'var(--text-muted)',
             transition: 'all 0.2s',
             display: 'flex',
             alignItems: 'center',
@@ -214,8 +214,8 @@ export default function ExpensePanel({ setActiveView, onLogout, expenseView, set
             fontWeight: 700,
             border: 'none',
             cursor: 'pointer',
-            background: expenseView === 'history' ? 'rgba(239, 68, 68, 0.1)' : 'transparent',
-            color: expenseView === 'history' ? '#ef4444' : 'var(--text-muted)',
+            background: expenseView === 'history' ? 'rgba(255, 107, 0, 0.1)' : 'transparent',
+            color: expenseView === 'history' ? 'hsl(var(--color-primary))' : 'var(--text-muted)',
             transition: 'all 0.2s',
             display: 'flex',
             alignItems: 'center',
@@ -925,10 +925,10 @@ function AddExpenseView({ showToast, setExpenseView, onClose, onSuccess, isModal
             type="submit" 
             disabled={loading}
             style={{
-              padding: '12px 28px', background: 'linear-gradient(135deg, #ef4444, #b91c1c)', color: '#fff',
+              padding: '12px 28px', background: 'linear-gradient(135deg, hsl(var(--color-primary)), #e65c00)', color: '#fff',
               border: 'none', borderRadius: '10px', fontWeight: 700, cursor: 'pointer',
               display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem',
-              boxShadow: '0 4px 15px rgba(239, 68, 68, 0.2)'
+              boxShadow: '0 4px 15px rgba(255, 107, 0, 0.2)'
             }}
           >
             {loading ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle size={16} />}
@@ -1074,10 +1074,10 @@ function AllExpensesView({ expenses, showToast, fetchExpenses, autoOpenAddForm =
           onClick={() => setShowAddForm(true)}
           style={{
             padding: '11px 20px', fontWeight: 700,
-            background: 'linear-gradient(135deg, #ef4444, #b91c1c)',
+            background: 'linear-gradient(135deg, hsl(var(--color-primary)), #e65c00)',
             color: '#fff', border: 'none', borderRadius: '10px',
             display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem',
-            cursor: 'pointer', boxShadow: '0 4px 10px rgba(239, 68, 68, 0.2)'
+            cursor: 'pointer', boxShadow: '0 4px 10px rgba(255, 107, 0, 0.2)'
           }}
         >
           <Plus size={16} /> Record Expense
@@ -1612,76 +1612,124 @@ function TrackerView({ expenses, income, fetchExpenses, showToast, budgetLimit, 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
         
         {/* Total Spend */}
-        <div className="glass-panel" style={{ padding: '20px', borderRadius: '14px', position: 'relative', display: 'flex', flexDirection: 'column', gap: '8px', border: '1px solid rgba(0,0,0,0.06)', background: '#ffffff' }}>
+        <div className="glass-panel" style={{ 
+          padding: '20px', 
+          borderRadius: '14px', 
+          position: 'relative', 
+          display: 'flex', 
+          flexDirection: 'column', 
+          gap: '8px', 
+          border: '1px solid rgba(255, 107, 0, 0.2)', 
+          background: 'linear-gradient(135deg, rgba(255, 107, 0, 0.08) 0%, rgba(255, 255, 255, 0.98) 100%)',
+          boxShadow: '0 8px 24px rgba(255, 107, 0, 0.04)'
+        }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span style={{ fontSize: '0.68rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Filtered Outlay</span>
-            <div style={{ padding: '8px', borderRadius: '8px', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444' }}>
+            <div style={{ padding: '8px', borderRadius: '8px', background: 'rgba(255, 107, 0, 0.15)', color: '#ff6b00' }}>
               <Wallet size={16} />
             </div>
           </div>
           <div>
-            <h3 style={{ fontSize: '1.45rem', fontWeight: 800, color: 'var(--text-main)', margin: 0 }}>₹{totalSpend.toLocaleString()}</h3>
+            <h3 style={{ fontSize: '1.45rem', fontWeight: 800, color: '#ff6b00', margin: 0 }}>₹{totalSpend.toLocaleString()}</h3>
             <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', margin: '4px 0 0 0' }}>Sum of filtered expenditures</p>
           </div>
         </div>
 
         {/* Today's Spend */}
-        <div className="glass-panel" style={{ padding: '20px', borderRadius: '14px', position: 'relative', display: 'flex', flexDirection: 'column', gap: '8px', border: '1px solid rgba(0,0,0,0.06)', background: '#ffffff' }}>
+        <div className="glass-panel" style={{ 
+          padding: '20px', 
+          borderRadius: '14px', 
+          position: 'relative', 
+          display: 'flex', 
+          flexDirection: 'column', 
+          gap: '8px', 
+          border: '1px solid rgba(59, 130, 246, 0.2)', 
+          background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.08) 0%, rgba(255, 255, 255, 0.98) 100%)',
+          boxShadow: '0 8px 24px rgba(59, 130, 246, 0.04)'
+        }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span style={{ fontSize: '0.68rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Overhead Today</span>
-            <div style={{ padding: '8px', borderRadius: '8px', background: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6' }}>
+            <div style={{ padding: '8px', borderRadius: '8px', background: 'rgba(59, 130, 246, 0.15)', color: '#3b82f6' }}>
               <Calendar size={16} />
             </div>
           </div>
           <div>
-            <h3 style={{ fontSize: '1.45rem', fontWeight: 800, color: 'var(--text-main)', margin: 0 }}>₹{todaySpend.toLocaleString()}</h3>
+            <h3 style={{ fontSize: '1.45rem', fontWeight: 800, color: '#3b82f6', margin: 0 }}>₹{todaySpend.toLocaleString()}</h3>
             <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', margin: '4px 0 0 0' }}>Recorded on {today.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</p>
           </div>
         </div>
 
         {/* Current Month Spend */}
-        <div className="glass-panel" style={{ padding: '20px', borderRadius: '14px', position: 'relative', display: 'flex', flexDirection: 'column', gap: '8px', border: '1px solid rgba(0,0,0,0.06)', background: '#ffffff' }}>
+        <div className="glass-panel" style={{ 
+          padding: '20px', 
+          borderRadius: '14px', 
+          position: 'relative', 
+          display: 'flex', 
+          flexDirection: 'column', 
+          gap: '8px', 
+          border: '1px solid rgba(168, 85, 247, 0.2)', 
+          background: 'linear-gradient(135deg, rgba(168, 85, 247, 0.08) 0%, rgba(255, 255, 255, 0.98) 100%)',
+          boxShadow: '0 8px 24px rgba(168, 85, 247, 0.04)'
+        }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span style={{ fontSize: '0.68rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Monthly Spend</span>
-            <div style={{ padding: '8px', borderRadius: '8px', background: 'rgba(168, 85, 247, 0.1)', color: '#a855f7' }}>
+            <div style={{ padding: '8px', borderRadius: '8px', background: 'rgba(168, 85, 247, 0.15)', color: '#a855f7' }}>
               <TrendingDown size={16} />
             </div>
           </div>
           <div>
-            <h3 style={{ fontSize: '1.45rem', fontWeight: 800, color: 'var(--text-main)', margin: 0 }}>₹{monthlySpend.toLocaleString()}</h3>
+            <h3 style={{ fontSize: '1.45rem', fontWeight: 800, color: '#a855f7', margin: 0 }}>₹{monthlySpend.toLocaleString()}</h3>
             <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', margin: '4px 0 0 0' }}>Current month: {today.toLocaleDateString(undefined, { month: 'long' })}</p>
           </div>
         </div>
 
         {/* Current Year Spend */}
-        <div className="glass-panel" style={{ padding: '20px', borderRadius: '14px', position: 'relative', display: 'flex', flexDirection: 'column', gap: '8px', border: '1px solid rgba(0,0,0,0.06)', background: '#ffffff' }}>
+        <div className="glass-panel" style={{ 
+          padding: '20px', 
+          borderRadius: '14px', 
+          position: 'relative', 
+          display: 'flex', 
+          flexDirection: 'column', 
+          gap: '8px', 
+          border: '1px solid rgba(236, 72, 153, 0.2)', 
+          background: 'linear-gradient(135deg, rgba(236, 72, 153, 0.08) 0%, rgba(255, 255, 255, 0.98) 100%)',
+          boxShadow: '0 8px 24px rgba(236, 72, 153, 0.04)'
+        }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span style={{ fontSize: '0.68rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Yearly Spend</span>
-            <div style={{ padding: '8px', borderRadius: '8px', background: 'rgba(236, 72, 153, 0.1)', color: '#ec4899' }}>
+            <div style={{ padding: '8px', borderRadius: '8px', background: 'rgba(236, 72, 153, 0.15)', color: '#ec4899' }}>
               <BarChart3 size={16} />
             </div>
           </div>
           <div>
-            <h3 style={{ fontSize: '1.45rem', fontWeight: 800, color: 'var(--text-main)', margin: 0 }}>₹{yearlySpend.toLocaleString()}</h3>
+            <h3 style={{ fontSize: '1.45rem', fontWeight: 800, color: '#ec4899', margin: 0 }}>₹{yearlySpend.toLocaleString()}</h3>
             <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', margin: '4px 0 0 0' }}>Yearly cumulative total ({currentYearStr})</p>
           </div>
         </div>
 
         {/* Average Daily Spend */}
-        <div className="glass-panel" style={{ padding: '20px', borderRadius: '14px', position: 'relative', display: 'flex', flexDirection: 'column', gap: '8px', border: '1px solid rgba(0,0,0,0.06)', background: '#ffffff' }}>
+        <div className="glass-panel" style={{ 
+          padding: '20px', 
+          borderRadius: '14px', 
+          position: 'relative', 
+          display: 'flex', 
+          flexDirection: 'column', 
+          gap: '8px', 
+          border: '1px solid rgba(20, 184, 166, 0.2)', 
+          background: 'linear-gradient(135deg, rgba(20, 184, 166, 0.08) 0%, rgba(255, 255, 255, 0.98) 100%)',
+          boxShadow: '0 8px 24px rgba(20, 184, 166, 0.04)'
+        }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span style={{ fontSize: '0.68rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Daily Burn Rate</span>
-            <div style={{ padding: '8px', borderRadius: '8px', background: 'rgba(20, 184, 166, 0.1)', color: '#14b8a6' }}>
+            <div style={{ padding: '8px', borderRadius: '8px', background: 'rgba(20, 184, 166, 0.15)', color: '#14b8a6' }}>
               <TrendingDown size={16} />
             </div>
           </div>
           <div>
-            <h3 style={{ fontSize: '1.45rem', fontWeight: 800, color: 'var(--text-main)', margin: 0 }}>₹{avgDailySpend.toLocaleString()}</h3>
+            <h3 style={{ fontSize: '1.45rem', fontWeight: 800, color: '#14b8a6', margin: 0 }}>₹{avgDailySpend.toLocaleString()}</h3>
             <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', margin: '4px 0 0 0' }}>Avg daily spend in {today.toLocaleDateString(undefined, { month: 'short' })}</p>
           </div>
         </div>
-
-
 
       </div>
 
@@ -1695,7 +1743,7 @@ function TrackerView({ expenses, income, fetchExpenses, showToast, budgetLimit, 
           <div className="glass-panel" style={{ padding: '24px', borderRadius: '16px', position: 'relative' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
               <h3 style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
-                <TrendingDown size={18} style={{ color: 'hsl(var(--color-danger))' }} /> Daily Spending Trend (Current Month)
+                <TrendingDown size={18} style={{ color: 'hsl(var(--color-primary))' }} /> Daily Spending Trend (Current Month)
               </h3>
               <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Peak Day: ₹{maxTrendVal.toLocaleString()}</span>
             </div>
@@ -1724,7 +1772,7 @@ function TrackerView({ expenses, income, fetchExpenses, showToast, budgetLimit, 
                   zIndex: 20
                 }}>
                   <span style={{ fontWeight: 600, color: 'var(--text-muted)' }}>{trendPoints[hoveredTrendPoint].dateStr}</span>
-                  <span style={{ color: '#ef4444', fontWeight: 800 }}>₹{trendPoints[hoveredTrendPoint].amount.toLocaleString()}</span>
+                  <span style={{ color: 'hsl(var(--color-primary))', fontWeight: 800 }}>₹{trendPoints[hoveredTrendPoint].amount.toLocaleString()}</span>
                 </div>
               )}
 
@@ -1746,8 +1794,8 @@ function TrackerView({ expenses, income, fetchExpenses, showToast, budgetLimit, 
               >
                 <defs>
                   <linearGradient id="trendAreaGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#ef4444" stopOpacity="0.25"/>
-                    <stop offset="100%" stopColor="#ef4444" stopOpacity="0.00"/>
+                    <stop offset="0%" stopColor="hsl(var(--color-primary))" stopOpacity="0.25"/>
+                    <stop offset="100%" stopColor="hsl(var(--color-primary))" stopOpacity="0.00"/>
                   </linearGradient>
                 </defs>
 
@@ -1782,7 +1830,7 @@ function TrackerView({ expenses, income, fetchExpenses, showToast, budgetLimit, 
 
                 {/* Main line path */}
                 {trendLinePath && (
-                  <path d={trendLinePath} fill="none" stroke="#ef4444" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                  <path d={trendLinePath} fill="none" stroke="hsl(var(--color-primary))" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
                 )}
 
                 {/* Dots on nodes */}
@@ -1792,7 +1840,7 @@ function TrackerView({ expenses, income, fetchExpenses, showToast, budgetLimit, 
                     cx={p.x} 
                     cy={p.y} 
                     r={hoveredTrendPoint === i ? 5 : 2} 
-                    fill={hoveredTrendPoint === i ? '#ef4444' : 'rgba(255, 255, 255, 0.4)'}
+                    fill={hoveredTrendPoint === i ? 'hsl(var(--color-primary))' : 'rgba(255, 255, 255, 0.4)'}
                     stroke={hoveredTrendPoint === i ? '#fff' : 'none'}
                     strokeWidth="1.5"
                     style={{ transition: 'r 0.15s ease' }}
@@ -1805,7 +1853,7 @@ function TrackerView({ expenses, income, fetchExpenses, showToast, budgetLimit, 
           {/* CATEGORY ANALYSIS CARD */}
           <div className="glass-panel" style={{ padding: '24px', borderRadius: '16px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
             <h3 style={{ fontSize: '0.92rem', fontWeight: 700, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
-              <BarChart3 size={17} style={{ color: 'hsl(var(--color-danger))' }} /> Category Analysis
+              <BarChart3 size={17} style={{ color: 'hsl(var(--color-primary))' }} /> Category Analysis
             </h3>
             <div style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
@@ -2002,11 +2050,11 @@ function TrackerView({ expenses, income, fetchExpenses, showToast, budgetLimit, 
                     <span style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-main)' }}>{highestCategory[0]}</span>
                   </div>
                   <div style={{ textAlign: 'right' }}>
-                    <span style={{ fontSize: '0.85rem', fontWeight: 800, color: '#ef4444' }}>₹{highestCategory[1].toLocaleString()}</span>
+                    <span style={{ fontSize: '0.85rem', fontWeight: 800, color: 'hsl(var(--color-primary))' }}>₹{highestCategory[1].toLocaleString()}</span>
                   </div>
                 </div>
                 <div style={{ width: '100%', height: '4px', background: 'rgba(255,255,255,0.03)', borderRadius: '2px', overflow: 'hidden' }}>
-                  <div style={{ width: `${Math.round((highestCategory[1] / (totalSpend || 1)) * 100)}%`, height: '100%', background: '#ef4444', borderRadius: '2px' }} />
+                  <div style={{ width: `${Math.round((highestCategory[1] / (totalSpend || 1)) * 100)}%`, height: '100%', background: 'hsl(var(--color-primary))', borderRadius: '2px' }} />
                 </div>
               </div>
 
@@ -2035,7 +2083,7 @@ function TrackerView({ expenses, income, fetchExpenses, showToast, budgetLimit, 
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '4px', justifyContent: 'flex-end' }}>
                     {growthPercent >= 0 ? (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '2px', color: '#ef4444', fontWeight: 800, fontSize: '0.85rem' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '2px', color: 'hsl(var(--color-primary))', fontWeight: 800, fontSize: '0.85rem' }}>
                         <ArrowUpRight size={14} /> +{growthPercent}%
                       </div>
                     ) : (
@@ -2046,7 +2094,7 @@ function TrackerView({ expenses, income, fetchExpenses, showToast, budgetLimit, 
                   </div>
                 </div>
                 <div style={{ width: '100%', height: '4px', background: 'rgba(255,255,255,0.03)', borderRadius: '2px', overflow: 'hidden' }}>
-                  <div style={{ width: `${Math.min(Math.abs(growthPercent), 100)}%`, height: '100%', background: growthPercent >= 0 ? '#ef4444' : '#10b981', borderRadius: '2px' }} />
+                  <div style={{ width: `${Math.min(Math.abs(growthPercent), 100)}%`, height: '100%', background: growthPercent >= 0 ? 'hsl(var(--color-primary))' : '#10b981', borderRadius: '2px' }} />
                 </div>
               </div>
 
@@ -2056,7 +2104,7 @@ function TrackerView({ expenses, income, fetchExpenses, showToast, budgetLimit, 
           {/* TOP 10 EXPENSES LIST */}
           <div className="glass-panel" style={{ padding: '24px', borderRadius: '16px' }}>
             <h3 style={{ fontSize: '0.92rem', fontWeight: 700, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '6px', margin: 0, marginBottom: '14px' }}>
-              <TrendingDown size={17} style={{ color: 'hsl(var(--color-danger))' }} /> Top 10 Major Vouchers
+              <TrendingDown size={17} style={{ color: 'hsl(var(--color-primary))' }} /> Top 10 Major Vouchers
             </h3>
             
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '250px', overflowY: 'auto', paddingRight: '4px' }}>
@@ -2093,7 +2141,7 @@ function TrackerView({ expenses, income, fetchExpenses, showToast, budgetLimit, 
           {/* QUICK ACTIONS CARD */}
           <div className="glass-panel" style={{ padding: '24px', borderRadius: '16px', display: 'flex', flexDirection: 'column', gap: '16px', flex: 1, justifyContent: 'center' }}>
             <h3 style={{ fontSize: '0.92rem', fontWeight: 700, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
-              <Plus size={17} style={{ color: 'hsl(var(--color-danger))' }} /> Quick Actions
+              <Plus size={17} style={{ color: 'hsl(var(--color-primary))' }} /> Quick Actions
             </h3>
             <div style={{ display: 'grid', gridTemplateRows: '1.2fr 1fr', gap: '14px', flex: 1, marginTop: '8px' }}>
               <button 
@@ -2111,11 +2159,11 @@ function TrackerView({ expenses, income, fetchExpenses, showToast, budgetLimit, 
                   fontSize: '0.9rem', 
                   borderRadius: '12px', 
                   cursor: 'pointer', 
-                  background: 'linear-gradient(135deg, #ef4444, #dc2626)', 
+                  background: 'linear-gradient(135deg, hsl(var(--color-primary)), #e65c00)', 
                   color: '#fff', 
                   border: 'none', 
                   fontWeight: 800, 
-                  boxShadow: '0 4px 14px rgba(239, 68, 68, 0.2)',
+                  boxShadow: '0 4px 14px rgba(255, 107, 0, 0.2)',
                   transition: 'transform 0.15s ease',
                   padding: '16px',
                   height: '100%'
@@ -2190,7 +2238,7 @@ function TrackerView({ expenses, income, fetchExpenses, showToast, budgetLimit, 
                     e.currentTarget.style.background = 'rgba(255,255,255,0.02)';
                   }}
                 >
-                  <History size={20} style={{ color: 'hsl(var(--color-danger))' }} />
+                  <History size={20} style={{ color: 'hsl(var(--color-primary))' }} />
                   <span>History</span>
                 </button>
               </div>
@@ -2211,7 +2259,7 @@ function TrackerView({ expenses, income, fetchExpenses, showToast, budgetLimit, 
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #e2e8f0', paddingBottom: '12px' }}>
               <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '6px', margin: 0 }}>
-                <Shield size={18} style={{ color: 'hsl(var(--color-danger))' }} /> Voucher Verification Details
+                <Shield size={18} style={{ color: 'hsl(var(--color-primary))' }} /> Voucher Verification Details
               </h3>
               <button onClick={() => setSelectedVoucher(null)} style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer' }}><X size={18} /></button>
             </div>
@@ -2460,7 +2508,7 @@ function HistoryView({ expenses, expenseHistory, fetchExpenses, showToast, budge
       <div className="glass-panel" style={{ padding: '24px', borderRadius: '16px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
           <h3 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
-            <History size={18} style={{ color: 'hsl(var(--color-danger))' }} /> Expense History Filters
+            <History size={18} style={{ color: 'hsl(var(--color-primary))' }} /> Expense History Filters
           </h3>
           
           {/* Tab Selectors */}
@@ -2474,7 +2522,7 @@ function HistoryView({ expenses, expenseHistory, fetchExpenses, showToast, budge
                   padding: '8px 16px',
                   borderRadius: '8px',
                   border: 'none',
-                  background: historyTab === tab ? 'linear-gradient(135deg, #ef4444, #b91c1c)' : 'transparent',
+                  background: historyTab === tab ? 'linear-gradient(135deg, hsl(var(--color-primary)), #e65c00)' : 'transparent',
                   color: historyTab === tab ? '#fff' : 'var(--text-muted)',
                   fontSize: '0.8rem',
                   fontWeight: 700,
@@ -2543,14 +2591,14 @@ function HistoryView({ expenses, expenseHistory, fetchExpenses, showToast, budge
         {historyTab === 'date' && (
           <div className="glass-panel" style={{ padding: '20px', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.05)', background: 'rgba(255,255,255,0.01)', display: 'flex', gap: '14px', alignItems: 'center' }}>
             <div style={{
-              width: '44px', height: '44px', borderRadius: '10px', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444',
+              width: '44px', height: '44px', borderRadius: '10px', background: 'rgba(255, 107, 0, 0.1)', color: 'hsl(var(--color-primary))',
               display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
             }}>
               <Calendar size={20} />
             </div>
             <div>
               <span style={{ fontSize: '0.65rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Day Expense ({selectedDateHistory})</span>
-              <h3 style={{ fontSize: '1.45rem', fontWeight: 800, color: '#ef4444', margin: '2px 0' }}>
+              <h3 style={{ fontSize: '1.45rem', fontWeight: 800, color: 'hsl(var(--color-primary))', margin: '2px 0' }}>
                 ₹{dayTotal.toLocaleString()}
               </h3>
               <p style={{ fontSize: '0.65rem', color: 'var(--text-muted)', margin: 0 }}>
@@ -2637,7 +2685,7 @@ function HistoryView({ expenses, expenseHistory, fetchExpenses, showToast, budge
       <div className="glass-panel" style={{ padding: '28px', borderRadius: '16px', display: 'flex', flexDirection: 'column', gap: '18px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
           <h3 style={{ fontSize: '0.95rem', fontWeight: 800, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
-            <ClipboardList size={18} style={{ color: 'hsl(var(--color-danger))' }} /> Recorded General Ledger For Period ({filteredPeriodExpenses.length})
+            <ClipboardList size={18} style={{ color: 'hsl(var(--color-primary))' }} /> Recorded General Ledger For Period ({filteredPeriodExpenses.length})
           </h3>
           <div style={{ display: 'flex', gap: '10px' }}>
             <button 

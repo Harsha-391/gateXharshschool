@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import './AddEmployee.css';
 import { 
   User, 
@@ -148,6 +148,88 @@ const STEPS = [
   { id: 6, label: 'Experience', icon: Clock, color: 'rgb(var(--color-warning-rgb))' },
   { id: 7, label: 'Documents & Review', icon: FileText, color: 'hsl(0, 80%, 55%)' }
 ];
+
+function DragAndDropFile({ fieldName, label, file, onFileChange, onRemove, accept = "*" }) {
+  const [dragOver, setDragOver] = useState(false);
+
+  const handleDrag = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === "dragenter" || e.type === "dragover") {
+      setDragOver(true);
+    } else if (e.type === "dragleave") {
+      setDragOver(false);
+    }
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOver(false);
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      const fileObj = e.dataTransfer.files[0];
+      if (fileObj.size > 50 * 1024 * 1024) {
+        alert("File size exceeds 50MB limit. Please upload a smaller document.");
+        return;
+      }
+      onFileChange({ target: { files: [fileObj] } }, fieldName);
+    }
+  };
+
+  return (
+    <div 
+      onDragEnter={handleDrag}
+      onDragOver={handleDrag}
+      onDragLeave={handleDrag}
+      onDrop={handleDrop}
+      style={{
+        padding: '16px',
+        borderRadius: '12px',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '10px',
+        background: dragOver ? 'rgba(255, 107, 0, 0.05)' : 'rgba(255,255,255,0.01)',
+        border: dragOver ? '2px dashed rgb(255, 107, 0)' : '1px solid var(--border-glass)',
+        transition: 'all 0.3s ease',
+        minHeight: '120px',
+        justifyContent: 'center'
+      }}
+    >
+      <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-main)' }}>{label}</span>
+      
+      {!file ? (
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', textAlign: 'center' }}>
+          <Upload size={20} style={{ color: 'var(--text-muted)' }} />
+          <label htmlFor={fieldName} style={{ color: 'hsl(var(--color-primary))', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 600 }}>
+            Upload File <span style={{ color: 'var(--text-muted)', fontWeight: 'normal' }}>or drag here</span>
+          </label>
+          <input 
+            type="file" 
+            id={fieldName} 
+            accept={accept} 
+            onChange={(e) => onFileChange(e, fieldName)} 
+            style={{ display: 'none' }} 
+          />
+          <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Files under 50MB</span>
+        </div>
+      ) : (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: 'var(--bg-glass-active)', borderRadius: '8px', border: '1px solid var(--border-glass)' }}>
+          <span style={{ fontSize: '0.8rem', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <FileText size={16} style={{ color: 'hsl(var(--color-primary))' }} />
+            {file.name}
+          </span>
+          <button 
+            type="button" 
+            onClick={() => onRemove(fieldName)} 
+            style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+          >
+            <X size={16} />
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
 
 // ============================================================
 // CUSTOM SELECT COMPONENT (always opens below)
@@ -710,117 +792,174 @@ export default function AddEmployee({ setActiveView, editData }) {
   // ============================================================
 
   const renderStep1 = () => (
-    <div className="glass-panel" style={{ padding: '28px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+    <div className="animate-slide-up" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
       <h3 style={sectionHeaderStyle()}>
         <User size={18} style={{ color: 'hsl(var(--color-primary))' }} />
         Step 1: Basic Information
       </h3>
 
-      {/* Staff ID Display */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', borderRadius: '10px', background: 'rgba(hsl(var(--color-primary)), 0.08)', border: '1px solid rgba(hsl(var(--color-primary)), 0.2)' }}>
-        <span style={{ fontWeight: 700, color: 'hsl(var(--color-primary))', fontSize: '0.85rem' }}>STAFF ID:</span>
-        <span style={{ fontWeight: 800, color: 'var(--text-main)', letterSpacing: '0.5px' }}>{staffId}</span>
-        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginLeft: 'auto' }}>Auto Generated</span>
-      </div>
-
-      {/* Photo Upload */}
-      <div className="form-group" style={{ marginTop: '4px' }}>
-        <label style={{ fontWeight: 600, marginBottom: '8px', display: 'block' }}>Staff Photo</label>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '20px', flexWrap: 'wrap' }}>
-          <div style={{
-            width: '90px', height: '90px', borderRadius: '12px',
-            border: '2px dashed var(--border-glass)', display: 'flex',
-            alignItems: 'center', justifyContent: 'center',
-            background: 'rgba(255,255,255,0.02)', position: 'relative',
-            overflow: 'hidden', flexShrink: 0
-          }}>
-            {filePreviews.photo ? (
-              <img src={filePreviews.photo} alt="Staff" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-            ) : (
-              <User size={36} style={{ color: 'var(--text-muted)' }} />
-            )}
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            <div style={{ display: 'flex', gap: '10px' }}>
-              <label htmlFor="photo" className="btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '0.85rem', padding: '10px 16px', borderRadius: '8px' }}>
-                <Upload size={14} /> Upload Photo
-              </label>
-              <input type="file" id="photo" accept="image/*" onChange={(e) => handleFileChange(e, 'photo')} style={{ display: 'none' }} />
-              {files.photo && (
-                <button type="button" onClick={() => removeFile('photo')} className="btn-danger" style={{ display: 'flex', alignItems: 'center', padding: '8px 12px', borderRadius: '8px', fontSize: '0.85rem' }}>
-                  <X size={14} /> Remove
-                </button>
-              )}
-            </div>
-            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Files under 50MB.</span>
-          </div>
-        </div>
-      </div>
-
-      <div style={gridStyle}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '20px' }}>
         <div className="form-group">
-          <label>First Name</label>
-          <input type="text" name="firstName" value={formData.firstName} onChange={handleNameChange} className="form-control" style={{...inputStyle, border: validationErrors.firstName ? '1.5px solid #ef4444' : inputStyle.border}} placeholder="First name" />
+          <label>Employee ID (Auto Generated)</label>
+          <input 
+            type="text" 
+            value="EMP-2026-XXXX" 
+            disabled 
+            className="form-control" 
+            style={{ opacity: 0.6, fontStyle: 'italic', background: 'rgba(255,255,255,0.02)' }}
+          />
+        </div>
+
+        <div className="form-group">
+          <label>First Name *</label>
+          <input 
+            type="text" 
+            name="firstName" 
+            value={formData.firstName} 
+            onChange={handleNameChange} 
+            className="form-control" 
+            placeholder="First name"
+            style={{ borderColor: validationErrors.firstName ? '#ef4444' : undefined }}
+          />
           {validationErrors.firstName && <span style={{ color: '#ef4444', fontSize: '0.75rem', marginTop: '4px', display: 'block' }}>{validationErrors.firstName}</span>}
         </div>
+
         <div className="form-group">
-          <label>Middle Name <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>(Optional)</span></label>
-          <input type="text" name="middleName" value={formData.middleName} onChange={handleNameChange} className="form-control" style={inputStyle} placeholder="Middle name" />
+          <label>Middle Name (Optional)</label>
+          <input 
+            type="text" 
+            name="middleName" 
+            value={formData.middleName} 
+            onChange={handleNameChange} 
+            className="form-control" 
+            placeholder="Middle name"
+          />
         </div>
+
         <div className="form-group">
-          <label>Last Name</label>
-          <input type="text" name="lastName" value={formData.lastName} onChange={handleNameChange} className="form-control" style={{...inputStyle, border: validationErrors.lastName ? '1.5px solid #ef4444' : inputStyle.border}} placeholder="Last name" />
+          <label>Last Name *</label>
+          <input 
+            type="text" 
+            name="lastName" 
+            value={formData.lastName} 
+            onChange={handleNameChange} 
+            className="form-control" 
+            placeholder="Last name"
+            style={{ borderColor: validationErrors.lastName ? '#ef4444' : undefined }}
+          />
           {validationErrors.lastName && <span style={{ color: '#ef4444', fontSize: '0.75rem', marginTop: '4px', display: 'block' }}>{validationErrors.lastName}</span>}
         </div>
+
         <div className="form-group">
-          <label>Gender</label>
-          <CustomSelect name="gender" value={formData.gender} onChange={handleChange} options={['None', 'Male', 'Female', 'Other']} placeholder="Select Gender" className="form-control" style={inputStyle} />
+          <label>Gender *</label>
+          <CustomSelect 
+            name="gender" 
+            value={formData.gender} 
+            onChange={handleChange} 
+            options={['None', 'Male', 'Female', 'Other']} 
+            placeholder="Choose Gender" 
+            className="form-control" 
+            style={{ borderColor: validationErrors.gender ? '#ef4444' : undefined }} 
+          />
+          {validationErrors.gender && <span style={{ color: '#ef4444', fontSize: '0.75rem', marginTop: '4px', display: 'block' }}>{validationErrors.gender}</span>}
         </div>
+
+        <div className="form-group">
+          <label>Date of Birth *</label>
+          <input 
+            type="date" 
+            name="dob" 
+            value={formData.dob} 
+            onChange={handleChange} 
+            max={new Date().toLocaleDateString('en-CA')} 
+            className="form-control" 
+            style={{ borderColor: validationErrors.dob ? '#ef4444' : undefined }} 
+          />
+          {validationErrors.dob && <span style={{ color: '#ef4444', fontSize: '0.75rem', marginTop: '4px', display: 'block' }}>{validationErrors.dob}</span>}
+        </div>
+
         <div className="form-group">
           <label>Blood Group</label>
-          <CustomSelect name="bloodGroup" value={formData.bloodGroup} onChange={handleChange} options={BLOOD_GROUPS} placeholder="Select Blood Group" className="form-control" style={inputStyle} />
+          <CustomSelect 
+            name="bloodGroup" 
+            value={formData.bloodGroup} 
+            onChange={handleChange} 
+            options={BLOOD_GROUPS} 
+            placeholder="Choose Blood Group" 
+            className="form-control" 
+          />
         </div>
+
         <div className="form-group">
           <label>Nationality</label>
-          <input type="text" name="nationality" value={formData.nationality} onChange={handleChange} className="form-control" style={inputStyle} placeholder="Nationality" />
+          <input 
+            type="text" 
+            name="nationality" 
+            value={formData.nationality} 
+            onChange={handleChange} 
+            className="form-control" 
+            placeholder="e.g. Indian" 
+          />
         </div>
+
         <div className="form-group">
           <label>Marital Status</label>
-          <CustomSelect name="maritalStatus" value={formData.maritalStatus} onChange={handleChange} options={['None', 'Single', 'Married', 'Divorced', 'Widowed']} placeholder="Select Status" className="form-control" style={inputStyle} />
+          <CustomSelect 
+            name="maritalStatus" 
+            value={formData.maritalStatus} 
+            onChange={handleChange} 
+            options={['None', 'Single', 'Married', 'Divorced', 'Widowed']} 
+            placeholder="Choose Marital Status" 
+            className="form-control" 
+          />
         </div>
+
         <div className="form-group">
-          <label>Aadhaar Number <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>(Optional)</span></label>
+          <label>Aadhaar Number (Optional)</label>
           <input 
             type="text" 
             name="aadhaarNumber" 
             value={formData.aadhaarNumber} 
             onChange={(e) => handleNumericChange(e, 12)} 
             className="form-control" 
-            style={{...inputStyle, border: validationErrors.aadhaarNumber ? '1.5px solid #ef4444' : inputStyle.border}} 
-            placeholder="12-digit Aadhaar" 
+            placeholder="12-digit Aadhaar ID"
+            style={{ borderColor: validationErrors.aadhaarNumber ? '#ef4444' : undefined }}
+            maxLength={12}
           />
           {validationErrors.aadhaarNumber && <span style={{ color: '#ef4444', fontSize: '0.75rem', marginTop: '4px', display: 'block' }}>{validationErrors.aadhaarNumber}</span>}
         </div>
+
         <div className="form-group">
-          <label>PAN Number <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>(Optional)</span></label>
+          <label>PAN Number (Optional)</label>
           <input 
             type="text" 
             name="panNumber" 
             value={formData.panNumber} 
             onChange={handleChange} 
             className="form-control" 
-            style={{...inputStyle, border: validationErrors.panNumber ? '1.5px solid #ef4444' : inputStyle.border}} 
-            placeholder="e.g. ABCDE1234F" 
-            maxLength={10} 
+            placeholder="10-digit PAN ID"
+            style={{ borderColor: validationErrors.panNumber ? '#ef4444' : undefined }}
+            maxLength={10}
           />
           {validationErrors.panNumber && <span style={{ color: '#ef4444', fontSize: '0.75rem', marginTop: '4px', display: 'block' }}>{validationErrors.panNumber}</span>}
+        </div>
+
+        <div className="form-group">
+          <DragAndDropFile 
+            fieldName="photo"
+            label="Staff Profile Photo (Optional)"
+            file={files.photo || (existingFiles.photo ? { name: existingFiles.photo.split('/').pop() } : null)}
+            onFileChange={handleFileChange}
+            onRemove={removeFile}
+            accept="image/*"
+          />
         </div>
       </div>
     </div>
   );
 
   const renderStep2 = () => (
-    <div className="glass-panel" style={{ padding: '28px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+    <div className="animate-slide-up" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
       <h3 style={sectionHeaderStyle()}>
         <Briefcase size={18} style={{ color: 'hsl(var(--color-secondary))' }} />
         Step 2: Employment Information
@@ -828,27 +967,27 @@ export default function AddEmployee({ setActiveView, editData }) {
       <div style={gridStyle}>
         <div className="form-group">
           <label>Designation *</label>
-          <CustomSelect name="designation" value={formData.designation} onChange={handleDesignationChange} options={designations} placeholder="Select Designation" className="form-control" style={{...inputStyle, border: validationErrors.designation ? '1.5px solid #ef4444' : '1.5px solid #cbd5e1'}} />
+          <CustomSelect name="designation" value={formData.designation} onChange={handleDesignationChange} options={designations} placeholder="Choose Designation" className="form-control" style={{ border: validationErrors.designation ? '1.5px solid #ef4444' : undefined }} />
           {validationErrors.designation && <span style={{ color: '#ef4444', fontSize: '0.75rem', marginTop: '4px', display: 'block' }}>{validationErrors.designation}</span>}
         </div>
         <div className="form-group">
           <label>Designation Level</label>
-          <CustomSelect name="designationLevel" value={formData.designationLevel} onChange={handleChange} options={DESIGNATION_LEVELS} placeholder="Select Level" className="form-control" style={inputStyle} />
+          <CustomSelect name="designationLevel" value={formData.designationLevel} onChange={handleChange} options={DESIGNATION_LEVELS} placeholder="Choose Level" className="form-control" />
         </div>
         <div className="form-group">
           <label>Employment Type</label>
-          <CustomSelect name="employmentType" value={formData.employmentType} onChange={handleChange} options={EMPLOYMENT_TYPES} placeholder="Select Type" className="form-control" style={inputStyle} />
+          <CustomSelect name="employmentType" value={formData.employmentType} onChange={handleChange} options={EMPLOYMENT_TYPES} placeholder="Choose Type" className="form-control" />
         </div>
         <div className="form-group">
           <label>Date of Birth</label>
-          <input type="date" name="dob" value={formData.dob} onChange={handleChange} max={new Date().toLocaleDateString('en-CA')} className="form-control" style={inputStyle} />
+          <input type="date" name="dob" value={formData.dob} onChange={handleChange} max={new Date().toLocaleDateString('en-CA')} className="form-control" />
         </div>
       </div>
     </div>
   );
 
   const renderStep3 = () => (
-    <div className="glass-panel" style={{ padding: '28px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+    <div className="animate-slide-up" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
       <h3 style={sectionHeaderStyle()}>
         <Phone size={18} style={{ color: 'hsl(210, 90%, 55%)' }} />
         Step 3: Contact Information
@@ -856,26 +995,26 @@ export default function AddEmployee({ setActiveView, editData }) {
       <div style={gridStyle}>
         <div className="form-group">
           <label>Mobile Number</label>
-          <input type="text" name="mobile" value={formData.mobile} onChange={(e) => handleNumericChange(e, 10)} className="form-control" style={inputStyle} placeholder="10-digit mobile" />
+          <input type="text" name="mobile" value={formData.mobile} onChange={(e) => handleNumericChange(e, 10)} className="form-control" placeholder="10-digit mobile" />
         </div>
         <div className="form-group">
-          <label>Alternate Mobile <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>(Optional)</span></label>
-          <input type="text" name="alternateMobile" value={formData.alternateMobile} onChange={(e) => handleNumericChange(e, 10)} className="form-control" style={inputStyle} placeholder="Alternate number" />
+          <label>Alternate Mobile (Optional)</label>
+          <input type="text" name="alternateMobile" value={formData.alternateMobile} onChange={(e) => handleNumericChange(e, 10)} className="form-control" placeholder="Alternate number" />
         </div>
         <div className="form-group">
           <label>Email Address</label>
-          <input type="email" name="email" value={formData.email} onChange={handleChange} className="form-control" style={inputStyle} placeholder="staff@school.com" />
+          <input type="email" name="email" value={formData.email} onChange={handleChange} className="form-control" placeholder="staff@school.com" />
         </div>
         <div className="form-group">
           <label>Emergency Contact Number</label>
-          <input type="text" name="emergencyContactNumber" value={formData.emergencyContactNumber} onChange={(e) => handleNumericChange(e, 10)} className="form-control" style={inputStyle} placeholder="Emergency number" />
+          <input type="text" name="emergencyContactNumber" value={formData.emergencyContactNumber} onChange={(e) => handleNumericChange(e, 10)} className="form-control" placeholder="Emergency number" />
         </div>
       </div>
     </div>
   );
 
   const renderStep4 = () => (
-    <div className="glass-panel" style={{ padding: '28px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+    <div className="animate-slide-up" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
       <h3 style={sectionHeaderStyle()}>
         <MapPin size={18} style={{ color: 'rgb(var(--color-success-rgb))' }} />
         Step 4: Address Information
@@ -889,23 +1028,23 @@ export default function AddEmployee({ setActiveView, editData }) {
         <div style={gridStyle}>
           <div className="form-group" style={{ gridColumn: '1 / -1' }}>
             <label>Address Line</label>
-            <input type="text" name="currentAddress" value={formData.currentAddress} onChange={handleChange} className="form-control" style={inputStyle} placeholder="House/flat no, street, area" />
+            <input type="text" name="currentAddress" value={formData.currentAddress} onChange={handleChange} className="form-control" placeholder="House/flat no, street, area" />
           </div>
           <div className="form-group">
             <label>City</label>
-            <input type="text" name="currentCity" value={formData.currentCity} onChange={handleChange} className="form-control" style={inputStyle} placeholder="City" />
+            <input type="text" name="currentCity" value={formData.currentCity} onChange={handleChange} className="form-control" placeholder="City" />
           </div>
           <div className="form-group">
             <label>State</label>
-            <input type="text" name="currentState" value={formData.currentState} onChange={handleChange} className="form-control" style={inputStyle} placeholder="State" />
+            <input type="text" name="currentState" value={formData.currentState} onChange={handleChange} className="form-control" placeholder="State" />
           </div>
           <div className="form-group">
             <label>Country</label>
-            <input type="text" name="currentCountry" value={formData.currentCountry} onChange={handleChange} className="form-control" style={inputStyle} placeholder="Country" />
+            <input type="text" name="currentCountry" value={formData.currentCountry} onChange={handleChange} className="form-control" placeholder="Country" />
           </div>
           <div className="form-group">
             <label>Postal Code</label>
-            <input type="text" name="currentPostalCode" value={formData.currentPostalCode} onChange={(e) => handleNumericChange(e, 6)} className="form-control" style={inputStyle} placeholder="6-digit code" />
+            <input type="text" name="currentPostalCode" value={formData.currentPostalCode} onChange={(e) => handleNumericChange(e, 6)} className="form-control" placeholder="6-digit code" />
           </div>
         </div>
       </div>
@@ -924,23 +1063,23 @@ export default function AddEmployee({ setActiveView, editData }) {
         <div style={gridStyle}>
           <div className="form-group" style={{ gridColumn: '1 / -1' }}>
             <label>Address Line</label>
-            <input type="text" name="permanentAddress" value={formData.permanentAddress} onChange={handleChange} className="form-control" style={inputStyle} placeholder="House/flat no, street, area" />
+            <input type="text" name="permanentAddress" value={formData.permanentAddress} onChange={handleChange} className="form-control" placeholder="House/flat no, street, area" />
           </div>
           <div className="form-group">
             <label>City</label>
-            <input type="text" name="permanentCity" value={formData.permanentCity} onChange={handleChange} className="form-control" style={inputStyle} placeholder="City" />
+            <input type="text" name="permanentCity" value={formData.permanentCity} onChange={handleChange} className="form-control" placeholder="City" />
           </div>
           <div className="form-group">
             <label>State</label>
-            <input type="text" name="permanentState" value={formData.permanentState} onChange={handleChange} className="form-control" style={inputStyle} placeholder="State" />
+            <input type="text" name="permanentState" value={formData.permanentState} onChange={handleChange} className="form-control" placeholder="State" />
           </div>
           <div className="form-group">
             <label>Country</label>
-            <input type="text" name="permanentCountry" value={formData.permanentCountry} onChange={handleChange} className="form-control" style={inputStyle} placeholder="Country" />
+            <input type="text" name="permanentCountry" value={formData.permanentCountry} onChange={handleChange} className="form-control" placeholder="Country" />
           </div>
           <div className="form-group">
             <label>Postal Code</label>
-            <input type="text" name="permanentPostalCode" value={formData.permanentPostalCode} onChange={(e) => handleNumericChange(e, 6)} className="form-control" style={inputStyle} placeholder="6-digit code" />
+            <input type="text" name="permanentPostalCode" value={formData.permanentPostalCode} onChange={(e) => handleNumericChange(e, 6)} className="form-control" placeholder="6-digit code" />
           </div>
         </div>
       </div>
@@ -948,7 +1087,7 @@ export default function AddEmployee({ setActiveView, editData }) {
   );
 
   const renderStep5 = () => (
-    <div className="glass-panel" style={{ padding: '28px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+    <div className="animate-slide-up" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
       <h3 style={sectionHeaderStyle()}>
         <Award size={18} style={{ color: 'hsl(280, 80%, 55%)' }} />
         Step 5: Qualification Information
@@ -968,23 +1107,23 @@ export default function AddEmployee({ setActiveView, editData }) {
           <div style={gridStyle}>
             <div className="form-group">
               <label>Degree</label>
-              <input type="text" value={q.degree} onChange={(e) => updateQualification(i, 'degree', e.target.value)} className="form-control" style={inputStyle} placeholder="e.g. B.Com, MBA" />
+              <input type="text" value={q.degree} onChange={(e) => updateQualification(i, 'degree', e.target.value)} className="form-control" placeholder="e.g. B.Com, MBA" />
             </div>
             <div className="form-group">
               <label>Institution</label>
-              <input type="text" value={q.institution} onChange={(e) => updateQualification(i, 'institution', e.target.value)} className="form-control" style={inputStyle} placeholder="Institution name" />
+              <input type="text" value={q.institution} onChange={(e) => updateQualification(i, 'institution', e.target.value)} className="form-control" placeholder="Institution name" />
             </div>
             <div className="form-group">
               <label>Board/University</label>
-              <input type="text" value={q.boardUniversity} onChange={(e) => updateQualification(i, 'boardUniversity', e.target.value)} className="form-control" style={inputStyle} placeholder="Board / University" />
+              <input type="text" value={q.boardUniversity} onChange={(e) => updateQualification(i, 'boardUniversity', e.target.value)} className="form-control" placeholder="Board / University" />
             </div>
             <div className="form-group">
               <label>Year of Passing</label>
-              <input type="text" value={q.year} onChange={(e) => updateQualification(i, 'year', e.target.value.replace(/[^0-9]/g, '').slice(0, 4))} className="form-control" style={inputStyle} placeholder="e.g. 2020" />
+              <input type="text" value={q.year} onChange={(e) => updateQualification(i, 'year', e.target.value.replace(/[^0-9]/g, '').slice(0, 4))} className="form-control" placeholder="e.g. 2020" />
             </div>
             <div className="form-group">
               <label>Percentage/CGPA</label>
-              <input type="text" value={q.percentage} onChange={(e) => updateQualification(i, 'percentage', e.target.value)} className="form-control" style={inputStyle} placeholder="e.g. 85% or 8.5" />
+              <input type="text" value={q.percentage} onChange={(e) => updateQualification(i, 'percentage', e.target.value)} className="form-control" placeholder="e.g. 85% or 8.5" />
             </div>
           </div>
         </div>
@@ -997,7 +1136,7 @@ export default function AddEmployee({ setActiveView, editData }) {
   );
 
   const renderStep6 = () => (
-    <div className="glass-panel" style={{ padding: '28px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+    <div className="animate-slide-up" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
       <h3 style={sectionHeaderStyle()}>
         <Clock size={18} style={{ color: 'rgb(var(--color-warning-rgb))' }} />
         Step 6: Experience Information
@@ -1005,7 +1144,7 @@ export default function AddEmployee({ setActiveView, editData }) {
       <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', margin: 0 }}>Add previous work experience. All fields are optional.</p>
 
       <div className="form-group" style={{ maxWidth: '300px' }}>
-        <label style={{ fontWeight: 600, color: 'var(--text-main)' }}>Total Experience (in Years)</label>
+        <label>Total Experience (in Years)</label>
         <input 
           type="text"
           name="experience"
@@ -1018,7 +1157,6 @@ export default function AddEmployee({ setActiveView, editData }) {
           placeholder="e.g. 5"
           maxLength={10}
           inputMode="numeric"
-          style={inputStyle}
         />
       </div>
 
@@ -1035,23 +1173,23 @@ export default function AddEmployee({ setActiveView, editData }) {
           <div style={gridStyle}>
             <div className="form-group">
               <label>Organization</label>
-              <input type="text" value={exp.organization} onChange={(e) => updateExperience(i, 'organization', e.target.value)} className="form-control" style={inputStyle} placeholder="Company / school name" />
+              <input type="text" value={exp.organization} onChange={(e) => updateExperience(i, 'organization', e.target.value)} className="form-control" placeholder="Company / school name" />
             </div>
             <div className="form-group">
               <label>Designation</label>
-              <input type="text" value={exp.designation} onChange={(e) => updateExperience(i, 'designation', e.target.value)} className="form-control" style={inputStyle} placeholder="Job title" />
+              <input type="text" value={exp.designation} onChange={(e) => updateExperience(i, 'designation', e.target.value)} className="form-control" placeholder="Job title" />
             </div>
             <div className="form-group">
               <label>From Date</label>
-              <input type="date" value={exp.fromDate} onChange={(e) => updateExperience(i, 'fromDate', e.target.value)} max={new Date().toLocaleDateString('en-CA')} className="form-control" style={inputStyle} />
+              <input type="date" value={exp.fromDate} onChange={(e) => updateExperience(i, 'fromDate', e.target.value)} max={new Date().toLocaleDateString('en-CA')} className="form-control" />
             </div>
             <div className="form-group">
               <label>To Date</label>
-              <input type="date" value={exp.toDate} onChange={(e) => updateExperience(i, 'toDate', e.target.value)} max={new Date().toLocaleDateString('en-CA')} min={exp.fromDate} className="form-control" style={inputStyle} />
+              <input type="date" value={exp.toDate} onChange={(e) => updateExperience(i, 'toDate', e.target.value)} max={new Date().toLocaleDateString('en-CA')} min={exp.fromDate} className="form-control" />
             </div>
             <div className="form-group" style={{ gridColumn: '1 / -1' }}>
               <label>Key Responsibilities</label>
-              <input type="text" value={exp.responsibilities} onChange={(e) => updateExperience(i, 'responsibilities', e.target.value)} className="form-control" style={inputStyle} placeholder="Brief description of responsibilities" />
+              <input type="text" value={exp.responsibilities} onChange={(e) => updateExperience(i, 'responsibilities', e.target.value)} className="form-control" placeholder="Brief description of responsibilities" />
             </div>
           </div>
         </div>
@@ -1082,32 +1220,19 @@ export default function AddEmployee({ setActiveView, editData }) {
             <Upload size={18} style={{ color: 'hsl(0, 80%, 55%)' }} />
             Document Uploads (Optional)
           </h3>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
-            {docUploads.map(doc => {
-              const fileObj = files[doc.key] || (existingFiles[doc.key] ? { name: existingFiles[doc.key].split('/').pop(), isExisting: true } : null);
-              return (
-                <div key={doc.key} className="glass-panel" style={{ padding: '16px', borderRadius: '12px', display: 'flex', flexDirection: 'column', gap: '10px', background: 'rgba(255,255,255,0.01)' }}>
-                  <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-main)' }}>{doc.label}</span>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <label htmlFor={doc.key} className="btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '0.8rem', padding: '8px 12px', borderRadius: '8px' }}>
-                      <Upload size={14} /> Upload
-                    </label>
-                    <input type="file" id={doc.key} accept="*" onChange={(e) => handleFileChange(e, doc.key)} style={{ display: 'none' }} />
-                  </div>
-                  {fileObj && (
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 10px', background: 'rgba(255,255,255,0.03)', borderRadius: '8px', border: '1px solid var(--border-glass)' }}>
-                      <span style={{ fontSize: '0.75rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '160px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        <FileText size={12} style={{ color: fileObj.isExisting ? 'rgb(16, 185, 129)' : 'inherit' }} /> 
-                        {fileObj.isExisting ? `Existing: ${fileObj.name}` : fileObj.name}
-                      </span>
-                      <button type="button" onClick={() => removeFile(doc.key)} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '2px' }}>
-                        <X size={14} />
-                      </button>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px' }}>
+            {docUploads.map(doc => (
+              <div key={doc.key} className="form-group">
+                <DragAndDropFile 
+                  fieldName={doc.key}
+                  label={doc.label}
+                  file={files[doc.key] || (existingFiles[doc.key] ? { name: existingFiles[doc.key].split('/').pop() } : null)}
+                  onFileChange={handleFileChange}
+                  onRemove={removeFile}
+                  accept="*"
+                />
+              </div>
+            ))}
           </div>
         </div>
 
@@ -1192,76 +1317,141 @@ export default function AddEmployee({ setActiveView, editData }) {
         </div>
       )}
 
-      {/* Step Navigation Bar */}
-      <div className="glass-panel" style={{ padding: '16px 24px', display: 'flex', alignItems: 'center', gap: '8px', overflowX: 'auto' }}>
-        {STEPS.map((step, i) => {
-          const StepIcon = step.icon;
-          const isActive = currentStep === step.id;
-          const isCompleted = currentStep > step.id;
-          return (
-            <React.Fragment key={step.id}>
-              <button
-                type="button"
-                onClick={() => {
-                  setCurrentStep(step.id);
-                  window.scrollTo({ top: 0, behavior: 'smooth' });
-                }}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: '8px',
-                  padding: '8px 14px', borderRadius: '10px', border: 'none',
-                  cursor: 'pointer', fontSize: '0.82rem', fontWeight: isActive ? 700 : 500,
-                  background: isActive ? `rgba(${step.color === 'hsl(var(--color-primary))' ? 'var(--color-primary-rgb)' : '120, 120, 200'}, 0.12)` : 'transparent',
-                  color: isActive ? step.color : isCompleted ? 'rgb(var(--color-success-rgb))' : 'var(--text-muted)',
-                  whiteSpace: 'nowrap', transition: 'all 0.2s ease',
-                  flexShrink: 0
-                }}
-              >
-                {isCompleted ? <CheckCircle size={16} /> : <StepIcon size={16} />}
-                <span className="nav-label">{step.label}</span>
-              </button>
-              {i < STEPS.length - 1 && <ChevronRight size={14} style={{ color: 'var(--text-muted)', flexShrink: 0, opacity: 0.4 }} />}
-            </React.Fragment>
-          );
-        })}
+      {/* Stepper Header (Desktop view) */}
+      <div className="glass-panel" style={{ padding: '20px', overflowX: 'auto' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', minWidth: '800px', padding: '0 10px' }}>
+          {STEPS.map((step, index) => {
+            const StepIcon = step.icon;
+            const isActive = currentStep === step.id;
+            const isCompleted = currentStep > step.id;
+            return (
+              <React.Fragment key={step.id}>
+                <div 
+                  onClick={() => {
+                    setCurrentStep(step.id);
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
+                  style={{ 
+                    display: 'flex', 
+                    flexDirection: 'column', 
+                    alignItems: 'center', 
+                    gap: '8px', 
+                    cursor: 'pointer',
+                    opacity: isActive ? 1 : 0.6,
+                    transition: 'opacity 0.3s'
+                  }}
+                >
+                  <div style={{
+                    width: '32px',
+                    height: '32px',
+                    borderRadius: '50%',
+                    background: isActive 
+                      ? 'linear-gradient(135deg, hsl(var(--color-primary)) 0%, hsl(var(--color-secondary)) 100%)' 
+                      : isCompleted 
+                        ? 'rgba(16, 185, 129, 0.2)' 
+                        : 'var(--bg-form)',
+                    border: isActive 
+                      ? 'none' 
+                      : isCompleted 
+                        ? '1px solid rgb(16, 185, 129)' 
+                        : '1px solid var(--border-glass)',
+                    color: isActive 
+                      ? 'white' 
+                      : isCompleted 
+                        ? 'rgb(16, 185, 129)' 
+                        : 'var(--text-muted)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '0.85rem',
+                    fontWeight: 'bold'
+                  }}>
+                    {isCompleted ? <CheckCircle size={16} /> : step.id}
+                  </div>
+                  <span style={{ 
+                    fontSize: '0.75rem', 
+                    fontWeight: isActive ? 700 : 500,
+                    color: isActive ? 'hsl(var(--color-primary))' : 'var(--text-muted)',
+                    whiteSpace: 'nowrap'
+                  }}>
+                    {step.label}
+                  </span>
+                </div>
+                
+                {index < STEPS.length - 1 && (
+                  <div style={{ 
+                    flex: 1, 
+                    height: '2px', 
+                    background: isCompleted ? 'rgb(16, 185, 129)' : 'var(--border-glass)', 
+                    margin: '0 12px',
+                    alignSelf: 'center',
+                    minWidth: '20px'
+                  }} />
+                )}
+              </React.Fragment>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Active Step Progress Panel */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div>
+          <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-main)', margin: 0 }}>
+            {STEPS[currentStep - 1].label}
+          </h2>
+          <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', margin: '4px 0 0 0' }}>
+            Step {currentStep} of 7 — Complete fields to advance.
+          </p>
+        </div>
+        
+        {/* Reset Draft Button */}
+        {!editData && (
+          <button 
+            type="button" 
+            onClick={resetForm}
+            className="btn-secondary"
+            style={{ padding: '8px 16px', fontSize: '0.78rem', display: 'flex', alignItems: 'center', gap: '6px', borderColor: 'rgba(239, 68, 68, 0.3)', color: '#ef4444' }}
+          >
+            <RotateCcw size={12} /> Reset Draft
+          </button>
+        )}
       </div>
 
       {/* Current Step Content */}
-      <form onSubmit={(e) => e.preventDefault()} style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-        {currentStep === 1 && renderStep1()}
-        {currentStep === 2 && renderStep2()}
-        {currentStep === 3 && renderStep3()}
-        {currentStep === 4 && renderStep4()}
-        {currentStep === 5 && renderStep5()}
-        {currentStep === 6 && renderStep6()}
-        {currentStep === 7 && renderStep7()}
+      <form onSubmit={(e) => e.preventDefault()}>
+        <div className="add-teacher-container" style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+          {currentStep === 1 && renderStep1()}
+          {currentStep === 2 && renderStep2()}
+          {currentStep === 3 && renderStep3()}
+          {currentStep === 4 && renderStep4()}
+          {currentStep === 5 && renderStep5()}
+          {currentStep === 6 && renderStep6()}
+          {currentStep === 7 && renderStep7()}
 
-        {/* Navigation Footer */}
-        <div style={{ display: 'flex', gap: '16px', justifyContent: 'space-between', marginTop: '10px' }}>
-          <div style={{ display: 'flex', gap: '12px' }}>
-            {currentStep > 1 && (
-              <button type="button" onClick={prevStep} className="btn-secondary" style={{ padding: '12px 24px', borderRadius: '10px', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 600, cursor: 'pointer' }}>
-                <ChevronLeft size={16} /> Back
+          {/* Navigation Footer */}
+          <div style={{ display: 'flex', gap: '16px', justifyContent: 'space-between', marginTop: '10px' }}>
+            <div style={{ display: 'flex', gap: '12px' }}>
+              {currentStep > 1 && (
+                <button type="button" onClick={prevStep} className="btn-secondary" style={{ padding: '12px 24px', borderRadius: '10px', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 600, cursor: 'pointer' }}>
+                  <ChevronLeft size={16} /> Back
+                </button>
+              )}
+              <button type="button" onClick={() => setActiveView('staff')} className="btn-secondary" style={{ padding: '12px 24px', borderRadius: '10px', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 600, cursor: 'pointer' }}>
+                Cancel
               </button>
-            )}
-            {!editData && (
-              <button type="button" onClick={resetForm} className="btn-secondary" style={{ padding: '12px 24px', borderRadius: '10px', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 600, cursor: 'pointer' }}>
-                <RotateCcw size={16} /> Reset
-              </button>
-            )}
-            <button type="button" onClick={() => setActiveView('staff')} className="btn-secondary" style={{ padding: '12px 24px', borderRadius: '10px', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 600, cursor: 'pointer' }}>
-              Cancel
-            </button>
-          </div>
-          <div>
-            {currentStep < STEPS.length ? (
-              <button type="button" onClick={nextStep} className="btn-primary" style={{ padding: '12px 28px', borderRadius: '10px', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 600, cursor: 'pointer' }}>
-                Next <ChevronRight size={16} />
-              </button>
-            ) : (
-              <button type="button" onClick={handleSubmit} className="btn-primary" disabled={loading} style={{ padding: '12px 28px', borderRadius: '10px', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 600, cursor: 'pointer', minWidth: '180px', justifyContent: 'center' }}>
-                {loading ? (<><Loader2 size={16} className="animate-spin" /> {editData ? 'Saving...' : 'Submitting...'}</>) : (<><Save size={16} /> {editData ? 'Save Changes' : 'Submit'}</>)}
-              </button>
-            )}
+            </div>
+            <div>
+              {currentStep < STEPS.length ? (
+                <button type="button" onClick={nextStep} className="btn-primary" style={{ padding: '12px 28px', borderRadius: '10px', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 600, cursor: 'pointer' }}>
+                  Next <ChevronRight size={16} />
+                </button>
+              ) : (
+                <button type="button" onClick={handleSubmit} className="btn-primary" disabled={loading} style={{ padding: '12px 28px', borderRadius: '10px', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 600, cursor: 'pointer', minWidth: '180px', justifyContent: 'center' }}>
+                  {loading ? (<><Loader2 size={16} className="animate-spin" /> {editData ? 'Saving...' : 'Submitting...'}</>) : (<><Save size={16} /> {editData ? 'Save Changes' : 'Submit'}</>)}
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </form>

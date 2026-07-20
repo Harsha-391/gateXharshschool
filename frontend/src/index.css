@@ -93,6 +93,54 @@ body, button, input, select, textarea, span, p, div, label, table, td, th, h1, h
   letter-spacing: -0.015em;
 }
 
+/* Custom Checkbox — white bg with green tick */
+input[type="checkbox"] {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border: 1.5px solid #94a3b8;
+  border-radius: 4px;
+  background: #ffffff;
+  cursor: pointer;
+  position: relative;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  flex-shrink: 0;
+}
+
+input[type="checkbox"]:hover {
+  border-color: #64748b;
+}
+
+input[type="checkbox"]:checked {
+  background: #ffffff;
+  border-color: #10b981;
+  box-shadow: 0 0 0 1px rgba(16, 185, 129, 0.15);
+}
+
+input[type="checkbox"]:checked::after {
+  content: '';
+  position: absolute;
+  top: 1px;
+  left: 4.5px;
+  width: 5px;
+  height: 9px;
+  border: solid #10b981;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+[data-theme='dark'] input[type="checkbox"] {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(148, 163, 184, 0.4);
+}
+
+[data-theme='dark'] input[type="checkbox"]:checked {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: #10b981;
+}
+
 /* Dot grid overlay pattern — dark theme only */
 body::before {
   content: '';
@@ -576,6 +624,16 @@ select option {
   color: var(--text-main) !important;
 }
 
+select option:hover,
+select option:focus,
+select option:active,
+select option:checked {
+  background-color: #FF8C42 !important;
+  background: #FF8C42 !important;
+  color: #ffffff !important;
+  box-shadow: 0 0 10px 100px #FF8C42 inset !important;
+}
+
 /* Textarea and Specific Types */
 textarea.form-control,
 .form-control[type="text"],
@@ -623,10 +681,26 @@ select::placeholder {
   opacity: 1 !important;
 }
 
-/* CustomSelect dropdown animation */
+/* CustomSelect dropdown — no animation */
 @keyframes customSelectSlideDown {
-  from { opacity: 0; transform: translateY(-6px); }
-  to { opacity: 1; transform: translateY(0); }
+  from { opacity: 1; transform: none; }
+  to { opacity: 1; transform: none; }
+}
+
+/* Kill all animations on dropdown portals */
+.custom-select-portal,
+.searchable-select-portal {
+  animation: none !important;
+  transform: none !important;
+  transition: none !important;
+}
+
+.custom-select-portal:hover,
+.searchable-select-portal:hover,
+.custom-select-portal.glass-panel:hover,
+.searchable-select-portal.glass-panel:hover {
+  transform: none !important;
+  box-shadow: 0 8px 30px rgba(0,0,0,0.25) !important;
 }
 
 

@@ -503,7 +503,7 @@ const migrateJsonToSql = async () => {
     }
 
     const schools = globalDb.schools || [];
-    const subscriptionPlans = globalDb.subscriptionPlans || [];
+    const subscriptionPlans = globalDb.subscriptionPlans || globalDb.plans || [];
 
     // Seed subscription plans
     for (const plan of subscriptionPlans) {
@@ -1902,7 +1902,7 @@ export const loadTenantSqlIntoMemory = async (tenantId) => {
       staffSalaryStructures: [],
       income: [],
       attendance: [],
-      subscriptionPlans: [],
+      plans: [],
       schools: [],
       roles: [],
       userAccess: [],
@@ -2105,7 +2105,7 @@ export const loadTenantSqlIntoMemory = async (tenantId) => {
       console.error('Failed to load platformOwner from JSON:', e);
     }
 
-    data.subscriptionPlans = plans.map(p => ({
+    data.plans = plans.map(p => ({
       id: p.id,
       name: p.name,
       price: p.price,
@@ -2888,7 +2888,7 @@ export const saveMemoryDbToSql = async (tenantId, db, changedKeys, newUpdatedAt)
       // For the platform tenant, restrict synced tables to master tables only (other tables do not exist in the master DB)
       let activeChangedKeys = changedKeys;
       if (tId === 'platform') {
-        const allowedPlatformKeys = ['schools', 'subscription_plans', 'roles', 'user_access', 'student_accounts', 'parent_accounts'];
+        const allowedPlatformKeys = ['schools', 'plans', 'roles', 'user_access', 'student_accounts', 'parent_accounts'];
         activeChangedKeys = new Set([...changedKeys].filter(k => allowedPlatformKeys.includes(k)));
       }
 
@@ -2957,7 +2957,28 @@ export const saveMemoryDbToSql = async (tenantId, db, changedKeys, newUpdatedAt)
            await bulkInsertOrUpdate('schools', columns, valueRows, updateColumns);
          })());
        }
- 
+
+       if (tId === 'platform' && db.plans && Array.isArray(db.plans) && hasTableChanged('plans')) {
+         tasks.push((async () => {
+           const activePlanIds = db.plans.map(p => p.id).filter(Boolean);
+           if (activePlanIds.length > 0) {
+             await sqlDb.query(`DELETE FROM subscription_plans WHERE id NOT IN (${activePlanIds.map(() => '?').join(',')})`, activePlanIds);
+           } else {
+             await sqlDb.query('DELETE FROM subscription_plans');
+           }
+
+           const columns = ['id', 'name', 'price', 'features'];
+           const updateColumns = ['name', 'price', 'features'];
+           const valueRows = db.plans.map(p => [
+             p.id,
+             p.name,
+             p.price,
+             p.features ? (typeof p.features === 'string' ? p.features : JSON.stringify(p.features)) : '[]'
+           ]);
+           await bulkInsertOrUpdate('subscription_plans', columns, valueRows, updateColumns);
+         })());
+       }
+
        // 2. Sync school details
        if (tId !== 'platform' && db.school && hasTableChanged('school')) {
          const sch = db.school;
@@ -4377,7 +4398,7 @@ export const readDb = () => {
     academicCalendarEvents: [], academicCalendarImports: [], publishedCalendarEvents: [],
     grades: [], departments: [], designations: [], staffDesignations: [], gradeDepartments: [],
     sections: [], publishedClassTimetables: [], publishedTeacherTimetables: [],
-    attendanceSettings: [], reportCardTemplates: [], subscriptionPlans: []
+    attendanceSettings: [], reportCardTemplates: [], plans: []
   };
 };
 
@@ -4405,7 +4426,7 @@ export const writeDb = (data) => {
     // a 1-3 second synchronous block into a < 1ms operation.
     const changedKeys = new Set();
     const trackKeys = [
-      'schools', 'school', 'teachers', 'staff', 'students', 'timetables',
+      'schools', 'school', 'plans', 'teachers', 'staff', 'students', 'timetables',
       'teacherTimetables',
       'invoices', 'fees', 'expenses', 'payroll', 'staffPayments', 'activities',
       'exams', 'examTimetables', 'results', 'overallResults', 'notices',

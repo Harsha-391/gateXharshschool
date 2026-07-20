@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import './AccountantPanel.css';
 import { createPortal } from 'react-dom';
 import {
@@ -134,8 +134,8 @@ export default function AccountantPanel({ setActiveView, onLogout, accountantVie
                                         accountantView === 'teacher-list' ? 'Staff Directory' :
                                           accountantView === 'staff' ? 'Employee Directory' :
                                             accountantView === 'register-student' ? 'Register Student' :
-                                              accountantView === 'add-teacher' ? 'Add Staff' :
-                                                accountantView === 'add-staff' ? 'Add Employee' : 'Student Fee Collection'}</h2>
+                                              accountantView === 'add-teacher' ? 'Register Staff' :
+                                                accountantView === 'add-staff' ? 'Register Employee' : 'Student Fee Collection'}</h2>
             <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
               Comprehensive financial management and accounting portal
             </p>
@@ -1741,7 +1741,7 @@ export function CollectFeesView({ showToast, readOnly = false }) {
               {/* Action Buttons */}
               <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
                 <button onClick={() => window.print()} style={{
-                  flex: 1, padding: '12px', background: 'linear-gradient(135deg, #10b981, #059669)',
+                  flex: 1, padding: '12px', background: 'linear-gradient(135deg, hsl(var(--color-primary)), #e65c00)',
                   border: 'none', borderRadius: '10px', color: '#fff', fontWeight: 700, cursor: 'pointer',
                   display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontSize: '0.85rem'
                 }}>
@@ -1947,20 +1947,20 @@ export function CollectFeesView({ showToast, readOnly = false }) {
                   );
                 })()}
 
-                {form.isCollectDue ? (
+                {form.billingPeriod || form.isCollectDue ? (
                   <div>
                     <label style={labelStyle}>Billing Period</label>
                     <div style={{
                       ...inputStyle,
-                      background: 'rgba(16, 185, 129, 0.06)',
-                      border: '1.5px solid rgba(16, 185, 129, 0.25)',
-                      color: '#10b981',
+                      background: 'rgba(255, 140, 66, 0.08)',
+                      border: '1.5px solid rgba(255, 140, 66, 0.25)',
+                      color: '#FF8C42',
                       fontWeight: 700,
                       cursor: 'default',
                       display: 'flex',
                       alignItems: 'center'
                     }}>
-                      {form.billingPeriod}
+                      {form.billingPeriod || 'Full Year'}
                     </div>
                   </div>
                 ) : (() => {
@@ -2002,15 +2002,18 @@ export function CollectFeesView({ showToast, readOnly = false }) {
                   return (
                     <div>
                       <label style={labelStyle}>Billing Period</label>
-                      <select
-                        value={form.billingPeriod || 'Yearly'}
-                        onChange={e => handleBillingPeriodChange(e.target.value)}
-                        style={{ ...inputStyle, cursor: 'pointer' }}
-                      >
-                        {getBillingPeriodOptions(selFreq).map(opt => (
-                          <option key={opt} value={opt} style={optionStyle}>{opt}</option>
-                        ))}
-                      </select>
+                      <div style={{
+                        ...inputStyle,
+                        background: 'rgba(255, 140, 66, 0.08)',
+                        border: '1.5px solid rgba(255, 140, 66, 0.25)',
+                        color: '#FF8C42',
+                        fontWeight: 700,
+                        cursor: 'default',
+                        display: 'flex',
+                        alignItems: 'center'
+                      }}>
+                        {form.billingPeriod || 'Full Year'}
+                      </div>
                     </div>
                   );
                 })()}
@@ -2075,7 +2078,7 @@ export function CollectFeesView({ showToast, readOnly = false }) {
                 }} onMouseEnter={e => e.currentTarget.style.background = 'var(--border-subtle)'}
                   onMouseLeave={e => e.currentTarget.style.background = 'var(--bg-card-subtle)'}><X size={16} /> Close</button>
                 <button type="submit" style={{
-                  padding: '12px 28px', background: 'linear-gradient(135deg, #10b981, #059669)',
+                  padding: '12px 28px', background: 'linear-gradient(135deg, hsl(var(--color-primary)), #e65c00)',
                   border: 'none', borderRadius: '10px', color: '#fff', fontWeight: 700, cursor: 'pointer',
                   display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem', transition: 'transform 0.15s, opacity 0.2s'
                 }} onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-1px)'}
@@ -2180,7 +2183,7 @@ export function CollectFeesView({ showToast, readOnly = false }) {
                                 title="Collect Fee for Period"
                                 style={{
                                   padding: '5px 10px',
-                                  background: 'linear-gradient(135deg, #10b981, #059669)',
+                                  background: 'linear-gradient(135deg, hsl(var(--color-primary)), #e65c00)',
                                   border: 'none',
                                   borderRadius: '6px',
                                   color: '#fff',
@@ -2201,7 +2204,7 @@ export function CollectFeesView({ showToast, readOnly = false }) {
                                 title="Collect Due Amount"
                                 style={{
                                   padding: '5px 10px',
-                                  background: 'linear-gradient(135deg, #ef4444, #dc2626)',
+                                  background: 'linear-gradient(135deg, hsl(var(--color-primary)), #e65c00)',
                                   border: 'none',
                                   borderRadius: '6px',
                                   color: '#fff',
@@ -2593,10 +2596,10 @@ export function CollectFeesView({ showToast, readOnly = false }) {
               </div>
 
               {/* Summary */}
-              <div style={{ padding: '14px', background: 'rgba(16,185,129,0.04)', borderRadius: '10px', border: '1px solid rgba(16,185,129,0.12)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <div style={{ padding: '14px', background: 'rgba(255, 107, 0, 0.04)', borderRadius: '10px', border: '1px solid rgba(255, 107, 0, 0.12)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem' }}>
                   <span style={{ color: 'var(--text-muted)' }}>Total Due Being Collected</span>
-                  <span style={{ color: '#10b981', fontWeight: 700 }}>₹{(
+                  <span style={{ color: 'hsl(var(--color-primary))', fontWeight: 700 }}>₹{(
                     (Number(collectDueState.tuitionDue) || 0) +
                     (Number(collectDueState.transportDue) || 0) +
                     (Number(collectDueState.otherDue) || 0) +
@@ -2607,7 +2610,7 @@ export function CollectFeesView({ showToast, readOnly = false }) {
 
               <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
                 <button type="button" onClick={() => setCollectDueState(null)} style={{ padding: '11px 22px', background: 'var(--bg-card-subtle)', border: '1px solid var(--border-subtle)', borderRadius: '10px', color: 'var(--text-muted)', cursor: 'pointer', fontWeight: 600, fontSize: '0.85rem' }}>Cancel</button>
-                <button type="submit" style={{ padding: '11px 24px', background: 'linear-gradient(135deg, #10b981, #059669)', border: 'none', borderRadius: '10px', color: '#fff', cursor: 'pointer', fontWeight: 700, fontSize: '0.85rem', display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                <button type="submit" style={{ padding: '11px 24px', background: 'linear-gradient(135deg, hsl(var(--color-primary)), #e65c00)', border: 'none', borderRadius: '10px', color: '#fff', cursor: 'pointer', fontWeight: 700, fontSize: '0.85rem', display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
                   <CheckCircle size={15} /> {collectDueState.editingDcId ? 'Update Collection' : 'Collect & Generate Receipt'}
                 </button>
               </div>
@@ -5407,7 +5410,7 @@ function Disabled_IncomeView({ showToast, active = true }) {
             </div>
             <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
               <button onClick={() => window.print()} style={{
-                flex: 1, padding: '12px', background: 'linear-gradient(135deg, #10b981, #059669)',
+                flex: 1, padding: '12px', background: 'linear-gradient(135deg, hsl(var(--color-primary)), #e65c00)',
                 border: 'none', borderRadius: '10px', color: '#fff', fontWeight: 700, cursor: 'pointer',
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontSize: '0.85rem'
               }}>
@@ -7481,7 +7484,7 @@ export function TeacherSalaryStructureView({ showToast }) {
       <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
         {hasPermission('teacher-pay-structure', 'create') && (
           <button onClick={() => { setEditingId(null); setGradeRange(''); setShowForm(true); }} style={{
-            padding: '10px 20px', background: 'linear-gradient(135deg, #10b981, #059669)', border: 'none',
+            padding: '10px 20px', background: 'linear-gradient(135deg, hsl(var(--color-primary)), #e65c00)', border: 'none',
             borderRadius: '10px', color: '#fff', fontWeight: 700, cursor: 'pointer', display: 'flex',
             alignItems: 'center', gap: '6px', fontSize: '0.85rem'
           }}>
@@ -7533,13 +7536,13 @@ export function TeacherSalaryStructureView({ showToast }) {
                   </div>
                 ))}
               </div>
-              <div style={{ padding: '12px 16px', background: 'rgba(16,185,129,0.06)', borderRadius: '10px', border: '1px solid rgba(16,185,129,0.1)', display: 'flex', justifyContent: 'space-between' }}>
+              <div style={{ padding: '12px 16px', background: 'rgba(255, 107, 0, 0.06)', borderRadius: '10px', border: '1px solid rgba(255, 107, 0, 0.1)', display: 'flex', justifyContent: 'space-between' }}>
                 <span style={{ fontWeight: 700, color: 'var(--text-muted)', fontSize: '0.85rem' }}>Net Salary</span>
-                <span style={{ fontWeight: 800, color: '#10b981', fontSize: '1.1rem' }}>₹{netSalary.toLocaleString()}</span>
+                <span style={{ fontWeight: 800, color: 'hsl(var(--color-primary))', fontSize: '1.1rem' }}>₹{netSalary.toLocaleString()}</span>
               </div>
               <div style={{ display: 'flex', gap: '12px' }}>
                 <button type="submit" style={{
-                  padding: '12px 24px', background: 'linear-gradient(135deg, #10b981, #059669)', border: 'none',
+                  padding: '12px 24px', background: 'linear-gradient(135deg, hsl(var(--color-primary)), #e65c00)', border: 'none',
                   borderRadius: '10px', color: '#fff', fontWeight: 700, cursor: 'pointer',
                   display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem'
                 }}><CheckCircle size={16} /> Save Teacher Structure</button>
@@ -8507,12 +8510,12 @@ export function PayrollHub({ title, type, showToast }) {
             fontWeight: 700,
             cursor: 'pointer',
             border: 'none',
-            background: activeTab === 'payroll' ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)' : 'rgba(255,255,255,0.03)',
+            background: activeTab === 'payroll' ? 'linear-gradient(135deg, hsl(var(--color-primary)) 0%, hsl(var(--color-secondary)) 100%)' : 'rgba(255,255,255,0.03)',
             color: activeTab === 'payroll' ? '#ffffff' : 'var(--text-muted)',
             display: 'flex',
             alignItems: 'center',
             gap: '8px',
-            boxShadow: activeTab === 'payroll' ? '0 4px 12px rgba(16,185,129,0.2)' : 'none',
+            boxShadow: activeTab === 'payroll' ? '0 4px 12px rgba(255,107,0,0.2)' : 'none',
             transition: 'all 0.2s ease'
           }}
         >
@@ -8528,12 +8531,12 @@ export function PayrollHub({ title, type, showToast }) {
             fontWeight: 700,
             cursor: 'pointer',
             border: 'none',
-            background: activeTab === 'structure' ? 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)' : 'rgba(255,255,255,0.03)',
+            background: activeTab === 'structure' ? 'linear-gradient(135deg, hsl(var(--color-primary)) 0%, hsl(var(--color-secondary)) 100%)' : 'rgba(255,255,255,0.03)',
             color: activeTab === 'structure' ? '#ffffff' : 'var(--text-muted)',
             display: 'flex',
             alignItems: 'center',
             gap: '8px',
-            boxShadow: activeTab === 'structure' ? '0 4px 12px rgba(139,92,246,0.2)' : 'none',
+            boxShadow: activeTab === 'structure' ? '0 4px 12px rgba(255,107,0,0.2)' : 'none',
             transition: 'all 0.2s ease'
           }}
         >

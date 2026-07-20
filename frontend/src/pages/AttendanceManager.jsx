@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import './AttendanceManager.css';
 import jsQR from 'jsqr';
 import { 
@@ -38,6 +38,26 @@ const getTenantHeader = () => {
   return '';
 };
 
+const getLocalDateString = () => {
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = String(today.getMonth() + 1).padStart(2, '0');
+  const day = String(today.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const getCurrentFormattedTime = () => {
+  const now = new Date();
+  let hours = now.getHours();
+  let minutes = now.getMinutes();
+  const ampm = hours >= 12 ? 'PM' : 'AM';
+  hours = hours % 12;
+  hours = hours ? hours : 12; // the hour '0' should be '12'
+  const minutesStr = minutes < 10 ? '0' + minutes : minutes;
+  const hoursStr = hours < 10 ? '0' + hours : hours;
+  return `${hoursStr}:${minutesStr} ${ampm}`;
+};
+
 export default function AttendanceManager() {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [analytics, setAnalytics] = useState(null);
@@ -50,7 +70,13 @@ export default function AttendanceManager() {
   // Unified Employees List for Manual Punch
   const [employeesList, setEmployeesList] = useState([]);
   const [showManualModal, setShowManualModal] = useState(false);
-  const [manualData, setManualData] = useState({ employeeId: '', employeeType: 'Teacher', punchType: 'checkIn', punchTime: '', date: '' });
+  const [manualData, setManualData] = useState({ 
+    employeeId: '', 
+    employeeType: 'Teacher', 
+    punchType: 'checkIn', 
+    punchTime: getCurrentFormattedTime(), 
+    date: getLocalDateString() 
+  });
 
   // Edit Records
   const [showEditModal, setShowEditModal] = useState(false);
@@ -163,9 +189,9 @@ export default function AttendanceManager() {
       const headers = { 'Authorization': `Bearer ${token}`, 'x-tenant-id': tenant };
 
       const [tchRes, stfRes, empRes] = await Promise.all([
-        fetch('/api/teachers', { headers }),
-        fetch('/api/staff', { headers }),
-        fetch('/api/employees', { headers })
+        fetch('/api/teachers?purpose=dropdown', { headers }),
+        fetch('/api/staff?purpose=dropdown', { headers }),
+        fetch('/api/employees?purpose=dropdown', { headers })
       ]);
 
       let unified = [];
@@ -234,8 +260,17 @@ export default function AttendanceManager() {
       });
       const data = await res.json();
       if (res.ok) {
+        const punchedType = manualData.employeeType;
         setShowManualModal(false);
-        setManualData({ employeeId: '', employeeType: 'Teacher', punchType: 'checkIn', punchTime: '', date: '' });
+        setManualData({ 
+          employeeId: '', 
+          employeeType: 'Teacher', 
+          punchType: 'checkIn', 
+          punchTime: getCurrentFormattedTime(), 
+          date: getLocalDateString() 
+        });
+        setActiveTab('today');
+        setTodaySubTab(punchedType);
         fetchAnalytics();
         fetchTodayRecords();
         fetchReports();
@@ -657,7 +692,16 @@ export default function AttendanceManager() {
           </div>
 
           <button
-            onClick={() => setShowManualModal(true)}
+            onClick={() => {
+              setManualData({
+                employeeId: '',
+                employeeType: 'Teacher',
+                punchType: 'checkIn',
+                punchTime: getCurrentFormattedTime(),
+                date: getLocalDateString()
+              });
+              setShowManualModal(true);
+            }}
             className="btn-primary"
             style={{
               padding: '10px 18px',
@@ -1401,8 +1445,8 @@ export default function AttendanceManager() {
           backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)',
           display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000
         }}>
-          <div className="glass-panel" style={{
-            width: '460px', padding: '28px', borderRadius: '16px',
+          <div className="glass-panel animate-scale-up" style={{
+            width: '600px', padding: '28px', borderRadius: '16px',
             border: '1px solid rgba(255,255,255,0.08)', position: 'relative'
           }}>
             <button
@@ -1415,12 +1459,12 @@ export default function AttendanceManager() {
               <X size={18} />
             </button>
 
-            <h3 style={{ margin: '0 0 8px 0', fontSize: '1.2rem', fontWeight: 750 }}>Manual Attendance Punch</h3>
+            <h3 style={{ margin: '0 0 4px 0', fontSize: '1.2rem', fontWeight: 750 }}>Manual Attendance Punch</h3>
             <p style={{ margin: '0 0 20px 0', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
               Manually record Check-In or Check-Out for staff and teachers.
             </p>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
               <div className="form-group" style={{ margin: 0 }}>
                 <label>Employee Category</label>
                 <select
@@ -1452,15 +1496,41 @@ export default function AttendanceManager() {
               </div>
 
               <div className="form-group" style={{ margin: 0 }}>
-                <label>Punch Action</label>
-                <select
-                  className="select-custom"
-                  value={manualData.punchType}
-                  onChange={(e) => setManualData(prev => ({ ...prev, punchType: e.target.value }))}
-                >
-                  <option value="checkIn">Check-In</option>
-                  <option value="checkOut">Check-Out</option>
-                </select>
+                <label style={{ display: 'block', marginBottom: '8px' }}>Punch Action</label>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'flex-start', marginTop: '10px' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.88rem', fontWeight: 500, color: 'var(--text-main)', whiteSpace: 'nowrap' }}>
+                    <input
+                      type="radio"
+                      name="punchType"
+                      value="checkIn"
+                      checked={manualData.punchType === 'checkIn'}
+                      onChange={(e) => setManualData(prev => ({ ...prev, punchType: e.target.value, punchTime: getCurrentFormattedTime() }))}
+                      style={{
+                        width: '18px',
+                        height: '18px',
+                        accentColor: 'hsl(var(--color-primary))',
+                        cursor: 'pointer'
+                      }}
+                    />
+                    Check-In
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.88rem', fontWeight: 500, color: 'var(--text-main)', whiteSpace: 'nowrap' }}>
+                    <input
+                      type="radio"
+                      name="punchType"
+                      value="checkOut"
+                      checked={manualData.punchType === 'checkOut'}
+                      onChange={(e) => setManualData(prev => ({ ...prev, punchType: e.target.value, punchTime: getCurrentFormattedTime() }))}
+                      style={{
+                        width: '18px',
+                        height: '18px',
+                        accentColor: 'hsl(var(--color-primary))',
+                        cursor: 'pointer'
+                      }}
+                    />
+                    Check-Out
+                  </label>
+                </div>
               </div>
 
               <div className="form-group" style={{ margin: 0 }}>
@@ -1469,11 +1539,12 @@ export default function AttendanceManager() {
                   type="date"
                   className="form-control"
                   value={manualData.date}
+                  max={getLocalDateString()}
                   onChange={(e) => setManualData(prev => ({ ...prev, date: e.target.value }))}
                 />
               </div>
 
-              <div className="form-group" style={{ margin: 0 }}>
+              <div className="form-group" style={{ margin: 0, gridColumn: 'span 2' }}>
                 <label>Time (Optional - Default Now)</label>
                 <input
                   type="text"
@@ -1506,8 +1577,8 @@ export default function AttendanceManager() {
           backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)',
           display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000
         }}>
-          <div className="glass-panel" style={{
-            width: '460px', padding: '28px', borderRadius: '16px',
+          <div className="glass-panel animate-scale-up" style={{
+            width: '600px', padding: '28px', borderRadius: '16px',
             border: '1px solid rgba(255,255,255,0.08)', position: 'relative'
           }}>
             <button
@@ -1520,12 +1591,12 @@ export default function AttendanceManager() {
               <X size={18} />
             </button>
 
-            <h3 style={{ margin: '0 0 8px 0', fontSize: '1.2rem', fontWeight: 750 }}>Edit Attendance Record</h3>
+            <h3 style={{ margin: '0 0 4px 0', fontSize: '1.2rem', fontWeight: 750 }}>Edit Attendance Record</h3>
             <p style={{ margin: '0 0 20px 0', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
               Modify times and status details for <strong>{editRecord.name}</strong> ({editRecord.employeeId}).
             </p>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
               <div className="form-group" style={{ margin: 0 }}>
                 <label>Date</label>
                 <input

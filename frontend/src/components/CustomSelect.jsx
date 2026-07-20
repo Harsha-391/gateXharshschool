@@ -4,7 +4,7 @@ import { createPortal } from 'react-dom';
 /**
  * CustomSelect – drop-in replacement for native <select> that always opens DOWNWARD with a scrollbar.
  */
-export default function CustomSelect({ value, onChange, children, className = '', style = {}, disabled = false, placeholder = 'Select...' }) {
+export default function CustomSelect({ value, onChange, children, className = '', style = {}, disabled = false, placeholder = 'Select...', ...rest }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
   const [coords, setCoords] = useState({ top: 0, left: 0, width: 0 });
@@ -128,6 +128,7 @@ export default function CustomSelect({ value, onChange, children, className = ''
         onClick={() => { if (!disabled) setOpen(!open); }}
         className={className}
         style={triggerStyleFinal}
+        {...rest}
       >
         <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
           {displayLabel}
@@ -155,7 +156,7 @@ export default function CustomSelect({ value, onChange, children, className = ''
             maxHeight: '200px',
             overflowY: 'auto',
             overflowX: 'hidden',
-            animation: 'customSelectSlideDown 0.15s ease',
+            animation: 'none',
           }}
         >
           {options.map((opt, idx) => {
@@ -165,21 +166,29 @@ export default function CustomSelect({ value, onChange, children, className = ''
                 key={`${opt.value}-${idx}`}
                 onClick={() => { if (!opt.disabled) handleSelect(opt.value); }}
                 style={{
-                  padding: '8px 14px',
+                  padding: '5px 10px',
                   fontSize: '0.85rem',
                   cursor: opt.disabled ? 'not-allowed' : 'pointer',
-                  background: isActive ? 'hsla(var(--color-primary), 0.15)' : 'transparent',
-                  color: opt.disabled ? 'var(--text-muted)' : 'var(--text-main)',
+                  background: isActive ? '#FF8C42' : 'transparent',
+                  color: opt.disabled ? 'var(--text-muted)' : (isActive ? '#ffffff' : 'var(--text-main)'),
                   fontWeight: isActive ? 600 : 400,
                   opacity: opt.disabled ? 0.5 : 1,
-                  transition: 'background 0.15s ease',
-                  borderBottom: idx < options.length - 1 ? '1px solid hsla(var(--color-primary), 0.05)' : 'none',
+                  transition: 'background 0.1s ease, color 0.1s ease',
+                  borderBottom: 'none',
                   whiteSpace: 'nowrap',
                   overflow: 'hidden',
                   textOverflow: 'ellipsis',
                 }}
-                onMouseEnter={(e) => { if (!opt.disabled && !isActive) e.currentTarget.style.background = 'hsla(var(--color-primary), 0.08)'; }}
-                onMouseLeave={(e) => { e.currentTarget.style.background = isActive ? 'hsla(var(--color-primary), 0.15)' : 'transparent'; }}
+                onMouseEnter={(e) => { 
+                  if (!opt.disabled) {
+                    e.currentTarget.style.background = '#FF8C42';
+                    e.currentTarget.style.color = '#ffffff';
+                  } 
+                }}
+                onMouseLeave={(e) => { 
+                  e.currentTarget.style.background = isActive ? '#FF8C42' : 'transparent'; 
+                  e.currentTarget.style.color = opt.disabled ? 'var(--text-muted)' : (isActive ? '#ffffff' : 'var(--text-main)');
+                }}
               >
                 {opt.label}
               </div>

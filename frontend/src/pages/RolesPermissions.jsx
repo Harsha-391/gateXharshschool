@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import './RolesPermissions.css';
 import { createPortal } from 'react-dom';
 import { 
@@ -125,8 +125,8 @@ export default function RolesPermissions({ initialTab = 'dashboard', onPermissio
     { id: 'grade-management', label: 'Grade Management' },
     { id: 'register-student', label: 'Register Student' },
     { id: 'register-teacher', label: 'Register Teacher' },
-    { id: 'add-staff', label: 'Add Staff' },
-    { id: 'add-employee', label: 'Add Employee' },
+    { id: 'add-staff', label: 'Register Staff' },
+    { id: 'add-employee', label: 'Register Employee' },
     { id: 'designation-manager', label: 'Designation Manage' },
     { id: 'student-manager', label: 'Student Manager' },
     { id: 'employee-attendance', label: 'Staff/Employee Attendance' },
@@ -902,12 +902,9 @@ export default function RolesPermissions({ initialTab = 'dashboard', onPermissio
                             <td key={act.id} style={{ padding: '8px', textAlign: 'center' }}>
                               <input
                                 type="checkbox"
+                                className="perm-cb"
                                 checked={checked}
                                 onChange={() => handleToggleMatrixCheckbox(mod.id, act.id)}
-                                style={{
-                                  cursor: 'pointer', width: '16px', height: '16px', accentColor: 'hsl(var(--color-primary))',
-                                  borderRadius: '4px', verticalAlign: 'middle'
-                                }}
                               />
                             </td>
                           );
@@ -940,12 +937,9 @@ export default function RolesPermissions({ initialTab = 'dashboard', onPermissio
                             <td style={{ padding: '8px', textAlign: 'center', borderLeft: '1px dashed var(--border-glass, #e2e8f0)' }}>
                               <input
                                 type="checkbox"
+                                className="perm-cb"
                                 checked={allChecked}
                                 onChange={() => handleToggleRowAllCheckboxes(mod.id, !allChecked)}
-                                style={{
-                                  cursor: 'pointer', width: '16px', height: '16px', accentColor: 'hsl(var(--color-primary))',
-                                  verticalAlign: 'middle'
-                                }}
                                 title="Toggle all permissions for this row"
                               />
                             </td>

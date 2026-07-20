@@ -559,7 +559,6 @@ export default function TeacherDirectory({ readOnly = true, onAddClick, onEditCl
               <option value="All">All Types</option>
               <option value="Full Time">Full Time</option>
               <option value="Part Time">Part Time</option>
-              <option value="Contract">Contract</option>
             </select>
 
             {/* Status filter */}
@@ -1007,7 +1006,6 @@ export default function TeacherDirectory({ readOnly = true, onAddClick, onEditCl
                     <option value="">Select</option>
                     <option value="Full Time">Full Time</option>
                     <option value="Part Time">Part Time</option>
-                    <option value="Contract">Contract</option>
                   </select>
                 </div>
 

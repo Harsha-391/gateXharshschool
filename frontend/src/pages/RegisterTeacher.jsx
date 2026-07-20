@@ -1,4 +1,4 @@
-﻿import './RegisterTeacher.css';
+import './RegisterTeacher.css';
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import './AddStaff.css';
@@ -27,14 +27,9 @@ import {
 
 // Custom Reusable Searchable Dropdown Select Component
 function SearchableSelect({ options, value, onChange, placeholder, className, style, error }) {
-  const [searchTerm, setSearchTerm] = useState('');
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef(null);
   const [coords, setCoords] = useState({ top: 0, left: 0, width: 0 });
-  
-  const filteredOptions = options.filter(opt => 
-    opt.label.toLowerCase().includes(searchTerm.toLowerCase())
-  );
   
   const activeLabel = options.find(opt => opt.value === value)?.label || '';
 
@@ -105,52 +100,38 @@ function SearchableSelect({ options, value, onChange, placeholder, className, st
           width: `${coords.width}px`,
           zIndex: 999999999,
           background: 'var(--bg-dropdown)',
-          padding: '8px',
+          padding: '6px',
           boxShadow: 'var(--shadow-lg)',
           marginTop: '6px',
           maxHeight: '200px',
           overflowY: 'auto'
         }}>
-          <input 
-            type="text"
-            className="form-control"
-            placeholder="Search..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            style={{ marginBottom: '8px', padding: '8px', fontSize: '0.85rem' }}
-            autoFocus
-          />
-          {filteredOptions.length > 0 ? (
-            filteredOptions.map(opt => (
-              <div 
-                key={opt.value}
-                onClick={() => {
-                  onChange(opt.value);
-                  setIsOpen(false);
-                  setSearchTerm('');
-                }}
-                style={{
-                  padding: '10px 12px',
-                  borderRadius: '6px',
-                  cursor: 'pointer',
-                  background: value === opt.value ? 'rgba(255, 107, 0, 0.1)' : 'transparent',
-                  color: value === opt.value ? 'rgb(255, 107, 0)' : 'var(--text-main)',
-                  fontWeight: value === opt.value ? '600' : 'normal',
-                  fontSize: '0.85rem'
-                }}
-                onMouseEnter={(e) => {
-                  if (value !== opt.value) e.target.style.background = 'var(--bg-glass-active)';
-                }}
-                onMouseLeave={(e) => {
-                  if (value !== opt.value) e.target.style.background = 'transparent';
-                }}
-              >
-                {opt.label}
-              </div>
-            ))
-          ) : (
-            <div style={{ padding: '8px', color: 'var(--text-muted)', fontSize: '0.8rem', textAlign: 'center' }}>No matches found</div>
-          )}
+          {options.map(opt => (
+            <div 
+              key={opt.value}
+              onClick={() => {
+                onChange(opt.value);
+                setIsOpen(false);
+              }}
+              style={{
+                padding: '10px 12px',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                background: value === opt.value ? 'rgba(255, 107, 0, 0.1)' : 'transparent',
+                color: value === opt.value ? 'rgb(255, 107, 0)' : 'var(--text-main)',
+                fontWeight: value === opt.value ? '600' : 'normal',
+                fontSize: '0.85rem'
+              }}
+              onMouseEnter={(e) => {
+                if (value !== opt.value) e.target.style.background = 'var(--bg-glass-active)';
+              }}
+              onMouseLeave={(e) => {
+                if (value !== opt.value) e.target.style.background = 'transparent';
+              }}
+            >
+              {opt.label}
+            </div>
+          ))}
         </div>,
         document.body
       )}
@@ -263,10 +244,7 @@ export default function RegisterTeacher({ setActiveView, editData }) {
     isClassTeacher: false,
     attendancePermission: false,
     qualifications: [
-      { degree: 'B.Ed', institution: '', board: '', year: '', percentage: '' },
-      { degree: 'M.Ed', institution: '', board: '', year: '', percentage: '' },
-      { degree: 'B.Sc', institution: '', board: '', year: '', percentage: '' },
-      { degree: 'M.Sc', institution: '', board: '', year: '', percentage: '' }
+      { degree: '', institution: '', board: '', year: '', percentage: '' }
     ],
     experience: '',
     experiences: [{ schoolName: '', designation: '', duration: '', reason: '' }]
@@ -294,8 +272,8 @@ export default function RegisterTeacher({ setActiveView, editData }) {
   ];
   const employmentTypeOptions = [
     { value: '', label: 'None' },
-    { value: 'Full Time', label: 'Full Time' }, { value: 'Part Time', label: 'Part Time' },
-    { value: 'Contract', label: 'Contract' }, { value: 'Visiting Faculty', label: 'Visiting Faculty' }
+    { value: 'Full Time', label: 'Full Time' },
+    { value: 'Part Time', label: 'Part Time' }
   ];
   const statusOptions = [
     { value: '', label: 'None' },
@@ -366,10 +344,7 @@ export default function RegisterTeacher({ setActiveView, editData }) {
       if (!Array.isArray(parsedQualifications)) parsedQualifications = [];
       if (parsedQualifications.length === 0) {
         parsedQualifications = [
-          { degree: 'B.Ed', institution: '', board: '', year: '', percentage: '' },
-          { degree: 'M.Ed', institution: '', board: '', year: '', percentage: '' },
-          { degree: 'B.Sc', institution: '', board: '', year: '', percentage: '' },
-          { degree: 'M.Sc', institution: '', board: '', year: '', percentage: '' }
+          { degree: '', institution: '', board: '', year: '', percentage: '' }
         ];
       }
 
@@ -526,10 +501,7 @@ export default function RegisterTeacher({ setActiveView, editData }) {
       permanentAddress: '', permanentCity: '', permanentState: '', permanentCountry: 'India', permanentPostalCode: '',
       sameAsPermanent: false,
       qualifications: [
-        { degree: 'B.Ed', institution: '', board: '', year: '', percentage: '' },
-        { degree: 'M.Ed', institution: '', board: '', year: '', percentage: '' },
-        { degree: 'B.Sc', institution: '', board: '', year: '', percentage: '' },
-        { degree: 'M.Sc', institution: '', board: '', year: '', percentage: '' }
+        { degree: '', institution: '', board: '', year: '', percentage: '' }
       ],
       experience: '', experiences: [{ schoolName: '', designation: '', duration: '', reason: '' }]
     });
@@ -658,52 +630,265 @@ export default function RegisterTeacher({ setActiveView, editData }) {
         </div>
       )}
 
-      {/* Step Progress */}
-      <div className="glass-panel" style={{ padding: '16px 20px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '4px', overflowX: 'auto' }}>
-          {steps.map((s) => (
-            <div key={s.num} onClick={() => setActiveStep(s.num)}
-              style={{
-                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px',
-                cursor: 'pointer', opacity: 1,
-                transition: '0.3s', flex: 1, minWidth: '70px'
-              }}>
-              <div style={{
-                width: '32px', height: '32px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                background: s.num === activeStep ? 'hsl(var(--color-primary))' : s.num < activeStep ? 'rgb(var(--color-success-rgb))' : 'var(--bg-surface)',
-                color: (s.num === activeStep || s.num < activeStep) ? 'white' : 'var(--text-muted)',
-                border: s.num === activeStep ? 'none' : '1px solid var(--border-glass)',
-                transition: '0.3s', fontSize: '0.75rem', fontWeight: 700
-              }}>
-                {s.num < activeStep ? <CheckCircle size={16} /> : s.icon}
+      {/* Stepper Header (Desktop view) */}
+      <div className="glass-panel" style={{ padding: '20px', overflowX: 'auto' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', minWidth: '800px', padding: '0 10px' }}>
+          {steps.map((s, index) => (
+            <React.Fragment key={s.num}>
+              <div 
+                onClick={() => {
+                  setActiveStep(s.num);
+                }}
+                style={{ 
+                  display: 'flex', 
+                  flexDirection: 'column', 
+                  alignItems: 'center', 
+                  gap: '8px', 
+                  cursor: 'pointer',
+                  opacity: activeStep === s.num ? 1 : 0.6,
+                  transition: 'opacity 0.3s'
+                }}
+              >
+                <div style={{
+                  width: '32px',
+                  height: '32px',
+                  borderRadius: '50%',
+                  background: activeStep === s.num 
+                    ? 'linear-gradient(135deg, hsl(var(--color-primary)) 0%, hsl(var(--color-secondary)) 100%)' 
+                    : activeStep > s.num 
+                      ? 'rgba(16, 185, 129, 0.2)' 
+                      : 'var(--bg-form)',
+                  border: activeStep === s.num 
+                    ? 'none' 
+                    : activeStep > s.num 
+                      ? '1px solid rgb(16, 185, 129)' 
+                      : '1px solid var(--border-glass)',
+                  color: activeStep === s.num 
+                    ? 'white' 
+                    : activeStep > s.num 
+                      ? 'rgb(16, 185, 129)' 
+                      : 'var(--text-muted)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '0.85rem',
+                  fontWeight: 'bold'
+                }}>
+                  {activeStep > s.num ? <CheckCircle size={16} /> : s.num}
+                </div>
+                <span style={{ 
+                  fontSize: '0.75rem', 
+                  fontWeight: activeStep === s.num ? 700 : 500,
+                  color: activeStep === s.num ? 'hsl(var(--color-primary))' : 'var(--text-muted)',
+                  whiteSpace: 'nowrap'
+                }}>
+                  {s.label}
+                </span>
               </div>
-              <span style={{ fontSize: '0.65rem', fontWeight: 600, color: s.num === activeStep ? 'hsl(var(--color-primary))' : 'var(--text-muted)', textAlign: 'center' }}>{s.label}</span>
-            </div>
+              
+              {index < steps.length - 1 && (
+                <div style={{ 
+                  flex: 1, 
+                  height: '2px', 
+                  background: activeStep > s.num ? 'rgb(16, 185, 129)' : 'var(--border-glass)', 
+                  margin: '0 12px',
+                  alignSelf: 'center',
+                  minWidth: '20px'
+                }} />
+              )}
+            </React.Fragment>
           ))}
         </div>
       </div>
 
+      {/* Active Step Progress Panel */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div>
+          <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-main)', margin: 0 }}>
+            {steps[activeStep - 1].label}
+          </h2>
+          <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', margin: '4px 0 0 0' }}>
+            Step {activeStep} of 8 — Complete fields to advance.
+          </p>
+        </div>
+        
+        {/* Reset Draft Button */}
+        {!editData && (
+          <button 
+            type="button" 
+            onClick={resetForm}
+            className="btn-secondary"
+            style={{ padding: '8px 16px', fontSize: '0.78rem', display: 'flex', alignItems: 'center', gap: '6px', borderColor: 'rgba(239, 68, 68, 0.3)', color: '#ef4444' }}
+          >
+            <RotateCcw size={12} /> Reset Draft
+          </button>
+        )}
+      </div>
+
       {/* Form Content */}
       <form onSubmit={handleSubmit} onKeyDown={handleFormKeyDown}>
-        <div className="glass-panel" style={{ padding: '28px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+        <div className="add-staff-container" style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
           
           {/* STEP 1: Basic Information */}
           {activeStep === 1 && (
             <div className="animate-slide-up" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-              <h3 style={{ fontSize: '1.1rem', fontWeight: 800, margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <User size={18} style={{ color: 'hsl(var(--color-primary))' }} /> Basic Information
+              <h3 style={{ fontSize: '1rem', fontWeight: 700, margin: 0, color: 'var(--text-main)', borderBottom: '1px solid var(--border-glass)', paddingBottom: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <User size={16} style={{ color: 'hsl(var(--color-primary))' }} /> Basic Faculty Profile
               </h3>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px' }}>
-                <div><label style={labelStyle}>First Name *</label><input name="firstName" value={formData.firstName} onChange={handleTextChange} style={formErrors.firstName ? errorInputStyle : inputStyle} placeholder="Enter first name" />{formErrors.firstName && <span style={{ color: '#ef4444', fontSize: '0.7rem' }}>{formErrors.firstName}</span>}</div>
-                <div><label style={labelStyle}>Middle Name</label><input name="middleName" value={formData.middleName} onChange={handleTextChange} style={inputStyle} placeholder="Enter middle name" /></div>
-                <div><label style={labelStyle}>Last Name *</label><input name="lastName" value={formData.lastName} onChange={handleTextChange} style={formErrors.lastName ? errorInputStyle : inputStyle} placeholder="Enter last name" />{formErrors.lastName && <span style={{ color: '#ef4444', fontSize: '0.7rem' }}>{formErrors.lastName}</span>}</div>
-                <div><label style={labelStyle}>Gender *</label><SearchableSelect options={genderOptions} value={formData.gender} onChange={(v) => handleSelectChange('gender', v)} placeholder="Select Gender" className="form-control" style={inputStyle} error={formErrors.gender} />{formErrors.gender && <span style={{ color: '#ef4444', fontSize: '0.7rem' }}>{formErrors.gender}</span>}</div>
-                <div><label style={labelStyle}>Date of Birth *</label><input type="date" name="dob" value={formData.dob} onChange={handleTextChange} style={formErrors.dob ? errorInputStyle : inputStyle} />{formErrors.dob && <span style={{ color: '#ef4444', fontSize: '0.7rem' }}>{formErrors.dob}</span>}</div>
-                <div><label style={labelStyle}>Blood Group</label><SearchableSelect options={bloodGroupOptions} value={formData.bloodGroup} onChange={(v) => handleSelectChange('bloodGroup', v)} placeholder="Select Blood Group" className="form-control" style={inputStyle} /></div>
-                <div><label style={labelStyle}>Nationality</label><input name="nationality" value={formData.nationality} onChange={handleTextChange} style={inputStyle} /></div>
-                <div><label style={labelStyle}>Marital Status</label><SearchableSelect options={maritalStatusOptions} value={formData.maritalStatus} onChange={(v) => handleSelectChange('maritalStatus', v)} placeholder="Select" className="form-control" style={inputStyle} /></div>
-                <div><label style={labelStyle}>Aadhaar Number</label><input name="aadhaarNumber" value={formData.aadhaarNumber} onChange={handleAadhaarChange} style={formErrors.aadhaarNumber ? errorInputStyle : inputStyle} placeholder="12-digit Aadhaar" maxLength={12} />{formErrors.aadhaarNumber && <span style={{ color: '#ef4444', fontSize: '0.7rem' }}>{formErrors.aadhaarNumber}</span>}</div>
-                <div><label style={labelStyle}>PAN Number</label><input name="panNumber" value={formData.panNumber} onChange={handleTextChange} style={formErrors.panNumber ? errorInputStyle : inputStyle} placeholder="ABCDE1234F" maxLength={10} />{formErrors.panNumber && <span style={{ color: '#ef4444', fontSize: '0.7rem' }}>{formErrors.panNumber}</span>}</div>
+              
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '20px' }}>
+                <div className="form-group">
+                  <label>Teacher ID (Auto Generated)</label>
+                  <input 
+                    type="text" 
+                    value="TCH-2026-XXXX" 
+                    disabled 
+                    className="form-control" 
+                    style={{ opacity: 0.6, fontStyle: 'italic', background: 'rgba(255,255,255,0.02)' }}
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label>First Name *</label>
+                  <input 
+                    type="text" 
+                    name="firstName" 
+                    value={formData.firstName} 
+                    onChange={handleTextChange} 
+                    className="form-control" 
+                    placeholder="First name"
+                    style={{ borderColor: formErrors.firstName ? '#ef4444' : undefined }}
+                  />
+                  {formErrors.firstName && <span style={{ color: '#ef4444', fontSize: '0.75rem', marginTop: '4px', display: 'block' }}>{formErrors.firstName}</span>}
+                </div>
+
+                <div className="form-group">
+                  <label>Middle Name (Optional)</label>
+                  <input 
+                    type="text" 
+                    name="middleName" 
+                    value={formData.middleName} 
+                    onChange={handleTextChange} 
+                    className="form-control" 
+                    placeholder="Middle name"
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label>Last Name *</label>
+                  <input 
+                    type="text" 
+                    name="lastName" 
+                    value={formData.lastName} 
+                    onChange={handleTextChange} 
+                    className="form-control" 
+                    placeholder="Last name"
+                    style={{ borderColor: formErrors.lastName ? '#ef4444' : undefined }}
+                  />
+                  {formErrors.lastName && <span style={{ color: '#ef4444', fontSize: '0.75rem', marginTop: '4px', display: 'block' }}>{formErrors.lastName}</span>}
+                </div>
+
+                <div className="form-group">
+                  <label>Gender *</label>
+                  <SearchableSelect 
+                    options={genderOptions} 
+                    value={formData.gender} 
+                    onChange={(v) => handleSelectChange('gender', v)} 
+                    placeholder="Choose Gender" 
+                    className="form-control" 
+                    error={formErrors.gender} 
+                  />
+                  {formErrors.gender && <span style={{ color: '#ef4444', fontSize: '0.75rem', marginTop: '4px', display: 'block' }}>{formErrors.gender}</span>}
+                </div>
+
+                <div className="form-group">
+                  <label>Date of Birth *</label>
+                  <input 
+                    type="date" 
+                    name="dob" 
+                    value={formData.dob} 
+                    onChange={handleTextChange} 
+                    max={new Date().toLocaleDateString('en-CA')} 
+                    className="form-control" 
+                    style={{ borderColor: formErrors.dob ? '#ef4444' : undefined }} 
+                  />
+                  {formErrors.dob && <span style={{ color: '#ef4444', fontSize: '0.75rem', marginTop: '4px', display: 'block' }}>{formErrors.dob}</span>}
+                </div>
+
+                <div className="form-group">
+                  <label>Blood Group</label>
+                  <SearchableSelect 
+                    options={bloodGroupOptions} 
+                    value={formData.bloodGroup} 
+                    onChange={(v) => handleSelectChange('bloodGroup', v)} 
+                    placeholder="Choose Blood Group" 
+                    className="form-control" 
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label>Nationality</label>
+                  <input 
+                    type="text" 
+                    name="nationality" 
+                    value={formData.nationality} 
+                    onChange={handleTextChange} 
+                    className="form-control" 
+                    placeholder="e.g. Indian" 
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label>Marital Status</label>
+                  <SearchableSelect 
+                    options={maritalStatusOptions} 
+                    value={formData.maritalStatus} 
+                    onChange={(v) => handleSelectChange('maritalStatus', v)} 
+                    placeholder="Choose Marital Status" 
+                    className="form-control" 
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label>Aadhaar Number (Optional)</label>
+                  <input 
+                    type="text" 
+                    name="aadhaarNumber" 
+                    value={formData.aadhaarNumber} 
+                    onChange={handleAadhaarChange} 
+                    className="form-control" 
+                    placeholder="12-digit Aadhaar ID"
+                    style={{ borderColor: formErrors.aadhaarNumber ? '#ef4444' : undefined }}
+                    maxLength={12}
+                  />
+                  {formErrors.aadhaarNumber && <span style={{ color: '#ef4444', fontSize: '0.75rem', marginTop: '4px', display: 'block' }}>{formErrors.aadhaarNumber}</span>}
+                </div>
+
+                <div className="form-group">
+                  <label>PAN Number (Optional)</label>
+                  <input 
+                    type="text" 
+                    name="panNumber" 
+                    value={formData.panNumber} 
+                    onChange={handleTextChange} 
+                    className="form-control" 
+                    placeholder="10-digit PAN ID"
+                    style={{ borderColor: formErrors.panNumber ? '#ef4444' : undefined }}
+                    maxLength={10}
+                  />
+                  {formErrors.panNumber && <span style={{ color: '#ef4444', fontSize: '0.75rem', marginTop: '4px', display: 'block' }}>{formErrors.panNumber}</span>}
+                </div>
+
+                <div className="form-group">
+                  <DragAndDropFile 
+                    fieldName="photo"
+                    label="Staff Profile Photo (Optional)"
+                    file={files.photo || (existingFiles.photo ? { name: existingFiles.photo.split('/').pop() } : null)}
+                    onFileChange={handleFileChange}
+                    onRemove={removeFile}
+                    accept="image/*"
+                  />
+                </div>
               </div>
             </div>
           )}
@@ -711,19 +896,34 @@ export default function RegisterTeacher({ setActiveView, editData }) {
           {/* STEP 2: Professional Information */}
           {activeStep === 2 && (
             <div className="animate-slide-up" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-              <h3 style={{ fontSize: '1.1rem', fontWeight: 800, margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Briefcase size={18} style={{ color: 'hsl(var(--color-primary))' }} /> Professional Information
+              <h3 style={{ fontSize: '1rem', fontWeight: 700, margin: 0, color: 'var(--text-main)', borderBottom: '1px solid var(--border-glass)', paddingBottom: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Briefcase size={16} style={{ color: 'hsl(var(--color-primary))' }} /> Professional Information
               </h3>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px' }}>
-                <div><label style={labelStyle}>Joining Date</label><input type="date" name="joiningDate" value={formData.joiningDate} onChange={handleTextChange} style={inputStyle} /></div>
-                <div><label style={labelStyle}>Employment Type</label><SearchableSelect options={employmentTypeOptions} value={formData.employmentType} onChange={(v) => handleSelectChange('employmentType', v)} placeholder="Select Type" className="form-control" style={inputStyle} /></div>
-                <div>
-                  <label style={labelStyle}>Designation</label>
-                  <div style={{ ...inputStyle, background: 'rgba(255, 107, 0, 0.08)', fontWeight: 700, color: 'hsl(var(--color-primary))' }}>Teacher</div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '20px' }}>
+                <div className="form-group">
+                  <label>Joining Date</label>
+                  <input type="date" name="joiningDate" value={formData.joiningDate} onChange={handleTextChange} className="form-control" />
                 </div>
-                <div><label style={labelStyle}>Department</label><SearchableSelect options={departmentOptions} value={formData.department} onChange={(v) => handleSelectChange('department', v)} placeholder="Select Department" className="form-control" style={inputStyle} /></div>
-                <div><label style={labelStyle}>Status</label><SearchableSelect options={statusOptions} value={formData.status} onChange={(v) => handleSelectChange('status', v)} placeholder="Select" className="form-control" style={inputStyle} /></div>
-                <div><label style={labelStyle}>Subjects</label><input name="primarySubject" value={formData.primarySubject} onChange={handleTextChange} style={inputStyle} placeholder="e.g. Mathematics, Science" /></div>
+                <div className="form-group">
+                  <label>Employment Type</label>
+                  <SearchableSelect options={employmentTypeOptions} value={formData.employmentType} onChange={(v) => handleSelectChange('employmentType', v)} placeholder="Select Type" className="form-control" />
+                </div>
+                <div className="form-group">
+                  <label>Designation</label>
+                  <div className="form-control" style={{ background: 'rgba(255, 107, 0, 0.08)', fontWeight: 700, color: 'hsl(var(--color-primary))' }}>Teacher</div>
+                </div>
+                <div className="form-group">
+                  <label>Department</label>
+                  <SearchableSelect options={departmentOptions} value={formData.department} onChange={(v) => handleSelectChange('department', v)} placeholder="Select Department" className="form-control" />
+                </div>
+                <div className="form-group">
+                  <label>Status</label>
+                  <SearchableSelect options={statusOptions} value={formData.status} onChange={(v) => handleSelectChange('status', v)} placeholder="Select" className="form-control" />
+                </div>
+                <div className="form-group">
+                  <label>Subjects</label>
+                  <input name="primarySubject" value={formData.primarySubject} onChange={handleTextChange} className="form-control" placeholder="e.g. Mathematics, Science" />
+                </div>
                 
                 {(() => {
                   const gradeOptions = [
@@ -743,8 +943,8 @@ export default function RegisterTeacher({ setActiveView, editData }) {
 
                   return (
                     <>
-                      <div>
-                        <label style={labelStyle}>Is Class Teacher?</label>
+                      <div className="form-group">
+                        <label>Is Class Teacher?</label>
                         <SearchableSelect 
                           options={yesNoOptions} 
                           value={formData.isClassTeacher} 
@@ -759,14 +959,13 @@ export default function RegisterTeacher({ setActiveView, editData }) {
                           }} 
                           placeholder="Select" 
                           className="form-control" 
-                          style={inputStyle} 
                         />
                       </div>
 
                       {formData.isClassTeacher && (
                         <>
-                          <div>
-                            <label style={labelStyle}>Assigned Grade</label>
+                          <div className="form-group">
+                            <label>Assigned Grade</label>
                             <SearchableSelect 
                               options={gradeOptions} 
                               value={formData.assignedGradeId} 
@@ -779,19 +978,17 @@ export default function RegisterTeacher({ setActiveView, editData }) {
                               }} 
                               placeholder="Select Grade" 
                               className="form-control" 
-                              style={inputStyle} 
                             />
                           </div>
 
-                          <div>
-                            <label style={labelStyle}>Assigned Section</label>
+                          <div className="form-group">
+                            <label>Assigned Section</label>
                             <SearchableSelect 
                               options={sectionOptions} 
                               value={formData.assignedSectionId} 
                               onChange={(v) => handleSelectChange('assignedSectionId', v)} 
                               placeholder={formData.assignedGradeId ? "Select Section" : "Select Grade First"} 
                               className="form-control" 
-                              style={inputStyle} 
                               error={!formData.assignedGradeId ? "Select Grade first" : undefined}
                             />
                           </div>
@@ -807,15 +1004,32 @@ export default function RegisterTeacher({ setActiveView, editData }) {
           {/* STEP 3: Contact Details */}
           {activeStep === 3 && (
             <div className="animate-slide-up" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-              <h3 style={{ fontSize: '1.1rem', fontWeight: 800, margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Phone size={18} style={{ color: 'hsl(var(--color-primary))' }} /> Contact Details
+              <h3 style={{ fontSize: '1rem', fontWeight: 700, margin: 0, color: 'var(--text-main)', borderBottom: '1px solid var(--border-glass)', paddingBottom: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Phone size={16} style={{ color: 'hsl(var(--color-primary))' }} /> Contact Details
               </h3>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px' }}>
-                <div><label style={labelStyle}>Mobile Number *</label><input name="mobile" value={formData.mobile} onChange={handleMobileChange} style={formErrors.mobile ? errorInputStyle : inputStyle} placeholder="10-digit mobile" maxLength={10} />{formErrors.mobile && <span style={{ color: '#ef4444', fontSize: '0.7rem' }}>{formErrors.mobile}</span>}</div>
-                <div><label style={labelStyle}>Alternate Mobile</label><input name="alternateMobile" value={formData.alternateMobile} onChange={handleMobileChange} style={inputStyle} placeholder="10-digit mobile" maxLength={10} /></div>
-                <div><label style={labelStyle}>Email *</label><input type="email" name="email" value={formData.email} onChange={handleTextChange} style={formErrors.email ? errorInputStyle : inputStyle} placeholder="teacher@school.com" />{formErrors.email && <span style={{ color: '#ef4444', fontSize: '0.7rem' }}>{formErrors.email}</span>}</div>
-                <div><label style={labelStyle}>Password (Login)</label><input type="text" name="password" value={formData.password} onChange={handleTextChange} style={inputStyle} placeholder="Default: teacher123" /></div>
-                <div><label style={labelStyle}>Emergency Contact</label><input name="emergencyContactNumber" value={formData.emergencyContactNumber} onChange={handleMobileChange} style={inputStyle} placeholder="10-digit number" maxLength={10} /></div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '20px' }}>
+                <div className="form-group">
+                  <label>Mobile Number *</label>
+                  <input name="mobile" value={formData.mobile} onChange={handleMobileChange} className="form-control" placeholder="10-digit mobile" maxLength={10} style={{ borderColor: formErrors.mobile ? '#ef4444' : undefined }} />
+                  {formErrors.mobile && <span style={{ color: '#ef4444', fontSize: '0.75rem', marginTop: '4px', display: 'block' }}>{formErrors.mobile}</span>}
+                </div>
+                <div className="form-group">
+                  <label>Alternate Mobile</label>
+                  <input name="alternateMobile" value={formData.alternateMobile} onChange={handleMobileChange} className="form-control" placeholder="10-digit mobile" maxLength={10} />
+                </div>
+                <div className="form-group">
+                  <label>Email *</label>
+                  <input type="email" name="email" value={formData.email} onChange={handleTextChange} className="form-control" placeholder="teacher@school.com" style={{ borderColor: formErrors.email ? '#ef4444' : undefined }} />
+                  {formErrors.email && <span style={{ color: '#ef4444', fontSize: '0.75rem', marginTop: '4px', display: 'block' }}>{formErrors.email}</span>}
+                </div>
+                <div className="form-group">
+                  <label>Password (Login)</label>
+                  <input type="text" name="password" value={formData.password} onChange={handleTextChange} className="form-control" placeholder="Default: teacher123" />
+                </div>
+                <div className="form-group">
+                  <label>Emergency Contact</label>
+                  <input name="emergencyContactNumber" value={formData.emergencyContactNumber} onChange={handleMobileChange} className="form-control" placeholder="10-digit number" maxLength={10} />
+                </div>
               </div>
             </div>
           )}
@@ -823,16 +1037,31 @@ export default function RegisterTeacher({ setActiveView, editData }) {
           {/* STEP 4: Address Information */}
           {activeStep === 4 && (
             <div className="animate-slide-up" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-              <h3 style={{ fontSize: '1.1rem', fontWeight: 800, margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <MapPin size={18} style={{ color: 'hsl(var(--color-primary))' }} /> Address Information
+              <h3 style={{ fontSize: '1rem', fontWeight: 700, margin: 0, color: 'var(--text-main)', borderBottom: '1px solid var(--border-glass)', paddingBottom: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <MapPin size={16} style={{ color: 'hsl(var(--color-primary))' }} /> Address Information
               </h3>
               <h4 style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-muted)', margin: 0 }}>Permanent Address</h4>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px' }}>
-                <div style={{ gridColumn: '1 / -1' }}><label style={labelStyle}>Address Line</label><input name="permanentAddress" value={formData.permanentAddress} onChange={handleTextChange} style={inputStyle} placeholder="House No, Street" /></div>
-                <div><label style={labelStyle}>City</label><input name="permanentCity" value={formData.permanentCity} onChange={handleTextChange} style={inputStyle} placeholder="City" /></div>
-                <div><label style={labelStyle}>State</label><input name="permanentState" value={formData.permanentState} onChange={handleTextChange} style={inputStyle} placeholder="State" /></div>
-                <div><label style={labelStyle}>Country</label><input name="permanentCountry" value={formData.permanentCountry} onChange={handleTextChange} style={inputStyle} /></div>
-                <div><label style={labelStyle}>Postal Code</label><input name="permanentPostalCode" value={formData.permanentPostalCode} onChange={handlePincodeChange} style={inputStyle} placeholder="6-digit PIN" maxLength={6} /></div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '20px' }}>
+                <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                  <label>Address Line</label>
+                  <input name="permanentAddress" value={formData.permanentAddress} onChange={handleTextChange} className="form-control" placeholder="House No, Street" />
+                </div>
+                <div className="form-group">
+                  <label>City</label>
+                  <input name="permanentCity" value={formData.permanentCity} onChange={handleTextChange} className="form-control" placeholder="City" />
+                </div>
+                <div className="form-group">
+                  <label>State</label>
+                  <input name="permanentState" value={formData.permanentState} onChange={handleTextChange} className="form-control" placeholder="State" />
+                </div>
+                <div className="form-group">
+                  <label>Country</label>
+                  <input name="permanentCountry" value={formData.permanentCountry} onChange={handleTextChange} className="form-control" />
+                </div>
+                <div className="form-group">
+                  <label>Postal Code</label>
+                  <input name="permanentPostalCode" value={formData.permanentPostalCode} onChange={handlePincodeChange} className="form-control" placeholder="6-digit PIN" maxLength={6} />
+                </div>
               </div>
 
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', borderTop: '1px solid var(--border-glass)', paddingTop: '16px' }}>
@@ -843,12 +1072,27 @@ export default function RegisterTeacher({ setActiveView, editData }) {
               {!formData.sameAsPermanent && (
                 <>
                   <h4 style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-muted)', margin: 0 }}>Current Address</h4>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px' }}>
-                    <div style={{ gridColumn: '1 / -1' }}><label style={labelStyle}>Address Line</label><input name="currentAddress" value={formData.currentAddress} onChange={handleTextChange} style={inputStyle} placeholder="House No, Street" /></div>
-                    <div><label style={labelStyle}>City</label><input name="currentCity" value={formData.currentCity} onChange={handleTextChange} style={inputStyle} placeholder="City" /></div>
-                    <div><label style={labelStyle}>State</label><input name="currentState" value={formData.currentState} onChange={handleTextChange} style={inputStyle} placeholder="State" /></div>
-                    <div><label style={labelStyle}>Country</label><input name="currentCountry" value={formData.currentCountry} onChange={handleTextChange} style={inputStyle} /></div>
-                    <div><label style={labelStyle}>Postal Code</label><input name="currentPostalCode" value={formData.currentPostalCode} onChange={handlePincodeChange} style={inputStyle} placeholder="6-digit PIN" maxLength={6} /></div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '20px' }}>
+                    <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                      <label>Address Line</label>
+                      <input name="currentAddress" value={formData.currentAddress} onChange={handleTextChange} className="form-control" placeholder="House No, Street" />
+                    </div>
+                    <div className="form-group">
+                      <label>City</label>
+                      <input name="currentCity" value={formData.currentCity} onChange={handleTextChange} className="form-control" placeholder="City" />
+                    </div>
+                    <div className="form-group">
+                      <label>State</label>
+                      <input name="currentState" value={formData.currentState} onChange={handleTextChange} className="form-control" placeholder="State" />
+                    </div>
+                    <div className="form-group">
+                      <label>Country</label>
+                      <input name="currentCountry" value={formData.currentCountry} onChange={handleTextChange} className="form-control" />
+                    </div>
+                    <div className="form-group">
+                      <label>Postal Code</label>
+                      <input name="currentPostalCode" value={formData.currentPostalCode} onChange={handlePincodeChange} className="form-control" placeholder="6-digit PIN" maxLength={6} />
+                    </div>
                   </div>
                 </>
               )}
@@ -858,8 +1102,8 @@ export default function RegisterTeacher({ setActiveView, editData }) {
           {/* STEP 5: Qualifications */}
           {activeStep === 5 && (
             <div className="animate-slide-up" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-              <h3 style={{ fontSize: '1.1rem', fontWeight: 800, margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Award size={18} style={{ color: 'hsl(var(--color-primary))' }} /> Academic Qualifications
+              <h3 style={{ fontSize: '1rem', fontWeight: 700, margin: 0, color: 'var(--text-main)', borderBottom: '1px solid var(--border-glass)', paddingBottom: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Award size={16} style={{ color: 'hsl(var(--color-primary))' }} /> Academic Qualifications
               </h3>
               <div className="custom-table-container">
                 <table className="custom-table" style={{ fontSize: '0.8rem' }}>
@@ -876,11 +1120,11 @@ export default function RegisterTeacher({ setActiveView, editData }) {
                   <tbody>
                     {formData.qualifications.map((q, idx) => (
                       <tr key={idx}>
-                        <td><input value={q.degree} onChange={(e) => handleQualChange(idx, 'degree', e.target.value)} style={{ ...inputStyle, padding: '6px 8px', fontSize: '0.8rem' }} placeholder="B.Ed" /></td>
-                        <td><input value={q.institution} onChange={(e) => handleQualChange(idx, 'institution', e.target.value)} style={{ ...inputStyle, padding: '6px 8px', fontSize: '0.8rem' }} placeholder="University" /></td>
-                        <td><input value={q.board} onChange={(e) => handleQualChange(idx, 'board', e.target.value)} style={{ ...inputStyle, padding: '6px 8px', fontSize: '0.8rem' }} placeholder="Board" /></td>
-                        <td><input value={q.year} onChange={(e) => handleQualChange(idx, 'year', e.target.value)} style={{ ...inputStyle, padding: '6px 8px', fontSize: '0.8rem', maxWidth: '80px' }} placeholder="2020" /></td>
-                        <td><input value={q.percentage} onChange={(e) => handleQualChange(idx, 'percentage', e.target.value)} style={{ ...inputStyle, padding: '6px 8px', fontSize: '0.8rem', maxWidth: '80px' }} placeholder="85%" /></td>
+                        <td><input value={q.degree} onChange={(e) => handleQualChange(idx, 'degree', e.target.value)} className="form-control" style={{ padding: '6px 8px', fontSize: '0.8rem' }} placeholder="e.g. B.Ed" /></td>
+                        <td><input value={q.institution} onChange={(e) => handleQualChange(idx, 'institution', e.target.value)} className="form-control" style={{ padding: '6px 8px', fontSize: '0.8rem' }} placeholder="Institution name" /></td>
+                        <td><input value={q.board} onChange={(e) => handleQualChange(idx, 'board', e.target.value)} className="form-control" style={{ padding: '6px 8px', fontSize: '0.8rem' }} placeholder="Board / University" /></td>
+                        <td><input value={q.year} onChange={(e) => handleQualChange(idx, 'year', e.target.value)} className="form-control" style={{ padding: '6px 8px', fontSize: '0.8rem', maxWidth: '80px' }} placeholder="Year" /></td>
+                        <td><input value={q.percentage} onChange={(e) => handleQualChange(idx, 'percentage', e.target.value)} className="form-control" style={{ padding: '6px 8px', fontSize: '0.8rem', maxWidth: '80px' }} placeholder="e.g. 85%" /></td>
                         <td style={{ textAlign: 'right' }}>
                           {formData.qualifications.length > 1 && (
                             <button type="button" onClick={() => removeQualRow(idx)} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer' }}><Trash2 size={14} /></button>
@@ -900,10 +1144,13 @@ export default function RegisterTeacher({ setActiveView, editData }) {
           {/* STEP 6: Experience */}
           {activeStep === 6 && (
             <div className="animate-slide-up" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-              <h3 style={{ fontSize: '1.1rem', fontWeight: 800, margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Clock size={18} style={{ color: 'hsl(var(--color-primary))' }} /> Teaching Experience
+              <h3 style={{ fontSize: '1rem', fontWeight: 700, margin: 0, color: 'var(--text-main)', borderBottom: '1px solid var(--border-glass)', paddingBottom: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Clock size={16} style={{ color: 'hsl(var(--color-primary))' }} /> Teaching Experience
               </h3>
-              <div><label style={labelStyle}>Total Teaching Experience (in Years)</label><input name="experience" value={formData.experience} onChange={handleTextChange} style={inputStyle} placeholder="e.g. 5" maxLength={10} inputMode="numeric" /></div>
+              <div className="form-group">
+                <label>Total Teaching Experience (in Years)</label>
+                <input name="experience" value={formData.experience} onChange={handleTextChange} className="form-control" placeholder="e.g. 5" maxLength={10} inputMode="numeric" />
+              </div>
               <h4 style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-muted)', margin: 0 }}>Previous Schools</h4>
               <div className="custom-table-container">
                 <table className="custom-table" style={{ fontSize: '0.8rem' }}>
@@ -919,10 +1166,10 @@ export default function RegisterTeacher({ setActiveView, editData }) {
                   <tbody>
                     {formData.experiences.map((exp, idx) => (
                       <tr key={idx}>
-                        <td><input value={exp.schoolName} onChange={(e) => handleExpChange(idx, 'schoolName', e.target.value)} style={{ ...inputStyle, padding: '6px 8px', fontSize: '0.8rem' }} placeholder="School Name" /></td>
-                        <td><input value={exp.designation} onChange={(e) => handleExpChange(idx, 'designation', e.target.value)} style={{ ...inputStyle, padding: '6px 8px', fontSize: '0.8rem' }} placeholder="Teacher" /></td>
-                        <td><input value={exp.duration} onChange={(e) => handleExpChange(idx, 'duration', e.target.value)} style={{ ...inputStyle, padding: '6px 8px', fontSize: '0.8rem' }} placeholder="2 Years" /></td>
-                        <td><input value={exp.reason} onChange={(e) => handleExpChange(idx, 'reason', e.target.value)} style={{ ...inputStyle, padding: '6px 8px', fontSize: '0.8rem' }} placeholder="Reason" /></td>
+                        <td><input value={exp.schoolName} onChange={(e) => handleExpChange(idx, 'schoolName', e.target.value)} className="form-control" style={{ padding: '6px 8px', fontSize: '0.8rem' }} placeholder="School Name" /></td>
+                        <td><input value={exp.designation} onChange={(e) => handleExpChange(idx, 'designation', e.target.value)} className="form-control" style={{ padding: '6px 8px', fontSize: '0.8rem' }} placeholder="Teacher" /></td>
+                        <td><input value={exp.duration} onChange={(e) => handleExpChange(idx, 'duration', e.target.value)} className="form-control" style={{ padding: '6px 8px', fontSize: '0.8rem' }} placeholder="2 Years" /></td>
+                        <td><input value={exp.reason} onChange={(e) => handleExpChange(idx, 'reason', e.target.value)} className="form-control" style={{ padding: '6px 8px', fontSize: '0.8rem' }} placeholder="Reason" /></td>
                         <td style={{ textAlign: 'right' }}>
                           {formData.experiences.length > 1 && (
                             <button type="button" onClick={() => removeExpRow(idx)} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer' }}><Trash2 size={14} /></button>
@@ -942,10 +1189,10 @@ export default function RegisterTeacher({ setActiveView, editData }) {
           {/* STEP 7: Document Uploads */}
           {activeStep === 7 && (
             <div className="animate-slide-up" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-              <h3 style={{ fontSize: '1.1rem', fontWeight: 800, margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Upload size={18} style={{ color: 'hsl(var(--color-primary))' }} /> Document Uploads
+              <h3 style={{ fontSize: '1rem', fontWeight: 700, margin: 0, color: 'var(--text-main)', borderBottom: '1px solid var(--border-glass)', paddingBottom: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Upload size={16} style={{ color: 'hsl(var(--color-primary))' }} /> Document Uploads
               </h3>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '20px' }}>
                 <DragAndDropFile fieldName="photo" label="Passport Photo" file={files.photo} onFileChange={handleFileChange} onRemove={removeFile} accept="image/*" />
                 <DragAndDropFile fieldName="aadhaarFile" label="Aadhaar Card" file={files.aadhaarFile} onFileChange={handleFileChange} onRemove={removeFile} accept=".pdf,.jpg,.jpeg,.png" />
                 <DragAndDropFile fieldName="panFile" label="PAN Card" file={files.panFile} onFileChange={handleFileChange} onRemove={removeFile} accept=".pdf,.jpg,.jpeg,.png" />

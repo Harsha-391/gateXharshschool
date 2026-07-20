@@ -25,14 +25,9 @@ import {
 
 // Custom Reusable Searchable Dropdown Select Component
 function SearchableSelect({ options, value, onChange, placeholder, className, style, error }) {
-  const [searchTerm, setSearchTerm] = useState('');
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef(null);
   const [coords, setCoords] = useState({ top: 0, left: 0, width: 0 });
-  
-  const filteredOptions = options.filter(opt => 
-    opt.label.toLowerCase().includes(searchTerm.toLowerCase())
-  );
   
   const activeLabel = options.find(opt => opt.value === value)?.label || '';
 
@@ -105,52 +100,38 @@ function SearchableSelect({ options, value, onChange, placeholder, className, st
           width: `${coords.width}px`,
           zIndex: 999999999,
           background: 'var(--bg-dropdown)',
-          padding: '8px',
+          padding: '6px',
           boxShadow: 'var(--shadow-lg)',
           marginTop: '6px',
           maxHeight: '200px',
           overflowY: 'auto'
         }}>
-          <input 
-            type="text"
-            className="form-control"
-            placeholder="Type to search..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            style={{ marginBottom: '8px', padding: '8px', fontSize: '0.85rem' }}
-            autoFocus
-          />
-          {filteredOptions.length > 0 ? (
-            filteredOptions.map(opt => (
-              <div 
-                key={opt.value}
-                onClick={() => {
-                  onChange(opt.value);
-                  setIsOpen(false);
-                  setSearchTerm('');
-                }}
-                style={{
-                  padding: '10px 12px',
-                  borderRadius: '6px',
-                  cursor: 'pointer',
-                  background: value === opt.value ? 'rgba(255, 107, 0, 0.1)' : 'transparent',
-                  color: value === opt.value ? 'rgb(255, 107, 0)' : 'var(--text-main)',
-                  fontWeight: value === opt.value ? '600' : 'normal',
-                  fontSize: '0.85rem'
-                }}
-                onMouseEnter={(e) => {
-                  if (value !== opt.value) e.target.style.background = 'var(--bg-glass-active)';
-                }}
-                onMouseLeave={(e) => {
-                  if (value !== opt.value) e.target.style.background = 'transparent';
-                }}
-              >
-                {opt.label}
-              </div>
-            ))
-          ) : (
-            <div style={{ padding: '8px', color: 'var(--text-muted)', fontSize: '0.8rem', textAlign: 'center' }}>No matches found</div>
-          )}
+          {options.map(opt => (
+            <div 
+              key={opt.value}
+              onClick={() => {
+                onChange(opt.value);
+                setIsOpen(false);
+              }}
+              style={{
+                padding: '10px 12px',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                background: value === opt.value ? 'rgba(255, 107, 0, 0.1)' : 'transparent',
+                color: value === opt.value ? 'rgb(255, 107, 0)' : 'var(--text-main)',
+                fontWeight: value === opt.value ? '600' : 'normal',
+                fontSize: '0.85rem'
+              }}
+              onMouseEnter={(e) => {
+                if (value !== opt.value) e.target.style.background = 'var(--bg-glass-active)';
+              }}
+              onMouseLeave={(e) => {
+                if (value !== opt.value) e.target.style.background = 'transparent';
+              }}
+            >
+              {opt.label}
+            </div>
+          ))}
         </div>,
         document.body
       )}
@@ -308,10 +289,7 @@ export default function AddStaff({ setActiveView, editData }) {
 
     // Step 5: Qualifications Information
     qualifications: [
-      { degree: 'B.Ed', institution: '', board: '', year: '', percentage: '' },
-      { degree: 'M.Ed', institution: '', board: '', year: '', percentage: '' },
-      { degree: 'B.Sc', institution: '', board: '', year: '', percentage: '' },
-      { degree: 'M.Sc', institution: '', board: '', year: '', percentage: '' }
+      { degree: '', institution: '', board: '', year: '', percentage: '' }
     ],
 
     // Step 6: Experience Information
@@ -362,9 +340,7 @@ export default function AddStaff({ setActiveView, editData }) {
   const employmentTypeOptions = [
     { value: '', label: 'None' },
     { value: 'Full Time', label: 'Full Time' },
-    { value: 'Part Time', label: 'Part Time' },
-    { value: 'Contract', label: 'Contract' },
-    { value: 'Visiting Faculty', label: 'Visiting Faculty' }
+    { value: 'Part Time', label: 'Part Time' }
   ];
 
   const [roleOptions, setRoleOptions] = useState([]);
@@ -495,10 +471,7 @@ export default function AddStaff({ setActiveView, editData }) {
       }
       if (parsedQualifications.length === 0) {
         parsedQualifications = [
-          { degree: 'B.Ed', institution: '', board: '', year: '', percentage: '' },
-          { degree: 'M.Ed', institution: '', board: '', year: '', percentage: '' },
-          { degree: 'B.Sc', institution: '', board: '', year: '', percentage: '' },
-          { degree: 'M.Sc', institution: '', board: '', year: '', percentage: '' }
+          { degree: '', institution: '', board: '', year: '', percentage: '' }
         ];
       }
 
@@ -785,10 +758,7 @@ export default function AddStaff({ setActiveView, editData }) {
       currentAddress: '', currentCity: '', currentState: '', currentCountry: 'India', currentPostalCode: '',
       permanentAddress: '', permanentCity: '', permanentState: '', permanentCountry: 'India', permanentPostalCode: '', sameAsPermanent: false,
       qualifications: [
-        { degree: 'B.Ed', institution: '', board: '', year: '', percentage: '' },
-        { degree: 'M.Ed', institution: '', board: '', year: '', percentage: '' },
-        { degree: 'B.Sc', institution: '', board: '', year: '', percentage: '' },
-        { degree: 'M.Sc', institution: '', board: '', year: '', percentage: '' }
+        { degree: '', institution: '', board: '', year: '', percentage: '' }
       ],
       experience: '',
       experiences: [{ schoolName: '', designation: '', duration: '', reason: '' }]
@@ -1064,10 +1034,10 @@ export default function AddStaff({ setActiveView, editData }) {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '20px' }}>
               
               <div className="form-group">
-                <label>Employee ID (Auto Generated)</label>
+                <label>Staff ID (Auto Generated)</label>
                 <input 
                   type="text" 
-                  value="EMP-2026-XXXX" 
+                  value="STF-2026-XXXX" 
                   disabled 
                   className="form-control" 
                   style={{ opacity: 0.6, fontStyle: 'italic', background: 'rgba(255,255,255,0.02)' }}
@@ -1623,7 +1593,7 @@ export default function AddStaff({ setActiveView, editData }) {
                           value={qual.institution}
                           onChange={(e) => handleQualChange(idx, 'institution', e.target.value)}
                           className="form-control"
-                          placeholder="Institution Name"
+                          placeholder="Institution name"
                           style={{ padding: '6px 12px', fontSize: '0.85rem' }}
                         />
                       </td>
@@ -1655,7 +1625,7 @@ export default function AddStaff({ setActiveView, editData }) {
                           value={qual.percentage}
                           onChange={(e) => handleQualChange(idx, 'percentage', e.target.value)}
                           className="form-control"
-                          placeholder="e.g. 85% or 8.5"
+                          placeholder="e.g. 85%"
                           style={{ padding: '6px 12px', fontSize: '0.85rem' }}
                         />
                       </td>

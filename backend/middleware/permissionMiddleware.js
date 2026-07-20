@@ -89,6 +89,11 @@ export const checkPermission = (module, action) => {
       return res.status(401).json({ error: 'Access denied. User not authenticated.' });
     }
 
+    // Parents have read-only view access to student-related modules
+    if (user.role === 'Parent' && action === 'view') {
+      return next();
+    }
+
     // Always permit overview/panel view
     if (module === 'overview' && action === 'view') {
       return next();
@@ -96,7 +101,7 @@ export const checkPermission = (module, action) => {
 
     // Allow reading directory list counts for overview dashboard if authenticated
     if (action === 'view' && (module === 'student-directory' || module === 'teacher-directory' || module === 'staff-directory' || module === 'employee-directory')) {
-      if (req.query.purpose === 'overview') {
+      if (req.query.purpose === 'overview' || req.query.purpose === 'dropdown') {
         return next();
       }
     }

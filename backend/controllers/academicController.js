@@ -576,12 +576,14 @@ export const getEvents = (req, res) => {
 };
 
 export const createEvent = (req, res) => {
-  const { title, type, date, time, startTime, endTime, venue, description, organizer, participants, status } = req.body;
+  const { title, type, date, startDate, endDate, time, startTime, endTime, venue, description, organizer, participants, status } = req.body;
 
+  const actualStartDate = startDate || date;
+  const actualEndDate = endDate || actualStartDate;
   const actualStartTime = startTime || time;
 
-  if (!title || !type || !date || !actualStartTime || !venue) {
-    return res.status(400).json({ error: 'Title, Type, Date, Start Time, and Venue are required.' });
+  if (!title || !type || !actualStartDate || !actualStartTime || !venue) {
+    return res.status(400).json({ error: 'Title, Type, Start Date, Start Time, and Venue are required.' });
   }
 
   const db = readDb();
@@ -589,7 +591,9 @@ export const createEvent = (req, res) => {
     id: `EVT-${Date.now()}`,
     title,
     type,
-    date,
+    date: actualStartDate,
+    startDate: actualStartDate,
+    endDate: actualEndDate,
     time: actualStartTime,
     startTime: actualStartTime,
     endTime: endTime || '',
@@ -597,11 +601,11 @@ export const createEvent = (req, res) => {
     description: description || '',
     organizer: organizer || 'School Admin',
     participants: participants || 'All Students',
-    status: status || 'Scheduled'
+    status: status || 'Draft'
   };
 
   db.events.push(newEvent);
-  addActivity(db, 'alert', 'New School Event', `Event "${title}" scheduled for ${date} at ${venue}`, 'hsl(var(--color-secondary))', 'rgba(hsl(var(--color-secondary)), 0.1)');
+  addActivity(db, 'alert', 'New School Event', `Event "${title}" scheduled for ${actualStartDate} to ${actualEndDate} at ${venue}`, 'hsl(var(--color-secondary))', 'rgba(hsl(var(--color-secondary)), 0.1)');
   writeDb(db);
 
   res.status(201).json(newEvent);
@@ -609,7 +613,7 @@ export const createEvent = (req, res) => {
 
 export const updateEvent = (req, res) => {
   const { id } = req.params;
-  const { title, type, date, time, startTime, endTime, venue, description, organizer, participants, status } = req.body;
+  const { title, type, date, startDate, endDate, time, startTime, endTime, venue, description, organizer, participants, status } = req.body;
 
   const db = readDb();
   const eventIdx = db.events.findIndex(evt => evt.id === id);
@@ -619,11 +623,16 @@ export const updateEvent = (req, res) => {
   }
 
   const prevEvent = db.events[eventIdx];
+  const actualStartDate = startDate || date || prevEvent.startDate || prevEvent.date;
+  const actualEndDate = endDate || prevEvent.endDate || actualStartDate;
+
   db.events[eventIdx] = {
     ...prevEvent,
     title: title || prevEvent.title,
     type: type || prevEvent.type,
-    date: date || prevEvent.date,
+    date: actualStartDate,
+    startDate: actualStartDate,
+    endDate: actualEndDate,
     time: startTime || time || prevEvent.startTime || prevEvent.time || '',
     startTime: startTime || prevEvent.startTime || '',
     endTime: endTime !== undefined ? endTime : (prevEvent.endTime || ''),

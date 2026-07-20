@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import './EmployeeDirectory.css';
 import { createPortal } from 'react-dom';
 import { 
@@ -594,7 +594,7 @@ export default function EmployeeDirectory({ readOnly = true, onAddClick, onEditC
                 {expArr.filter(e => e.organization).map((exp, i) => (
                   <div key={i} style={{ padding: '8px 0', borderBottom: i < expArr.length - 1 ? '1px solid var(--border-glass)' : 'none', fontSize: '0.82rem' }}>
                     <div style={{ fontWeight: 600 }}>{exp.designation || 'Employee'} at {exp.organization}</div>
-                    <div style={{ color: 'var(--text-muted)' }}>{[exp.fromDate, exp.toDate].filter(Boolean).join(' â†’ ')}</div>
+                    <div style={{ color: 'var(--text-muted)' }}>{[exp.fromDate, exp.toDate].filter(Boolean).join(' \u2192 ')}</div>
                     {exp.responsibilities && <div style={{ color: 'var(--text-muted)', marginTop: '2px' }}>{exp.responsibilities}</div>}
                   </div>
                 ))}

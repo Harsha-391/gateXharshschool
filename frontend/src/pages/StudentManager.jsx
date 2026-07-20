@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import './StudentManager.css';
+import CustomSelect from '../components/CustomSelect';
 import { 
   Users, 
   Search, 
@@ -209,7 +210,7 @@ export default function StudentManager({ showToast }) {
         {/* Dropdowns */}
         <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', alignItems: 'center' }}>
           <div>
-            <select
+            <CustomSelect
               className="form-control"
               value={sessionFilter}
               onChange={(e) => setSessionFilter(e.target.value)}
@@ -222,11 +223,11 @@ export default function StudentManager({ showToast }) {
               }).map(sy => (
                 <option key={sy} value={sy}>{sy}</option>
               ))}
-            </select>
+            </CustomSelect>
           </div>
 
           <div>
-            <select
+            <CustomSelect
               className="form-control"
               value={classFilter}
               onChange={(e) => setClassFilter(e.target.value)}
@@ -236,11 +237,11 @@ export default function StudentManager({ showToast }) {
               {gradeOptions.map(g => (
                 <option key={g} value={g}>{g}</option>
               ))}
-            </select>
+            </CustomSelect>
           </div>
 
           <div>
-            <select
+            <CustomSelect
               className="form-control"
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
@@ -249,7 +250,7 @@ export default function StudentManager({ showToast }) {
               <option value="All">All Status</option>
               <option value="Active">Active</option>
               <option value="Pending">Pending</option>
-            </select>
+            </CustomSelect>
           </div>
         </div>
       </div>
@@ -394,7 +395,7 @@ export default function StudentManager({ showToast }) {
                     </td>
 
                     <td style={{ padding: '16px' }}>
-                      <select
+                      <CustomSelect
                         className="form-control"
                         value={allocation.section}
                         onChange={(e) => handleAllocationChange(student.id, 'section', e.target.value)}
@@ -410,7 +411,7 @@ export default function StudentManager({ showToast }) {
                             <option key={sec} value={sec}>Section {sec}</option>
                           ));
                         })()}
-                      </select>
+                      </CustomSelect>
                     </td>
 
                     <td style={{ padding: '16px', textAlign: 'right' }}>

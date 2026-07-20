@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import './Header.css';
 import { 
   Menu,
@@ -64,7 +64,8 @@ export default function Header({
     reports: { title: 'Financial Reports', desc: 'Generate visual balance sheets, statement lists, and profit/loss reports.' },
     'student-manager': { title: 'Student Manager', desc: 'Allocate classrooms and sections to enrolled students.' },
     'designation-manage': { title: 'Designation Manage', desc: 'Manage school staff and employee designations.' },
-    'add-staff': { title: 'Add Employee', desc: 'Register a new administrative or support staff member.' },
+    'add-staff': { title: 'Register Staff', desc: 'Register a new administrative or support staff member.' },
+    'add-employee': { title: 'Register Employee', desc: 'Register a new employee in the school system.' },
     'roles-permissions': { title: 'Roles & Permissions', desc: 'Control user permissions and security roles.' },
     'grade-list': { title: 'Grade Management', desc: 'Configure academic classes and sections.' },
     attendance: { title: 'Student Attendance', desc: 'Record daily classroom attendance.' },
@@ -94,7 +95,8 @@ export default function Header({
     'expense-dashboard': { title: 'Expense Panel', desc: 'Analyze expenditures per day, month, or year with custom comparative filters.' },
     'expense-add-expense': { title: 'Record Expense', desc: 'Record utility bills, administrative supplies, renovation costs, or payroll expenses.' },
     'expense-all-expenses': { title: 'Expenses', desc: 'Search, filter, paginate, sort, and export the complete academy expense history.' },
-    'expense-tracker': { title: 'Expense Tracker', desc: 'Analyze expenditures per day, month, or year with custom comparative filters.' }
+    'expense-tracker': { title: 'Expense Tracker', desc: 'Analyze expenditures per day, month, or year with custom comparative filters.' },
+    'auxiliary-income': { title: 'Auxiliary & Other Income', desc: 'Manage and track supplemental school revenue sources. Fully database-driven.' }
   };
 
   const currentMeta = viewTitles[activeView] || { title: 'Academy Portal', desc: 'Overview and administration console' };

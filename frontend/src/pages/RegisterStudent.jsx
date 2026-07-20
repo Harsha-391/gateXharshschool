@@ -26,14 +26,9 @@ import {
 
 // Custom Reusable Searchable Dropdown Select Component
 function SearchableSelect({ options, value, onChange, placeholder, className, style, error }) {
-  const [searchTerm, setSearchTerm] = useState('');
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef(null);
   const [coords, setCoords] = useState({ top: 0, left: 0, width: 0 });
-  
-  const filteredOptions = options.filter(opt => 
-    opt.label.toLowerCase().includes(searchTerm.toLowerCase())
-  );
   
   const activeLabel = options.find(opt => opt.value === value)?.label || '';
 
@@ -106,52 +101,38 @@ function SearchableSelect({ options, value, onChange, placeholder, className, st
           width: `${coords.width}px`,
           zIndex: 999999999,
           background: 'var(--bg-dropdown)',
-          padding: '8px',
+          padding: '6px',
           boxShadow: 'var(--shadow-lg)',
           marginTop: '6px',
           maxHeight: '200px',
           overflowY: 'auto'
         }}>
-          <input 
-            type="text"
-            className="form-control"
-            placeholder="Type to search..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            style={{ marginBottom: '8px', padding: '8px', fontSize: '0.85rem' }}
-            autoFocus
-          />
-          {filteredOptions.length > 0 ? (
-            filteredOptions.map(opt => (
-              <div 
-                key={opt.value}
-                onClick={() => {
-                  onChange(opt.value);
-                  setIsOpen(false);
-                  setSearchTerm('');
-                }}
-                style={{
-                  padding: '10px 12px',
-                  borderRadius: '6px',
-                  cursor: 'pointer',
-                  background: value === opt.value ? 'rgba(255, 107, 0, 0.1)' : 'transparent',
-                  color: value === opt.value ? 'rgb(255, 107, 0)' : 'var(--text-main)',
-                  fontWeight: value === opt.value ? '600' : 'normal',
-                  fontSize: '0.85rem'
-                }}
-                onMouseEnter={(e) => {
-                  if (value !== opt.value) e.target.style.background = 'var(--bg-glass-active)';
-                }}
-                onMouseLeave={(e) => {
-                  if (value !== opt.value) e.target.style.background = 'transparent';
-                }}
-              >
-                {opt.label}
-              </div>
-            ))
-          ) : (
-            <div style={{ padding: '8px', color: 'var(--text-muted)', fontSize: '0.8rem', textAlign: 'center' }}>No matches found</div>
-          )}
+          {options.map(opt => (
+            <div 
+              key={opt.value}
+              onClick={() => {
+                onChange(opt.value);
+                setIsOpen(false);
+              }}
+              style={{
+                padding: '10px 12px',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                background: value === opt.value ? 'rgba(255, 107, 0, 0.1)' : 'transparent',
+                color: value === opt.value ? 'rgb(255, 107, 0)' : 'var(--text-main)',
+                fontWeight: value === opt.value ? '600' : 'normal',
+                fontSize: '0.85rem'
+              }}
+              onMouseEnter={(e) => {
+                if (value !== opt.value) e.target.style.background = 'var(--bg-glass-active)';
+              }}
+              onMouseLeave={(e) => {
+                if (value !== opt.value) e.target.style.background = 'transparent';
+              }}
+            >
+              {opt.label}
+            </div>
+          ))}
         </div>,
         document.body
       )}
@@ -304,6 +285,10 @@ export default function RegisterStudent({ setActiveView, editData }) {
     guardianName: '',
     guardianRelation: '',
     guardianContact: '',
+    createParentLogin: 'No',
+    parentUsername: '',
+    parentEmail: '',
+    parentPassword: '',
 
     // Step 4: Contact & Address
     currentAddress: '',
@@ -1515,6 +1500,74 @@ export default function RegisterStudent({ setActiveView, editData }) {
               </div>
 
             </div>
+
+            {/* Create Parent Login Option */}
+            <div style={{ borderTop: '1px solid var(--border-glass)', paddingTop: '20px', marginTop: '10px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <input
+                  type="checkbox"
+                  id="createParentLogin"
+                  name="createParentLogin"
+                  checked={formData.createParentLogin === 'Yes' || formData.createParentLogin === true}
+                  onChange={(e) => {
+                    const isChecked = e.target.checked;
+                    setFormData(prev => ({
+                      ...prev,
+                      createParentLogin: isChecked ? 'Yes' : 'No',
+                      parentUsername: isChecked && !prev.parentUsername ? (prev.fatherEmail || prev.motherEmail || `parent_${prev.admissionNumber || Math.floor(1000 + Math.random() * 9000)}`) : prev.parentUsername,
+                      parentEmail: isChecked && !prev.parentEmail ? (prev.fatherEmail || prev.motherEmail || '') : prev.parentEmail,
+                      parentPassword: isChecked && !prev.parentPassword ? 'parent123' : prev.parentPassword
+                    }));
+                  }}
+                  style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: 'hsl(var(--color-primary))' }}
+                />
+                <label htmlFor="createParentLogin" style={{ fontWeight: 600, fontSize: '0.9rem', cursor: 'pointer', color: 'var(--text-main)' }}>
+                  Create Parent Login Portal Account?
+                </label>
+              </div>
+
+              {(formData.createParentLogin === 'Yes' || formData.createParentLogin === true) && (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px', background: 'rgba(255, 140, 66, 0.03)', padding: '16px', borderRadius: '12px', border: '1px solid rgba(255, 140, 66, 0.1)' }}>
+                  <div className="form-group">
+                    <label>Parent Username *</label>
+                    <input
+                      type="text"
+                      name="parentUsername"
+                      value={formData.parentUsername}
+                      onChange={handleTextChange}
+                      className="form-control"
+                      placeholder="Username for parent portal"
+                      required
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Parent Email *</label>
+                    <input
+                      type="email"
+                      name="parentEmail"
+                      value={formData.parentEmail}
+                      onChange={handleTextChange}
+                      className="form-control"
+                      placeholder="Email address for parent portal"
+                      required
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Parent Password *</label>
+                    <input
+                      type="text"
+                      name="parentPassword"
+                      value={formData.parentPassword}
+                      onChange={handleTextChange}
+                      className="form-control"
+                      placeholder="Password for parent portal"
+                      required
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
           </div>
         )}
 

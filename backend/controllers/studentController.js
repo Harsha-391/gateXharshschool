@@ -127,16 +127,53 @@ export const registerStudent = async (req, res) => {
     const medicalCertPath = await processUpload(files.medicalCertificateFile);
     const additionalPath = await processUpload(files.additionalFile);
 
-    // Student & Parent account logins creation
+    // Student login credentials
     const studentUsername = admissionNumber;
     const studentPassword = await hashPassword(`stu@${calculatedFirstName.toLowerCase() || 'student'}`);
-    const parentUsername = fatherEmail || motherEmail || `parent_${admissionNumber}`;
-    const parentPassword = await hashPassword('parent123');
+
+    // Parent account logic
+    let parentId = `PAR-${Math.floor(100000 + Math.random() * 900000)}`;
+    let parentUsername = '';
+    let parentPassword = '';
+
+    const createParent = req.body.createParentLogin === 'true' || req.body.createParentLogin === true || req.body.createParentLogin === 'Yes';
+
+    if (createParent) {
+      // Find if parent already exists (matched by email/mobile)
+      let existingParentStudent = null;
+      if (fatherMobile || fatherEmail || motherMobile || motherEmail) {
+        existingParentStudent = (db.students || []).find(s => {
+          const sFatherEmail = s.fatherEmail ? decrypt(s.fatherEmail) : '';
+          const sMotherEmail = s.motherEmail ? decrypt(s.motherEmail) : '';
+          const sFatherMobile = s.fatherMobile ? decrypt(s.fatherMobile) : '';
+          const sMotherMobile = s.motherMobile ? decrypt(s.motherMobile) : '';
+          return (
+            (fatherEmail && sFatherEmail === fatherEmail) ||
+            (motherEmail && sMotherEmail === motherEmail) ||
+            (fatherMobile && sFatherMobile === fatherMobile) ||
+            (motherMobile && sMotherMobile === motherMobile)
+          );
+        });
+      }
+
+      if (existingParentStudent) {
+        parentId = existingParentStudent.parentId || parentId;
+        parentUsername = existingParentStudent.parentUsername || existingParentStudent.parentEmail || `parent_${admissionNumber}`;
+        parentPassword = existingParentStudent.parentPassword || await hashPassword('parent123'); // keep existing password (already hashed)
+      } else {
+        parentUsername = req.body.parentUsername || fatherEmail || motherEmail || `parent_${admissionNumber}`;
+        if (req.body.parentPassword) {
+          parentPassword = await hashPassword(req.body.parentPassword);
+        } else {
+          parentPassword = await hashPassword('parent123');
+        }
+      }
+    }
 
     const newStudent = {
       id: `STU-${Math.floor(1000 + Math.random() * 9000)}`,
       enrollmentId: `ENR-${Math.floor(100000 + Math.random() * 900000)}`,
-      parentId: `PAR-${Math.floor(100000 + Math.random() * 900000)}`,
+      parentId,
       addressId: `ADD-${Math.floor(100000 + Math.random() * 900000)}`,
       medicalId: `MED-${Math.floor(100000 + Math.random() * 900000)}`,
       feeAssignmentId: `FEE-ASN-${Math.floor(100000 + Math.random() * 900000)}`,
@@ -156,7 +193,7 @@ export const registerStudent = async (req, res) => {
       fatherName: fatherName || '',
       fatherOccupation: fatherOccupation || '',
       fatherMobile: encrypt(fatherMobile || ''),
-      fatherEmail: encrypt(fatherEmail || ''),
+      fatherEmail: encrypt(fatherEmail || req.body.parentEmail || ''),
       motherName: motherName || '',
       motherOccupation: motherOccupation || '',
       motherMobile: encrypt(motherMobile || ''),
@@ -211,6 +248,7 @@ export const registerStudent = async (req, res) => {
       studentPassword,
       parentUsername,
       parentPassword,
+      parentEmail: encrypt(req.body.parentEmail || ''),
 
       // Supporting files
       photo: photoPath,
@@ -259,6 +297,35 @@ export const getStudents = async (req, res) => {
     }
 
     let result = [...db.students];
+
+    // If parent is logged in, restrict to parent's children
+    if (user && user.role === 'Parent') {
+      const primaryChild = (db.students || []).find(s => s.id === user.id);
+      if (primaryChild) {
+        const decFatherEmail = primaryChild.fatherEmail ? decrypt(primaryChild.fatherEmail) : '';
+        const decMotherEmail = primaryChild.motherEmail ? decrypt(primaryChild.motherEmail) : '';
+        const decFatherMobile = primaryChild.fatherMobile ? decrypt(primaryChild.fatherMobile) : '';
+        const decMotherMobile = primaryChild.motherMobile ? decrypt(primaryChild.motherMobile) : '';
+        const parentUser = primaryChild.parentUsername;
+
+        result = result.filter(s => {
+          if (s.id === primaryChild.id) return true;
+          const sFatherEmail = s.fatherEmail ? decrypt(s.fatherEmail) : '';
+          const sMotherEmail = s.motherEmail ? decrypt(s.motherEmail) : '';
+          const sFatherMobile = s.fatherMobile ? decrypt(s.fatherMobile) : '';
+          const sMotherMobile = s.motherMobile ? decrypt(s.motherMobile) : '';
+          return (
+            (parentUser && s.parentUsername === parentUser) ||
+            (decFatherEmail && sFatherEmail === decFatherEmail) ||
+            (decMotherEmail && sMotherEmail === decMotherEmail) ||
+            (decFatherMobile && sFatherMobile === decFatherMobile) ||
+            (decMotherMobile && sMotherMobile === decMotherMobile)
+          );
+        });
+      } else {
+        result = [];
+      }
+    }
 
     // 0. Status Filter (Default to 'Active')
     const statusFilter = req.query.status || 'Active';

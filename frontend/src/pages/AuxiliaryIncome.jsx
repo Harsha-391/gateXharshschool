@@ -1,5 +1,6 @@
-﻿import './AuxiliaryIncome.css';
+import './AuxiliaryIncome.css';
 import React, { useState, useEffect } from 'react';
+import CustomSelect from '../components/CustomSelect';
 import { createPortal } from 'react-dom';
 import {
   Banknote,
@@ -11,6 +12,8 @@ import {
   Edit3,
   Printer,
   Download,
+  FileText,
+  Eye,
   Loader2,
   X,
   CheckCircle,
@@ -24,8 +27,22 @@ import {
 } from 'lucide-react';
 
 export default function AuxiliaryIncome({ showToast }) {
-  // Tabs: 'entries' | 'categories'
-  const [activeTab, setActiveTab] = useState('entries');
+  // Tabs: 'dashboard' | 'entries' | 'history'
+  const [activeTab, setActiveTab] = useState('dashboard');
+
+  // Helper functions for date formatting in local timezone (YYYY-MM-DD)
+  const getLocalDateString = (d = new Date()) => {
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  const getLocalMonthString = (d = new Date()) => {
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    return `${year}-${month}`;
+  };
   
   // Data states
   const [entries, setEntries] = useState([]);
@@ -48,7 +65,7 @@ export default function AuxiliaryIncome({ showToast }) {
   const [entryForm, setEntryForm] = useState({
     categoryId: '',
     amount: '',
-    date: new Date().toISOString().split('T')[0],
+    date: getLocalDateString(),
     receivedFrom: '',
     paymentMethod: 'Cash',
     referenceNumber: '',
@@ -62,8 +79,8 @@ export default function AuxiliaryIncome({ showToast }) {
 
   // History tab states
   const [historyPeriodMode, setHistoryPeriodMode] = useState('month'); // 'date' | 'month' | 'year'
-  const [historyDate, setHistoryDate] = useState(new Date().toISOString().split('T')[0]);
-  const [historyMonth, setHistoryMonth] = useState(new Date().toISOString().substring(0, 7)); // "YYYY-MM"
+  const [historyDate, setHistoryDate] = useState(getLocalDateString());
+  const [historyMonth, setHistoryMonth] = useState(getLocalMonthString()); // "YYYY-MM"
   const [historyYear, setHistoryYear] = useState(new Date().getFullYear().toString());
   const [historyCategory, setHistoryCategory] = useState('All');
 
@@ -163,10 +180,19 @@ export default function AuxiliaryIncome({ showToast }) {
         throw new Error(data.error || 'Failed to save category');
       }
 
+      const createdCat = await res.json();
       triggerToast(`Category ${isEdit ? 'updated' : 'created'} successfully!`);
       setShowCategoryModal(false);
       setCategoryForm({ name: '', description: '' });
       setSelectedCategory(null);
+      
+      // Auto select the new category if in entry modal
+      if (!isEdit && createdCat && createdCat.id) {
+        setEntryForm(prev => ({
+          ...prev,
+          categoryId: createdCat.id
+        }));
+      }
       fetchCategories();
     } catch (err) {
       triggerToast(err.message, 'error');
@@ -282,6 +308,25 @@ export default function AuxiliaryIncome({ showToast }) {
   const totalCollected = entries.reduce((sum, e) => sum + Number(e.amount || 0), 0);
   const categoriesCount = categories.length;
 
+  const todayDateStr = getLocalDateString();
+  const currentMonthStr = todayDateStr.substring(0, 7);
+  const currentYearStr = todayDateStr.substring(0, 4);
+
+  const todayIncome = entries
+    .filter(e => e.date === todayDateStr)
+    .reduce((sum, e) => sum + Number(e.amount || 0), 0);
+
+  const monthIncome = entries
+    .filter(e => e.date.substring(0, 7) === currentMonthStr)
+    .reduce((sum, e) => sum + Number(e.amount || 0), 0);
+
+  const yearIncome = entries
+    .filter(e => e.date.substring(0, 4) === currentYearStr)
+    .reduce((sum, e) => sum + Number(e.amount || 0), 0);
+
+  const daysInCurrentMonth = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate();
+  const avgDailyIncome = Math.round(monthIncome / daysInCurrentMonth);
+
   // History tab filtering
   const filteredHistoryEntries = entries.filter(entry => {
     // 1. Filter by category
@@ -303,9 +348,9 @@ export default function AuxiliaryIncome({ showToast }) {
 
   const historyTotalCollected = filteredHistoryEntries.reduce((sum, e) => sum + Number(e.amount || 0), 0);
 
-  const handleExportCSV = () => {
+  const handleExportCSV = (entriesToExport, filenamePrefix = 'auxiliary_income') => {
     const headers = ['Receipt No', 'Category', 'Received From', 'Amount (INR)', 'Date', 'Payment Mode', 'Reference', 'Description'];
-    const rows = filteredHistoryEntries.map(e => [
+    const rows = entriesToExport.map(e => [
       e.receiptNumber,
       e.categoryName,
       e.receivedFrom || 'N/A',
@@ -325,14 +370,14 @@ export default function AuxiliaryIncome({ showToast }) {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.setAttribute('href', url);
-    link.setAttribute('download', `auxiliary_income_history_${historyPeriodMode}_${historyPeriodMode === 'date' ? historyDate : historyPeriodMode === 'month' ? historyMonth : historyYear}.csv`);
+    link.setAttribute('download', `${filenamePrefix}.csv`);
     link.style.visibility = 'hidden';
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
   };
 
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = getLocalDateString();
   const todayEntries = entries.filter(entry => {
     // 1. Filter by category
     if (filterCategory !== 'All' && String(entry.categoryId) !== String(filterCategory)) {
@@ -396,18 +441,77 @@ export default function AuxiliaryIncome({ showToast }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '28px', padding: '10px' }}>
       
-      {/* Title Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
-        <div>
-          <h2 style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--text-main)', margin: 0, letterSpacing: '-0.02em' }}>
-            Auxiliary & Other Income
-          </h2>
-          <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', margin: '4px 0 0 0' }}>
-            Manage and track supplemental school revenue sources. Fully database-driven.
-          </p>
+      {/* Database Offline Error Banner */}
+      {error && (
+        <div style={{
+          padding: '16px 20px', background: 'rgba(239, 68, 68, 0.1)', border: '1.5px solid rgba(239, 68, 68, 0.2)',
+          borderRadius: '12px', display: 'flex', gap: '12px', alignItems: 'center', color: '#ef4444'
+        }}>
+          <AlertCircle size={20} style={{ flexShrink: 0 }} />
+          <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>{error}</span>
         </div>
+      )}
+
+      {/* Main Tabs and Actions Navigation Row */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
         
-        <div style={{ display: 'flex', gap: '10px' }}>
+        {/* Tab Strip capsule */}
+        <div style={{
+          display: 'flex',
+          gap: '4px',
+          padding: '6px',
+          background: 'var(--bg-card)',
+          border: '1px solid var(--border-glass)',
+          borderRadius: '14px',
+          overflowX: 'auto'
+        }}>
+          {[
+            { key: 'dashboard', label: 'Dashboard' },
+            { key: 'entries', label: 'Income Entries List' },
+            { key: 'history', label: 'History' }
+          ].map(tab => {
+            const isActive = activeTab === tab.key;
+            return (
+              <button
+                key={tab.key}
+                onClick={() => setActiveTab(tab.key)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '7px',
+                  padding: '9px 18px',
+                  borderRadius: '9px',
+                  fontSize: '0.84rem',
+                  fontWeight: 600,
+                  border: 'none',
+                  cursor: 'pointer',
+                  color: isActive ? '#FF8C42' : 'var(--text-muted)',
+                  background: isActive ? 'rgba(255, 140, 66, 0.1)' : 'transparent',
+                  boxShadow: isActive ? '0 2px 8px -2px rgba(255,140,66,0.2)' : 'none',
+                  transition: 'all 0.18s ease',
+                  whiteSpace: 'nowrap'
+                }}
+                onMouseEnter={e => {
+                  if (!isActive) {
+                    e.currentTarget.style.background = 'rgba(255,140,66,0.05)';
+                    e.currentTarget.style.color = '#FF8C42';
+                  }
+                }}
+                onMouseLeave={e => {
+                  if (!isActive) {
+                    e.currentTarget.style.background = 'transparent';
+                    e.currentTarget.style.color = 'var(--text-muted)';
+                  }
+                }}
+              >
+                {tab.label}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Manage Categories Action Button */}
+        <div>
           <button 
             onClick={() => {
               setSelectedCategory(null);
@@ -424,187 +528,251 @@ export default function AuxiliaryIncome({ showToast }) {
           >
             <Tags size={16} /> Manage Categories
           </button>
-          
-          <button 
-            onClick={() => {
-              if (categories.length === 0) {
-                triggerToast('Please create at least one income category first. Opening Category Creator...', 'warning');
-                setSelectedCategory(null);
-                setCategoryForm({ name: '', description: '' });
-                setShowCategoryModal(true);
-                return;
-              }
-              setSelectedEntry(null);
-              setEntryForm({
-                categoryId: categories[0]?.id || '',
-                amount: '',
-                date: new Date().toISOString().split('T')[0],
-                receivedFrom: '',
-                paymentMethod: 'Cash',
-                referenceNumber: '',
-                description: ''
-              });
-              setShowEntryModal(true);
-            }} 
-            style={{
-              padding: '10px 18px', background: 'linear-gradient(135deg, #FF8C42, #E05300)', border: 'none',
-              borderRadius: '10px', color: '#fff', fontWeight: 700, cursor: 'pointer',
-              display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.82rem', boxShadow: '0 4px 12px rgba(255, 140, 66, 0.2)'
-            }}
-          >
-            <Plus size={16} /> Record Income Entry
-          </button>
         </div>
+
       </div>
 
-      {/* Database Offline Error Banner */}
-      {error && (
-        <div style={{
-          padding: '16px 20px', background: 'rgba(239, 68, 68, 0.1)', border: '1.5px solid rgba(239, 68, 68, 0.2)',
-          borderRadius: '12px', display: 'flex', gap: '12px', alignItems: 'center', color: '#ef4444'
-        }}>
-          <AlertCircle size={20} style={{ flexShrink: 0 }} />
-          <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>{error}</span>
+      {/* TAB CONTENT: DASHBOARD */}
+      {activeTab === 'dashboard' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+          {/* KPI Summary Cards Grid */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '20px' }}>
+            
+            {/* Card 1: Today's Income */}
+            <div className="glass-panel" style={{ padding: '20px 24px', borderRadius: '16px', borderLeft: '4px solid #FF8C42', background: 'var(--bg-card)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <p style={{ fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' }}>Today's Income</p>
+                <h3 style={{ fontSize: '1.6rem', fontWeight: 800, color: 'var(--text-main)', margin: 0 }}>
+                  <span style={{ color: '#FF8C42', marginRight: '2px' }}>₹</span>{todayIncome.toLocaleString()}
+                </h3>
+                <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '4px', display: 'block' }}>Daily collections</span>
+              </div>
+              <div style={{ background: 'rgba(255,140,66,0.1)', padding: '12px', borderRadius: '12px', color: '#FF8C42', display: 'flex', alignItems: 'center' }}>
+                <Banknote size={22} />
+              </div>
+            </div>
+
+            {/* Card 2: This Month's Income */}
+            <div className="glass-panel" style={{ padding: '20px 24px', borderRadius: '16px', borderLeft: '4px solid #FF8C42', background: 'var(--bg-card)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <p style={{ fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' }}>This Month's Income</p>
+                <h3 style={{ fontSize: '1.6rem', fontWeight: 800, color: 'var(--text-main)', margin: 0 }}>
+                  <span style={{ color: '#FF8C42', marginRight: '2px' }}>₹</span>{monthIncome.toLocaleString()}
+                </h3>
+                <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '4px', display: 'block' }}>Monthly collections</span>
+              </div>
+              <div style={{ background: 'rgba(255,140,66,0.1)', padding: '12px', borderRadius: '12px', color: '#FF8C42', display: 'flex', alignItems: 'center' }}>
+                <Calendar size={22} />
+              </div>
+            </div>
+
+            {/* Card 3: This Year's Income */}
+            <div className="glass-panel" style={{ padding: '20px 24px', borderRadius: '16px', borderLeft: '4px solid #3b82f6', background: 'var(--bg-card)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <p style={{ fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' }}>This Year's Income</p>
+                <h3 style={{ fontSize: '1.6rem', fontWeight: 800, color: 'var(--text-main)', margin: 0 }}>
+                  <span style={{ color: '#3b82f6', marginRight: '2px' }}>₹</span>{yearIncome.toLocaleString()}
+                </h3>
+                <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '4px', display: 'block' }}>Yearly collections</span>
+              </div>
+              <div style={{ background: 'rgba(59,130,246,0.1)', padding: '12px', borderRadius: '12px', color: '#3b82f6', display: 'flex', alignItems: 'center' }}>
+                <TrendingUp size={22} />
+              </div>
+            </div>
+
+            {/* Card 4: Average Daily Income */}
+            <div className="glass-panel" style={{ padding: '20px 24px', borderRadius: '16px', borderLeft: '4px solid #8b5cf6', background: 'var(--bg-card)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <p style={{ fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' }}>Avg Daily Income</p>
+                <h3 style={{ fontSize: '1.6rem', fontWeight: 800, color: 'var(--text-main)', margin: 0 }}>
+                  ₹{avgDailyIncome.toLocaleString()}
+                </h3>
+                <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '4px', display: 'block' }}>Based on entire month's days</span>
+              </div>
+              <div style={{ background: 'rgba(139,92,246,0.1)', padding: '12px', borderRadius: '12px', color: '#8b5cf6', display: 'flex', alignItems: 'center' }}>
+                <Info size={22} />
+              </div>
+            </div>
+
+          </div>
+
+          {/* Breakdown & Analytics Row */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '24px' }}>
+            
+            {/* Category share card */}
+            <div className="glass-panel" style={{ padding: '24px', borderRadius: '16px', background: 'var(--bg-card)' }}>
+              <h4 style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-main)', margin: '0 0 20px 0', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <TrendingUp size={16} style={{ color: '#FF8C42' }} /> Category Revenue Distribution
+              </h4>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                {Object.keys(categorySummary).length === 0 ? (
+                  <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textAlign: 'center', padding: '30px' }}>No categories data recorded yet.</div>
+                ) : (
+                  Object.entries(categorySummary)
+                    .sort((a, b) => b[1] - a[1])
+                    .map(([name, val]) => {
+                      const percent = totalCollected > 0 ? Math.round((val / totalCollected) * 100) : 0;
+                      return (
+                        <div key={name} style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem' }}>
+                            <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>{name}</span>
+                            <span style={{ fontWeight: 700, color: 'var(--text-muted)' }}>₹{val.toLocaleString()} ({percent}%)</span>
+                          </div>
+                          <div style={{ width: '100%', height: '8px', background: 'rgba(255,255,255,0.03)', borderRadius: '4px', overflow: 'hidden' }}>
+                            <div style={{ width: `${percent}%`, height: '100%', background: 'linear-gradient(90deg, #FF8C42, #E05300)', borderRadius: '4px' }} />
+                          </div>
+                        </div>
+                      );
+                    })
+                )}
+              </div>
+            </div>
+
+            {/* Payment Mode distribution card */}
+            <div className="glass-panel" style={{ padding: '24px', borderRadius: '16px', background: 'var(--bg-card)' }}>
+              <h4 style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-main)', margin: '0 0 20px 0', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <CreditCard size={16} style={{ color: '#8b5cf6' }} /> Payment Mode Share
+              </h4>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                {totalCollected === 0 ? (
+                  <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textAlign: 'center', padding: '30px' }}>No payments collected yet.</div>
+                ) : (
+                  Object.entries(methodSummary)
+                    .sort((a, b) => b[1] - a[1])
+                    .map(([method, val]) => {
+                      const percent = totalCollected > 0 ? Math.round((val / totalCollected) * 100) : 0;
+                      return (
+                        <div key={method} style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem' }}>
+                            <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>{method}</span>
+                            <span style={{ fontWeight: 700, color: 'var(--text-muted)' }}>₹{val.toLocaleString()} ({percent}%)</span>
+                          </div>
+                          <div style={{ width: '100%', height: '8px', background: 'rgba(255,255,255,0.03)', borderRadius: '4px', overflow: 'hidden' }}>
+                            <div style={{ width: `${percent}%`, height: '100%', background: 'linear-gradient(90deg, #8b5cf6, #6d28d9)', borderRadius: '4px' }} />
+                          </div>
+                        </div>
+                      );
+                    })
+                )}
+              </div>
+            </div>
+
+          </div>
+
+          {/* Top Incomes and Recent Activity Logs */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '24px' }}>
+            
+            {/* Top Incomes List */}
+            <div className="glass-panel" style={{ padding: '24px', borderRadius: '16px', background: 'var(--bg-card)' }}>
+              <h4 style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-main)', margin: '0 0 16px 0', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <TrendingUp size={16} style={{ color: '#FF8C42' }} /> Top Revenue Transactions
+              </h4>
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                  <thead>
+                    <tr style={{ borderBottom: '1px solid var(--border-glass)' }}>
+                      <th style={{ padding: '8px 10px', fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 700 }}>Receipt</th>
+                      <th style={{ padding: '8px 10px', fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 700 }}>Category</th>
+                      <th style={{ padding: '8px 10px', fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 700 }}>Source</th>
+                      <th style={{ padding: '8px 10px', fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 700, textAlign: 'right' }}>Amount</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {entries.length === 0 ? (
+                      <tr>
+                        <td colSpan="4" style={{ padding: '20px 10px', fontSize: '0.8rem', color: 'var(--text-muted)', textAlign: 'center' }}>No transactions recorded.</td>
+                      </tr>
+                    ) : (
+                      [...entries]
+                        .sort((a, b) => Number(b.amount || 0) - Number(a.amount || 0))
+                        .slice(0, 5)
+                        .map(e => (
+                          <tr key={e.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.02)' }}>
+                            <td style={{ padding: '10px 10px', fontSize: '0.78rem', color: '#FF8C42', fontWeight: 600 }}>{e.receiptNumber}</td>
+                            <td style={{ padding: '10px 10px', fontSize: '0.78rem', color: 'var(--text-main)' }}>{e.categoryName}</td>
+                            <td style={{ padding: '10px 10px', fontSize: '0.78rem', color: 'var(--text-muted)' }}>{e.receivedFrom || 'N/A'}</td>
+                            <td style={{ padding: '10px 10px', fontSize: '0.78rem', color: 'var(--text-main)', fontWeight: 700, textAlign: 'right' }}>₹{Number(e.amount).toLocaleString()}</td>
+                          </tr>
+                        ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Recent Activity Timeline */}
+            <div className="glass-panel" style={{ padding: '24px', borderRadius: '16px', background: 'var(--bg-card)' }}>
+              <h4 style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-main)', margin: '0 0 16px 0', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Calendar size={16} style={{ color: '#FF8C42' }} /> Recent Activity Logs
+              </h4>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {entries.length === 0 ? (
+                  <div style={{ padding: '20px 0', fontSize: '0.8rem', color: 'var(--text-muted)', textAlign: 'center' }}>No activities recorded.</div>
+                ) : (
+                  [...entries]
+                    .sort((a, b) => new Date(b.date) - new Date(a.date) || b.createdAt - a.createdAt)
+                    .slice(0, 5)
+                    .map(e => (
+                      <div key={e.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', background: 'rgba(255,255,255,0.01)', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--border-glass)' }}>
+                        <div style={{ minWidth: 0, flex: 1, marginRight: '10px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-main)' }}>{e.categoryName}</span>
+                            <span style={{ padding: '2px 6px', background: 'rgba(255,140,66,0.1)', color: '#FF8C42', borderRadius: '4px', fontSize: '0.62rem', fontWeight: 700 }}>{e.paymentMethod}</span>
+                          </div>
+                          <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'block', marginTop: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {e.description || `Collected from ${e.receivedFrom || 'N/A'}`}
+                          </span>
+                        </div>
+                        <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                          <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-main)' }}>₹{Number(e.amount).toLocaleString()}</span>
+                          <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', display: 'block', marginTop: '2px' }}>{e.date}</span>
+                        </div>
+                      </div>
+                    ))
+                )}
+              </div>
+            </div>
+
+          </div>
+
         </div>
       )}
-
-      {/* Summary KPI Cards Grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '20px' }}>
-        
-        {/* KPI: Total Auxiliary Revenue */}
-        <div className="glass-panel" style={{ padding: '24px 28px', borderRadius: '16px', borderLeft: '4px solid #FF8C42' }}>
-          <p style={{ fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '8px' }}>Total Collected Revenue</p>
-          <h3 style={{ fontSize: '1.8rem', fontWeight: 800, color: 'var(--text-main)', margin: 0, display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <span style={{ color: '#FF8C42' }}>₹</span>{totalCollected.toLocaleString()}
-          </h3>
-          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '6px', display: 'block' }}>All time custom auxiliary collections</span>
-        </div>
-
-        {/* KPI: Category Count */}
-        <div className="glass-panel" style={{ padding: '24px 28px', borderRadius: '16px', borderLeft: '4px solid #FF8C42' }}>
-          <p style={{ fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '8px' }}>Configured Categories</p>
-          <h3 style={{ fontSize: '1.8rem', fontWeight: 800, color: 'var(--text-main)', margin: 0 }}>
-            {categoriesCount} <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 600 }}>active types</span>
-          </h3>
-          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '6px', display: 'block' }}>School-specific configuration</span>
-        </div>
-
-        {/* KPI: Average Entry Size */}
-        <div className="glass-panel" style={{ padding: '24px 28px', borderRadius: '16px', borderLeft: '4px solid #8b5cf6' }}>
-          <p style={{ fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '8px' }}>Average Collection</p>
-          <h3 style={{ fontSize: '1.8rem', fontWeight: 800, color: 'var(--text-main)', margin: 0 }}>
-            ₹{entries.length > 0 ? Math.round(totalCollected / entries.length).toLocaleString() : '0'}
-          </h3>
-          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '6px', display: 'block' }}>Per transaction average size</span>
-        </div>
-      </div>
-
-      {/* Main Tabs Navigation */}
-      <div style={{ display: 'flex', borderBottom: '1px solid var(--border-glass)', gap: '20px' }}>
-        <button
-          onClick={() => setActiveTab('entries')}
-          style={{
-            padding: '12px 6px', background: 'none', border: 'none',
-            borderBottom: activeTab === 'entries' ? '3px solid #FF8C42' : '3px solid transparent',
-            color: activeTab === 'entries' ? 'var(--text-main)' : 'var(--text-muted)',
-            fontWeight: 700, cursor: 'pointer', fontSize: '0.88rem', transition: 'all 0.2s'
-          }}
-        >
-          Income Entries List
-        </button>
-        <button
-          onClick={() => setActiveTab('categories')}
-          style={{
-            padding: '12px 6px', background: 'none', border: 'none',
-            borderBottom: activeTab === 'categories' ? '3px solid #FF8C42' : '3px solid transparent',
-            color: activeTab === 'categories' ? 'var(--text-main)' : 'var(--text-muted)',
-            fontWeight: 700, cursor: 'pointer', fontSize: '0.88rem', transition: 'all 0.2s'
-          }}
-        >
-          Categories Manager
-        </button>
-        <button
-          onClick={() => setActiveTab('history')}
-          style={{
-            padding: '12px 6px', background: 'none', border: 'none',
-            borderBottom: activeTab === 'history' ? '3px solid #FF8C42' : '3px solid transparent',
-            color: activeTab === 'history' ? 'var(--text-main)' : 'var(--text-muted)',
-            fontWeight: 700, cursor: 'pointer', fontSize: '0.88rem', transition: 'all 0.2s'
-          }}
-        >
-          History
-        </button>
-      </div>
 
       {/* TAB CONTENT: ENTRIES */}
       {activeTab === 'entries' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
           
-          {/* Analytics Bars and Grid Panel */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '24px' }}>
-            
-            {/* Category Breakdown list */}
-            <div className="glass-panel" style={{ padding: '24px', borderRadius: '16px' }}>
-              <h4 style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-main)', margin: '0 0 16px 0', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <TrendingUp size={16} style={{ color: '#FF8C42' }} /> Category Collections Share
-              </h4>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                {Object.keys(categorySummary).length === 0 ? (
-                  <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textAlign: 'center', padding: '20px' }}>No data matching the filters</div>
-                ) : (
-                  Object.entries(categorySummary).map(([name, val]) => {
-                    const percent = totalCollected > 0 ? Math.round((val / totalCollected) * 100) : 0;
-                    return (
-                      <div key={name} style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem' }}>
-                          <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>{name}</span>
-                          <span style={{ fontWeight: 700, color: 'var(--text-muted)' }}>₹{val.toLocaleString()} ({percent}%)</span>
-                        </div>
-                        <div style={{ width: '100%', height: '6px', background: 'rgba(255,255,255,0.03)', borderRadius: '3px', overflow: 'hidden' }}>
-                          <div style={{ width: `${percent}%`, height: '100%', background: '#FF8C42', borderRadius: '3px' }} />
-                        </div>
-                      </div>
-                    );
-                  })
-                )}
-              </div>
-            </div>
-
-            {/* Payment Method share */}
-            <div className="glass-panel" style={{ padding: '24px', borderRadius: '16px' }}>
-              <h4 style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-main)', margin: '0 0 16px 0', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <CreditCard size={16} style={{ color: '#8b5cf6' }} /> Payment Mode Breakdown
-              </h4>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                {totalCollected === 0 ? (
-                  <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textAlign: 'center', padding: '20px' }}>No payments collected yet</div>
-                ) : (
-                  Object.entries(methodSummary).map(([method, val]) => {
-                    const percent = totalCollected > 0 ? Math.round((val / totalCollected) * 100) : 0;
-                    if (val === 0) return null;
-                    return (
-                      <div key={method} style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem' }}>
-                          <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>{method}</span>
-                          <span style={{ fontWeight: 700, color: 'var(--text-muted)' }}>₹{val.toLocaleString()} ({percent}%)</span>
-                        </div>
-                        <div style={{ width: '100%', height: '6px', background: 'rgba(255,255,255,0.03)', borderRadius: '3px', overflow: 'hidden' }}>
-                          <div style={{ width: `${percent}%`, height: '100%', background: '#8b5cf6', borderRadius: '3px' }} />
-                        </div>
-                      </div>
-                    );
-                  })
-                )}
-              </div>
-            </div>
+          {/* Action Row */}
+          <div style={{ display: 'flex', justifyContent: 'flex-start', gap: '10px' }}>
+            <button 
+              onClick={() => {
+                setSelectedEntry(null);
+                setEntryForm({
+                  categoryId: categories[0]?.id || '',
+                  amount: '',
+                  date: getLocalDateString(),
+                  receivedFrom: '',
+                  paymentMethod: 'Cash',
+                  referenceNumber: '',
+                  description: ''
+                });
+                setShowEntryModal(true);
+              }} 
+              style={{
+                padding: '10px 18px', background: 'linear-gradient(135deg, #FF8C42, #E05300)', border: 'none',
+                borderRadius: '10px', color: '#fff', fontWeight: 700, cursor: 'pointer',
+                display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.82rem', boxShadow: '0 4px 12px rgba(255, 140, 66, 0.2)'
+              }}
+            >
+              <Plus size={16} /> Record Income Entry
+            </button>
           </div>
 
           {/* Filters Toolbar */}
-          <div className="glass-panel" style={{ padding: '20px', borderRadius: '14px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '14px' }}>
+          <div className="glass-panel" style={{ padding: '16px 20px', borderRadius: '14px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '14px', alignItems: 'center' }}>
               
               <div>
-                <label style={labelStyle}>Search Query</label>
                 <div style={{ position: 'relative' }}>
                   <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
                   <input 
@@ -617,8 +785,7 @@ export default function AuxiliaryIncome({ showToast }) {
               </div>
               
               <div>
-                <label style={labelStyle}>Category</label>
-                <select 
+                <CustomSelect 
                   value={filterCategory} 
                   onChange={e => setFilterCategory(e.target.value)} 
                   style={{ ...inputStyle, cursor: 'pointer' }}
@@ -627,27 +794,37 @@ export default function AuxiliaryIncome({ showToast }) {
                   {categories.map(c => (
                     <option key={c.id} value={c.id} style={optionStyle}>{c.name}</option>
                   ))}
-                </select>
+                </CustomSelect>
               </div>
 
-            </div>
-
-            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-              <button 
-                onClick={() => window.print()} 
-                style={{
-                  padding: '8px 18px', background: 'linear-gradient(135deg, #FF8C42, #E05300)', border: 'none',
-                  borderRadius: '8px', color: '#fff', fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer',
-                  display: 'flex', alignItems: 'center', gap: '6px'
-                }}
-              >
-                <Printer size={14} /> Print Ledger
-              </button>
             </div>
           </div>
 
           {/* Entries Data Table */}
           <div className="glass-panel" style={{ borderRadius: '16px', overflow: 'hidden' }}>
+            {/* Table Actions Toolbar */}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '12px 16px', background: 'rgba(255,255,255,0.01)', borderBottom: '1px solid var(--border-glass)', gap: '10px' }}>
+              <button 
+                onClick={() => handleExportCSV(todayEntries, 'auxiliary_income_entries')} 
+                style={{
+                  padding: '6px 12px', background: 'var(--bg-card-subtle)', border: '1px solid var(--border-glass)',
+                  borderRadius: '6px', color: 'var(--text-main)', fontSize: '0.78rem', fontWeight: 600, cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', gap: '6px', height: '30px'
+                }}
+              >
+                <Download size={13} /> Export CSV
+              </button>
+              <button 
+                onClick={() => window.print()} 
+                style={{
+                  padding: '6px 12px', background: 'var(--bg-card-subtle)', border: '1px solid var(--border-glass)',
+                  borderRadius: '6px', color: 'var(--text-main)', fontSize: '0.78rem', fontWeight: 600, cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', gap: '6px', height: '30px'
+                }}
+              >
+                <FileText size={13} /> Export PDF
+              </button>
+            </div>
             <div style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>
@@ -664,7 +841,7 @@ export default function AuxiliaryIncome({ showToast }) {
                 <tbody>
                   {loading ? (
                     <tr>
-                      <td colSpan={7} style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
+                      <td colSpan={8} style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
                         <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}>
                           <Loader2 className="animate-spin" size={18} /> Loading entries...
                         </div>
@@ -672,7 +849,7 @@ export default function AuxiliaryIncome({ showToast }) {
                     </tr>
                   ) : todayEntries.length === 0 ? (
                     <tr>
-                      <td colSpan={7} style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                      <td colSpan={8} style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
                         No auxiliary income records found for today. Record an entry above to start tracking supplemental revenue.
                       </td>
                     </tr>
@@ -708,85 +885,34 @@ export default function AuxiliaryIncome({ showToast }) {
                         <td style={{ padding: '12px 16px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
                           {entry.referenceNumber || '-'}
                         </td>
-
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* TAB CONTENT: CATEGORIES */}
-      {activeTab === 'categories' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          
-          <div className="glass-panel" style={{ borderRadius: '16px', overflow: 'hidden' }}>
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                <thead>
-                  <tr style={{ background: 'rgba(255,255,255,0.01)' }}>
-                    {['Category Name', 'Description', 'Created Date', 'Actions'].map(h => (
-                      <th key={h} style={{ 
-                        padding: '14px 16px', textAlign: 'left', fontSize: '0.72rem', fontWeight: 700, 
-                        color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', 
-                        borderBottom: '1px solid rgba(255,255,255,0.04)' 
-                      }}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {categories.length === 0 ? (
-                    <tr>
-                      <td colSpan={4} style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-                        No categories found. Create a custom category to get started.
-                      </td>
-                    </tr>
-                  ) : (
-                    categories.map((cat) => (
-                      <tr 
-                        key={cat.id} 
-                        style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}
-                        onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.015)'}
-                        onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-                      >
-                        <td style={{ padding: '14px 16px', fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-main)' }}>
-                          {cat.name}
-                        </td>
-                        <td style={{ padding: '14px 16px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                          {cat.description || 'No description provided.'}
-                        </td>
-                        <td style={{ padding: '14px 16px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                          {cat.createdAt ? new Date(cat.createdAt).toLocaleDateString() : '-'}
-                        </td>
-                        <td style={{ padding: '14px 16px' }}>
-                          <div style={{ display: 'flex', gap: '10px' }}>
-                            <button 
-                              onClick={() => handleEditCategory(cat)}
-                              style={{
-                                background: 'transparent', border: 'none', color: 'var(--text-muted)',
-                                cursor: 'pointer', transition: 'color 0.2s', padding: '4px'
-                              }}
-                              onMouseEnter={e => e.currentTarget.style.color = '#FF8C42'}
-                              onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}
-                            >
-                              <Edit3 size={15} />
-                            </button>
-
-                            <button 
-                              onClick={() => handleDeleteCategory(cat.id)}
-                              style={{
-                                background: 'transparent', border: 'none', color: 'var(--text-muted)',
-                                cursor: 'pointer', transition: 'color 0.2s', padding: '4px'
-                              }}
-                              onMouseEnter={e => e.currentTarget.style.color = '#ef4444'}
-                              onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}
-                            >
-                              <Trash2 size={15} />
-                            </button>
-                          </div>
+                        <td style={{ padding: '12px 16px', display: 'flex', gap: '8px', alignItems: 'center' }}>
+                          <button
+                            title="View Receipt"
+                            onClick={() => setReceiptData(entry)}
+                            style={{ background: 'transparent', border: 'none', color: '#3b82f6', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center', transition: 'transform 0.15s' }}
+                            onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.2)'}
+                            onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+                          >
+                            <Eye size={16} />
+                          </button>
+                          <button
+                            title="Edit Entry"
+                            onClick={() => handleEditEntry(entry)}
+                            style={{ background: 'transparent', border: 'none', color: '#eab308', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center', transition: 'transform 0.15s' }}
+                            onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.2)'}
+                            onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+                          >
+                            <Edit3 size={16} />
+                          </button>
+                          <button
+                            title="Delete Entry"
+                            onClick={() => handleDeleteEntry(entry.id)}
+                            style={{ background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center', transition: 'transform 0.15s' }}
+                            onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.2)'}
+                            onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+                          >
+                            <Trash2 size={16} />
+                          </button>
                         </td>
                       </tr>
                     ))
@@ -797,35 +923,21 @@ export default function AuxiliaryIncome({ showToast }) {
           </div>
         </div>
       )}
+
+
 
       {/* TAB CONTENT: HISTORY */}
       {activeTab === 'history' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
           
-          {/* Filter Stats Summary */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px' }}>
-            <div className="glass-panel" style={{ padding: '16px 20px', borderRadius: '12px', borderLeft: '3px solid #FF8C42' }}>
-              <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Filtered Total Collected</span>
-              <h4 style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--text-main)', margin: '4px 0 0 0' }}>
-                ₹{historyTotalCollected.toLocaleString()}
-              </h4>
-            </div>
-            <div className="glass-panel" style={{ padding: '16px 20px', borderRadius: '12px', borderLeft: '3px solid #FF8C42' }}>
-              <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Transactions Count</span>
-              <h4 style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--text-main)', margin: '4px 0 0 0' }}>
-                {filteredHistoryEntries.length} records
-              </h4>
-            </div>
-          </div>
 
           {/* History Filters Toolbar */}
-          <div className="glass-panel" style={{ padding: '20px', borderRadius: '14px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '14px' }}>
+          <div className="glass-panel" style={{ padding: '16px 20px', borderRadius: '14px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '14px', alignItems: 'center' }}>
               
               {/* Period Mode Option Selector */}
               <div>
-                <label style={labelStyle}>History Period Filter</label>
-                <select
+                <CustomSelect
                   value={historyPeriodMode}
                   onChange={e => setHistoryPeriodMode(e.target.value)}
                   style={{ ...inputStyle, cursor: 'pointer' }}
@@ -833,14 +945,11 @@ export default function AuxiliaryIncome({ showToast }) {
                   <option value="date" style={optionStyle}>Date</option>
                   <option value="month" style={optionStyle}>Month</option>
                   <option value="year" style={optionStyle}>Year</option>
-                </select>
+                </CustomSelect>
               </div>
 
               {/* Dynamic Period Picker */}
               <div>
-                <label style={labelStyle}>
-                  {historyPeriodMode === 'date' ? 'Select Date' : historyPeriodMode === 'month' ? 'Select Month' : 'Select Year'}
-                </label>
                 {historyPeriodMode === 'date' && (
                   <input
                     type="date"
@@ -858,7 +967,7 @@ export default function AuxiliaryIncome({ showToast }) {
                   />
                 )}
                 {historyPeriodMode === 'year' && (
-                  <select
+                  <CustomSelect
                     value={historyYear}
                     onChange={e => setHistoryYear(e.target.value)}
                     style={{ ...inputStyle, cursor: 'pointer' }}
@@ -866,14 +975,13 @@ export default function AuxiliaryIncome({ showToast }) {
                     {Array.from({ length: 11 }, (_, i) => String(new Date().getFullYear() - 5 + i)).map(y => (
                       <option key={y} value={y} style={optionStyle}>{y}</option>
                     ))}
-                  </select>
+                  </CustomSelect>
                 )}
               </div>
 
               {/* Category selector */}
               <div>
-                <label style={labelStyle}>Category</label>
-                <select
+                <CustomSelect
                   value={historyCategory}
                   onChange={e => setHistoryCategory(e.target.value)}
                   style={{ ...inputStyle, cursor: 'pointer' }}
@@ -882,44 +990,42 @@ export default function AuxiliaryIncome({ showToast }) {
                   {categories.map(c => (
                     <option key={c.id} value={c.id} style={optionStyle}>{c.name}</option>
                   ))}
-                </select>
+                </CustomSelect>
               </div>
 
-            </div>
-
-            {/* History Actions Toolbar */}
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', alignItems: 'center' }}>
-              <button
-                onClick={handleExportCSV}
-                style={{
-                  padding: '8px 18px', background: 'var(--text-main)', border: 'none',
-                  borderRadius: '8px', color: 'var(--bg-elevated)', fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer',
-                  display: 'flex', alignItems: 'center', gap: '6px'
-                }}
-              >
-                <Download size={14} /> Export CSV
-              </button>
-
-              <button
-                onClick={() => window.print()}
-                style={{
-                  padding: '8px 18px', background: 'linear-gradient(135deg, #FF8C42, #E05300)', border: 'none',
-                  borderRadius: '8px', color: '#fff', fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer',
-                  display: 'flex', alignItems: 'center', gap: '6px'
-                }}
-              >
-                <Printer size={14} /> Print History Ledger
-              </button>
             </div>
           </div>
 
           {/* History Entries Table */}
           <div className="glass-panel" style={{ borderRadius: '16px', overflow: 'hidden' }}>
+            {/* Table Actions Toolbar */}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '12px 16px', background: 'rgba(255,255,255,0.01)', borderBottom: '1px solid var(--border-glass)', gap: '10px' }}>
+              <button 
+                onClick={() => handleExportCSV(filteredHistoryEntries, `auxiliary_income_history_${historyPeriodMode}_${historyPeriodMode === 'date' ? historyDate : historyPeriodMode === 'month' ? historyMonth : historyYear}`)} 
+                style={{
+                  padding: '6px 12px', background: 'var(--bg-card-subtle)', border: '1px solid var(--border-glass)',
+                  borderRadius: '6px', color: 'var(--text-main)', fontSize: '0.78rem', fontWeight: 600, cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', gap: '6px', height: '30px'
+                }}
+              >
+                <Download size={13} /> Export CSV
+              </button>
+              <button 
+                onClick={() => window.print()} 
+                style={{
+                  padding: '6px 12px', background: 'var(--bg-card-subtle)', border: '1px solid var(--border-glass)',
+                  borderRadius: '6px', color: 'var(--text-main)', fontSize: '0.78rem', fontWeight: 600, cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', gap: '6px', height: '30px'
+                }}
+              >
+                <FileText size={13} /> Export PDF
+              </button>
+            </div>
             <div style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>
                   <tr style={{ background: 'rgba(255,255,255,0.01)' }}>
-                    {['Receipt No', 'Category', 'Received From', 'Amount', 'Date', 'Pay Mode', 'Reference'].map(h => (
+                    {['Receipt No', 'Category', 'Received From', 'Amount', 'Date', 'Pay Mode', 'Reference', 'Actions'].map(h => (
                       <th key={h} style={{ 
                         padding: '14px 16px', textAlign: 'left', fontSize: '0.72rem', fontWeight: 700, 
                         color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', 
@@ -931,7 +1037,7 @@ export default function AuxiliaryIncome({ showToast }) {
                 <tbody>
                   {filteredHistoryEntries.length === 0 ? (
                     <tr>
-                      <td colSpan={7} style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                      <td colSpan={8} style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
                         No auxiliary income records found matching the selected history period or category.
                       </td>
                     </tr>
@@ -967,7 +1073,35 @@ export default function AuxiliaryIncome({ showToast }) {
                         <td style={{ padding: '12px 16px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
                           {entry.referenceNumber || '-'}
                         </td>
-
+                        <td style={{ padding: '12px 16px', display: 'flex', gap: '8px', alignItems: 'center' }}>
+                          <button
+                            title="View Receipt"
+                            onClick={() => setReceiptData(entry)}
+                            style={{ background: 'transparent', border: 'none', color: '#3b82f6', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center', transition: 'transform 0.15s' }}
+                            onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.2)'}
+                            onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+                          >
+                            <Eye size={16} />
+                          </button>
+                          <button
+                            title="Edit Entry"
+                            onClick={() => handleEditEntry(entry)}
+                            style={{ background: 'transparent', border: 'none', color: '#eab308', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center', transition: 'transform 0.15s' }}
+                            onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.2)'}
+                            onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+                          >
+                            <Edit3 size={16} />
+                          </button>
+                          <button
+                            title="Delete Entry"
+                            onClick={() => handleDeleteEntry(entry.id)}
+                            style={{ background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center', transition: 'transform 0.15s' }}
+                            onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.2)'}
+                            onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </td>
                       </tr>
                     ))
                   )}
@@ -1004,16 +1138,20 @@ export default function AuxiliaryIncome({ showToast }) {
                 
                 <div>
                   <label style={labelStyle}>Category</label>
-                  <select
+                  <CustomSelect
                     value={entryForm.categoryId}
                     onChange={e => setEntryForm({ ...entryForm, categoryId: e.target.value })}
                     required
                     style={{ ...inputStyle, cursor: 'pointer' }}
                   >
-                    {categories.map(c => (
-                      <option key={c.id} value={c.id} style={optionStyle}>{c.name}</option>
-                    ))}
-                  </select>
+                    {categories.length === 0 ? (
+                      <option value="" disabled style={optionStyle}>No categories created yet</option>
+                    ) : (
+                      categories.map(c => (
+                        <option key={c.id} value={c.id} style={optionStyle}>{c.name}</option>
+                      ))
+                    )}
+                  </CustomSelect>
                 </div>
 
                 <div>
@@ -1054,7 +1192,7 @@ export default function AuxiliaryIncome({ showToast }) {
 
                 <div>
                   <label style={labelStyle}>Payment Method</label>
-                  <select
+                  <CustomSelect
                     value={entryForm.paymentMethod}
                     onChange={e => setEntryForm({ ...entryForm, paymentMethod: e.target.value })}
                     style={{ ...inputStyle, cursor: 'pointer' }}
@@ -1062,7 +1200,7 @@ export default function AuxiliaryIncome({ showToast }) {
                     {['Cash', 'UPI', 'Bank Transfer', 'Cheque', 'Card'].map(m => (
                       <option key={m} value={m} style={optionStyle}>{m}</option>
                     ))}
-                  </select>
+                  </CustomSelect>
                 </div>
 
                 <div>
@@ -1116,7 +1254,7 @@ export default function AuxiliaryIncome({ showToast }) {
       {showCategoryModal && createPortal(
         <div className="modal-overlay" onClick={() => setShowCategoryModal(false)}>
           <div onClick={e => e.stopPropagation()} className="animate-scale-up" style={{
-            width: '100%', maxWidth: '440px', background: 'var(--bg-elevated)', borderRadius: '20px',
+            width: '100%', maxWidth: '480px', background: 'var(--bg-elevated)', borderRadius: '20px',
             border: '1px solid var(--border-glass)', padding: '32px', boxShadow: 'var(--shadow-lg)'
           }}>
             <form onSubmit={handleSaveCategory} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
@@ -1151,7 +1289,7 @@ export default function AuxiliaryIncome({ showToast }) {
                   value={categoryForm.description}
                   onChange={e => setCategoryForm({ ...categoryForm, description: e.target.value })}
                   placeholder="Write a short summary about what this category covers..."
-                  style={{ ...inputStyle, height: '100px', resize: 'none' }}
+                  style={{ ...inputStyle, height: '80px', resize: 'none' }}
                 />
               </div>
 
@@ -1175,6 +1313,53 @@ export default function AuxiliaryIncome({ showToast }) {
                 </button>
               </div>
             </form>
+
+            {/* Existing Categories scrollable list inside the modal */}
+            <div style={{ marginTop: '24px', borderTop: '1px solid var(--border-glass)', paddingTop: '20px' }}>
+              <h4 style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-main)', marginBottom: '12px' }}>
+                Existing Categories ({categories.length})
+              </h4>
+              
+              <div style={{ maxHeight: '180px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px', paddingRight: '4px' }}>
+                {categories.length === 0 ? (
+                  <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontStyle: 'italic', textAlign: 'center', padding: '12px' }}>
+                    No categories created yet.
+                  </div>
+                ) : (
+                  categories.map(cat => (
+                    <div key={cat.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(255,255,255,0.01)', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--border-glass)' }}>
+                      <div style={{ minWidth: 0, flex: 1, marginRight: '10px' }}>
+                        <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-main)', display: 'block' }}>{cat.name}</span>
+                        {cat.description && (
+                          <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{cat.description}</span>
+                        )}
+                      </div>
+                      <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
+                        <button
+                          type="button"
+                          onClick={() => handleEditCategory(cat)}
+                          style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center' }}
+                          onMouseEnter={e => e.currentTarget.style.color = '#FF8C42'}
+                          onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}
+                        >
+                          <Edit3 size={14} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteCategory(cat.id)}
+                          style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center' }}
+                          onMouseEnter={e => e.currentTarget.style.color = '#ef4444'}
+                          onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+
           </div>
         </div>,
         document.body
@@ -1233,21 +1418,10 @@ export default function AuxiliaryIncome({ showToast }) {
             {/* Action buttons */}
             <div style={{ display: 'flex', gap: '12px', marginTop: '24px', borderTop: '1px solid #e2e8f0', paddingTop: '16px' }}>
               <button 
-                onClick={() => window.print()} 
-                style={{
-                  flex: 1, padding: '10px', background: '#FF8C42', color: '#fff', border: 'none',
-                  borderRadius: '8px', fontWeight: 700, cursor: 'pointer', display: 'flex',
-                  alignItems: 'center', justifyContent: 'center', gap: '6px', fontSize: '0.8rem'
-                }}
-              >
-                <Printer size={15} /> Print Receipt
-              </button>
-              
-              <button 
                 onClick={() => setReceiptData(null)} 
                 style={{
-                  padding: '10px 16px', background: '#f1f5f9', color: '#475569', border: '1px solid #e2e8f0',
-                  borderRadius: '8px', fontWeight: 600, cursor: 'pointer', fontSize: '0.8rem'
+                  flex: 1, padding: '10px 16px', background: '#f1f5f9', color: '#475569', border: '1px solid #e2e8f0',
+                  borderRadius: '8px', fontWeight: 600, cursor: 'pointer', fontSize: '0.8rem', textAlign: 'center'
                 }}
               >
                 Close

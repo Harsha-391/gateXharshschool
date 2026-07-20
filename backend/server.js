@@ -679,12 +679,14 @@ app.post('/api/auth/login', loginLimiter, loginValidation, async (req, res) => {
     } else if (currentRole === 'Parent') {
       const student = (db.students || []).find(s => {
         if (s.status === 'Inactive') return false;
-        const decryptedFatherEmail = decrypt(s.fatherEmail);
-        const decryptedMotherEmail = decrypt(s.motherEmail);
-        const decryptedFatherMobile = decrypt(s.fatherMobile);
-        const decryptedMotherMobile = decrypt(s.motherMobile);
+        const decryptedParentEmail = s.parentEmail ? decrypt(s.parentEmail) : '';
+        const decryptedFatherEmail = s.fatherEmail ? decrypt(s.fatherEmail) : '';
+        const decryptedMotherEmail = s.motherEmail ? decrypt(s.motherEmail) : '';
+        const decryptedFatherMobile = s.fatherMobile ? decrypt(s.fatherMobile) : '';
+        const decryptedMotherMobile = s.motherMobile ? decrypt(s.motherMobile) : '';
         return (
           s.parentUsername === username ||
+          decryptedParentEmail === username ||
           decryptedFatherEmail === username ||
           decryptedMotherEmail === username ||
           decryptedFatherMobile === username ||
@@ -706,7 +708,9 @@ app.post('/api/auth/login', loginLimiter, loginValidation, async (req, res) => {
           const token = generateToken(payload);
           const refreshToken = generateRefreshToken(payload);
           setAuthCookie(res, token, 'Parent');
-          return res.json({ token, refreshToken, role: 'Parent', name: student.fatherName || student.motherName || 'Parent', school: schoolRecord, permissions });
+          const parentEmail = student.fatherEmail ? decrypt(student.fatherEmail) : (student.motherEmail ? decrypt(student.motherEmail) : '');
+          const parentPhone = student.fatherMobile ? decrypt(student.fatherMobile) : (student.motherMobile ? decrypt(student.motherMobile) : '');
+          return res.json({ token, refreshToken, role: 'Parent', name: student.fatherName || student.motherName || 'Parent', username: username, email: parentEmail, phone: parentPhone, school: schoolRecord, permissions });
         }
       }
     }
@@ -1313,7 +1317,13 @@ app.post('/api/platform/plans', (req, res) => {
     return res.status(400).json({ error: 'Name and Price are required.' });
   }
   const id = 'Plan-' + Date.now();
-  const newPlan = { id, name, price: parseFloat(price) || 0, features: features || '' };
+  let featuresArray = [];
+  if (Array.isArray(features)) {
+    featuresArray = features;
+  } else if (typeof features === 'string') {
+    featuresArray = features.split(',').map(f => f.trim()).filter(Boolean);
+  }
+  const newPlan = { id, name, price: parseFloat(price) || 0, features: featuresArray };
   db.plans.push(newPlan);
   tenantStorage.run(null, () => writeDb(db));
   broadcastPlatformUpdate();
@@ -1330,11 +1340,19 @@ app.put('/api/platform/plans/:id', (req, res) => {
   if (idx === -1) {
     return res.status(404).json({ error: 'Plan not found.' });
   }
+  let featuresArray = db.plans[idx].features;
+  if (features !== undefined) {
+    if (Array.isArray(features)) {
+      featuresArray = features;
+    } else if (typeof features === 'string') {
+      featuresArray = features.split(',').map(f => f.trim()).filter(Boolean);
+    }
+  }
   db.plans[idx] = {
     ...db.plans[idx],
     name: name || db.plans[idx].name,
     price: price !== undefined ? parseFloat(price) : db.plans[idx].price,
-    features: features !== undefined ? features : db.plans[idx].features
+    features: featuresArray
   };
   tenantStorage.run(null, () => writeDb(db));
   broadcastPlatformUpdate();
@@ -2869,4 +2887,4 @@ process.once('SIGUSR2', () => gracefulShutdown('SIGUSR2'));
 process.once('SIGINT', () => gracefulShutdown('SIGINT'));
 process.once('SIGTERM', () => gracefulShutdown('SIGTERM'));
 
-// Trigger restart to sync database cache and reload server state v27
+// Trigger restart to sync database cache and reload server state v29

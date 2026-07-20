@@ -1,4 +1,4 @@
-﻿/* Roles & Permissions Styling Overrides for SaaS Visuals */
+/* Roles & Permissions Styling Overrides for SaaS Visuals */
 
 /* Overwrite hardcoded white backgrounds in modals and result card boxes for Dark Theme compatibility */
 [data-theme='dark'] div[style*="background: '#ffffff'"],
@@ -35,4 +35,43 @@
 .audit-trail-row:hover {
   background: var(--bg-card-subtle);
 }
+/* Orange custom checkboxes for permission matrix */
+.perm-cb {
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  width: 16px !important;
+  height: 16px !important;
+  border: 2px solid #334155 !important;
+  border-radius: 4px !important;
+  background: #ffffff !important;
+  cursor: pointer !important;
+  vertical-align: middle !important;
+  position: relative !important;
+  transition: border-color 0.15s ease !important;
+  flex-shrink: 0 !important;
+  box-shadow: none !important;
+}
 
+.perm-cb:checked {
+  background: #ffffff !important;
+  border-color: #f97316 !important;
+  box-shadow: none !important;
+}
+
+.perm-cb:checked::after {
+  content: '' !important;
+  position: absolute !important;
+  left: 3px !important;
+  top: 0px !important;
+  width: 5px !important;
+  height: 9px !important;
+  border: 2px solid #f97316 !important;
+  border-top: none !important;
+  border-left: none !important;
+  transform: rotate(45deg) !important;
+}
+
+.perm-cb:hover {
+  border-color: #64748b !important;
+  box-shadow: none !important;
+}

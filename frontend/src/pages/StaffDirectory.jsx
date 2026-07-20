@@ -1,15 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import './StaffDirectory.css';
 import { createPortal } from 'react-dom';
-import { 
-  Search, 
-  X, 
-  User, 
-  Mail, 
-  Phone, 
-  Briefcase, 
-  BookOpen, 
-  Calendar, 
+import {
+  Search,
+  X,
+  User,
+  Mail,
+  Phone,
+  Briefcase,
+  BookOpen,
+  Calendar,
   Award,
   Trash2,
   ChevronLeft,
@@ -50,7 +50,7 @@ export default function StaffDirectory({ setActiveView, readOnly = true, onAddCl
   const [teachers, setTeachers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [totalCount, setTotalCount] = useState(0);
-  
+
   // Search, Filters & Sorting States
   const [searchQuery, setSearchQuery] = useState('');
   const [departmentFilter, setDepartmentFilter] = useState('All');
@@ -59,7 +59,7 @@ export default function StaffDirectory({ setActiveView, readOnly = true, onAddCl
   const [roleFilter, setRoleFilter] = useState('All');
   const [sortBy, setSortBy] = useState('name');
   const [sortOrder, setSortOrder] = useState('asc');
-  
+
   // Pagination
   const [page, setPage] = useState(1);
   const [limit] = useState(8);
@@ -126,7 +126,7 @@ export default function StaffDirectory({ setActiveView, readOnly = true, onAddCl
     const printWindow = window.open('', '_blank', 'width=600,height=700');
     const qrUrl = getQrImageUrl(teacher.qrCodePath, teacher.employeeId || teacher.id, 'Teacher');
     const avatarBg = teacher.avatarBg || 'linear-gradient(135deg, #FF8C42, #E05300)';
-    
+
     printWindow.document.write(`
       <html>
         <head>
@@ -364,7 +364,7 @@ export default function StaffDirectory({ setActiveView, readOnly = true, onAddCl
         page,
         limit
       }).toString();
-      
+
       const res = await fetch(`/api/staff?${queryParams}`);
       if (res.ok) {
         const data = await res.json();
@@ -520,17 +520,17 @@ export default function StaffDirectory({ setActiveView, readOnly = true, onAddCl
   // ==========================================
   return (
     <div className="animate-slide-up" style={{ display: 'flex', flexDirection: 'column', gap: '20px', width: '100%' }}>
-      
+
       {/* Search & Filter Control Bar */}
       <div className="glass-panel" style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-        
+
         {/* Row 1: Search & Filters */}
         <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between' }}>
-          
+
           <div className="search-bar-container" style={{ width: '100%', maxWidth: '380px' }}>
             <Search size={18} className="search-bar-icon" />
-            <input 
-              type="text" 
+            <input
+              type="text"
               placeholder="Search by staff name..."
               className="search-bar-input"
               value={searchQuery}
@@ -543,7 +543,7 @@ export default function StaffDirectory({ setActiveView, readOnly = true, onAddCl
             <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
               <Filter size={14} /> Filters:
             </span>
-            
+
             {/* Role filter */}
             <select className="select-custom" value={roleFilter} onChange={(e) => {
               const selectedRole = e.target.value;
@@ -576,7 +576,6 @@ export default function StaffDirectory({ setActiveView, readOnly = true, onAddCl
               <option value="All">All Types</option>
               <option value="Full Time">Full Time</option>
               <option value="Part Time">Part Time</option>
-              <option value="Contract">Contract</option>
             </select>
 
             {/* Status filter */}
@@ -592,10 +591,10 @@ export default function StaffDirectory({ setActiveView, readOnly = true, onAddCl
 
         {/* Row 2: Sort controls */}
         <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', borderTop: '1px solid var(--border-glass)', paddingTop: '14px' }}>
-          
+
           <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
             <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 600 }}>Sort By:</span>
-            
+
             <select className="select-custom" value={sortBy} onChange={(e) => setSortBy(e.target.value)}
               style={{ padding: '6px 12px', borderRadius: '8px', fontSize: '0.8rem' }}>
               <option value="name">Staff Name</option>
@@ -621,7 +620,7 @@ export default function StaffDirectory({ setActiveView, readOnly = true, onAddCl
           TEACHER ROSTER TABLE
           ========================================== */}
       <div className="glass-panel" style={{ padding: '24px', position: 'relative' }}>
-        
+
         {!isSearchOrFilterActive ? (
           <div style={{
             display: 'flex',
@@ -696,22 +695,22 @@ export default function StaffDirectory({ setActiveView, readOnly = true, onAddCl
                         </td>
                         <td>
                           <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
-                             <button onClick={() => setSelectedTeacher(t)} className="btn-secondary" 
-                               style={{ padding: '6px 8px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                               title="Inspect"
-                             >
-                               <Info size={13} />
-                             </button>
-                             {!readOnly && (
-                               <>
-                                 {hasPermission('teacher-directory', 'edit') && (
-                                   <button onClick={() => onEditClick ? onEditClick(t) : openEditModal(t)} className="btn-secondary" 
-                                     style={{ padding: '6px 8px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                                     title="Edit"
-                                   >
-                                     <Edit3 size={13} />
-                                   </button>
-                                 )}
+                            <button onClick={() => setSelectedTeacher(t)} className="btn-secondary"
+                              style={{ padding: '6px 8px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                              title="Inspect"
+                            >
+                              <Info size={13} />
+                            </button>
+                            {!readOnly && (
+                              <>
+                                {hasPermission('teacher-directory', 'edit') && (
+                                  <button onClick={() => onEditClick ? onEditClick(t) : openEditModal(t)} className="btn-secondary"
+                                    style={{ padding: '6px 8px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                    title="Edit"
+                                  >
+                                    <Edit3 size={13} />
+                                  </button>
+                                )}
                                 {hasPermission('teacher-directory', 'delete') && (
                                   <button onClick={() => handleDeleteTeacher(t.employeeId || t.id, t.fullName || t.name)} className="btn-danger"
                                     style={{ padding: '6px 8px', borderRadius: '8px', background: 'rgba(var(--color-danger-rgb), 0.1)', border: '1px solid rgba(var(--color-danger-rgb), 0.2)', color: 'rgb(var(--color-danger-rgb))' }}
@@ -742,7 +741,7 @@ export default function StaffDirectory({ setActiveView, readOnly = true, onAddCl
                 <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
                   Showing Page <strong style={{ color: 'var(--text-main)' }}>{page}</strong> of <strong style={{ color: 'var(--text-main)' }}>{totalPages}</strong>
                 </span>
-                
+
                 <div style={{ display: 'flex', gap: '8px' }}>
                   <button disabled={page === 1} onClick={() => setPage(prev => Math.max(prev - 1, 1))}
                     className="btn-secondary" style={{ padding: '6px 12px', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.8rem' }}>
@@ -771,7 +770,7 @@ export default function StaffDirectory({ setActiveView, readOnly = true, onAddCl
               background: 'var(--bg-elevated)', padding: '30px', display: 'flex', flexDirection: 'column',
               gap: '20px', overflowY: 'auto', borderRadius: '16px', minHeight: 0
             }}>
-            
+
             {/* Drawer Header */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-glass)', paddingBottom: '16px' }}>
               <h3 style={{ fontSize: '1.2rem', fontWeight: 800, margin: 0 }}>Staff Profile Inspector</h3>
@@ -880,7 +879,7 @@ export default function StaffDirectory({ setActiveView, readOnly = true, onAddCl
             {/* Verified Documents */}
             <div style={{ borderTop: '1px solid var(--border-glass)', paddingTop: '16px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
               <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase' }}>Uploaded Documents</span>
-              
+
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 {[
                   { label: 'Aadhaar Card', field: 'aadhaarFile', icon: 'hsl(var(--color-primary))' },
@@ -919,7 +918,7 @@ export default function StaffDirectory({ setActiveView, readOnly = true, onAddCl
                   <div style={{ fontSize: '0.82rem', fontWeight: 600 }}>ID Badge Access QR</div>
                   <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', lineHeight: '1.4' }}>
                     Contains unique Employee ID & Type. Use the camera scanner in the Staff/Employee Attendance to record daily check-ins and check-outs.
-                    <br/><br/>
+                    <br /><br />
                     <strong>Dynamic Department Update:</strong>
                     <ul>
                       <li>Department options now fetch dynamically from the system registry.</li>
@@ -955,7 +954,7 @@ export default function StaffDirectory({ setActiveView, readOnly = true, onAddCl
               padding: '30px', borderRadius: '20px', background: 'var(--bg-elevated)',
               boxShadow: 'var(--shadow-lg)', display: 'flex', flexDirection: 'column', gap: '20px'
             }}>
-            
+
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-glass)', paddingBottom: '14px' }}>
               <h3 style={{ fontSize: '1.15rem', fontWeight: 800, margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <Edit3 size={18} style={{ color: 'hsl(var(--color-primary))' }} /> Edit Staff Profile
@@ -968,7 +967,7 @@ export default function StaffDirectory({ setActiveView, readOnly = true, onAddCl
 
             <form onSubmit={handleEditSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px' }}>
-                
+
                 <div className="form-group">
                   <label>Full Name</label>
                   <input type="text" value={editFormData.fullName || ''} onChange={(e) => setEditFormData({ ...editFormData, fullName: e.target.value })}
@@ -987,20 +986,20 @@ export default function StaffDirectory({ setActiveView, readOnly = true, onAddCl
                     className="form-control" style={{ padding: '10px 14px', borderRadius: '10px' }} />
                 </div>
 
-                 <div className="form-group">
+                <div className="form-group">
                   <label>Role</label>
-                  <select 
-                    value={editFormData.role || ''} 
+                  <select
+                    value={editFormData.role || ''}
                     onChange={(e) => {
                       const newRole = e.target.value;
-                      setEditFormData({ 
-                        ...editFormData, 
+                      setEditFormData({
+                        ...editFormData,
                         role: newRole,
                         department: (newRole === 'Teacher' || newRole === 'Staff') ? editFormData.department : '',
                         subjectSpecialization: (newRole === 'Teacher' || newRole === 'Staff') ? editFormData.subjectSpecialization : ''
                       });
                     }}
-                    className="form-control" 
+                    className="form-control"
                     style={{ padding: '10px 14px', borderRadius: '10px' }}
                   >
                     <option value="">Select Role</option>
@@ -1039,18 +1038,18 @@ export default function StaffDirectory({ setActiveView, readOnly = true, onAddCl
 
                 <div className="form-group">
                   <label>Experience (Years)</label>
-                  <input 
-                    type="text" 
-                    value={editFormData.experience || ''} 
+                  <input
+                    type="text"
+                    value={editFormData.experience || ''}
                     onChange={(e) => {
                       const v = e.target.value.replace(/[^0-9]/g, '').slice(0, 10);
                       setEditFormData({ ...editFormData, experience: v });
                     }}
-                    className="form-control" 
-                    style={{ padding: '10px 14px', borderRadius: '10px' }} 
-                    placeholder="e.g. 5" 
-                    maxLength={10} 
-                    inputMode="numeric" 
+                    className="form-control"
+                    style={{ padding: '10px 14px', borderRadius: '10px' }}
+                    placeholder="e.g. 5"
+                    maxLength={10}
+                    inputMode="numeric"
                   />
                 </div>
 
@@ -1067,7 +1066,6 @@ export default function StaffDirectory({ setActiveView, readOnly = true, onAddCl
                     <option value="">Select</option>
                     <option value="Full Time">Full Time</option>
                     <option value="Part Time">Part Time</option>
-                    <option value="Contract">Contract</option>
                   </select>
                 </div>
 

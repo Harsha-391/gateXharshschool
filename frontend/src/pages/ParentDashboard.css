@@ -1,0 +1,444 @@
+/* Parent Dashboard styling */
+.parent-dashboard-container {
+  display: flex;
+  min-height: 100vh;
+  width: 100vw;
+  background: var(--bg-app);
+  color: var(--text-main);
+  font-family: 'Outfit', sans-serif;
+  overflow: hidden;
+}
+
+/* Sidebar Styling */
+.parent-sidebar {
+  width: 280px;
+  background: var(--bg-sidebar);
+  backdrop-filter: var(--glass-blur, blur(16px));
+  border-right: 1px solid var(--border-glass);
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  flex-shrink: 0;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.parent-sidebar.collapsed {
+  width: 80px;
+}
+
+.sidebar-header {
+  padding: 24px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border-bottom: 1px solid var(--border-glass, rgba(255, 255, 255, 0.08));
+}
+
+.sidebar-header h2 {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: #FF8C42;
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sidebar-menu {
+  flex: 1;
+  padding: 20px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  overflow-y: auto;
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border: none;
+  background: none;
+  color: var(--text-muted, #94a3b8);
+  border-radius: 12px;
+  cursor: pointer;
+  text-align: left;
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  width: 100%;
+}
+
+.menu-item:hover {
+  background: rgba(255, 140, 66, 0.06);
+  color: #FF8C42;
+}
+
+.menu-item.active {
+  background: linear-gradient(135deg, rgba(255, 140, 66, 0.15) 0%, rgba(224, 83, 0, 0.08) 100%);
+  border-left: 4px solid #FF8C42;
+  color: #FF8C42;
+  font-weight: 600;
+}
+
+.sidebar-footer {
+  padding: 16px;
+  border-top: 1px solid var(--border-glass, rgba(255, 255, 255, 0.08));
+}
+
+.logout-btn {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 16px;
+  background: rgba(239, 68, 68, 0.08);
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.15);
+  border-radius: 12px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.logout-btn:hover {
+  background: #ef4444;
+  color: white;
+}
+
+/* Main Panel */
+.parent-main-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* Top Navbar */
+.parent-navbar {
+  height: 70px;
+  border-bottom: 1px solid var(--border-glass, rgba(255, 255, 255, 0.08));
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 32px;
+  background: rgba(15, 23, 42, 0.2);
+  backdrop-filter: blur(12px);
+  position: relative;
+  z-index: 100;
+}
+
+.navbar-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.navbar-right {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.child-select-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border-glass, rgba(255, 255, 255, 0.08));
+  padding: 6px 14px;
+  border-radius: 10px;
+}
+
+.child-select {
+  background: transparent;
+  color: var(--text-main, #f8fafc);
+  border: none;
+  font-weight: 600;
+  font-size: 0.85rem;
+  outline: none;
+  cursor: pointer;
+}
+
+.child-select option {
+  background: #0f172a;
+  color: #f8fafc;
+}
+
+/* Viewport Area */
+.parent-viewport {
+  flex: 1;
+  padding: 32px;
+  overflow-y: auto;
+  background: transparent;
+}
+
+/* Cards & Layout Grid */
+.parent-grid-3 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 24px;
+  margin-bottom: 24px;
+}
+
+.parent-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-glass);
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: var(--shadow-sm);
+  backdrop-filter: var(--glass-blur, blur(8px));
+}
+
+.parent-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.parent-card-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text-muted, #94a3b8);
+  margin: 0;
+}
+
+/* Children Card List */
+.children-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 20px;
+}
+
+.child-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-glass);
+  border-radius: 16px;
+  padding: 20px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.child-card:hover {
+  transform: translateY(-4px);
+  border-color: rgba(255, 140, 66, 0.3);
+}
+
+.child-card.active {
+  background: var(--bg-glass-active);
+  border-color: #FF8C42;
+}
+
+.child-avatar {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid #FF8C42;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: 800;
+  font-size: 1.2rem;
+}
+
+.child-details h4 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.child-details p {
+  margin: 2px 0 0 0;
+  font-size: 0.8rem;
+  color: var(--text-muted, #94a3b8);
+}
+
+/* Calendar Grid */
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+  margin-top: 16px;
+  max-width: 500px;
+}
+
+.calendar-header-day {
+  text-align: center;
+  font-weight: 600;
+  font-size: 0.75rem;
+  color: var(--text-muted, #94a3b8);
+  padding: 4px 0;
+}
+
+.calendar-day-cell {
+  aspect-ratio: 1;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  font-size: 0.78rem;
+}
+
+.calendar-day-cell.empty {
+  background: transparent;
+  border: none;
+}
+
+.calendar-day-cell.present {
+  background: rgba(16, 185, 129, 0.08);
+  border-color: rgba(16, 185, 129, 0.25);
+  color: #10b981;
+}
+
+.calendar-day-cell.absent {
+  background: rgba(239, 68, 68, 0.08);
+  border-color: rgba(239, 68, 68, 0.25);
+  color: #ef4444;
+}
+
+.calendar-day-cell.late {
+  background: rgba(245, 158, 11, 0.08);
+  border-color: rgba(245, 158, 11, 0.25);
+  color: #f59e0b;
+}
+
+.calendar-day-cell.holiday {
+  background: rgba(59, 130, 246, 0.08);
+  border-color: rgba(59, 130, 246, 0.25);
+  color: #3b82f6;
+}
+
+/* Homework List */
+.homework-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.homework-item {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  padding: 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  transition: all 0.2s ease;
+}
+
+.homework-item:hover {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+.homework-status-pill {
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.homework-status-pill.pending {
+  background: rgba(245, 158, 11, 0.12);
+  color: #f59e0b;
+}
+
+.homework-status-pill.completed {
+  background: rgba(16, 185, 129, 0.12);
+  color: #10b981;
+}
+
+/* Timetable styling */
+.timetable-grid-container {
+  overflow-x: auto;
+}
+
+.timetable-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.timetable-table th {
+  background: rgba(255, 255, 255, 0.03);
+  padding: 14px;
+  text-align: left;
+  font-size: 0.85rem;
+  color: var(--text-muted, #94a3b8);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.timetable-table td {
+  padding: 16px 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  font-size: 0.9rem;
+}
+
+/* Notice items */
+.notice-item {
+  background: rgba(255, 255, 255, 0.02);
+  border-left: 4px solid #FF8C42;
+  padding: 14px 16px;
+  border-radius: 0 12px 12px 0;
+  margin-bottom: 10px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 900px) {
+  .parent-dashboard-container {
+    flex-direction: column;
+  }
+  
+  .parent-sidebar {
+    width: 100%;
+    height: auto;
+    border-right: none;
+    border-bottom: 1px solid var(--border-glass, rgba(255, 255, 255, 0.08));
+  }
+}
+
+/* Header Action Buttons Styles */
+.action-btn {
+  background: var(--bg-glass, rgba(255, 255, 255, 0.04));
+  backdrop-filter: var(--glass-blur, blur(12px));
+  border: 1px solid var(--border-glass, rgba(255, 255, 255, 0.08));
+  color: var(--text-main, #f8fafc);
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  position: relative;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: var(--shadow-sm, 0 1px 2px 0 rgba(0, 0, 0, 0.05));
+}
+
+.action-btn:hover {
+  background: var(--bg-glass-active, rgba(255, 255, 255, 0.08));
+  transform: translateY(-2px);
+  color: #FF8C42;
+  border-color: rgba(255, 140, 66, 0.35);
+  box-shadow: var(--shadow-md, 0 4px 6px -1px rgba(0, 0, 0, 0.1));
+}
+
+.badge-dot {
+  position: absolute;
+  top: 11px;
+  right: 11px;
+  width: 8px;
+  height: 8px;
+  background: #ef4444;
+  border-radius: 50%;
+}

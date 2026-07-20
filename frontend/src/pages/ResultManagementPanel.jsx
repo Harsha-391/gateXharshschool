@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import './ResultManagementPanel.css';
 import { createPortal } from 'react-dom';
 import { fetchActiveGrades } from '../utils/grades';
@@ -3016,8 +3016,8 @@ export default function ResultManagementPanel({ activeTab: propActiveTab = 'anal
                                   Absent
                                 </span>
                               ) : (
-                                <span style={{ fontSize: '0.78rem', fontWeight: 700, color: exam.passStatus === 'Pass' ? '#10b981' : '#ef4444' }}>
-                                  {exam.percentage}% ({exam.grade})
+                                <span style={{ fontSize: '0.78rem', fontWeight: 700, color: '#10b981' }}>
+                                  Evaluated
                                 </span>
                               )}
                             </div>

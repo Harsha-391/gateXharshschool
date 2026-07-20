@@ -798,8 +798,8 @@ CREATE TABLE IF NOT EXISTS attendance_logs (
   tenantId VARCHAR(100),
   teacherId VARCHAR(50) NULL,
   staffId VARCHAR(50) NULL,
-  FOREIGN KEY (teacherId) REFERENCES staff(id) ON DELETE CASCADE,
-  FOREIGN KEY (staffId) REFERENCES employees(id) ON DELETE CASCADE,
+  FOREIGN KEY (teacherId) REFERENCES teachers(id) ON DELETE CASCADE,
+  FOREIGN KEY (staffId) REFERENCES staff(id) ON DELETE CASCADE,
   INDEX idx_log_emp (employeeId),
   INDEX idx_log_tenant (tenantId)
 );

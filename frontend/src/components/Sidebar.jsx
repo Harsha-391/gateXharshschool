@@ -511,7 +511,7 @@ export default function Sidebar({
                             style={{ padding: '10px 12px', fontSize: '0.88rem', position: 'relative' }}
                           >
                             <UserPlus size={18} className="flex-shrink-0" style={{ color: adminView === 'add-staff' ? '#FF8C42' : getIconColor('add-staff') }} />
-                            <span className="nav-label">Add Staff</span>
+                            <span className="nav-label">Register Staff</span>
                           </button>
                         )}
                         {(hasPermission('add-employee', 'create') || hasPermission('add-employee', 'view')) && (
@@ -521,7 +521,7 @@ export default function Sidebar({
                             style={{ padding: '10px 12px', fontSize: '0.88rem', position: 'relative' }}
                           >
                             <UserCog size={18} className="flex-shrink-0" style={{ color: adminView === 'add-employee' ? '#FF8C42' : getIconColor('add-employee') }} />
-                            <span className="nav-label">Add Employee</span>
+                            <span className="nav-label">Register Employee</span>
                           </button>
                         )}
                       </div>
@@ -632,7 +632,14 @@ export default function Sidebar({
             {/* Academic Section */}
             {((hasPermission('academic-manager', 'view') || hasPermission('published-timetable', 'view') || hasPermission('published-exam', 'view')) ||
               (hasPermission('academic-activities', 'view') || hasPermission('academic-calendar', 'view')) ||
-              (hasPermission('results-manager', 'view') || hasPermission('results-marks-entry', 'view') || hasPermission('results-history', 'view'))) && (
+              (hasPermission('results-manager', 'view') || hasPermission('results-marks-entry', 'view') || hasPermission('results-history', 'view')) ||
+              (() => {
+                const isClassTeacher = userProfile?.isClassTeacher === true || userProfile?.isClassTeacher === 'Yes' || userProfile?.isClassTeacher === 1;
+                const hasEmpAtt = hasPermission('employee-attendance', 'view');
+                const hasStuAtt = hasPermission('attendance', 'view') && (userProfile?.role === 'Teacher' ? isClassTeacher : true);
+                const hasAttHist = hasPermission('attendance-history', 'view') && (userProfile?.role === 'Teacher' ? isClassTeacher : true);
+                return hasEmpAtt || hasStuAtt || hasAttHist;
+              })()) && (
               <div className="sidebar-section-group" style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                 <span className="section-title">
                   Academic
@@ -786,25 +793,6 @@ export default function Sidebar({
                     )}
                   </div>
                 )}
-              </div>
-            )}
-
-            {/* Account Section */}
-            {(hasPermission('auxiliary-income', 'view') ||
-              hasPermission('financial-reports', 'view') ||
-              hasPermission('expense-dashboard', 'view') || hasPermission('expense-all-expenses', 'view') || hasPermission('expense-tracker', 'view') || hasPermission('expense-history', 'view') ||
-              hasPermission('finance', 'view') ||
-              (() => {
-                const isClassTeacher = userProfile?.isClassTeacher === true || userProfile?.isClassTeacher === 'Yes' || userProfile?.isClassTeacher === 1;
-                const hasEmpAtt = hasPermission('employee-attendance', 'view');
-                const hasStuAtt = hasPermission('attendance', 'view') && (userProfile?.role === 'Teacher' ? isClassTeacher : true);
-                const hasAttHist = hasPermission('attendance-history', 'view') && (userProfile?.role === 'Teacher' ? isClassTeacher : true);
-                return hasEmpAtt || hasStuAtt || hasAttHist;
-              })()) && (
-              <div className="sidebar-section-group" style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                <span className="section-title">
-                  Account
-                </span>
 
                 {(() => {
                   const isClassTeacher = userProfile?.isClassTeacher === true || userProfile?.isClassTeacher === 'Yes' || userProfile?.isClassTeacher === 1;
@@ -864,6 +852,19 @@ export default function Sidebar({
                     </div>
                   );
                 })()}
+              </div>
+            )}
+
+            {/* Account Section */}
+            {(hasPermission('auxiliary-income', 'view') ||
+              hasPermission('financial-reports', 'view') ||
+              hasPermission('expense-dashboard', 'view') || hasPermission('expense-all-expenses', 'view') || hasPermission('expense-tracker', 'view') || hasPermission('expense-history', 'view') ||
+              hasPermission('finance', 'view') ||
+              false) && (
+              <div className="sidebar-section-group" style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <span className="section-title">
+                  Account
+                </span>
 
                 {hasPermission('finance', 'view') && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
