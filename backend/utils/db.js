@@ -938,7 +938,7 @@ const addTenantIndexes = async () => {
 };
 
 // Helper to execute schema SQL queries on a dynamic pool config
-const executeSchemaOnPool = async (pool, isMaster = false) => {
+export const executeSchemaOnPool = async (pool, isMaster = false) => {
   try {
     if (!fs.existsSync(SCHEMA_FILE)) {
       console.warn(`[SQL Init] Schema file not found at ${SCHEMA_FILE}`);
@@ -1042,7 +1042,7 @@ const dropGradeIdForeignKey = async (pool) => {
 };
 
 // Helper to apply database structural updates (ALTER TABLE columns)
-const applySchemaUpdates = async (pool, isMaster = false, tenantId = null) => {
+export const applySchemaUpdates = async (pool, isMaster = false, tenantId = null) => {
   await dropGradeIdForeignKey(pool);
   if (isMaster) {
     const masterAlters = [

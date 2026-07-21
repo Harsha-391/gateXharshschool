@@ -117,8 +117,27 @@ export const query = async (sql, params, explicitTenantId) => {
     safeParams = params.map(v => v === undefined ? null : v);
   }
 
-  const [results] = await pool.query(sql, safeParams);
-  return results;
+  try {
+    const [results] = await pool.query(sql, safeParams);
+    return results;
+  } catch (err) {
+    if (err.code === 'ER_NO_SUCH_TABLE' || err.code === 'ER_BAD_FIELD_ERROR') {
+      console.warn(`[SQL Query Warning] Schema mismatch detected (code: ${err.code}) for tenant: ${tenantId}. Triggering dynamic schema sync...`);
+      try {
+        const { executeSchemaOnPool, applySchemaUpdates } = await import('./db.js');
+        const isMaster = !tenantId || tenantId === 'platform' || tenantId === 'localhost';
+        await executeSchemaOnPool(pool, isMaster);
+        await applySchemaUpdates(pool, isMaster, tenantId);
+        
+        console.log('[SQL Query] Dynamic schema sync completed. Retrying query...');
+        const [results] = await pool.query(sql, safeParams);
+        return results;
+      } catch (syncErr) {
+        console.error('[SQL Query ERROR] Dynamic schema sync failed:', syncErr.message);
+      }
+    }
+    throw err;
+  }
 };
 
 export const getPool = () => masterPool;
