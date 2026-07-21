@@ -1052,7 +1052,7 @@ export const getExpenses = async (req, res) => {
     res.json(expenses);
   } catch (err) {
     console.error('Error loading expenses:', err);
-    res.status(500).json({ error: 'Server error loading expenses.' });
+    res.status(500).json({ error: 'Server error loading expenses.', details: err.message });
   }
 };
 
@@ -1200,7 +1200,7 @@ export const addExpense = async (req, res) => {
     res.status(201).json(newExpense);
   } catch (err) {
     console.error('Error adding expense:', err);
-    res.status(500).json({ error: 'Server error adding expense.' });
+    res.status(500).json({ error: 'Server error adding expense.', details: err.message });
   }
 };
 
@@ -1372,7 +1372,7 @@ export const deleteExpense = async (req, res) => {
     res.json({ success: true, message: `Removed expense: ${removed.title}` });
   } catch (err) {
     console.error('Error deleting expense:', err);
-    res.status(500).json({ error: 'Server error deleting expense.' });
+    res.status(500).json({ error: 'Server error deleting expense.', details: err.message });
   }
 };
 
