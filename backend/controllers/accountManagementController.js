@@ -987,7 +987,7 @@ export const getExpenses = async (req, res) => {
       const tenantId = tenantStorage.getStore();
       const tId = tenantId ? slugify(tenantId) : 'platform';
 
-      let queryStr = 'SELECT * FROM expenses WHERE tenantId = ? AND status != "Deleted"';
+      let queryStr = "SELECT * FROM expenses WHERE tenantId = ? AND status != 'Deleted'";
       const params = [tId];
 
       if (category && category !== 'All') {

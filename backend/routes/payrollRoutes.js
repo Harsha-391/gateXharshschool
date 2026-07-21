@@ -207,7 +207,7 @@ router.post('/payments', async (req, res) => {
     }
     
     // Check if configuration exists
-    const [config] = await sqlDb.query('SELECT * FROM salary_masters WHERE employeeId = ? AND status = "Active"', [employeeId]);
+    const [config] = await sqlDb.query("SELECT * FROM salary_masters WHERE employeeId = ? AND status = 'Active'", [employeeId]);
     if (!config) {
       return res.status(404).json({ error: 'No active salary configuration found for this employee.' });
     }
