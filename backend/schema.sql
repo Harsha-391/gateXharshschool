@@ -421,7 +421,6 @@ CREATE TABLE IF NOT EXISTS expenses (
   attachment LONGTEXT,
   createdAt VARCHAR(100),
   tenantId VARCHAR(100),
-  grade VARCHAR(100),
   department VARCHAR(100),
   expenseType VARCHAR(100)
 );

@@ -1024,7 +1024,6 @@ export const getExpenses = async (req, res) => {
           remarks: e.description || '',
           amount: parseFloat(e.amount || 0),
           subcategory: e.subcategory || '',
-          grade: e.grade || '',
           department: e.department || '',
           expenseType: e.expenseType || '',
           vendor: vendorObj,
@@ -1075,7 +1074,6 @@ export const addExpense = async (req, res) => {
       remarks,
       notes,
       attachment,
-      grade,
       department,
       expenseType
     } = req.body;
@@ -1092,8 +1090,8 @@ export const addExpense = async (req, res) => {
       const tId = tenantId ? slugify(tenantId) : 'platform';
 
       await sqlDb.query(
-        `INSERT INTO expenses (id, category, subcategory, amount, date, description, status, paidTo, paymentMethod, attachment, createdAt, tenantId, grade, department, expenseType, vendor, paymentDetails, title)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO expenses (id, category, subcategory, amount, date, description, status, paidTo, paymentMethod, attachment, createdAt, tenantId, department, expenseType, vendor, paymentDetails, title)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           expId,
           category,
@@ -1107,7 +1105,6 @@ export const addExpense = async (req, res) => {
           attachment || '',
           new Date().toISOString(),
           tId,
-          grade || '',
           department || '',
           expenseType || 'Operational',
           JSON.stringify(vendor || { name: '', contact: '', email: '', address: '' }),
@@ -1139,7 +1136,6 @@ export const addExpense = async (req, res) => {
         remarks: remarks || '',
         notes: notes || '',
         attachment: attachment || '',
-        grade: grade || '',
         department: department || '',
         expenseType: expenseType || 'Operational',
         createdAt: new Date().toISOString()
@@ -1167,7 +1163,6 @@ export const addExpense = async (req, res) => {
       remarks: remarks || '',
       notes: notes || '',
       attachment: attachment || '',
-      grade: grade || '',
       department: department || '',
       expenseType: expenseType || 'Operational',
       createdAt: new Date().toISOString()
@@ -1228,7 +1223,6 @@ export const updateExpense = async (req, res) => {
       const updatedPaidTo = req.body.vendor?.name || req.body.paidTo || current.paidTo;
       const updatedPaymentMethod = req.body.paymentDetails?.method || current.paymentMethod;
       const updatedAttachment = req.body.attachment || current.attachment;
-      const updatedGrade = req.body.grade || current.grade;
       const updatedDepartment = req.body.department || current.department;
       const updatedExpenseType = req.body.expenseType || current.expenseType;
 
@@ -1250,7 +1244,7 @@ export const updateExpense = async (req, res) => {
 
       await sqlDb.query(
         `UPDATE expenses 
-         SET category = ?, subcategory = ?, amount = ?, date = ?, description = ?, status = ?, paidTo = ?, paymentMethod = ?, attachment = ?, grade = ?, department = ?, expenseType = ?, vendor = ?, paymentDetails = ?, title = ?
+         SET category = ?, subcategory = ?, amount = ?, date = ?, description = ?, status = ?, paidTo = ?, paymentMethod = ?, attachment = ?, department = ?, expenseType = ?, vendor = ?, paymentDetails = ?, title = ?
          WHERE id = ? AND tenantId = ?`,
         [
           updatedCategory,
@@ -1262,7 +1256,6 @@ export const updateExpense = async (req, res) => {
           updatedPaidTo,
           updatedPaymentMethod,
           updatedAttachment,
-          updatedGrade,
           updatedDepartment,
           updatedExpenseType,
           JSON.stringify(updatedVendor),
@@ -1287,7 +1280,6 @@ export const updateExpense = async (req, res) => {
         vendor: updatedVendor,
         paymentDetails: updatedPayDetails,
         attachment: updatedAttachment,
-        grade: updatedGrade,
         department: updatedDepartment,
         expenseType: updatedExpenseType,
         title: req.body.title || current.title || '',

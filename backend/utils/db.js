@@ -382,7 +382,6 @@ const createTablesFromSchema = async () => {
       "ALTER TABLE staff_payments ADD COLUMN pfDeduction DECIMAL(10,2) DEFAULT 0.00",
       "ALTER TABLE staff_payments ADD COLUMN taxDeduction DECIMAL(10,2) DEFAULT 0.00",
       "ALTER TABLE staff_payments ADD COLUMN netSalary DECIMAL(10,2) DEFAULT 0.00",
-      "ALTER TABLE expenses ADD COLUMN grade VARCHAR(100)",
       "ALTER TABLE expenses ADD COLUMN department VARCHAR(100)",
       "ALTER TABLE expenses ADD COLUMN expenseType VARCHAR(100)",
       "ALTER TABLE expenses ADD COLUMN subcategory VARCHAR(100)",
@@ -1058,7 +1057,8 @@ export const applySchemaUpdates = async (pool, isMaster = false, tenantId = null
       "ALTER TABLE student_accounts DROP FOREIGN KEY student_accounts_ibfk_1",
       "ALTER TABLE parent_accounts DROP FOREIGN KEY parent_accounts_ibfk_1",
       "CREATE TABLE IF NOT EXISTS attendance_settings (id VARCHAR(50) PRIMARY KEY, checkInStart VARCHAR(50) DEFAULT '08:00 AM', lateTime VARCHAR(50) DEFAULT '09:00 AM', halfDayTime VARCHAR(50) DEFAULT '11:00 AM', checkOutTime VARCHAR(50) DEFAULT '05:00 PM', minWorkingHours DECIMAL(5,2) DEFAULT 8.00, gracePeriod INT DEFAULT 15, tenantId VARCHAR(100) NOT NULL, createdAt VARCHAR(100), updatedAt VARCHAR(100), INDEX idx_att_sett_tenant (tenantId))",
-      "CREATE TABLE IF NOT EXISTS teachers (id VARCHAR(50) PRIMARY KEY, name VARCHAR(255) NOT NULL, email VARCHAR(255) NOT NULL, phone VARCHAR(50), username VARCHAR(255) UNIQUE, password VARCHAR(255), gender VARCHAR(50), qualification TEXT, experience TEXT, dateOfJoining VARCHAR(50), salaryGrade VARCHAR(100), address TEXT, city VARCHAR(100), state VARCHAR(100), pincode VARCHAR(50), emergencyContact VARCHAR(255), emergencyPhone VARCHAR(50), photo TEXT, aadharFile TEXT, certificateFile TEXT, status VARCHAR(50) DEFAULT 'Active', avatarBg TEXT, tenantId VARCHAR(100), firstName VARCHAR(100), middleName VARCHAR(100), lastName VARCHAR(100), fullName VARCHAR(255), dob VARCHAR(50), bloodGroup VARCHAR(20), nationality VARCHAR(100) DEFAULT 'Indian', maritalStatus VARCHAR(50), aadhaarNumber VARCHAR(100), panNumber VARCHAR(100), joiningDate VARCHAR(50), employmentType VARCHAR(50), role VARCHAR(100), department VARCHAR(100), primarySubject VARCHAR(100), secondarySubject VARCHAR(100), alternateMobile VARCHAR(50), currentAddress TEXT, currentCity VARCHAR(100), currentState VARCHAR(100), currentCountry VARCHAR(100) DEFAULT 'India', currentPostalCode VARCHAR(50), permanentAddress TEXT, permanentCity VARCHAR(100), permanentState VARCHAR(100), permanentCountry VARCHAR(100) DEFAULT 'India', permanentPostalCode VARCHAR(50), sameAsPermanent VARCHAR(10) DEFAULT 'No', panFile TEXT, resumeFile TEXT, joiningLetterFile TEXT, otherFile TEXT, experiences TEXT)"
+      "CREATE TABLE IF NOT EXISTS teachers (id VARCHAR(50) PRIMARY KEY, name VARCHAR(255) NOT NULL, email VARCHAR(255) NOT NULL, phone VARCHAR(50), username VARCHAR(255) UNIQUE, password VARCHAR(255), gender VARCHAR(50), qualification TEXT, experience TEXT, dateOfJoining VARCHAR(50), salaryGrade VARCHAR(100), address TEXT, city VARCHAR(100), state VARCHAR(100), pincode VARCHAR(50), emergencyContact VARCHAR(255), emergencyPhone VARCHAR(50), photo TEXT, aadharFile TEXT, certificateFile TEXT, status VARCHAR(50) DEFAULT 'Active', avatarBg TEXT, tenantId VARCHAR(100), firstName VARCHAR(100), middleName VARCHAR(100), lastName VARCHAR(100), fullName VARCHAR(255), dob VARCHAR(50), bloodGroup VARCHAR(20), nationality VARCHAR(100) DEFAULT 'Indian', maritalStatus VARCHAR(50), aadhaarNumber VARCHAR(100), panNumber VARCHAR(100), joiningDate VARCHAR(50), employmentType VARCHAR(50), role VARCHAR(100), department VARCHAR(100), primarySubject VARCHAR(100), secondarySubject VARCHAR(100), alternateMobile VARCHAR(50), currentAddress TEXT, currentCity VARCHAR(100), currentState VARCHAR(100), currentCountry VARCHAR(100) DEFAULT 'India', currentPostalCode VARCHAR(50), permanentAddress TEXT, permanentCity VARCHAR(100), permanentState VARCHAR(100), permanentCountry VARCHAR(100) DEFAULT 'India', permanentPostalCode VARCHAR(50), sameAsPermanent VARCHAR(10) DEFAULT 'No', panFile TEXT, resumeFile TEXT, joiningLetterFile TEXT, otherFile TEXT, experiences TEXT)",
+      "ALTER TABLE expenses DROP COLUMN grade"
     ];
     for (const sql of masterAlters) {
       try {
@@ -1244,7 +1244,8 @@ export const applySchemaUpdates = async (pool, isMaster = false, tenantId = null
       "CREATE TABLE IF NOT EXISTS report_card_templates (id VARCHAR(50) PRIMARY KEY, name VARCHAR(255) NOT NULL, html LONGTEXT NOT NULL, pdfUrl VARCHAR(255), fields JSON, createdAt VARCHAR(100) NOT NULL, updatedAt VARCHAR(100) NOT NULL, tenantId VARCHAR(100) NOT NULL)",
       "ALTER TABLE expenses ADD COLUMN vendor TEXT NULL",
       "ALTER TABLE expenses ADD COLUMN paymentDetails TEXT NULL",
-      "ALTER TABLE expenses ADD COLUMN title VARCHAR(255) NULL"
+      "ALTER TABLE expenses ADD COLUMN title VARCHAR(255) NULL",
+      "ALTER TABLE expenses DROP COLUMN grade"
     ];
     for (const sql of schoolAlters) {
       try {
@@ -3409,10 +3410,10 @@ export const saveMemoryDbToSql = async (tenantId, db, changedKeys, newUpdatedAt)
             await sqlDb.query('DELETE FROM expenses WHERE tenantId = ?', [tId]);
           }
 
-          const columns = ['id', 'category', 'subcategory', 'amount', 'date', 'description', 'status', 'paidTo', 'paymentMethod', 'attachment', 'createdAt', 'tenantId', 'grade', 'department', 'expenseType'];
-          const updateColumns = ['amount', 'status', 'subcategory', 'grade', 'department', 'expenseType'];
+          const columns = ['id', 'category', 'subcategory', 'amount', 'date', 'description', 'status', 'paidTo', 'paymentMethod', 'attachment', 'createdAt', 'tenantId', 'department', 'expenseType'];
+          const updateColumns = ['amount', 'status', 'subcategory', 'department', 'expenseType'];
           const valueRows = db.expenses.filter(e => e.id).map(e => [
-            e.id, e.category || '', e.subcategory || '', parseFloat(e.amount || 0), e.date || '', e.description || '', e.status || 'Approved', e.paidTo || '', e.paymentMethod || '', e.attachment || '', e.createdAt || new Date().toISOString(), tId, e.grade || '', e.department || '', e.expenseType || ''
+            e.id, e.category || '', e.subcategory || '', parseFloat(e.amount || 0), e.date || '', e.description || '', e.status || 'Approved', e.paidTo || '', e.paymentMethod || '', e.attachment || '', e.createdAt || new Date().toISOString(), tId, e.department || '', e.expenseType || ''
           ]);
           await bulkInsertOrUpdate('expenses', columns, valueRows, updateColumns);
         })());

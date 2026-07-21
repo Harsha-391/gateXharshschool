@@ -7,7 +7,7 @@ import {
   ListFilter, Calendar, PieChart, Settings, RefreshCw, Shield, ArrowUp, ArrowDown,
   LogOut, History
 } from 'lucide-react';
-import { fetchActiveGrades } from '../utils/grades';
+
 
 const getTodayStr = () => {
   const d = new Date();
@@ -526,7 +526,7 @@ function DashboardView({ expenses, setExpenseView, budgetLimit }) {
    ============================================================ */
 function AddExpenseView({ showToast, setExpenseView, onClose, onSuccess, isModal = false, editExpense = null }) {
   const [loading, setLoading] = useState(false);
-  const [grades, setGrades] = useState([]);
+
   const [departments, setDepartments] = useState([]);
   const [form, setForm] = useState({
     title: '', category: 'Office & Administrative', subcategory: 'Office Supplies',
@@ -534,7 +534,7 @@ function AddExpenseView({ showToast, setExpenseView, onClose, onSuccess, isModal
     vendorName: '', vendorContact: '', vendorEmail: '', vendorAddress: '',
     paymentMethod: 'Cash', transactionId: '', invoiceNumber: '',
     remarks: '', notes: '', attachmentName: '', status: 'Pending',
-    grade: '', department: '', expenseType: 'Operational'
+    department: '', expenseType: 'Operational'
   });
 
   useEffect(() => {
@@ -557,7 +557,6 @@ function AddExpenseView({ showToast, setExpenseView, onClose, onSuccess, isModal
         notes: editExpense.notes || '',
         attachmentName: editExpense.attachment || '',
         status: editExpense.status || 'Pending',
-        grade: editExpense.grade || '',
         department: editExpense.department || '',
         expenseType: editExpense.expenseType || 'Operational'
       });
@@ -602,11 +601,7 @@ function AddExpenseView({ showToast, setExpenseView, onClose, onSuccess, isModal
   useEffect(() => {
     const loadClassifications = async () => {
       try {
-        const [gradesData, deptsRes] = await Promise.all([
-          fetchActiveGrades(),
-          fetch('/api/grades/departments').then(res => res.json())
-        ]);
-        setGrades(gradesData || []);
+        const deptsRes = await fetch('/api/grades/departments').then(res => res.json());
         setDepartments(deptsRes || []);
       } catch (err) {
         console.error('Failed loading classification details for new expense form:', err);
@@ -672,7 +667,6 @@ function AddExpenseView({ showToast, setExpenseView, onClose, onSuccess, isModal
       remarks: form.remarks,
       notes: form.notes,
       attachment: form.paymentMethod === 'UPI' ? (form.attachmentName || 'screenshot.png') : '',
-      grade: '',
       department: '',
       expenseType: 'Operational'
     };
@@ -700,7 +694,7 @@ function AddExpenseView({ showToast, setExpenseView, onClose, onSuccess, isModal
             vendorName: '', vendorContact: '', vendorEmail: '', vendorAddress: '',
             paymentMethod: 'Cash', transactionId: '', invoiceNumber: '',
             remarks: '', notes: '', attachmentName: '', status: 'Pending',
-            grade: '', department: '', expenseType: 'Operational'
+            department: '', expenseType: 'Operational'
           });
         }
         if (onSuccess) {
@@ -1313,12 +1307,10 @@ function TrackerView({ expenses, income, fetchExpenses, showToast, budgetLimit, 
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('All');
-  const [gradeFilter, setGradeFilter] = useState('All');
   const [departmentFilter, setDepartmentFilter] = useState('All');
   const [expenseTypeFilter, setExpenseTypeFilter] = useState('All');
 
   // Classification Lists (from backend API)
-  const [grades, setGrades] = useState([]);
   const [departments, setDepartments] = useState([]);
 
   // Interaction Hover States for SVGs
@@ -1336,12 +1328,8 @@ function TrackerView({ expenses, income, fetchExpenses, showToast, budgetLimit, 
     let active = true;
     const loadClassifications = async () => {
       try {
-        const [gradesData, deptsRes] = await Promise.all([
-          fetchActiveGrades(),
-          fetch('/api/grades/departments').then(res => res.json())
-        ]);
+        const deptsRes = await fetch('/api/grades/departments').then(res => res.json());
         if (active) {
-          setGrades(gradesData || []);
           setDepartments(deptsRes || []);
         }
       } catch (err) {
@@ -1369,7 +1357,6 @@ function TrackerView({ expenses, income, fetchExpenses, showToast, budgetLimit, 
     if (startDate && e.date < startDate) return false;
     if (endDate && e.date > endDate) return false;
     if (categoryFilter !== 'All' && e.category !== categoryFilter) return false;
-    if (gradeFilter !== 'All' && e.grade !== gradeFilter) return false;
     if (departmentFilter !== 'All' && e.department !== departmentFilter) return false;
     if (expenseTypeFilter !== 'All' && e.expenseType !== expenseTypeFilter) return false;
     return true;
@@ -1476,7 +1463,6 @@ function TrackerView({ expenses, income, fetchExpenses, showToast, budgetLimit, 
     setStartDate('');
     setEndDate('');
     setCategoryFilter('All');
-    setGradeFilter('All');
     setDepartmentFilter('All');
     setExpenseTypeFilter('All');
     setHistoryPage(1);
@@ -2273,7 +2259,6 @@ function TrackerView({ expenses, income, fetchExpenses, showToast, budgetLimit, 
                 ['Total Requisition Value', `₹${selectedVoucher.amount?.toLocaleString()}`],
                 ['Filing Date', selectedVoucher.date],
                 ['Payment Type', selectedVoucher.expenseType || 'Operational'],
-                ['School Grade Alloc', selectedVoucher.grade || 'Global / Schoolwide'],
                 ['Department Owner', selectedVoucher.department || 'Global / Schoolwide'],
                 ['Vendor Business Name', selectedVoucher.vendor?.name || 'Various / Internal'],
                 ['Vendor Contact Mob', selectedVoucher.vendor?.contact || '—'],
@@ -2804,7 +2789,6 @@ function HistoryView({ expenses, expenseHistory, fetchExpenses, showToast, budge
                 ['Total Requisition Value', `₹${selectedExpense.amount?.toLocaleString()}`],
                 ['Filing Date', selectedExpense.date],
                 ['Payment Type', selectedExpense.expenseType || 'Operational'],
-                ['School Grade Alloc', selectedExpense.grade || 'Global / Schoolwide'],
                 ['Department Owner', selectedExpense.department || 'Global / Schoolwide'],
                 ['Vendor Business Name', selectedExpense.vendor?.name || 'Various / Internal'],
                 ['Vendor Contact Mob', selectedExpense.vendor?.contact || '—'],
