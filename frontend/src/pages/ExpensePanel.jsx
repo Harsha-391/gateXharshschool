@@ -42,12 +42,28 @@ export default function ExpensePanel({ setActiveView, onLogout, expenseView, set
     }
     setError(null);
     Promise.all([
-      fetch('/api/account-management/expenses').then(res => {
-        if (!res.ok) throw new Error('Failed to retrieve expenses database records.');
+      fetch('/api/account-management/expenses').then(async res => {
+        if (!res.ok) {
+          const text = await res.text();
+          try {
+            const errData = JSON.parse(text);
+            throw new Error(errData.details || errData.error || 'Failed to retrieve expenses database records.');
+          } catch (e) {
+            throw new Error(text || 'Failed to retrieve expenses database records.');
+          }
+        }
         return res.json();
       }),
-      fetch('/api/account-management/expense-history').then(res => {
-        if (!res.ok) throw new Error('Failed to retrieve expense history database records.');
+      fetch('/api/account-management/expense-history').then(async res => {
+        if (!res.ok) {
+          const text = await res.text();
+          try {
+            const errData = JSON.parse(text);
+            throw new Error(errData.details || errData.error || 'Failed to retrieve expense history database records.');
+          } catch (e) {
+            throw new Error(text || 'Failed to retrieve expense history database records.');
+          }
+        }
         return res.json();
       })
     ])
