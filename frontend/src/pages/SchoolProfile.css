@@ -1,4 +1,4 @@
-﻿/* School Profile (Platform Admin) Page SaaS Styling */
+/* School Profile (Platform Admin) Page SaaS Styling */
 
 /* Overwrite hardcoded white backgrounds in modals and result card boxes for Dark Theme compatibility */
 [data-theme='dark'] div[style*="background: '#ffffff'"],
@@ -14,9 +14,19 @@
 /* School Cards grid */
 .school-grid-layout {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
   gap: 24px;
   margin-top: 20px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.school-grid-layout > * {
+  min-width: 0 !important;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
 }
 
 /* Sleek interactive school tenant card */
@@ -32,6 +42,10 @@
   gap: 16px;
   position: relative;
   overflow: hidden;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .school-card-box:hover {
@@ -55,4 +69,104 @@
   color: hsl(var(--color-primary));
   border: 1px solid rgba(hsl(var(--color-primary)), 0.2);
 }
+
+/* SaaS Intelligence Grid & Section Cards */
+.saas-home-sections-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.saas-home-sections-grid > * {
+  min-width: 0 !important;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+.saas-home-section-card {
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  border-radius: 16px;
+  border: 1px solid var(--border-glass);
+  background: var(--bg-card);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Mobile & Tablet Responsive Layout Rules */
+@media (max-width: 1024px) {
+  .saas-home-sections-grid {
+    grid-template-columns: 1fr !important;
+    gap: 16px !important;
+    width: 100% !important;
+  }
+  .saas-home-section-card {
+    padding: 20px 18px !important;
+  }
+  .saas-deck-grid {
+    grid-template-columns: 1fr !important;
+    gap: 20px !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .saas-home-sections-grid {
+    grid-template-columns: 1fr !important;
+    gap: 16px !important;
+    width: 100% !important;
+  }
+  .saas-home-section-card {
+    padding: 16px 14px !important;
+    gap: 14px !important;
+    width: 100% !important;
+  }
+  .school-grid-layout {
+    grid-template-columns: 100% !important;
+    gap: 16px !important;
+  }
+  .school-card-box {
+    padding: 16px 14px !important;
+    border-radius: 16px !important;
+  }
+  .saas-deck-grid {
+    grid-template-columns: 1fr !important;
+    gap: 16px !important;
+    width: 100% !important;
+  }
+  .saas-metrics-subgrid {
+    grid-template-columns: 1fr !important;
+    gap: 14px !important;
+    width: 100% !important;
+  }
+  .saas-kpi-grid {
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
+    width: 100% !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .saas-home-sections-grid {
+    grid-template-columns: 100% !important;
+    gap: 14px !important;
+    width: 100% !important;
+  }
+  .saas-home-section-card {
+    padding: 14px 12px !important;
+    gap: 12px !important;
+  }
+  .school-card-box {
+    padding: 14px 12px !important;
+  }
+}
+
 

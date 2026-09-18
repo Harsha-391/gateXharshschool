@@ -5,9 +5,9 @@
   "main": "server.js",
   "type": "module",
   "scripts": {
-    "prestart": "npx kill-port 5000",
+    "prestart": "npx -y kill-port 5000",
     "start": "node server.js",
-    "predev": "npx kill-port 5000",
+    "predev": "npx -y kill-port 5000",
     "dev": "nodemon --ignore db.json --ignore tenants/ --ignore uploads/ --ignore scratch/ --ignore backups/ server.js",
     "seed": "node seed.js",
     "seed:sql": "node seedSql.js",
@@ -15,6 +15,7 @@
     "test-mysql": "node test_mysql.js"
   },
   "dependencies": {
+    "aether-academy-erp": "file:..",
     "bcrypt": "^6.0.0",
     "compression": "^1.8.1",
     "cors": "^2.8.6",

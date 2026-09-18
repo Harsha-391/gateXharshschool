@@ -105,10 +105,11 @@ window.fetch = function (url, options = {}) {
     if (pathname.startsWith('/api/platform/')) {
       delete options.headers['x-tenant-id'];
     } else if (!options.headers['x-tenant-id'] || options.headers['x-tenant-id'] === 'default') {
-      const host = window.location.hostname;
+      const host = window.location.hostname.toLowerCase();
       const isIp = /^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$/.test(host);
+      const isTunnel = host.endsWith('.lhr.life') || host.endsWith('.loca.lt') || host.endsWith('.ngrok-free.app') || host.endsWith('.ngrok.io') || host.endsWith('.trycloudflare.com') || host.endsWith('.pagekite.me') || host.endsWith('.serveo.net') || host.endsWith('.pinggy.link') || host.endsWith('.bore.pub') || host.endsWith('.zrok.io') || host.endsWith('.vercel.app') || host.includes('tunnel');
       let tenant = null;
-      if (!isIp) {
+      if (!isIp && !isTunnel) {
         const parts = host.split('.');
         if (parts.length > 2 || (parts.length === 2 && parts[1] === 'localhost')) {
           tenant = parts[0];
@@ -118,9 +119,9 @@ window.fetch = function (url, options = {}) {
       }
       if (!tenant) {
         const urlParams = new URLSearchParams(window.location.search);
-        tenant = urlParams.get('tenant') || localStorage.getItem('tenant_subdomain');
+        tenant = urlParams.get('tenant') || localStorage.getItem('tenant_subdomain') || sessionStorage.getItem('tenant_subdomain');
       }
-      if (tenant && tenant !== 'www' && tenant !== 'platform') {
+      if (tenant && !['www', 'platform', 'localhost', 'default', 'null', 'undefined'].includes(tenant.toLowerCase())) {
         options.headers['x-tenant-id'] = tenant;
       }
     }
@@ -276,7 +277,9 @@ export default function App() {
     }
   };
 
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(() => {
+    return typeof window !== 'undefined' ? window.innerWidth <= 900 : false;
+  });
   const [mobileOpen, setMobileOpen] = useState(false);
   const [theme, setTheme] = useState('light');
   const [schoolDetails, setSchoolDetails] = useState({ name: 'Aether Academy', principal: 'Alex Devlin' });
@@ -367,16 +370,26 @@ export default function App() {
   const currentSessionId = useRef(localStorage.getItem('active_session_id') || null);
 
   const getActiveTenant = () => {
-    const host = window.location.hostname;
-    const parts = host.split('.');
-    if (parts.length > 2 || (parts.length === 2 && parts[1] === 'localhost')) {
-      return parts[0];
+    const host = window.location.hostname.toLowerCase();
+    const isIp = /^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$/.test(host);
+    const isTunnel = host.endsWith('.lhr.life') || host.endsWith('.loca.lt') || host.endsWith('.ngrok-free.app') || host.endsWith('.ngrok.io') || host.endsWith('.trycloudflare.com') || host.endsWith('.pagekite.me') || host.endsWith('.serveo.net') || host.endsWith('.pinggy.link') || host.endsWith('.bore.pub') || host.endsWith('.zrok.io') || host.endsWith('.vercel.app') || host.includes('tunnel');
+    let tenant = null;
+    if (!isIp && !isTunnel) {
+      const parts = host.split('.');
+      if (parts.length > 2 || (parts.length === 2 && parts[1] === 'localhost')) {
+        tenant = parts[0];
+      } else if (parts.length === 1 && !['localhost', 'platform', 'www', 'admin'].includes(parts[0].toLowerCase())) {
+        tenant = parts[0];
+      }
     }
-    if (parts.length === 1 && !['localhost', 'platform', 'www', 'admin'].includes(parts[0].toLowerCase())) {
-      return parts[0];
+    if (!tenant) {
+      const urlParams = new URLSearchParams(window.location.search);
+      tenant = urlParams.get('tenant') || localStorage.getItem('tenant_subdomain') || sessionStorage.getItem('tenant_subdomain') || null;
     }
-    const urlParams = new URLSearchParams(window.location.search);
-    return urlParams.get('tenant') || localStorage.getItem('tenant_subdomain') || null;
+    if (tenant && ['www', 'platform', 'localhost', 'default', 'null', 'undefined'].includes(tenant.toLowerCase())) {
+      tenant = null;
+    }
+    return tenant;
   };
 
   const fetchSchoolDetails = async () => {
@@ -1174,19 +1187,7 @@ export default function App() {
   }
 
   if (!isLoggedIn) {
-    const host = window.location.hostname;
-    const parts = host.split('.');
-    let loginTenant = null;
-    if (parts.length > 2 || (parts.length === 2 && parts[1] === 'localhost') || (parts.length === 1 && !['localhost', 'platform', 'www', 'admin'].includes(parts[0].toLowerCase()))) {
-      loginTenant = parts[0];
-    } else {
-      const urlParams = new URLSearchParams(window.location.search);
-      loginTenant = urlParams.get('tenant') || null;
-    }
-
-    if (!loginTenant) {
-      localStorage.removeItem('tenant_subdomain');
-    }
+    const loginTenant = getActiveTenant();
 
     return (
       <Suspense fallback={<SkeletonLoader type="page" />}>
@@ -1268,9 +1269,11 @@ export default function App() {
             left: 0,
             right: 0,
             bottom: 0,
-            background: 'rgba(0,0,0,0.3)',
-            backdropFilter: 'blur(4px)',
-            zIndex: 99,
+            background: 'rgba(15, 23, 42, 0.65)',
+            backdropFilter: 'blur(5px)',
+            WebkitBackdropFilter: 'blur(5px)',
+            zIndex: 999998,
+            transition: 'opacity 0.25s ease',
           }}
         />
       )}
@@ -1324,4 +1327,3 @@ export default function App() {
     </div>
   );
 }
-

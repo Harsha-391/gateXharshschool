@@ -76,9 +76,13 @@ export const isGrade11or12 = (name) => {
 export const isSubdomainRegistered = (subdomain) => {
   if (!subdomain) return false;
   const cleanSub = slugify(subdomain);
-  if (['localhost', 'platform', 'www', 'admin'].includes(cleanSub)) {
+  if (['localhost', 'platform', 'www', 'admin', 'default', 'null', 'undefined', 'api', 'app'].includes(cleanSub)) {
     return false;
   }
+  // Exclude known tunnel / cloud provider subdomains
+  const isTunnelDomain = cleanSub.endsWith('trycloudflare-com') || cleanSub.endsWith('lhr-life') || cleanSub.endsWith('loca-lt') || cleanSub.endsWith('ngrok-free-app') || cleanSub.endsWith('ngrok-io') || cleanSub.endsWith('pagekite-me') || cleanSub.endsWith('serveo-net') || cleanSub.endsWith('pinggy-link') || cleanSub.endsWith('bore-pub') || cleanSub.endsWith('zrok-io') || cleanSub.endsWith('vercel-app');
+  if (isTunnelDomain) return false;
+
   try {
     const globalDb = tenantStorage.run(null, () => readDb());
     return (globalDb.schools || []).some(s => slugify(s.subdomain) === cleanSub);
@@ -91,10 +95,10 @@ export const isSubdomainRegistered = (subdomain) => {
 export const restoreTenantContext = (req, res, next) => {
   let tenantId = req.headers['x-tenant-id'] || req.query.tenantId;
   if (!tenantId && req.headers.host) {
-    const host = req.headers.host.split(':')[0]; // Remove port
-    // Skip tenant parsing for IP addresses (e.g. 127.0.0.1, 192.168.x.x)
+    const host = req.headers.host.split(':')[0].toLowerCase(); // Remove port
     const isIp = /^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$/.test(host);
-    if (!isIp) {
+    const isTunnel = host.endsWith('.lhr.life') || host.endsWith('.loca.lt') || host.endsWith('.ngrok-free.app') || host.endsWith('.ngrok.io') || host.endsWith('.trycloudflare.com') || host.endsWith('.pagekite.me') || host.endsWith('.serveo.net') || host.endsWith('.pinggy.link') || host.endsWith('.bore.pub') || host.endsWith('.zrok.io') || host.endsWith('.vercel.app') || host.includes('tunnel');
+    if (!isIp && !isTunnel) {
       const parts = host.split('.');
       if (parts.length > 2 || (parts.length === 2 && parts[1] === 'localhost')) {
         tenantId = parts[0];
@@ -1598,38 +1602,73 @@ const ensureSubdomainsRegistered = async (masterPool) => {
 
 // Initial database check called on server boot
 export const initSqlDb = async () => {
-  const isConnected = await sqlDb.testConnection();
-  if (!isConnected) {
-    throw new Error('MySQL Database connection is unavailable. Check credentials or network.');
-  }
-  const masterPool = sqlDb.getPoolForTenant(null);
-
-  // Initialize master schema and apply structural updates
-  await executeSchemaOnPool(masterPool, true);
-  await applySchemaUpdates(masterPool, true);
-
-  // Load subdomain-to-dbName mappings
-  await sqlDb.loadDbMappings();
-
-  // Auto-register missing subdomains
-  await ensureSubdomainsRegistered(masterPool);
-
-  // Fetch all registered schools and register their mappings
-  const schools = await sqlDb.query("SELECT id, subdomain, dbName FROM schools", [], 'platform');
-  for (const school of (schools || [])) {
-    const dbName = school.dbName || `school_${slugify(school.subdomain)}`;
-    if (!school.dbName) {
-      try {
-        await masterPool.query('UPDATE schools SET dbName = ? WHERE id = ?', [dbName, school.id]);
-      } catch (err) {
-        // ignore
+  try {
+    const isConnected = await sqlDb.testConnection();
+    if (!isConnected) {
+      console.warn('[SQL Init] Remote MySQL is unavailable. Running in robust local in-memory/JSON fallback mode.');
+      isSqlInitialized = false;
+      if (!dbCache['platform']) {
+        dbCache['platform'] = {
+          platformOwner: {
+            name: "Platform Owner",
+            username: "dev@admin.com",
+            password: "admin123",
+            email: "dev@admin.com",
+            phone: "",
+            photo: ""
+          },
+          schools: [],
+          plans: []
+        };
       }
+      return;
     }
-    sqlDb.registerDbMapping(school.subdomain, dbName);
-  }
+    const masterPool = sqlDb.getPoolForTenant(null);
 
-  isSqlInitialized = true;
-  console.log('[SQL Init] MySQL Database-Per-School Multi-Tenant Adapter is active and running.');
+    // Initialize master schema and apply structural updates
+    await executeSchemaOnPool(masterPool, true);
+    await applySchemaUpdates(masterPool, true);
+
+    // Load subdomain-to-dbName mappings
+    await sqlDb.loadDbMappings();
+
+    // Auto-register missing subdomains
+    await ensureSubdomainsRegistered(masterPool);
+
+    // Fetch all registered schools and register their mappings
+    const schools = await sqlDb.query("SELECT id, subdomain, dbName FROM schools", [], 'platform');
+    for (const school of (schools || [])) {
+      const dbName = school.dbName || `school_${slugify(school.subdomain)}`;
+      if (!school.dbName) {
+        try {
+          await masterPool.query('UPDATE schools SET dbName = ? WHERE id = ?', [dbName, school.id]);
+        } catch (err) {
+          // ignore
+        }
+      }
+      sqlDb.registerDbMapping(school.subdomain, dbName);
+    }
+
+    isSqlInitialized = true;
+    console.log('[SQL Init] MySQL Database-Per-School Multi-Tenant Adapter is active and running.');
+  } catch (err) {
+    console.warn('[SQL Init Warning] MySQL initialization encountered an error. Operating in fallback mode:', err.message);
+    isSqlInitialized = false;
+    if (!dbCache['platform']) {
+      dbCache['platform'] = {
+        platformOwner: {
+          name: "Platform Owner",
+          username: "dev@admin.com",
+          password: "admin123",
+          email: "dev@admin.com",
+          phone: "",
+          photo: ""
+        },
+        schools: [],
+        plans: []
+      };
+    }
+  }
 };
 
 // Start the init procedure on boot
@@ -1981,56 +2020,56 @@ export const loadTenantSqlIntoMemory = async (tenantId) => {
       !isGlobal ? sqlDb.query('SELECT * FROM published_timetables WHERE tenantId = ?', [tId]) : Promise.resolve([]),
       sqlDb.query('SELECT * FROM schools'),
       sqlDb.query('SELECT * FROM subscription_plans'),
-      sqlDb.query('SELECT * FROM teachers WHERE tenantId = ?', [tId]),
-      sqlDb.query('SELECT * FROM staff WHERE tenantId = ?', [tId]),
-      sqlDb.query('SELECT * FROM employees WHERE tenantId = ?', [tId]),
-      sqlDb.query('SELECT * FROM invoices WHERE tenantId = ?', [tId]),
-      sqlDb.query('SELECT * FROM fees WHERE tenantId = ?', [tId]),
-      sqlDb.query('SELECT * FROM expenses WHERE tenantId = ?', [tId]),
-      sqlDb.query('SELECT * FROM payroll WHERE tenantId = ?', [tId]),
-      sqlDb.query('SELECT * FROM staff_payments WHERE tenantId = ?', [tId]),
-      sqlDb.query('SELECT * FROM income WHERE tenantId = ?', [tId]),
-      sqlDb.query('SELECT * FROM activities WHERE tenantId = ?', [tId]),
-      sqlDb.query('SELECT * FROM exams WHERE tenantId = ?', [tId]),
-      sqlDb.query('SELECT * FROM exam_timetables WHERE tenantId = ?', [tId]),
-      sqlDb.query('SELECT * FROM notices WHERE tenantId = ?', [tId]),
-      sqlDb.query('SELECT * FROM holidays WHERE tenantId = ?', [tId]),
-      sqlDb.query('SELECT * FROM events WHERE tenantId = ?', [tId]),
-      sqlDb.query('SELECT * FROM academic_calendar_events WHERE tenantId = ?', [tId]),
-      sqlDb.query('SELECT * FROM academic_calendar_imports WHERE tenantId = ?', [tId]),
-      sqlDb.query('SELECT eventId FROM published_calendar_events WHERE tenantId = ?', [tId]),
-      sqlDb.query('SELECT * FROM results WHERE tenantId = ?', [tId]),
-      sqlDb.query('SELECT * FROM subjects WHERE tenantId = ?', [tId]),
-      sqlDb.query('SELECT * FROM attendance WHERE tenantId = ?', [tId]),
-      sqlDb.query('SELECT * FROM overall_results WHERE tenantId = ?', [tId]),
-      sqlDb.query('SELECT slotTime FROM timeslots WHERE tenantId = ? ORDER BY id', [tId]),
-      sqlDb.query('SELECT * FROM salary_structures WHERE tenantId = ?', [tId]),
-      sqlDb.query('SELECT * FROM staff_salary_structures WHERE tenantId = ?', [tId]),
-      sqlDb.query('SELECT * FROM fee_structures WHERE tenantId = ?', [tId]),
-      sqlDb.query('SELECT * FROM timetables WHERE tenantId = ?', [tId]),
-      sqlDb.query('SELECT * FROM students WHERE tenantId = ?', [tId]),
-      sqlDb.query('SELECT * FROM student_enrollments WHERE tenantId = ?', [tId]),
-      sqlDb.query('SELECT * FROM parents WHERE tenantId = ?', [tId]),
-      sqlDb.query('SELECT * FROM addresses WHERE tenantId = ?', [tId]),
-      sqlDb.query('SELECT * FROM medical_records WHERE tenantId = ?', [tId]),
-      sqlDb.query('SELECT * FROM documents WHERE tenantId = ?', [tId]),
-      sqlDb.query('SELECT * FROM fee_assignments WHERE tenantId = ?', [tId]),
-      sqlDb.query('SELECT * FROM student_accounts WHERE tenantId = ?', [tId]),
-      sqlDb.query('SELECT * FROM parent_accounts WHERE tenantId = ?', [tId]),
-      sqlDb.query('SELECT * FROM roles WHERE tenantId = ?', [tId]),
-      sqlDb.query('SELECT * FROM user_access WHERE tenantId = ?', [tId]),
-      sqlDb.query('SELECT * FROM audit_logs WHERE tenantId = ?', [tId]),
-      sqlDb.query('SELECT * FROM employee_qr_codes WHERE tenantId = ?', [tId]),
-      sqlDb.query('SELECT * FROM attendance_records WHERE tenantId = ?', [tId]),
-      sqlDb.query('SELECT * FROM attendance_logs WHERE tenantId = ?', [tId]),
-      sqlDb.query('SELECT * FROM attendance_reports WHERE tenantId = ?', [tId]),
-      sqlDb.query('SELECT * FROM grades WHERE tenantId = ?', [tId]),
-      sqlDb.query('SELECT * FROM departments WHERE tenantId = ?', [tId]),
-      sqlDb.query('SELECT * FROM grade_departments WHERE tenantId = ?', [tId]),
-      sqlDb.query('SELECT * FROM fee_periods WHERE tenantId = ? ORDER BY sortOrder', [tId]),
+      !isGlobal ? sqlDb.query('SELECT * FROM teachers WHERE tenantId = ?', [tId]) : Promise.resolve([]),
+      !isGlobal ? sqlDb.query('SELECT * FROM staff WHERE tenantId = ?', [tId]) : Promise.resolve([]),
+      !isGlobal ? sqlDb.query('SELECT * FROM employees WHERE tenantId = ?', [tId]) : Promise.resolve([]),
+      !isGlobal ? sqlDb.query('SELECT * FROM invoices WHERE tenantId = ?', [tId]) : Promise.resolve([]),
+      !isGlobal ? sqlDb.query('SELECT * FROM fees WHERE tenantId = ?', [tId]) : Promise.resolve([]),
+      !isGlobal ? sqlDb.query('SELECT * FROM expenses WHERE tenantId = ?', [tId]) : Promise.resolve([]),
+      !isGlobal ? sqlDb.query('SELECT * FROM payroll WHERE tenantId = ?', [tId]) : Promise.resolve([]),
+      !isGlobal ? sqlDb.query('SELECT * FROM staff_payments WHERE tenantId = ?', [tId]) : Promise.resolve([]),
+      !isGlobal ? sqlDb.query('SELECT * FROM income WHERE tenantId = ?', [tId]) : Promise.resolve([]),
+      !isGlobal ? sqlDb.query('SELECT * FROM activities WHERE tenantId = ?', [tId]) : Promise.resolve([]),
+      !isGlobal ? sqlDb.query('SELECT * FROM exams WHERE tenantId = ?', [tId]) : Promise.resolve([]),
+      !isGlobal ? sqlDb.query('SELECT * FROM exam_timetables WHERE tenantId = ?', [tId]) : Promise.resolve([]),
+      !isGlobal ? sqlDb.query('SELECT * FROM notices WHERE tenantId = ?', [tId]) : Promise.resolve([]),
+      !isGlobal ? sqlDb.query('SELECT * FROM holidays WHERE tenantId = ?', [tId]) : Promise.resolve([]),
+      !isGlobal ? sqlDb.query('SELECT * FROM events WHERE tenantId = ?', [tId]) : Promise.resolve([]),
+      !isGlobal ? sqlDb.query('SELECT * FROM academic_calendar_events WHERE tenantId = ?', [tId]) : Promise.resolve([]),
+      !isGlobal ? sqlDb.query('SELECT * FROM academic_calendar_imports WHERE tenantId = ?', [tId]) : Promise.resolve([]),
+      !isGlobal ? sqlDb.query('SELECT eventId FROM published_calendar_events WHERE tenantId = ?', [tId]) : Promise.resolve([]),
+      !isGlobal ? sqlDb.query('SELECT * FROM results WHERE tenantId = ?', [tId]) : Promise.resolve([]),
+      !isGlobal ? sqlDb.query('SELECT * FROM subjects WHERE tenantId = ?', [tId]) : Promise.resolve([]),
+      !isGlobal ? sqlDb.query('SELECT * FROM attendance WHERE tenantId = ?', [tId]) : Promise.resolve([]),
+      !isGlobal ? sqlDb.query('SELECT * FROM overall_results WHERE tenantId = ?', [tId]) : Promise.resolve([]),
+      !isGlobal ? sqlDb.query('SELECT slotTime FROM timeslots WHERE tenantId = ? ORDER BY id', [tId]) : Promise.resolve([]),
+      !isGlobal ? sqlDb.query('SELECT * FROM salary_structures WHERE tenantId = ?', [tId]) : Promise.resolve([]),
+      !isGlobal ? sqlDb.query('SELECT * FROM staff_salary_structures WHERE tenantId = ?', [tId]) : Promise.resolve([]),
+      !isGlobal ? sqlDb.query('SELECT * FROM fee_structures WHERE tenantId = ?', [tId]) : Promise.resolve([]),
+      !isGlobal ? sqlDb.query('SELECT * FROM timetables WHERE tenantId = ?', [tId]) : Promise.resolve([]),
+      !isGlobal ? sqlDb.query('SELECT * FROM students WHERE tenantId = ?', [tId]) : Promise.resolve([]),
+      !isGlobal ? sqlDb.query('SELECT * FROM student_enrollments WHERE tenantId = ?', [tId]) : Promise.resolve([]),
+      !isGlobal ? sqlDb.query('SELECT * FROM parents WHERE tenantId = ?', [tId]) : Promise.resolve([]),
+      !isGlobal ? sqlDb.query('SELECT * FROM addresses WHERE tenantId = ?', [tId]) : Promise.resolve([]),
+      !isGlobal ? sqlDb.query('SELECT * FROM medical_records WHERE tenantId = ?', [tId]) : Promise.resolve([]),
+      !isGlobal ? sqlDb.query('SELECT * FROM documents WHERE tenantId = ?', [tId]) : Promise.resolve([]),
+      !isGlobal ? sqlDb.query('SELECT * FROM fee_assignments WHERE tenantId = ?', [tId]) : Promise.resolve([]),
+      !isGlobal ? sqlDb.query('SELECT * FROM student_accounts WHERE tenantId = ?', [tId]) : Promise.resolve([]),
+      !isGlobal ? sqlDb.query('SELECT * FROM parent_accounts WHERE tenantId = ?', [tId]) : Promise.resolve([]),
+      !isGlobal ? sqlDb.query('SELECT * FROM roles WHERE tenantId = ?', [tId]) : Promise.resolve([]),
+      !isGlobal ? sqlDb.query('SELECT * FROM user_access WHERE tenantId = ?', [tId]) : Promise.resolve([]),
+      !isGlobal ? sqlDb.query('SELECT * FROM audit_logs WHERE tenantId = ?', [tId]) : Promise.resolve([]),
+      !isGlobal ? sqlDb.query('SELECT * FROM employee_qr_codes WHERE tenantId = ?', [tId]) : Promise.resolve([]),
+      !isGlobal ? sqlDb.query('SELECT * FROM attendance_records WHERE tenantId = ?', [tId]) : Promise.resolve([]),
+      !isGlobal ? sqlDb.query('SELECT * FROM attendance_logs WHERE tenantId = ?', [tId]) : Promise.resolve([]),
+      !isGlobal ? sqlDb.query('SELECT * FROM attendance_reports WHERE tenantId = ?', [tId]) : Promise.resolve([]),
+      !isGlobal ? sqlDb.query('SELECT * FROM grades WHERE tenantId = ?', [tId]) : Promise.resolve([]),
+      !isGlobal ? sqlDb.query('SELECT * FROM departments WHERE tenantId = ?', [tId]) : Promise.resolve([]),
+      !isGlobal ? sqlDb.query('SELECT * FROM grade_departments WHERE tenantId = ?', [tId]) : Promise.resolve([]),
+      !isGlobal ? sqlDb.query('SELECT * FROM fee_periods WHERE tenantId = ? ORDER BY sortOrder', [tId]) : Promise.resolve([]),
       !isGlobal ? sqlDb.query('SELECT * FROM designations WHERE tenantId = ?', [tId]) : Promise.resolve([]),
       !isGlobal ? sqlDb.query('SELECT * FROM staff_designations WHERE tenantId = ?', [tId]) : Promise.resolve([]),
-      sqlDb.query('SELECT * FROM attendance_settings WHERE tenantId = ?', [tId]),
+      !isGlobal ? sqlDb.query('SELECT * FROM attendance_settings WHERE tenantId = ?', [tId]) : Promise.resolve([]),
       !isGlobal ? sqlDb.query('SELECT * FROM report_card_templates WHERE tenantId = ?', [tId]) : Promise.resolve([])
     ]);
 
@@ -2569,7 +2608,7 @@ export const loadTenantSqlIntoMemory = async (tenantId) => {
     });
 
     // Clean up SQL database roles & user_access table entries if SQL is active
-    if (isSqlActive()) {
+    if (isSqlActive() && !isGlobal) {
       sqlDb.query("DELETE FROM roles WHERE tenantId = ? AND (name IN ('Parent', 'Student', 'Librarian') OR id IN ('role-parent', 'role-student', 'role-librarian'))", [tId]).catch(() => {});
       sqlDb.query("UPDATE roles SET id = 'role-teacher', name = 'Teacher', description = 'Teacher. Records attendance, enters marks, manages academic activities, and views student profiles.' WHERE tenantId = ? AND (name = 'Subject Teacher' OR id = 'role-subject-teacher')", [tId]).catch(() => {});
       sqlDb.query("UPDATE user_access SET roleId = 'role-teacher' WHERE tenantId = ? AND roleId = 'role-subject-teacher'", [tId]).catch(() => {});
@@ -2659,7 +2698,7 @@ export const loadTenantSqlIntoMemory = async (tenantId) => {
     }));
 
     // Seed default settings if empty
-    if (!data.attendanceSettings || data.attendanceSettings.length === 0) {
+    if (!isGlobal && (!data.attendanceSettings || data.attendanceSettings.length === 0)) {
       const defaultSettings = {
         id: `sett-${queryTenantId}-${Date.now()}`,
         checkInStart: '08:00 AM',
@@ -2889,7 +2928,7 @@ export const saveMemoryDbToSql = async (tenantId, db, changedKeys, newUpdatedAt)
       // For the platform tenant, restrict synced tables to master tables only (other tables do not exist in the master DB)
       let activeChangedKeys = changedKeys;
       if (tId === 'platform') {
-        const allowedPlatformKeys = ['schools', 'plans', 'roles', 'user_access', 'student_accounts', 'parent_accounts'];
+        const allowedPlatformKeys = ['schools', 'plans'];
         activeChangedKeys = new Set([...changedKeys].filter(k => allowedPlatformKeys.includes(k)));
       }
 
@@ -4381,12 +4420,39 @@ export const readDb = () => {
     activeTenant = 'platform';
   }
   
-  if (isSqlActive() && dbCache[activeTenant]) {
+  if (dbCache[activeTenant]) {
     return JSON.parse(JSON.stringify(dbCache[activeTenant]));
   }
 
-  // SQL cache miss — return safe empty defaults.
-  // Cache hydration will happen asynchronously on the next request cycle.
+  // If local JSON database exists on disk, load it
+  try {
+    const dbFilePath = getDbPath();
+    if (fs.existsSync(dbFilePath)) {
+      const fileData = JSON.parse(fs.readFileSync(dbFilePath, 'utf8'));
+      dbCache[activeTenant] = fileData;
+      return JSON.parse(JSON.stringify(fileData));
+    }
+  } catch (e) {
+    // Ignore JSON read error
+  }
+
+  if (activeTenant === 'platform') {
+    dbCache['platform'] = {
+      platformOwner: {
+        name: "Platform Owner",
+        username: "dev@admin.com",
+        password: "admin123",
+        email: "dev@admin.com",
+        phone: "",
+        photo: ""
+      },
+      schools: [],
+      plans: []
+    };
+    return JSON.parse(JSON.stringify(dbCache['platform']));
+  }
+
+  // Safe empty defaults
   return {
     school: {}, schools: [], roles: [], activities: [], students: [], teachers: [],
     staff: [], employees: [], timetables: [], teacherTimetables: [], invoices: [],

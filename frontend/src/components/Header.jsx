@@ -14,7 +14,8 @@ import {
   Calculator,
   Wallet,
   UserCog,
-  UserCheck
+  UserCheck,
+  X
 } from 'lucide-react';
 
 export default function Header({ 
@@ -210,8 +211,8 @@ export default function Header({
   return (
     <header className="app-header animate-fade-in">
       <div className="header-left">
-        {/* Toggle button - only show when sidebar is collapsed */}
-        {isCollapsed && !mobileOpen && (
+        {/* Toggle button - only show when sidebar is collapsed or on mobile */}
+        {(isCollapsed || (typeof window !== 'undefined' && window.innerWidth <= 900)) && !mobileOpen && (
           <button 
             onClick={() => {
               if (window.innerWidth <= 900) {
@@ -275,65 +276,64 @@ export default function Header({
           </button>
 
           {showNotifications && (
-            <div className="glass-panel" style={{
-              position: 'absolute',
-              top: '52px',
-              right: 0,
-              width: '320px',
-              padding: '16px',
-              zIndex: 999,
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '12px',
-              background: 'var(--bg-elevated)',
-              boxShadow: 'var(--shadow-lg)',
-              borderRadius: '12px',
-              border: '1px solid var(--border-glass)'
-            }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-glass)', paddingBottom: '8px' }}>
-                <span style={{ fontWeight: 700, fontSize: '0.9rem' }}>Notifications</span>
-                <span onClick={handleMarkAllRead} style={{ fontSize: '0.75rem', color: 'hsl(var(--color-primary))', cursor: 'pointer', fontWeight: 600 }}>Mark all read</span>
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '280px', overflowY: 'auto', paddingRight: '4px' }}>
-                {notifications.length > 0 ? (
-                  notifications.map(n => {
-                    const isUnread = !n.read || n.read === 0;
-                    return (
-                      <div 
-                        key={n.id} 
-                        onClick={() => handleNotificationClick(n)}
-                        style={{ 
-                          display: 'flex', 
-                          flexDirection: 'column', 
-                          gap: '4px', 
-                          padding: '10px', 
-                          borderRadius: '8px', 
-                          background: isUnread ? 'rgba(255, 107, 0, 0.08)' : 'transparent',
-                          border: isUnread ? '1px solid rgba(255, 107, 0, 0.15)' : '1px solid transparent',
-                          cursor: 'pointer',
-                          transition: 'all 0.2s ease'
-                        }}
-                      >
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <span style={{ fontSize: '0.8rem', fontWeight: isUnread ? 700 : 500, color: 'var(--text-main)' }}>{n.title}</span>
-                          {isUnread && <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'hsl(var(--color-primary))' }}></span>}
-                        </div>
-                        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', lineHeight: '1.3' }}>{n.message}</span>
-                        <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', marginTop: '2px', textAlign: 'right' }}>
-                          {new Date(n.createdAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
-                        </span>
-                      </div>
-                    );
-                  })
-                ) : (
-                  <div style={{ textAlign: 'center', padding: '24px 8px', color: 'var(--text-muted)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
-                    <Bell size={24} style={{ opacity: 0.5 }} />
-                    <span style={{ fontSize: '0.8rem', fontWeight: 600 }}>No new notifications</span>
-                    <span style={{ fontSize: '0.7rem' }}>You're all caught up!</span>
+            <>
+              <div 
+                className="notifications-backdrop" 
+                onClick={() => setShowNotifications(false)} 
+              />
+              <div className="notifications-dropdown glass-panel animate-fade-in">
+                <div className="notifications-header">
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Bell size={16} style={{ color: 'hsl(var(--color-primary))' }} />
+                    <span style={{ fontWeight: 700, fontSize: '0.92rem', color: 'var(--text-main)' }}>Notifications</span>
                   </div>
-                )}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    {notifications.some(n => !n.read || n.read === 0) && (
+                      <span onClick={handleMarkAllRead} className="mark-all-read-btn">
+                        Mark all read
+                      </span>
+                    )}
+                    <button 
+                      onClick={() => setShowNotifications(false)}
+                      className="notifications-close-btn"
+                      aria-label="Close notifications"
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
+                </div>
+
+                <div className="notifications-list">
+                  {notifications.length > 0 ? (
+                    notifications.map(n => {
+                      const isUnread = !n.read || n.read === 0;
+                      return (
+                        <div 
+                          key={n.id} 
+                          onClick={() => handleNotificationClick(n)}
+                          className={`notification-item ${isUnread ? 'unread' : ''}`}
+                        >
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
+                            <span className="notification-title">{n.title}</span>
+                            {isUnread && <span className="unread-dot" />}
+                          </div>
+                          <span className="notification-desc">{n.message}</span>
+                          <span className="notification-time">
+                            {new Date(n.createdAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <div className="notifications-empty">
+                      <Bell size={26} style={{ opacity: 0.4, color: 'var(--text-muted)' }} />
+                      <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-main)' }}>No new notifications</span>
+                      <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>You're all caught up!</span>
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
+            </>
           )}
         </div>
 

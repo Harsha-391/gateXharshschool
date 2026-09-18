@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, lazy, Suspense } from 'react';
+import React, { useState, useEffect, lazy, Suspense } from 'react';
 import './AdminPanel.css';
 import { 
   Users, 
@@ -590,7 +590,7 @@ export default function AdminPanel({ setActiveView, onLogout, adminView, setAdmi
           <div style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}>
 
             {/* Section Header */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div className="admin-overview-header-row">
               <div>
                 <h2 style={{ fontSize: '1.3rem', fontWeight: 800, margin: '0 0 4px 0', color: 'var(--text-main)' }}>
                   <span style={{ color: '#FF8C42' }}>Directory</span> Overview
@@ -599,6 +599,7 @@ export default function AdminPanel({ setActiveView, onLogout, adminView, setAdmi
               </div>
               <button
                 onClick={fetchOverviewStats}
+                className="admin-overview-refresh-btn"
                 style={{
                   display: 'flex', alignItems: 'center', gap: '6px',
                   padding: '8px 16px', borderRadius: '10px', fontSize: '0.82rem', fontWeight: 600,
@@ -612,143 +613,135 @@ export default function AdminPanel({ setActiveView, onLogout, adminView, setAdmi
               </button>
             </div>
 
-            {/* â”€â”€ ROW 1: Simple Count Cards â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px' }}>
+            {/* ── ROW 1: Simple Count Cards ──────────────────────── */}
+            <div className="admin-overview-counts-grid">
 
               {/* Total Students */}
               <div
-                className="glass-panel"
+                className="glass-panel admin-overview-count-card"
                 onClick={() => setAdminView('students')}
                 style={{
-                  cursor: 'pointer', borderRadius: '16px', padding: '24px 20px',
+                  cursor: 'pointer', borderRadius: '16px',
                   border: '1px solid rgba(255, 107, 0, 0.12)',
                   background: 'linear-gradient(135deg, var(--bg-card) 0%, rgba(255, 107, 0, 0.02) 100%)',
-                  display: 'flex', alignItems: 'center', gap: '18px',
+                  display: 'flex', alignItems: 'center',
                   transition: 'transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease'
                 }}
                 onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = '0 10px 25px -5px rgba(255, 107, 0, 0.12)'; e.currentTarget.style.borderColor = '#FF8C42'; }}
                 onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = ''; e.currentTarget.style.borderColor = 'rgba(255, 107, 0, 0.12)'; }}
               >
-                <div style={{
-                  width: '52px', height: '52px', borderRadius: '14px', flexShrink: 0,
+                <div className="admin-overview-card-icon" style={{
                   background: 'rgba(255, 107, 0, 0.08)', color: '#FF8C42',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
                   border: '1px solid rgba(255, 107, 0, 0.15)'
                 }}>
-                  <Users size={24} />
+                  <Users size={22} />
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '4px' }}>Total Students</div>
+                  <div style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>Total Students</div>
                   {statsLoading
                     ? <div style={{ height: '28px', width: '50px', borderRadius: '6px', background: 'var(--border-glass)' }} />
-                    : <div style={{ fontSize: '2.2rem', fontWeight: 800, color: '#FF8C42', lineHeight: 1 }}>{overviewStats.students.total}</div>
+                    : <div className="admin-overview-card-num">{overviewStats.students.total}</div>
                   }
                 </div>
               </div>
 
               {/* Total Teachers */}
               <div
-                className="glass-panel"
+                className="glass-panel admin-overview-count-card"
                 onClick={() => setAdminView('teachers')}
                 style={{
-                  cursor: 'pointer', borderRadius: '16px', padding: '24px 20px',
+                  cursor: 'pointer', borderRadius: '16px',
                   border: '1px solid rgba(255, 107, 0, 0.12)',
                   background: 'linear-gradient(135deg, var(--bg-card) 0%, rgba(255, 107, 0, 0.02) 100%)',
-                  display: 'flex', alignItems: 'center', gap: '18px',
+                  display: 'flex', alignItems: 'center',
                   transition: 'transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease'
                 }}
                 onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = '0 10px 25px -5px rgba(255, 107, 0, 0.12)'; e.currentTarget.style.borderColor = '#FF8C42'; }}
                 onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = ''; e.currentTarget.style.borderColor = 'rgba(255, 107, 0, 0.12)'; }}
               >
-                <div style={{
-                  width: '52px', height: '52px', borderRadius: '14px', flexShrink: 0,
+                <div className="admin-overview-card-icon" style={{
                   background: 'rgba(255, 107, 0, 0.08)', color: '#FF8C42',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
                   border: '1px solid rgba(255, 107, 0, 0.15)'
                 }}>
-                  <UserCheck size={24} />
+                  <UserCheck size={22} />
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '4px' }}>Total Teachers</div>
+                  <div style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>Total Teachers</div>
                   {statsLoading
                     ? <div style={{ height: '28px', width: '50px', borderRadius: '6px', background: 'var(--border-glass)' }} />
-                    : <div style={{ fontSize: '2.2rem', fontWeight: 800, color: '#FF8C42', lineHeight: 1 }}>{overviewStats.teachers?.total || 0}</div>
+                    : <div className="admin-overview-card-num">{overviewStats.teachers?.total || 0}</div>
                   }
                 </div>
               </div>
 
               {/* Total Staff */}
               <div
-                className="glass-panel"
+                className="glass-panel admin-overview-count-card"
                 onClick={() => setAdminView('staff')}
                 style={{
-                  cursor: 'pointer', borderRadius: '16px', padding: '24px 20px',
+                  cursor: 'pointer', borderRadius: '16px',
                   border: '1px solid rgba(255, 107, 0, 0.12)',
                   background: 'linear-gradient(135deg, var(--bg-card) 0%, rgba(255, 107, 0, 0.02) 100%)',
-                  display: 'flex', alignItems: 'center', gap: '18px',
+                  display: 'flex', alignItems: 'center',
                   transition: 'transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease'
                 }}
                 onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = '0 10px 25px -5px rgba(255, 107, 0, 0.12)'; e.currentTarget.style.borderColor = '#FF8C42'; }}
                 onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = ''; e.currentTarget.style.borderColor = 'rgba(255, 107, 0, 0.12)'; }}
               >
-                <div style={{
-                  width: '52px', height: '52px', borderRadius: '14px', flexShrink: 0,
+                <div className="admin-overview-card-icon" style={{
                   background: 'rgba(255, 107, 0, 0.08)', color: '#FF8C42',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
                   border: '1px solid rgba(255, 107, 0, 0.15)'
                 }}>
-                  <UserCheck size={24} />
+                  <UserCheck size={22} />
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '4px' }}>Total Staff</div>
+                  <div style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>Total Staff</div>
                   {statsLoading
                     ? <div style={{ height: '28px', width: '50px', borderRadius: '6px', background: 'var(--border-glass)' }} />
-                    : <div style={{ fontSize: '2.2rem', fontWeight: 800, color: '#FF8C42', lineHeight: 1 }}>{overviewStats.staff.total}</div>
+                    : <div className="admin-overview-card-num">{overviewStats.staff.total}</div>
                   }
                 </div>
               </div>
 
               {/* Total Employees */}
               <div
-                className="glass-panel"
+                className="glass-panel admin-overview-count-card"
                 onClick={() => setAdminView('employees')}
                 style={{
-                  cursor: 'pointer', borderRadius: '16px', padding: '24px 20px',
+                  cursor: 'pointer', borderRadius: '16px',
                   border: '1px solid rgba(255, 107, 0, 0.12)',
                   background: 'linear-gradient(135deg, var(--bg-card) 0%, rgba(255, 107, 0, 0.02) 100%)',
-                  display: 'flex', alignItems: 'center', gap: '18px',
+                  display: 'flex', alignItems: 'center',
                   transition: 'transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease'
                 }}
                 onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = '0 10px 25px -5px rgba(255, 107, 0, 0.12)'; e.currentTarget.style.borderColor = '#FF8C42'; }}
                 onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = ''; e.currentTarget.style.borderColor = 'rgba(255, 107, 0, 0.12)'; }}
               >
-                <div style={{
-                  width: '52px', height: '52px', borderRadius: '14px', flexShrink: 0,
+                <div className="admin-overview-card-icon" style={{
                   background: 'rgba(255, 107, 0, 0.08)', color: '#FF8C42',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
                   border: '1px solid rgba(255, 107, 0, 0.15)'
                 }}>
-                  <UserCog size={24} />
+                  <UserCog size={22} />
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '4px' }}>Total Employees</div>
+                  <div style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>Total Employees</div>
                   {statsLoading
                     ? <div style={{ height: '28px', width: '50px', borderRadius: '6px', background: 'var(--border-glass)' }} />
-                    : <div style={{ fontSize: '2.2rem', fontWeight: 800, color: '#FF8C42', lineHeight: 1 }}>{overviewStats.employees.total}</div>
+                    : <div className="admin-overview-card-num">{overviewStats.employees.total}</div>
                   }
                 </div>
               </div>
 
             </div>
 
-            {/* â”€â”€ ROW 2: Gender Ratio Cards â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px' }}>
+            {/* ── ROW 2: Gender Ratio Cards ────────────────────────── */}
+            <div className="admin-overview-ratios-grid">
 
               {/* Students Ratio */}
               <div
-                className="glass-panel"
+                className="glass-panel admin-overview-ratio-card"
                 style={{
-                  borderRadius: '16px', padding: '20px',
+                  borderRadius: '16px',
                   border: '1px solid rgba(255, 107, 0, 0.12)',
                   background: 'linear-gradient(135deg, var(--bg-card) 0%, rgba(255, 107, 0, 0.02) 100%)',
                   display: 'flex', flexDirection: 'column', gap: '14px',
@@ -758,12 +751,12 @@ export default function AdminPanel({ setActiveView, onLogout, adminView, setAdmi
                 onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = '0 10px 25px -5px rgba(255, 107, 0, 0.12)'; e.currentTarget.style.borderColor = '#FF8C42'; }}
                 onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = ''; e.currentTarget.style.borderColor = 'rgba(255, 107, 0, 0.12)'; }}
               >
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+                  <div style={{ minWidth: 0 }}>
                     <div style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Students</div>
                     <div style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-main)', marginTop: '2px' }}>Gender Ratio</div>
                   </div>
-                  <div style={{ display: 'flex', gap: '8px' }}>
+                  <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
                     <div style={{ textAlign: 'center', padding: '6px 10px', borderRadius: '8px', background: 'rgba(59,130,246,0.08)', border: '1px solid rgba(59,130,246,0.15)' }}>
                       <div style={{ fontSize: '1.1rem', fontWeight: 800, color: '#3b82f6', lineHeight: 1 }}>{statsLoading ? '–' : overviewStats.students.male}</div>
                       <div style={{ fontSize: '0.6rem', color: 'var(--text-muted)', fontWeight: 600, marginTop: '2px' }}>Male</div>
@@ -783,9 +776,9 @@ export default function AdminPanel({ setActiveView, onLogout, adminView, setAdmi
 
               {/* Teachers Ratio */}
               <div
-                className="glass-panel"
+                className="glass-panel admin-overview-ratio-card"
                 style={{
-                  borderRadius: '16px', padding: '20px',
+                  borderRadius: '16px',
                   border: '1px solid rgba(255, 107, 0, 0.12)',
                   background: 'linear-gradient(135deg, var(--bg-card) 0%, rgba(255, 107, 0, 0.02) 100%)',
                   display: 'flex', flexDirection: 'column', gap: '14px',
@@ -795,12 +788,12 @@ export default function AdminPanel({ setActiveView, onLogout, adminView, setAdmi
                 onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = '0 10px 25px -5px rgba(255, 107, 0, 0.12)'; e.currentTarget.style.borderColor = '#FF8C42'; }}
                 onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = ''; e.currentTarget.style.borderColor = 'rgba(255, 107, 0, 0.12)'; }}
               >
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+                  <div style={{ minWidth: 0 }}>
                     <div style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Teachers</div>
                     <div style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-main)', marginTop: '2px' }}>Gender Ratio</div>
                   </div>
-                  <div style={{ display: 'flex', gap: '8px' }}>
+                  <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
                     <div style={{ textAlign: 'center', padding: '6px 10px', borderRadius: '8px', background: 'rgba(59,130,246,0.08)', border: '1px solid rgba(59,130,246,0.15)' }}>
                       <div style={{ fontSize: '1.1rem', fontWeight: 800, color: '#3b82f6', lineHeight: 1 }}>{statsLoading ? '–' : (overviewStats.teachers?.male || 0)}</div>
                       <div style={{ fontSize: '0.6rem', color: 'var(--text-muted)', fontWeight: 600, marginTop: '2px' }}>Male</div>
@@ -820,9 +813,9 @@ export default function AdminPanel({ setActiveView, onLogout, adminView, setAdmi
 
               {/* Staff Ratio */}
               <div
-                className="glass-panel"
+                className="glass-panel admin-overview-ratio-card"
                 style={{
-                  borderRadius: '16px', padding: '20px',
+                  borderRadius: '16px',
                   border: '1px solid rgba(255, 107, 0, 0.12)',
                   background: 'linear-gradient(135deg, var(--bg-card) 0%, rgba(255, 107, 0, 0.02) 100%)',
                   display: 'flex', flexDirection: 'column', gap: '14px',
@@ -832,12 +825,12 @@ export default function AdminPanel({ setActiveView, onLogout, adminView, setAdmi
                 onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = '0 10px 25px -5px rgba(255, 107, 0, 0.12)'; e.currentTarget.style.borderColor = '#FF8C42'; }}
                 onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = ''; e.currentTarget.style.borderColor = 'rgba(255, 107, 0, 0.12)'; }}
               >
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+                  <div style={{ minWidth: 0 }}>
                     <div style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Staff</div>
                     <div style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-main)', marginTop: '2px' }}>Gender Ratio</div>
                   </div>
-                  <div style={{ display: 'flex', gap: '8px' }}>
+                  <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
                     <div style={{ textAlign: 'center', padding: '6px 10px', borderRadius: '8px', background: 'rgba(59,130,246,0.08)', border: '1px solid rgba(59,130,246,0.15)' }}>
                       <div style={{ fontSize: '1.1rem', fontWeight: 800, color: '#3b82f6', lineHeight: 1 }}>{statsLoading ? '–' : overviewStats.staff.male}</div>
                       <div style={{ fontSize: '0.6rem', color: 'var(--text-muted)', fontWeight: 600, marginTop: '2px' }}>Male</div>
@@ -857,9 +850,9 @@ export default function AdminPanel({ setActiveView, onLogout, adminView, setAdmi
 
               {/* Employees Ratio */}
               <div
-                className="glass-panel"
+                className="glass-panel admin-overview-ratio-card"
                 style={{
-                  borderRadius: '16px', padding: '20px',
+                  borderRadius: '16px',
                   border: '1px solid rgba(255, 107, 0, 0.12)',
                   background: 'linear-gradient(135deg, var(--bg-card) 0%, rgba(255, 107, 0, 0.02) 100%)',
                   display: 'flex', flexDirection: 'column', gap: '14px',
@@ -869,12 +862,12 @@ export default function AdminPanel({ setActiveView, onLogout, adminView, setAdmi
                 onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = '0 10px 25px -5px rgba(255, 107, 0, 0.12)'; e.currentTarget.style.borderColor = '#FF8C42'; }}
                 onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = ''; e.currentTarget.style.borderColor = 'rgba(255, 107, 0, 0.12)'; }}
               >
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+                  <div style={{ minWidth: 0 }}>
                     <div style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Employees</div>
                     <div style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-main)', marginTop: '2px' }}>Gender Ratio</div>
                   </div>
-                  <div style={{ display: 'flex', gap: '8px' }}>
+                  <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
                     <div style={{ textAlign: 'center', padding: '6px 10px', borderRadius: '8px', background: 'rgba(59,130,246,0.08)', border: '1px solid rgba(59,130,246,0.15)' }}>
                       <div style={{ fontSize: '1.1rem', fontWeight: 800, color: '#3b82f6', lineHeight: 1 }}>{statsLoading ? '–' : overviewStats.employees.male}</div>
                       <div style={{ fontSize: '0.6rem', color: 'var(--text-muted)', fontWeight: 600, marginTop: '2px' }}>Male</div>
@@ -894,7 +887,7 @@ export default function AdminPanel({ setActiveView, onLogout, adminView, setAdmi
 
             </div>
 
-            {/* â”€â”€ ROW 3: Published School Events â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+            {/* ── ROW 3: Published School Events ───────────────── */}
             <div className="glass-panel" style={{
               borderRadius: '16px', padding: '24px',
               border: '1px solid var(--border-glass)', background: 'var(--bg-card)',
@@ -908,7 +901,7 @@ export default function AdminPanel({ setActiveView, onLogout, adminView, setAdmi
               </div>
               <div style={{ height: '1px', background: 'var(--border-glass)' }} />
               {events.length > 0 ? (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '16px' }}>
+                <div className="admin-overview-items-grid">
                   {events.map(evt => {
                     const lowerType = (evt.type || '').toLowerCase();
                     const badgeColor = lowerType.includes('exam') ? { bg: 'rgba(236,72,153,0.1)', text: '#ec4899' }
@@ -928,7 +921,7 @@ export default function AdminPanel({ setActiveView, onLogout, adminView, setAdmi
                             padding: '3px 8px', borderRadius: '12px', fontSize: '0.62rem', fontWeight: 700,
                             background: badgeColor.bg, color: badgeColor.text
                           }}>{evt.type || 'Event'}</span>
-                          <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 600 }}>â° {evt.startTime || evt.time || ''}{evt.endTime ? ` - ${evt.endTime}` : ''}</span>
+                          <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 600 }}>⏰ {evt.startTime || evt.time || ''}{evt.endTime ? ` - ${evt.endTime}` : ''}</span>
                         </div>
                         <h4 style={{ fontSize: '0.92rem', fontWeight: 800, margin: 0, color: 'var(--text-main)' }}>{evt.title}</h4>
                         <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', margin: 0 }}>{evt.description || 'No description provided.'}</p>
@@ -937,7 +930,7 @@ export default function AdminPanel({ setActiveView, onLogout, adminView, setAdmi
                           borderTop: '1px solid var(--border-glass)', paddingTop: '8px', color: 'var(--text-muted)', marginTop: '4px'
                         }}>
                           <span>📅 Date: <strong>{new Date(evt.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</strong></span>
-                          <span>ðŸ“ Venue: {evt.venue}</span>
+                          <span>📍 Venue: {evt.venue}</span>
                           <span>👥 Target: {evt.participants}</span>
                         </div>
                       </div>
@@ -951,7 +944,7 @@ export default function AdminPanel({ setActiveView, onLogout, adminView, setAdmi
               )}
             </div>
 
-            {/* â”€â”€ ROW 4: Published Notice Board â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+            {/* ── ROW 4: Published Notice Board ─────────────────── */}
             <div className="glass-panel" style={{
               borderRadius: '16px', padding: '24px',
               border: '1px solid var(--border-glass)', background: 'var(--bg-card)',
@@ -965,7 +958,7 @@ export default function AdminPanel({ setActiveView, onLogout, adminView, setAdmi
               </div>
               <div style={{ height: '1px', background: 'var(--border-glass)' }} />
               {notices.length > 0 ? (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '16px' }}>
+                <div className="admin-overview-items-grid">
                   {notices.map(nt => {
                     return (
                       <div key={nt.id} style={{
@@ -985,7 +978,7 @@ export default function AdminPanel({ setActiveView, onLogout, adminView, setAdmi
                           borderTop: '1px solid var(--border-glass)', paddingTop: '8px', color: 'var(--text-muted)', marginTop: '4px'
                         }}>
                           <span>📅 Published: <strong>{new Date(nt.publishDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</strong></span>
-                          {nt.expiryDate && <span>â³ Expires: <strong>{new Date(nt.expiryDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</strong></span>}
+                          {nt.expiryDate && <span>⏳ Expires: <strong>{new Date(nt.expiryDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</strong></span>}
                           <span>👥 Target: {nt.visibility === 'Teachers' ? 'Staff' : nt.visibility}</span>
                         </div>
                       </div>
@@ -999,7 +992,7 @@ export default function AdminPanel({ setActiveView, onLogout, adminView, setAdmi
               )}
             </div>
 
-            {/* â”€â”€ ROW 5: Published Holidays â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+            {/* ── ROW 5: Published Holidays ─────────────────────── */}
             <div className="glass-panel" style={{
               borderRadius: '16px', padding: '24px',
               border: '1px solid var(--border-glass)', background: 'var(--bg-card)',
@@ -1013,7 +1006,7 @@ export default function AdminPanel({ setActiveView, onLogout, adminView, setAdmi
               </div>
               <div style={{ height: '1px', background: 'var(--border-glass)' }} />
               {holidays.length > 0 ? (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '16px' }}>
+                <div className="admin-overview-items-grid">
                   {holidays.map(h => {
                     return (
                       <div key={h.id} style={{
@@ -1230,13 +1223,13 @@ export default function AdminPanel({ setActiveView, onLogout, adminView, setAdmi
           <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
             
             {/* Sub-Tab Bar for Admin Attendance */}
-            <div className="glass-panel" style={{ padding: '8px', display: 'flex', gap: '8px', overflowX: 'auto', borderRadius: '12px' }}>
+            <div className="glass-panel admin-subtab-strip" style={{ padding: '8px', display: 'flex', gap: '8px', overflowX: 'auto', borderRadius: '12px' }}>
               <button 
                 onClick={() => {
                   setAttendanceTab('mark-attendance');
                   setAdminView('attendance');
                 }}
-                className={`tab-btn-custom ${attendanceTab === 'mark-attendance' ? 'active' : ''}`}
+                className={`tab-btn-custom admin-subtab-btn ${attendanceTab === 'mark-attendance' ? 'active' : ''}`}
                 style={{
                   display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px', borderRadius: '8px', fontSize: '0.85rem', fontWeight: 600, border: 'none', cursor: 'pointer',
                   background: attendanceTab === 'mark-attendance' ? 'rgba(hsl(var(--color-primary)), 0.1)' : 'transparent',
@@ -1252,7 +1245,7 @@ export default function AdminPanel({ setActiveView, onLogout, adminView, setAdmi
                   setAttendanceTab('student-reports');
                   setAdminView('attendance');
                 }}
-                className={`tab-btn-custom ${attendanceTab === 'student-reports' ? 'active' : ''}`}
+                className={`tab-btn-custom admin-subtab-btn ${attendanceTab === 'student-reports' ? 'active' : ''}`}
                 style={{
                   display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px', borderRadius: '8px', fontSize: '0.85rem', fontWeight: 600, border: 'none', cursor: 'pointer',
                   background: attendanceTab === 'student-reports' ? 'rgba(hsl(var(--color-success)), 0.1)' : 'transparent',
@@ -1268,7 +1261,7 @@ export default function AdminPanel({ setActiveView, onLogout, adminView, setAdmi
                   setAttendanceTab('monthly-calendar');
                   setAdminView('attendance');
                 }}
-                className={`tab-btn-custom ${attendanceTab === 'monthly-calendar' ? 'active' : ''}`}
+                className={`tab-btn-custom admin-subtab-btn ${attendanceTab === 'monthly-calendar' ? 'active' : ''}`}
                 style={{
                   display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px', borderRadius: '8px', fontSize: '0.85rem', fontWeight: 600, border: 'none', cursor: 'pointer',
                   background: attendanceTab === 'monthly-calendar' ? 'rgba(hsl(var(--color-info)), 0.1)' : 'transparent',

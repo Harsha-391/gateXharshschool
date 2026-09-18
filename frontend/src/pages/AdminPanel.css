@@ -1,4 +1,4 @@
-﻿/* Overview Layout */
+/* Overview Layout */
 .dashboard-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -326,4 +326,222 @@
 .search-item-hover:hover {
   background: rgba(var(--color-primary-rgb), 0.08) !important;
 }
+
+/* Responsive Overrides */
+@media (max-width: 1024px) {
+  .chart-grid {
+    grid-template-columns: 1fr !important;
+    gap: 20px !important;
+  }
+  .activity-grid {
+    grid-template-columns: 1fr !important;
+    gap: 20px !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .dashboard-grid {
+    grid-template-columns: 1fr !important;
+    gap: 14px !important;
+  }
+  .admin-dashboard-grid {
+    grid-template-columns: 1fr !important;
+    gap: 16px !important;
+  }
+  .admin-dash-card {
+    padding: 20px 16px !important;
+  }
+  .admin-panel-header {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 12px !important;
+    padding: 14px 12px !important;
+  }
+  .svg-chart-container {
+    height: 180px !important;
+  }
+}
+
+/* ── Admin Overview Layout & Responsive Rules ── */
+.admin-overview-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  width: 100%;
+}
+
+.admin-overview-counts-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.admin-overview-count-card {
+  padding: 24px 20px;
+  box-sizing: border-box;
+  min-width: 0;
+  width: 100%;
+  gap: 16px;
+}
+
+.admin-overview-card-icon {
+  width: 50px;
+  height: 50px;
+  border-radius: 14px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.admin-overview-card-num {
+  font-size: 2.2rem;
+  font-weight: 800;
+  color: #FF8C42;
+  line-height: 1;
+}
+
+.admin-overview-ratios-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.admin-overview-ratio-card {
+  padding: 20px;
+  box-sizing: border-box;
+  min-width: 0;
+  width: 100%;
+}
+
+.admin-overview-items-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Responsive Overrides */
+@media (max-width: 1200px) {
+  .admin-overview-counts-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 14px !important;
+  }
+  .admin-overview-ratios-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 14px !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .admin-overview-counts-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 12px !important;
+  }
+  .admin-overview-count-card {
+    padding: 16px 12px !important;
+    gap: 10px !important;
+  }
+  .admin-overview-card-icon {
+    width: 40px !important;
+    height: 40px !important;
+    border-radius: 10px !important;
+  }
+  .admin-overview-card-num {
+    font-size: 1.7rem !important;
+  }
+  .admin-overview-ratios-grid {
+    grid-template-columns: 1fr !important;
+    gap: 14px !important;
+  }
+  .admin-overview-ratio-card {
+    padding: 16px 14px !important;
+  }
+  .admin-overview-items-grid {
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .admin-overview-counts-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 10px !important;
+  }
+  .admin-overview-count-card {
+    padding: 12px 10px !important;
+    gap: 8px !important;
+    border-radius: 14px !important;
+  }
+  .admin-overview-card-icon {
+    width: 36px !important;
+    height: 36px !important;
+    border-radius: 8px !important;
+  }
+  .admin-overview-card-num {
+    font-size: 1.5rem !important;
+  }
+  .admin-overview-ratios-grid {
+    grid-template-columns: 100% !important;
+    gap: 12px !important;
+  }
+  .admin-overview-ratio-card {
+    padding: 14px 12px !important;
+    border-radius: 14px !important;
+  }
+  .admin-overview-items-grid {
+    grid-template-columns: 100% !important;
+    gap: 10px !important;
+  }
+}
+
+/* ── Admin Subtab Navigation ──────────────────────────────── */
+.admin-subtab-strip {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+  -webkit-overflow-scrolling: touch !important;
+}
+.admin-subtab-strip::-webkit-scrollbar {
+  display: none !important;
+}
+
+@media (max-width: 768px) {
+  .admin-subtab-strip {
+    padding: 4px !important;
+    gap: 4px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+  .admin-subtab-btn {
+    flex: 1 1 0px !important;
+    min-width: 0 !important;
+    justify-content: center !important;
+    text-align: center !important;
+    padding: 8px 6px !important;
+    font-size: 0.74rem !important;
+    gap: 4px !important;
+    white-space: nowrap !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .admin-subtab-strip {
+    padding: 3px !important;
+    gap: 3px !important;
+  }
+  .admin-subtab-btn {
+    padding: 7px 3px !important;
+    font-size: 0.7rem !important;
+    gap: 3px !important;
+  }
+}
+
 

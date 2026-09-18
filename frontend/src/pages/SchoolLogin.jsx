@@ -11,14 +11,12 @@ export default function SchoolLogin({ tenantSubdomain, onLoginSuccess }) {
   const [loading, setLoading] = useState(false);
   const [schoolInfo, setSchoolInfo] = useState(null);
 
-  // Fetch school brand details dynamically for this subdomain
+  // Fetch school brand details dynamically for this subdomain or default school
   useEffect(() => {
     const fetchSchoolInfo = async () => {
-      if (!tenantSubdomain) return;
       try {
-        const res = await fetch('/api/school', {
-          headers: { 'x-tenant-id': tenantSubdomain }
-        });
+        const headers = tenantSubdomain ? { 'x-tenant-id': tenantSubdomain } : {};
+        const res = await fetch('/api/school', { headers });
         if (res.ok) {
           const data = await res.json();
           setSchoolInfo(data);
@@ -36,13 +34,20 @@ export default function SchoolLogin({ tenantSubdomain, onLoginSuccess }) {
     setLoading(true);
 
     try {
+      const headers = { 'Content-Type': 'application/json' };
+      if (tenantSubdomain) {
+        headers['x-tenant-id'] = tenantSubdomain;
+      }
+
       const res = await fetch('/api/auth/login', {
         method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'x-tenant-id': tenantSubdomain || 'platform'
-        },
-        body: JSON.stringify({ username, password, role })
+        headers,
+        body: JSON.stringify({ 
+          username, 
+          password, 
+          role,
+          tenantSubdomain: tenantSubdomain || undefined 
+        })
       });
 
       const text = await res.text();
@@ -51,7 +56,7 @@ export default function SchoolLogin({ tenantSubdomain, onLoginSuccess }) {
         data = JSON.parse(text);
       } catch (jsonErr) {
         console.error('Failed to parse auth response as JSON:', text);
-        setError('Server returned non-JSON response. Please verify that your backend server has been restarted (run npm start / npm run dev in backend directory) to register the new auth routes.');
+        setError('Server returned non-JSON response. Please verify that your backend server is running properly.');
         setLoading(false);
         return;
       }
@@ -81,12 +86,14 @@ export default function SchoolLogin({ tenantSubdomain, onLoginSuccess }) {
           localStorage.removeItem('overrides');
         }
 
-        if (data.school) {
-          localStorage.setItem('school_name', data.school.name);
+        if (data.school && data.school.subdomain) {
+          localStorage.setItem('school_name', data.school.name || '');
           localStorage.setItem('school_subdomain', data.school.subdomain);
           localStorage.setItem('tenant_subdomain', data.school.subdomain);
+          sessionStorage.setItem('tenant_subdomain', data.school.subdomain);
         } else if (tenantSubdomain) {
           localStorage.setItem('tenant_subdomain', tenantSubdomain);
+          sessionStorage.setItem('tenant_subdomain', tenantSubdomain);
         }
 
         // Single-session-per-browser: generate unique session ID and broadcast to other tabs

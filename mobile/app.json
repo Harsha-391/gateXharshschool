@@ -1,0 +1,48 @@
+{
+  "expo": {
+    "name": "Aether School ERP",
+    "slug": "aether-school-erp",
+    "version": "1.0.2",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0f172a"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.aether.schoolerp"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#0f172a"
+      },
+      "package": "com.aether.schoolerp",
+      "permissions": [
+        "android.permission.INTERNET",
+        "android.permission.CAMERA",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.ACCESS_NETWORK_STATE"
+      ],
+      "usesCleartextTraffic": true
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-status-bar"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "fff56b6c-ad44-4b5d-b11d-aa070fb50029"
+      },
+      "localServerUrl": "http://192.168.1.35:5173",
+      "cloudServerUrl": "https://acadmay.in"
+    }
+  }
+}

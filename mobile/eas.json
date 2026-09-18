@@ -1,0 +1,40 @@
+
+{
+  "cli": {
+    "version": ">= 14.0.0",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_DEFAULT_SERVER_URL": "http://192.168.1.36:5173",
+        "EXPO_PUBLIC_CLOUD_URL": "https://acadmay.in"
+      }
+    },
+    "preview": {
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_DEFAULT_SERVER_URL": "http://192.168.1.36:5173",
+        "EXPO_PUBLIC_CLOUD_URL": "https://acadmay.in"
+      }
+    },
+    "production": {
+      "autoIncrement": true,
+      "android": {
+        "buildType": "app-bundle"
+      },
+      "env": {
+        "EXPO_PUBLIC_DEFAULT_SERVER_URL": "https://acadmay.in",
+        "EXPO_PUBLIC_CLOUD_URL": "https://acadmay.in"
+      }
+    }
+  },
+  "submit": {
+    "production": {}
+  }
+}

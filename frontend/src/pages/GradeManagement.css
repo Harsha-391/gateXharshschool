@@ -1,4 +1,4 @@
-﻿/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
    Grade Management — Professional SaaS Stylesheet
    â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 
@@ -12,7 +12,7 @@
   border-color: var(--border-glass) !important;
 }
 
-/* â”€â”€ Tab nav strip â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ── Tab nav strip ────────────────────────────────────────── */
 .gm-tab-strip {
   display: flex;
   gap: 4px;
@@ -21,11 +21,17 @@
   border: 1px solid var(--border-glass);
   border-radius: 14px;
   overflow-x: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.gm-tab-strip::-webkit-scrollbar {
+  display: none;
 }
 
 .gm-tab-btn {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 7px;
   padding: 9px 18px;
   border-radius: 9px;
@@ -536,5 +542,107 @@
   height: 1px;
   background: var(--border-glass);
   margin: 4px 0;
+}
+
+/* ── Table Container & Cell Styles ────────────────────────── */
+.gm-table-container {
+  overflow-x: auto;
+  padding: 0;
+  border-radius: 12px;
+  border: 1px solid var(--border-glass);
+  background: var(--bg-card);
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+  -webkit-overflow-scrolling: touch;
+}
+.gm-table-container::-webkit-scrollbar {
+  display: none !important;
+}
+
+.gm-th {
+  padding: 14px 18px;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.gm-th-check {
+  width: 50px;
+}
+.gm-td {
+  padding: 16px 18px;
+}
+.gm-td-check {
+  width: 50px;
+}
+
+/* ── Responsive Overrides for Mobile ──────────────────────── */
+@media (max-width: 768px) {
+  .gm-tab-strip {
+    padding: 4px !important;
+    gap: 4px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+  .gm-tab-btn {
+    flex: 1 1 0px !important;
+    min-width: 0 !important;
+    justify-content: center !important;
+    text-align: center !important;
+    padding: 8px 6px !important;
+    font-size: 0.78rem !important;
+    gap: 4px !important;
+    white-space: nowrap !important;
+  }
+  .gm-search-wrap {
+    max-width: 100% !important;
+    width: 100% !important;
+  }
+  .gm-th {
+    padding: 10px 8px !important;
+    font-size: 0.74rem !important;
+  }
+  .gm-td {
+    padding: 10px 8px !important;
+    font-size: 0.8rem !important;
+  }
+  .gm-th-check,
+  .gm-td-check {
+    width: 36px !important;
+    padding: 10px 6px !important;
+  }
+  .gm-cards-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .gm-tab-strip {
+    padding: 3px !important;
+    gap: 3px !important;
+  }
+  .gm-tab-btn {
+    flex: 1 1 0px !important;
+    padding: 7px 4px !important;
+    font-size: 0.72rem !important;
+    gap: 3px !important;
+  }
+  .gm-tab-btn svg {
+    width: 13px !important;
+    height: 13px !important;
+  }
+  .gm-th {
+    padding: 8px 5px !important;
+    font-size: 0.7rem !important;
+  }
+  .gm-td {
+    padding: 8px 5px !important;
+    font-size: 0.74rem !important;
+  }
+  .gm-th-check,
+  .gm-td-check {
+    width: 30px !important;
+    padding: 8px 4px !important;
+  }
 }
 

@@ -304,3 +304,91 @@
   display: none;
 }
 
+/* Mobile Responsive Drawer Rules */
+@media (max-width: 900px) {
+  .app-sidebar {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    bottom: 0 !important;
+    height: 100vh !important;
+    height: 100dvh !important;
+    width: 290px !important;
+    max-width: 85vw !important;
+    padding: 24px 16px !important;
+    border-right: 1px solid rgba(0, 0, 0, 0.08) !important;
+    background: #ffffff !important;
+    box-shadow: 12px 0 40px rgba(0, 0, 0, 0.28) !important;
+    z-index: 999999 !important;
+    transform: translateX(-105%) !important;
+    transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.28s !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+    display: flex !important;
+    flex-direction: column !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  [data-theme='dark'] .app-sidebar {
+    background: #0d111d !important;
+    border-right: 1px solid rgba(255, 255, 255, 0.1) !important;
+    box-shadow: 12px 0 40px rgba(0, 0, 0, 0.7) !important;
+  }
+
+  /* When drawer is open on mobile */
+  .app-sidebar.mobile-open {
+    transform: translateX(0) !important;
+    visibility: visible !important;
+    pointer-events: auto !important;
+  }
+
+  .app-sidebar.mobile-open .nav-label {
+    opacity: 1 !important;
+    width: auto !important;
+    pointer-events: auto !important;
+    display: inline-block !important;
+    visibility: visible !important;
+  }
+
+  .app-sidebar.mobile-open .brand-name,
+  .app-sidebar.mobile-open .profile-details {
+    display: flex !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+  }
+
+  /* When collapsed on mobile, ensure it takes zero width and doesn't push the layout */
+  .app-sidebar.sidebar-collapsed {
+    width: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+    transform: translateX(-105%) !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+  }
+
+  /* Mobile touch enhancements */
+  .app-sidebar .nav-item {
+    padding: 12px 14px !important;
+    border-radius: 12px !important;
+    font-size: 0.94rem !important;
+  }
+
+  .app-sidebar .sidebar-close-btn {
+    width: 38px !important;
+    height: 38px !important;
+    border-radius: 10px !important;
+    background: rgba(0, 0, 0, 0.05) !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+
+  [data-theme='dark'] .app-sidebar .sidebar-close-btn {
+    background: rgba(255, 255, 255, 0.08) !important;
+  }
+}
+
+
+

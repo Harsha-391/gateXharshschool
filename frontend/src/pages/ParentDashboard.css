@@ -397,6 +397,7 @@
 @media (max-width: 900px) {
   .parent-dashboard-container {
     flex-direction: column;
+    overflow-x: hidden !important;
   }
   
   .parent-sidebar {
@@ -405,7 +406,26 @@
     border-right: none;
     border-bottom: 1px solid var(--border-glass, rgba(255, 255, 255, 0.08));
   }
+
+  .parent-navbar {
+    padding: 0 16px !important;
+  }
+
+  .parent-viewport {
+    padding: 16px 12px !important;
+  }
 }
+
+@media (max-width: 768px) {
+  .parent-grid-3 {
+    grid-template-columns: 1fr !important;
+    gap: 16px !important;
+  }
+  .parent-card {
+    padding: 16px 14px !important;
+  }
+}
+
 
 /* Header Action Buttons Styles */
 .action-btn {
