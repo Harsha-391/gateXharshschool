@@ -245,7 +245,7 @@ export default function Sidebar({
   const restOfName = nameParts.slice(1).join(' ');
 
   return (
-    <aside className={`app-sidebar ${isCollapsed ? 'sidebar-collapsed' : ''} ${mobileOpen ? 'mobile-open' : ''}`}>
+    <aside className={`app-sidebar ${isCollapsed && !mobileOpen ? 'sidebar-collapsed' : ''} ${mobileOpen ? 'mobile-open' : ''}`}>
       <div className="sidebar-brand">
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, minWidth: 0 }}>
           <div className="brand-icon-wrapper" style={schoolDetails?.logo ? { background: 'none', boxShadow: 'none', padding: 0, borderRadius: '50%', overflow: 'hidden' } : {}}>
@@ -259,7 +259,7 @@ export default function Sidebar({
               <GraduationCap size={24} />
             )}
           </div>
-          <div style={{ display: isCollapsed ? 'none' : 'flex', flexDirection: 'column', minWidth: 0, lineHeight: 1.15 }}>
+          <div className="brand-name" style={{ display: (isCollapsed && !mobileOpen) ? 'none' : 'flex', flexDirection: 'column', minWidth: 0, lineHeight: 1.15 }}>
             <span style={{ fontSize: '1.15rem', fontWeight: 700, color: 'var(--text-main)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={rawSchoolName}>
               <span style={{ color: '#FF8C42' }}>{firstWord}</span> {restOfName}
             </span>
@@ -1143,7 +1143,7 @@ export default function Sidebar({
             })()
           )}
         </div>
-        <div className="profile-details" style={{ display: isCollapsed ? 'none' : 'flex', flexDirection: 'row', alignItems: 'center', flex: 1, minWidth: 0, justifyContent: 'space-between' }}>
+        <div className="profile-details" style={{ display: (isCollapsed && !mobileOpen) ? 'none' : 'flex', flexDirection: 'row', alignItems: 'center', flex: 1, minWidth: 0, justifyContent: 'space-between' }}>
           <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
             <span className="profile-name" style={{ fontSize: '0.88rem', fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: 'var(--text-main)' }}>
               {(() => {

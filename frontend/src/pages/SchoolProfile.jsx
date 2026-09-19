@@ -478,15 +478,16 @@ export default function SchoolProfile({ schoolDetails, fetchSchoolDetails, isDev
     fetchPlatformData();
 
     // 2. Establish WebSocket connection (Only on local environments to prevent browser console network errors in production)
-    const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.hostname.startsWith('192.168.');
+    const isLocal = window.location.hostname === 'localhost' || 
+                    window.location.hostname === '127.0.0.1' || 
+                    window.location.hostname.startsWith('192.168.') ||
+                    window.location.hostname.startsWith('10.');
     if (!isLocal) {
       return;
     }
 
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsHost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-      ? `${window.location.hostname}:5000`
-      : window.location.host;
+    const wsHost = `${window.location.hostname}:5000`;
 
     let ws;
     let reconnectTimeout;
@@ -758,12 +759,16 @@ export default function SchoolProfile({ schoolDetails, fetchSchoolDetails, isDev
 
 
 
-  // Launch School Portal - opens in a new tab without ending superadmin session
+  // Launch School Portal - opens in a new tab on desktop, or in same window in mobile/WebView
   const handleLaunchPortal = (school) => {
     localStorage.setItem('from_dev_admin', 'true');
     const devToken = localStorage.getItem('token') || '';
     const targetUrl = getSchoolSubdomainUrl(school.subdomain, `/?username=${encodeURIComponent(school.adminUsername)}&password=${encodeURIComponent(school.adminPassword)}&from_dev_admin=true&dev_token=${encodeURIComponent(devToken)}`);
-    window.open(targetUrl, '_blank');
+    if (window.ReactNativeWebView || /Android|iPhone|iPad/i.test(navigator.userAgent)) {
+      window.location.href = targetUrl;
+    } else {
+      window.open(targetUrl, '_blank');
+    }
   };
 
 
@@ -808,18 +813,7 @@ export default function SchoolProfile({ schoolDetails, fetchSchoolDetails, isDev
       )}
 
       {/* PLATFORM HEADER */}
-      <div className="glass-panel" style={{ 
-        padding: '24px 32px',
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        background: 'var(--bg-card)',
-        borderRadius: '16px',
-        border: '1px solid var(--border-glass)',
-        boxShadow: 'var(--shadow-md)',
-        flexWrap: 'wrap',
-        gap: '16px'
-      }}>
+      <div className="platform-header-panel glass-panel">
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
           <div style={{
             width: '48px',
@@ -967,7 +961,7 @@ export default function SchoolProfile({ schoolDetails, fetchSchoolDetails, isDev
             const calculatedLifetimeRevenue = calculatedMonthlyRevenue * 18.5;
 
             return (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '20px' }}>
+              <div className="saas-kpi-grid">
                 
                 {/* Card 1: Monthly Recurring Revenue (MRR) */}
                 <div className="glass-panel" style={{ 
@@ -1095,23 +1089,145 @@ export default function SchoolProfile({ schoolDetails, fetchSchoolDetails, isDev
             );
           })()}
 
-          {/* TWO COLUMN PERFORMANCE DECK */}
-          <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '24px', alignItems: 'start' }}>
+          {/* PRIMARY PLATFORM CORE INTELLIGENCE GRID (HOME SCREEN) */}
+          <div className="saas-home-sections-grid">
+            
+            {/* Card 1: Tenant Subscription Plan Distribution */}
+            <div className="glass-panel saas-home-section-card">
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                <h3 style={{ fontSize: '0.96rem', fontWeight: 800, margin: 0, color: 'var(--text-main)' }}>Tenant Subscription Plan Distribution</h3>
+                <span style={{ fontSize: '0.74rem', color: 'hsl(var(--color-primary))', fontWeight: 700 }}>{plans.length} Plans</span>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                {plans.length > 0 ? (
+                  plans.map((p, idx) => {
+                    const count = schools.filter(s => s.subscriptionPlan === p.id || s.subscriptionPlan === p.name).length;
+                    const percent = Math.round((count / totalPlanCount) * 100);
+                    const colors = ['#FF8C42', '#10b981', '#8b5cf6', '#06b6d4', '#ec4899'];
+                    const color = colors[idx % colors.length];
+                    return (
+                      <div key={p.id || idx}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '6px', fontSize: '0.82rem', marginBottom: '6px', fontWeight: 600 }}>
+                          <span style={{ color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0 }}>
+                            <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: color, flexShrink: 0 }} />
+                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name} (₹{p.price}/mo)</span>
+                          </span>
+                          <span style={{ color: 'var(--text-muted)', fontSize: '0.78rem', flexShrink: 0 }}>{count} schools ({percent}%)</span>
+                        </div>
+                        <div style={{ height: '10px', background: 'var(--bg-glass-active)', borderRadius: '5px', overflow: 'hidden' }}>
+                          <div style={{ height: '100%', width: `${percent}%`, background: color, borderRadius: '5px', transition: 'width 0.5s ease' }} />
+                        </div>
+                      </div>
+                    );
+                  })
+                ) : (
+                  <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', textAlign: 'center', padding: '20px 0' }}>
+                    No active subscription plans configured yet.
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {/* Card 2: Top Revenue School Tenants */}
+            <div className="glass-panel saas-home-section-card">
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                <h3 style={{ fontSize: '0.96rem', fontWeight: 800, margin: 0, color: 'var(--text-main)' }}>Top Revenue School Tenants</h3>
+                <span style={{ fontSize: '0.74rem', color: '#10b981', fontWeight: 700 }}>Active</span>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {schools.slice(0, 4).map(s => {
+                  const matchedPlan = plans.find(p => p.id === s.subscriptionPlan || p.name === s.subscriptionPlan);
+                  const cost = matchedPlan ? matchedPlan.price : 0;
+                  return (
+                    <div key={s.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', paddingBottom: '10px', borderBottom: '1px solid var(--border-glass)' }}>
+                      <div style={{ minWidth: 0, flex: 1 }}>
+                        <span style={{ fontSize: '0.84rem', fontWeight: 700, color: 'var(--text-main)', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.name}</span>
+                        <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.subdomain}.localhost</span>
+                      </div>
+                      <strong style={{ fontSize: '0.9rem', color: '#10b981', flexShrink: 0 }}>₹{cost}/mo</strong>
+                    </div>
+                  );
+                })}
+                {schools.length === 0 && (
+                  <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', textAlign: 'center', padding: '20px 0' }}>No school data available.</p>
+                )}
+              </div>
+            </div>
+
+            {/* Card 3: Recent Platform Registrations */}
+            <div className="glass-panel saas-home-section-card">
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                <h3 style={{ fontSize: '0.96rem', fontWeight: 800, margin: 0, color: 'var(--text-main)' }}>Recent Platform Registrations</h3>
+                <span style={{ fontSize: '0.74rem', color: 'hsl(var(--color-primary))', fontWeight: 600 }}>Real-time</span>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {analytics.recentRegistrations?.length > 0 ? (
+                  analytics.recentRegistrations.slice(0, 4).map(school => (
+                    <div 
+                      key={school.id} 
+                      onClick={() => handleLaunchPortal(school)}
+                      style={{ 
+                        display: 'flex', alignItems: 'center', gap: '12px', paddingBottom: '12px', 
+                        borderBottom: '1px solid var(--border-glass)', cursor: 'pointer',
+                        padding: '10px', borderRadius: '10px', transition: 'background 0.2s ease',
+                        minWidth: 0
+                      }}
+                      onMouseOver={(e) => { e.currentTarget.style.background = 'rgba(255, 107, 0, 0.04)'; }}
+                      onMouseOut={(e) => { e.currentTarget.style.background = 'transparent'; }}
+                    >
+                      <div style={{
+                        width: '36px', height: '36px', borderRadius: '10px', 
+                        background: 'linear-gradient(135deg, hsl(var(--color-primary)) 0%, hsl(var(--color-secondary)) 100%)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: 'bold', fontSize: '0.85rem',
+                        boxShadow: '0 2px 6px rgba(255, 107, 0, 0.2)',
+                        flexShrink: 0
+                      }}>
+                        {(school.name || 'SC').slice(0, 2).toUpperCase()}
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <span style={{ fontWeight: 700, fontSize: '0.85rem', display: 'block', color: 'var(--text-main)', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                          {school.name}
+                        </span>
+                        <span style={{ fontSize: '0.72rem', color: 'hsl(var(--color-primary))', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <ExternalLink size={10} /> Open Portal
+                        </span>
+                      </div>
+                      <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                        <span style={{ fontSize: '0.7rem', display: 'block', color: 'var(--text-muted)' }}>
+                          {school.createdAt ? new Date(school.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'Recent'}
+                        </span>
+                        <span style={{ 
+                          fontSize: '0.62rem', fontWeight: 'bold', color: school.status === 'Active' ? '#10b981' : '#ef4444',
+                          textTransform: 'uppercase'
+                        }}>{school.status}</span>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', textAlign: 'center', padding: '20px 0' }}>No onboarded schools yet.</p>
+                )}
+              </div>
+            </div>
+
+          </div>
+
+          {/* TWO COLUMN PERFORMANCE DECK (STACKS VERTICALLY ON MOBILE) */}
+          <div className="saas-deck-grid">
             
             {/* LEFT COLUMN: GRAPH, TRANSACTION STATS, AND USAGE INDEX */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', width: '100%', minWidth: 0, boxSizing: 'border-box' }}>
               
               {/* MRR Performance trend Area chart */}
-              <div className="glass-panel" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div className="glass-panel" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px', width: '100%', minWidth: 0, boxSizing: 'border-box' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
                   <div>
                     <h3 style={{ fontSize: '1rem', fontWeight: 800, margin: 0, color: 'var(--text-main)' }}>Platform Revenue Trend (MRR)</h3>
                     <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Historical recurring receipts analysis</span>
                   </div>
                   <span style={{ fontSize: '0.74rem', color: '#FF8C42', fontWeight: 700 }}>Peak MRR: ₹{maxRevenue.toLocaleString()}</span>
                 </div>
-                <div style={{ width: '100%', height: '180px', position: 'relative', marginTop: '10px' }}>
-                  <svg viewBox="0 0 420 170" style={{ width: '100%', height: '100%', overflow: 'visible' }}>
+                <div style={{ width: '100%', height: '180px', position: 'relative', marginTop: '10px', overflow: 'hidden' }}>
+                  <svg viewBox="0 0 420 170" style={{ width: '100%', height: '100%', overflow: 'hidden' }}>
                     <defs>
                       <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="0%" stopColor="#FF8C42" stopOpacity="0.22" />
@@ -1144,10 +1260,10 @@ export default function SchoolProfile({ schoolDetails, fetchSchoolDetails, isDev
               </div>
 
               {/* Dynamic Payment operations analytics grid */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+              <div className="saas-metrics-subgrid">
                 
                 {/* Payment status widget */}
-                <div className="glass-panel" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <div className="glass-panel" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px', width: '100%', minWidth: 0, boxSizing: 'border-box' }}>
                   <h3 style={{ fontSize: '0.94rem', fontWeight: 800, margin: 0, color: 'var(--text-main)' }}>Payment Processing Health</h3>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', fontWeight: 600 }}>
@@ -1172,7 +1288,7 @@ export default function SchoolProfile({ schoolDetails, fetchSchoolDetails, isDev
                 </div>
 
                 {/* Subscriptions Renewals Tracker */}
-                <div className="glass-panel" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <div className="glass-panel" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px', width: '100%', minWidth: 0, boxSizing: 'border-box' }}>
                   <h3 style={{ fontSize: '0.94rem', fontWeight: 800, margin: 0, color: 'var(--text-main)' }}>Subscription Operational Metrics</h3>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', fontWeight: 600 }}>
@@ -1192,120 +1308,6 @@ export default function SchoolProfile({ schoolDetails, fetchSchoolDetails, isDev
 
               </div>
 
-
-            </div>
-
-            {/* RIGHT COLUMN: DISTRIBUTION, RECENT FEED, TOP TENANTS */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-              
-              {/* Plan distribution progress list */}
-              <div className="glass-panel" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                <h3 style={{ fontSize: '0.94rem', fontWeight: 800, margin: 0, color: 'var(--text-main)' }}>Tenant Subscription Plan Distribution</h3>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                  {plans.length > 0 ? (
-                    plans.map((p, idx) => {
-                      const count = schools.filter(s => s.subscriptionPlan === p.id || s.subscriptionPlan === p.name).length;
-                      const percent = Math.round((count / totalPlanCount) * 100);
-                      const colors = ['#FF8C42', '#10b981', '#8b5cf6', '#06b6d4', '#ec4899'];
-                      const color = colors[idx % colors.length];
-                      return (
-                        <div key={p.id}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', marginBottom: '6px', fontWeight: 600 }}>
-                            <span style={{ color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                              <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: color }} />
-                              {p.name} (₹{p.price}/mo)
-                            </span>
-                            <span style={{ color: 'var(--text-muted)' }}>{count} schools ({percent}%)</span>
-                          </div>
-                          <div style={{ height: '10px', background: 'var(--bg-glass-active)', borderRadius: '5px', overflow: 'hidden' }}>
-                            <div style={{ height: '100%', width: `${percent}%`, background: color }} />
-                          </div>
-                        </div>
-                      );
-                    })
-                  ) : (
-                    <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', textAlign: 'center', padding: '20px 0' }}>
-                      No active subscription plans configured yet.
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              {/* Modern Top schools list */}
-              <div className="glass-panel" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                <h3 style={{ fontSize: '0.94rem', fontWeight: 800, margin: 0, color: 'var(--text-main)' }}>Top Revenue School Tenants</h3>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                  {schools.slice(0, 3).map(s => {
-                    const matchedPlan = plans.find(p => p.id === s.subscriptionPlan || p.name === s.subscriptionPlan);
-                    const cost = matchedPlan ? matchedPlan.price : 0;
-                    return (
-                      <div key={s.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '10px', borderBottom: '1px solid var(--border-glass)' }}>
-                        <div>
-                          <span style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-main)', display: 'block' }}>{s.name}</span>
-                          <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{s.subdomain}.localhost</span>
-                        </div>
-                        <strong style={{ fontSize: '0.88rem', color: '#10b981' }}>₹{cost}/mo</strong>
-                      </div>
-                    );
-                  })}
-                  {schools.length === 0 && (
-                    <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', textAlign: 'center' }}>No school data available.</p>
-                  )}
-                </div>
-              </div>
-
-              {/* RECENT REGISTRATIONS FEED */}
-              <div className="glass-panel" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <h3 style={{ fontSize: '0.94rem', fontWeight: 800, margin: 0, color: 'var(--text-main)' }}>Recent Platform Registrations</h3>
-                  <span style={{ fontSize: '0.74rem', color: 'hsl(var(--color-primary))', fontWeight: 600 }}>Real-time</span>
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                  {analytics.recentRegistrations?.length > 0 ? (
-                    analytics.recentRegistrations.map(school => (
-                      <div 
-                        key={school.id} 
-                        onClick={() => handleLaunchPortal(school)}
-                        style={{ 
-                          display: 'flex', alignItems: 'center', gap: '12px', paddingBottom: '12px', 
-                          borderBottom: '1px solid var(--border-glass)', cursor: 'pointer',
-                          padding: '10px', borderRadius: '8px', transition: 'background 0.2s ease'
-                        }}
-                        onMouseOver={(e) => { e.currentTarget.style.background = 'rgba(255, 107, 0, 0.04)'; }}
-                        onMouseOut={(e) => { e.currentTarget.style.background = 'transparent'; }}
-                      >
-                        <div style={{
-                          width: '36px', height: '36px', borderRadius: '8px', 
-                          background: 'linear-gradient(135deg, hsl(var(--color-primary)) 0%, hsl(var(--color-secondary)) 100%)',
-                          display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: 'bold', fontSize: '0.85rem'
-                        }}>
-                          {school.name.slice(0, 2).toUpperCase()}
-                        </div>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <span style={{ fontWeight: 700, fontSize: '0.85rem', display: 'block', color: 'var(--text-main)', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
-                            {school.name}
-                          </span>
-                          <span style={{ fontSize: '0.72rem', color: 'hsl(var(--color-primary))', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                            <ExternalLink size={10} /> Open Portal
-                          </span>
-                        </div>
-                        <div style={{ textAlign: 'right' }}>
-                          <span style={{ fontSize: '0.7rem', display: 'block', color: 'var(--text-muted)' }}>
-                            {new Date(school.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                          </span>
-                          <span style={{ 
-                            fontSize: '0.62rem', fontWeight: 'bold', color: school.status === 'Active' ? '#10b981' : '#ef4444',
-                            textTransform: 'uppercase'
-                          }}>{school.status}</span>
-                        </div>
-                      </div>
-                    ))
-                  ) : (
-                    <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', textAlign: 'center', padding: '20px 0' }}>No onboarded schools yet.</p>
-                  )}
-                </div>
-              </div>
-
             </div>
 
           </div>
@@ -1313,9 +1315,9 @@ export default function SchoolProfile({ schoolDetails, fetchSchoolDetails, isDev
         </div>
       ) : activeTab === 'plans' ? (
         /* PLATFORM SUBSCRIPTION PLANS VIEW */
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', width: '100%', minWidth: 0, boxSizing: 'border-box' }}>
+          <div className="saas-plans-header">
+            <div className="saas-plans-title-block">
               <h3 style={{ fontSize: '1.2rem', fontWeight: 800, margin: 0, color: 'var(--text-main)' }}>Platform Subscription Tiers & Pricing</h3>
               <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', margin: '4px 0 0 0' }}>
                 Configure tenant subscription offerings, monthly recurring fees, and operational limits.
@@ -1324,35 +1326,25 @@ export default function SchoolProfile({ schoolDetails, fetchSchoolDetails, isDev
             <button 
               onClick={() => handleOpenPlanModal('add')}
               className="btn-primary" 
-              style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 20px', borderRadius: '10px', fontWeight: 700 }}
+              style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 20px', borderRadius: '10px', fontWeight: 700, whiteSpace: 'nowrap', flexShrink: 0 }}
             >
               <Plus size={16} /> Create Custom Plan
             </button>
           </div>
 
           {plans.length === 0 ? (
-            <div className="glass-panel" style={{ gridColumn: '1 / -1', padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>
+            <div className="glass-panel" style={{ gridColumn: '1 / -1', padding: '40px', textAlign: 'center', color: 'var(--text-muted)', width: '100%', boxSizing: 'border-box' }}>
               <CreditCard size={48} style={{ margin: '0 auto 16px auto', opacity: 0.4, color: 'hsl(var(--color-primary))' }} />
               <h4 style={{ fontSize: '1.05rem', fontWeight: 750, color: 'var(--text-main)', margin: '0 0 6px 0' }}>No Subscription Plans Found</h4>
               <p style={{ fontSize: '0.82rem', margin: 0 }}>Click "Create Custom Plan" above to configure your first platform pricing model.</p>
             </div>
           ) : (
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '24px', width: '100%', justifyContent: 'flex-start' }}>
+            <div className="saas-plans-grid">
               {plans.map(p => (
-                <div key={p.id} className="glass-panel animate-scale-up" style={{ 
-                  width: '280px', 
-                  height: '300px', 
-                  padding: '22px 24px', 
-                  borderRadius: '16px', 
-                  display: 'flex', 
-                  flexDirection: 'column', 
-                  justifyContent: 'space-between', 
-                  position: 'relative',
-                  border: '1px solid var(--border-glass)'
-                }}>
+                <div key={p.id} className="saas-plan-card glass-panel">
                   {/* Top Portion */}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginRight: '45px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginRight: '60px' }}>
                       <h4 style={{ fontSize: '1.25rem', fontWeight: 850, margin: 0, color: 'var(--text-main)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</h4>
                     </div>
                     
@@ -1385,7 +1377,7 @@ export default function SchoolProfile({ schoolDetails, fetchSchoolDetails, isDev
                     <span style={{ fontSize: '0.68rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>Plan Entitlements</span>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                       {p.features ? ((Array.isArray(p.features) ? p.features : p.features.split(',')).map((feat, idx) => (
-                        <div key={idx} style={{ display: 'flex', alignItems: 'start', gap: '8px', fontSize: '0.82rem', color: 'var(--text-main)', fontWeight: 550 }}>
+                        <div key={idx} style={{ display: 'flex', alignItems: 'start', gap: '8px', fontSize: '0.82rem', color: 'var(--text-main)', fontWeight: 550, wordBreak: 'break-word' }}>
                           <span style={{ color: '#10b981', fontWeight: 'bold', fontSize: '0.9rem', lineHeight: 1 }}>✓</span>
                           <span style={{ lineHeight: '1.2' }}>{feat.trim()}</span>
                         </div>
@@ -1458,14 +1450,15 @@ export default function SchoolProfile({ schoolDetails, fetchSchoolDetails, isDev
         </div>
       ) : (
         /* PLATFORM SCHOOL LIST REGISTRY VIEW */
-        <div className="glass-panel" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+        /* PLATFORM SCHOOL LIST REGISTRY VIEW */
+        <div className="platform-registry-container glass-panel">
           
           {/* SEARCH, FILTER AND ONBOARD CONTROL ROW */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
-            <div style={{ display: 'flex', gap: '12px', flex: 1, minWidth: '280px', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', width: '100%', minWidth: 0, boxSizing: 'border-box' }}>
+            <div style={{ display: 'flex', gap: '10px', flex: 1, minWidth: 0, width: '100%', flexWrap: 'wrap' }}>
               
               {/* Search Bar */}
-              <div style={{ position: 'relative', flex: 1, minWidth: '200px' }}>
+              <div style={{ position: 'relative', flex: '1 1 200px', minWidth: '0', width: '100%', boxSizing: 'border-box' }}>
                 <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
                 <input 
                   type="text" 
@@ -1473,7 +1466,7 @@ export default function SchoolProfile({ schoolDetails, fetchSchoolDetails, isDev
                   placeholder="Search by school, code, subdomain..." 
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  style={{ paddingLeft: '38px', borderRadius: '10px' }}
+                  style={{ paddingLeft: '38px', borderRadius: '10px', width: '100%', boxSizing: 'border-box' }}
                 />
               </div>
 
@@ -1482,7 +1475,7 @@ export default function SchoolProfile({ schoolDetails, fetchSchoolDetails, isDev
                 className="select-custom" 
                 value={planFilter}
                 onChange={(e) => setPlanFilter(e.target.value)}
-                style={{ borderRadius: '10px' }}
+                style={{ borderRadius: '10px', flex: '1 1 120px', minWidth: '0', boxSizing: 'border-box' }}
               >
                 <option value="All">All Plans</option>
                 {plans.map(p => (
@@ -1495,7 +1488,7 @@ export default function SchoolProfile({ schoolDetails, fetchSchoolDetails, isDev
                 className="select-custom" 
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-                style={{ borderRadius: '10px' }}
+                style={{ borderRadius: '10px', flex: '1 1 120px', minWidth: '0', boxSizing: 'border-box' }}
               >
                 <option value="All">All Statuses</option>
                 <option value="Active">Active Only</option>
@@ -1507,36 +1500,26 @@ export default function SchoolProfile({ schoolDetails, fetchSchoolDetails, isDev
 
           {/* SCHOOL LIST CARDS */}
           {filteredSchools.length > 0 ? (
-            <div style={{ 
-              display: 'grid', 
-              gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', 
-              gap: '16px'
-            }}>
+            <div className="saas-schools-grid">
               {filteredSchools.map(school => (
-                <div key={school.id} className="glass-panel" style={{
-                  padding: '20px', borderRadius: '12px',
-                  border: '1px solid var(--border-glass)',
-                  display: 'flex', flexDirection: 'column', gap: '14px',
-                  transition: 'all 0.2s ease',
-                  cursor: 'default'
-                }}>
+                <div key={school.id} className="school-registry-card glass-panel">
                   {/* Header: Logo + Name + Status */}
-                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, minWidth: 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '10px', width: '100%', minWidth: 0, boxSizing: 'border-box' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1, minWidth: 0 }}>
                       <div style={{
-                        width: '44px', height: '44px', borderRadius: '10px', flexShrink: 0,
+                        width: '40px', height: '40px', borderRadius: '10px', flexShrink: 0,
                         background: 'linear-gradient(135deg, hsl(var(--color-primary)) 0%, hsl(var(--color-secondary)) 100%)',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: 'bold', fontSize: '1rem'
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: 'bold', fontSize: '0.9rem'
                       }}>
                         {school.logo ? <img src={school.logo} alt="Logo" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '10px' }} /> : school.name.slice(0, 2).toUpperCase()}
                       </div>
-                      <div style={{ minWidth: 0 }}>
-                        <strong style={{ color: 'var(--text-main)', display: 'block', fontSize: '0.95rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{school.name}</strong>
-                        <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{school.city}, {school.state}</span>
+                      <div style={{ minWidth: 0, flex: 1 }}>
+                        <strong style={{ color: 'var(--text-main)', display: 'block', fontSize: '0.92rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{school.name}</strong>
+                        <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block' }}>{school.city}, {school.state}</span>
                       </div>
                     </div>
                     <span style={{
-                      fontSize: '0.65rem', padding: '3px 10px', borderRadius: '20px', fontWeight: 700, whiteSpace: 'nowrap', flexShrink: 0,
+                      fontSize: '0.65rem', padding: '3px 8px', borderRadius: '20px', fontWeight: 700, whiteSpace: 'nowrap', flexShrink: 0,
                       background: school.status === 'Active' ? 'rgba(16, 185, 129, 0.08)' : 'rgba(239, 68, 68, 0.08)',
                       color: school.status === 'Active' ? '#10b981' : '#ef4444',
                       border: school.status === 'Active' ? '1px solid rgba(16, 185, 129, 0.15)' : '1px solid rgba(239, 68, 68, 0.15)'
@@ -1544,16 +1527,16 @@ export default function SchoolProfile({ schoolDetails, fetchSchoolDetails, isDev
                   </div>
 
                   {/* Details Grid */}
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', fontSize: '0.78rem' }}>
-                    <div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px', fontSize: '0.78rem', width: '100%', minWidth: 0, boxSizing: 'border-box' }}>
+                    <div style={{ minWidth: 0, overflow: 'hidden' }}>
                       <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.68rem', marginBottom: '2px' }}>School Code</span>
-                      <span style={{ color: 'var(--text-main)', fontWeight: 600 }}>{school.code}</span>
+                      <span style={{ color: 'var(--text-main)', fontWeight: 600, display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{school.code}</span>
                     </div>
-                    <div>
+                    <div style={{ minWidth: 0, overflow: 'hidden' }}>
                       <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.68rem', marginBottom: '2px' }}>Principal</span>
-                      <span style={{ color: 'var(--text-main)' }}>{school.principalName}</span>
+                      <span style={{ color: 'var(--text-main)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block' }}>{school.principalName}</span>
                     </div>
-                    <div>
+                    <div style={{ minWidth: 0, overflow: 'hidden' }}>
                       <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.68rem', marginBottom: '2px' }}>Plan</span>
                       <span style={{
                         fontSize: '0.68rem', padding: '2px 8px', borderRadius: '10px', fontWeight: 700, display: 'inline-block',
@@ -1562,35 +1545,34 @@ export default function SchoolProfile({ schoolDetails, fetchSchoolDetails, isDev
                         border: school.subscriptionPlan === 'Premium' ? '1px solid rgba(245, 158, 11, 0.15)' : school.subscriptionPlan === 'Growth' ? '1px solid rgba(255, 107, 0, 0.15)' : '1px solid rgba(100, 116, 139, 0.15)'
                       }}>{school.subscriptionPlan}</span>
                     </div>
-                    <div>
+                    <div style={{ minWidth: 0, overflow: 'hidden' }}>
                       <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.68rem', marginBottom: '2px' }}>Created</span>
-                      <span style={{ color: 'var(--text-main)' }}>{new Date(school.createdAt).toLocaleDateString('en-US', { dateStyle: 'medium' })}</span>
+                      <span style={{ color: 'var(--text-main)', fontSize: '0.74rem', display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{new Date(school.createdAt).toLocaleDateString('en-US', { dateStyle: 'medium' })}</span>
                     </div>
                   </div>
 
                   {/* Enrollments */}
-                  <div style={{ display: 'flex', gap: '12px', fontSize: '0.76rem', padding: '10px 12px', background: 'var(--bg-glass-active)', borderRadius: '8px' }}>
+                  <div style={{ display: 'flex', gap: '8px', fontSize: '0.74rem', padding: '8px 10px', background: 'var(--bg-glass-active)', borderRadius: '8px', flexWrap: 'wrap', width: '100%', minWidth: 0, boxSizing: 'border-box' }}>
                     <span style={{ color: 'var(--text-main)' }}>Students: <strong>{school.studentCount || 0}</strong></span>
                     <span style={{ color: 'var(--text-muted)' }}>Staff: <strong>{school.teacherCount || 0}</strong></span>
                     <span style={{ color: 'var(--text-muted)' }}>Employees: <strong>{school.staffCount || 0}</strong></span>
                   </div>
 
-
-
                   {/* Subdomain + Actions */}
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flex: 1, minWidth: 0 }}>
+                  <div className="school-card-actions-row">
+                    <div className="school-url-container">
                       <a 
                         href={getSchoolSubdomainUrl(school.subdomain)}
                         onClick={(e) => { e.preventDefault(); handleLaunchPortal(school); }}
                         title="Open Login Portal"
                         style={{ 
-                          fontSize: '0.72rem', color: 'hsl(var(--color-primary))', 
+                          fontSize: '0.74rem', color: 'hsl(var(--color-primary))', 
                           display: 'block', 
                           textDecoration: 'underline', fontWeight: 600, cursor: 'pointer',
                           whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
                           transition: 'all 0.2s ease',
-                          flex: 1
+                          flex: 1,
+                          minWidth: 0
                         }}
                       >
                         {getSchoolSubdomainUrl(school.subdomain)}
@@ -1601,37 +1583,47 @@ export default function SchoolProfile({ schoolDetails, fetchSchoolDetails, isDev
                           navigator.clipboard.writeText(getSchoolSubdomainUrl(school.subdomain));
                           showToast('Login URL copied to clipboard!', 'success');
                         }}
-                        className="btn-secondary" 
+                        className="school-action-badge-btn btn-copy" 
                         title="Copy URL" 
-                        style={{ padding: '3px 6px', border: 'none', background: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}
                       >
-                        <Copy size={12} />
+                        <Copy size={13} />
                       </button>
                     </div>
-                    <div style={{ display: 'flex', gap: '4px' }}>
+                    <div className="school-action-buttons">
                       <button 
+                        type="button"
                         onClick={() => handleOpenManageCredentialsModal(school)} 
-                        className="btn-secondary" 
+                        className="school-action-badge-btn btn-credentials" 
                         title="Manage Credentials" 
-                        style={{ padding: '5px', border: 'none', background: 'none', cursor: 'pointer', color: 'hsl(var(--color-primary))' }}
                       >
-                        <Key size={15} />
-                      </button>
-
-                      <button onClick={() => handleOpenEditModal(school)} className="btn-secondary" title="Edit School" style={{ padding: '5px', border: 'none', background: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}>
-                        <Edit2 size={15} />
+                        <Key size={16} />
                       </button>
 
                       <button 
-                        onClick={() => handleToggleSuspend(school)} 
-                        className="btn-secondary" 
-                        title={school.status === 'Active' ? 'Suspend School' : 'Unsuspend School'} 
-                        style={{ padding: '5px', border: 'none', background: 'none', cursor: 'pointer', color: school.status === 'Active' ? '#ef4444' : '#10b981' }}
+                        type="button"
+                        onClick={() => handleOpenEditModal(school)} 
+                        className="school-action-badge-btn btn-edit" 
+                        title="Edit School" 
                       >
-                        {school.status === 'Active' ? <AlertTriangle size={15} /> : <Play size={15} />}
+                        <Edit2 size={16} />
                       </button>
-                      <button onClick={() => handleDeleteSchool(school)} className="btn-secondary" title="Delete Tenant" style={{ padding: '5px', border: 'none', background: 'none', cursor: 'pointer', color: 'rgb(var(--color-danger-rgb))' }}>
-                        <Trash2 size={15} />
+
+                      <button 
+                        type="button"
+                        onClick={() => handleToggleSuspend(school)} 
+                        className={`school-action-badge-btn ${school.status === 'Active' ? 'btn-suspend' : 'btn-activate'}`}
+                        title={school.status === 'Active' ? 'Suspend School' : 'Unsuspend School'} 
+                      >
+                        {school.status === 'Active' ? <AlertTriangle size={16} /> : <Play size={16} />}
+                      </button>
+
+                      <button 
+                        type="button"
+                        onClick={() => handleDeleteSchool(school)} 
+                        className="school-action-badge-btn btn-delete" 
+                        title="Delete Tenant" 
+                      >
+                        <Trash2 size={16} />
                       </button>
                     </div>
                   </div>

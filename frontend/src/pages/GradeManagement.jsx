@@ -721,11 +721,11 @@ export default function GradeManagement({ currentSubView, setAdminView, showToas
               </div>
 
               {/* SaaS Table Form */}
-              <div className="glass-panel" style={{ overflowX: 'auto', padding: '0', borderRadius: '12px', border: '1px solid var(--border-glass)', background: 'var(--bg-card)' }}>
+              <div className="glass-panel gm-table-container">
                 <table className="table-custom" style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                   <thead>
                     <tr style={{ borderBottom: '1px solid var(--border-glass)', background: 'rgba(255,107,0,0.02)' }}>
-                      <th style={{ padding: '14px 18px', width: '50px' }}>
+                      <th className="gm-th gm-th-check">
                         <input
                           type="checkbox"
                           checked={displayGrades.length > 0 && selectedGrades.length === displayGrades.length}
@@ -736,10 +736,10 @@ export default function GradeManagement({ currentSubView, setAdminView, showToas
                           style={{ width: '15px', height: '15px', cursor: 'pointer', accentColor: '#FF8C42' }}
                         />
                       </th>
-                      <th style={{ padding: '14px 18px', fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600 }}>Class / Grade</th>
-                      <th style={{ padding: '14px 18px', fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600 }}>Sections</th>
-                      <th style={{ padding: '14px 18px', fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600 }}>Subjects</th>
-                      <th style={{ padding: '14px 18px', fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600, textAlign: 'right' }}>Actions</th>
+                      <th className="gm-th">Class / Grade</th>
+                      <th className="gm-th">Sections</th>
+                      <th className="gm-th">Subjects</th>
+                      <th className="gm-th" style={{ textAlign: 'right' }}>Actions</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -751,7 +751,7 @@ export default function GradeManagement({ currentSubView, setAdminView, showToas
                       return (
                         <tr key={rowKey} style={{ borderBottom: '1px solid var(--border-glass)' }} className="hover-row">
                           {/* Checkbox */}
-                          <td style={{ padding: '16px 18px' }}>
+                          <td className="gm-td gm-td-check">
                             <input
                               type="checkbox"
                               checked={selectedGrades.includes(rowKey)}
@@ -764,7 +764,7 @@ export default function GradeManagement({ currentSubView, setAdminView, showToas
                           </td>
 
                           {/* Class / Grade Name */}
-                          <td style={{ padding: '16px 18px' }}>
+                          <td className="gm-td">
                             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                               <div className="gm-grade-avatar" style={{ margin: 0, fontSize: (g.name || '').length > 2 ? '0.7rem' : '0.85rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{g.name}</div>
                               <div>
@@ -779,7 +779,7 @@ export default function GradeManagement({ currentSubView, setAdminView, showToas
                           </td>
 
                           {/* Sections */}
-                          <td style={{ padding: '16px 18px', maxWidth: '280px' }}>
+                          <td className="gm-td" style={{ maxWidth: '280px' }}>
                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px' }}>
                               {gradeSections.length > 0 ? gradeSections.map((secName, idx) => (
                                 <span key={idx} className="gm-chip gm-chip-section">
@@ -800,7 +800,7 @@ export default function GradeManagement({ currentSubView, setAdminView, showToas
                           </td>
 
                           {/* Subjects */}
-                          <td style={{ padding: '16px 18px', maxWidth: '380px' }}>
+                          <td className="gm-td" style={{ maxWidth: '380px' }}>
                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px' }}>
                               {gradeSubjectsList.length > 0 ? gradeSubjectsList.map((sub, idx) => (
                                 <span key={idx} className="gm-chip gm-chip-subject">
@@ -822,7 +822,7 @@ export default function GradeManagement({ currentSubView, setAdminView, showToas
                           </td>
 
                           {/* Actions */}
-                          <td style={{ padding: '16px 18px', textAlign: 'right' }}>
+                          <td className="gm-td" style={{ textAlign: 'right' }}>
                             <div style={{ display: 'inline-flex', gap: '6px', alignItems: 'center' }}>
                               <button
                                 type="button"

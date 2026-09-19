@@ -11,7 +11,7 @@ export const getAttendanceRoster = (req, res) => {
     }
 
     const db = readDb();
-    
+     
     // Filter students by class & section (only Active students)
     let filteredStudents = db.students.filter(stu => {
       if (stu.status !== 'Active') return false;

@@ -12,6 +12,7 @@
     "find-x": "node \"C:\\Users\\uttam rajpurrohit\\.gemini\\antigravity-ide\\brain\\ba78d59a-f21a-4688-945e-3672bd614e61\\scratch\\find_x.js\""
   },
   "dependencies": {
+    "aether-academy-erp": "file:..",
     "jsqr": "^1.4.0",
     "lucide-react": "^1.17.0",
     "react": "^19.2.6",
