@@ -1,0 +1,42 @@
+{
+  "schools": [
+    {
+      "id": "SCH-701",
+      "name": "Green Valley",
+      "code": "SCH-701",
+      "subdomain": "green-valley",
+      "logo": "",
+      "principalName": "Dr. Robert Green",
+      "email": "admin@greenvalleyschool.edu",
+      "phone": "9876543210",
+      "address": "123 Valley Road, Green Valley Campus",
+      "city": "Greenfield",
+      "state": "California",
+      "country": "India",
+      "academicSession": "2026-2027",
+      "subscriptionPlan": "Enterprise",
+      "url": "https://green-valley.myschoolerp.com",
+      "status": "Active",
+      "adminName": "School Admin",
+      "adminEmail": "admin@greenvalleyschool.edu",
+      "adminUsername": "school_admin",
+      "adminPassword": "$2b$10$jV/vXOcV.0SjmkvidhUlJebYdlbfuecz3OI4J58szzNdroTkaAS/q",
+      "dbName": "school_green-valley",
+      "ratePerStudent": "250.00",
+      "examTypes": "[\"Term 1\",\"Term 2\",\"Final Exam\"]",
+      "eventTypes": "[\"Sports\",\"Cultural\",\"Academic\",\"Holiday\"]",
+      "noticeCategories": "[\"Academic\",\"Administrative\",\"Examination\",\"General\"]",
+      "holidayClassifications": "[\"National Holiday\",\"Festival\",\"Vacation\"]",
+      "createdAt": "2026-09-19T04:27:01.916Z",
+      "updatedAt": "2026-09-19T04:27:01.917Z"
+    }
+  ],
+  "platformOwner": {
+    "name": "Platform Owner",
+    "username": "dev@admin.com",
+    "password": "$2b$10$JrJGHQ7cLxz3i09SUW6FEeWlDmoZl7idzsdiA4z0PZ8ReIeEf4CoC",
+    "email": "dev@admin.com",
+    "phone": "",
+    "photo": ""
+  }
+}

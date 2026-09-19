@@ -1593,7 +1593,16 @@ export const initializeOnboardedSchoolDatabase = async (subdomain) => {
 };
 
 const ensureSubdomainsRegistered = async (masterPool) => {
-  // Auto-seeding and cleanup utilities removed to prevent automatic deletion of subdomains starting with 'gate' and seeding of 'sitfg'.
+  try {
+    const [rows] = await masterPool.query("SELECT subdomain FROM schools WHERE subdomain = 'green-valley'");
+    if (!rows || rows.length === 0) {
+      console.log("[SQL Init] Green Valley school not found in database. Running auto-seeder...");
+      const { seedGreenValley } = await import('../seedGreenValley.js');
+      await seedGreenValley();
+    }
+  } catch (err) {
+    console.warn("[SQL Init WARNING] Auto-seed check error:", err.message);
+  }
 };
 
 // Initial database check called on server boot
@@ -1711,6 +1720,18 @@ export const getDefaultRoles = () => {
     return matrix;
   };
 
+  const createRoleMatrix = (allowedModules = []) => {
+    const matrix = {};
+    modules.forEach(m => {
+      matrix[m] = {};
+      const isAllowed = allowedModules.includes(m);
+      actions.forEach(a => {
+        matrix[m][a] = isAllowed;
+      });
+    });
+    return matrix;
+  };
+
   const defaultRoles = [
     // ===== STAFF ROLES =====
     {
@@ -1719,7 +1740,12 @@ export const getDefaultRoles = () => {
       description: 'Coordinates academic programs, timetables, exam schedules, and curriculum planning.',
       active: true,
       isSystem: true,
-      permissions: createEmptyMatrix()
+      permissions: createRoleMatrix([
+        'overview', 'academic-manager', 'published-timetable', 'published-exam', 
+        'academic-activities', 'academic-calendar', 'results-manager', 'results-marks-entry', 
+        'results-history', 'grade-management', 'attendance', 'attendance-history', 
+        'student-directory', 'teacher-directory', 'settings'
+      ])
     },
     {
       id: 'role-teacher',
@@ -1727,7 +1753,11 @@ export const getDefaultRoles = () => {
       description: 'Teacher. Records attendance, enters marks, manages academic activities, and views student profiles.',
       active: true,
       isSystem: true,
-      permissions: createEmptyMatrix()
+      permissions: createRoleMatrix([
+        'overview', 'student-directory', 'attendance', 'attendance-history', 
+        'results-marks-entry', 'results-manager', 'results-history', 
+        'academic-activities', 'academic-calendar', 'published-timetable', 'published-exam'
+      ])
     },
     {
       id: 'role-receptionist',
@@ -1735,7 +1765,10 @@ export const getDefaultRoles = () => {
       description: 'Front-office receptionist. Manages admissions, visitor records, and inquiry handling.',
       active: true,
       isSystem: true,
-      permissions: createEmptyMatrix()
+      permissions: createRoleMatrix([
+        'overview', 'student-directory', 'teacher-directory', 'staff-directory', 
+        'employee-directory', 'register-student', 'academic-activities', 'academic-calendar', 'attendance'
+      ])
     },
     {
       id: 'role-accountant',
@@ -1743,7 +1776,12 @@ export const getDefaultRoles = () => {
       description: 'Accounts administrator. Manages fee structures, collections, invoices, salaries, and financial reports.',
       active: true,
       isSystem: true,
-      permissions: createEmptyMatrix()
+      permissions: createRoleMatrix([
+        'overview', 'finance', 'staff-payroll', 'staff-pay-structure', 'teacher-payroll', 
+        'teacher-pay-structure', 'employee-payroll', 'employee-pay-structure', 'payroll-history', 
+        'income', 'financial-reports', 'fee-structures', 'fee-periods', 'auxiliary-income', 
+        'expense-dashboard', 'expense-all-expenses', 'expense-history', 'expense-tracker', 'student-directory'
+      ])
     },
     {
       id: 'role-expense-manager',
@@ -1751,7 +1789,10 @@ export const getDefaultRoles = () => {
       description: 'Expense manager. Oversees school expenses, financial reporting, and budgeting.',
       active: true,
       isSystem: true,
-      permissions: createEmptyMatrix()
+      permissions: createRoleMatrix([
+        'overview', 'expense-dashboard', 'expense-all-expenses', 'expense-history', 
+        'expense-tracker', 'financial-reports', 'income'
+      ])
     }
   ];
   ensureOverviewPermissions(defaultRoles);

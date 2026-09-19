@@ -450,275 +450,305 @@ app.post('/api/auth/login', loginLimiter, loginValidation, async (req, res) => {
     return res.status(401).json({ error: 'Invalid Developer Admin credentials.', remainingAttempts });
   }
 
-  if (!tenantId || tenantId === 'localhost' || tenantId === 'platform') {
-    return res.status(401).json({ error: 'Please access through a specific school domain, or enter valid platform owner credentials.' });
-  }
-
-  // School-specific tenant database authentication!
-  const db = readDb(); // This will read the tenant-specific db because tenantId is set!
-  
-  // Find school info
-  const schoolRecord = (globalDb.schools || []).find(s => slugify(s.subdomain) === slugify(tenantId));
-  if (!schoolRecord) {
-    return res.status(404).json({ error: 'School domain registration not found.' });
-  }
-
-  if (schoolRecord.status === 'Suspended') {
-    return res.status(403).json({ error: 'This school account has been suspended. Please contact platform support.' });
-  }
-
-  // Authenticate by role (auto-detect when role is 'Auto')
-  const tryRoles = role === 'Auto' ? ['Main Admin', 'Admin Dashboard', 'Staff', 'Employee', 'Student', 'Parent', 'Teacher'] : [role];
-  
-  for (const currentRole of tryRoles) {
-    if (currentRole === 'Main Admin') {
-      if ((username === schoolRecord.adminUsername || username === schoolRecord.adminEmail) && await comparePassword(password, schoolRecord.adminPassword)) {
-        if (!isBcryptHash(schoolRecord.adminPassword)) {
-          schoolRecord.adminPassword = await hashPassword(password);
-          const platformDb = readDb();
-          const sIdx = platformDb.schools.findIndex(s => s.id === schoolRecord.id);
-          if (sIdx !== -1) {
-            platformDb.schools[sIdx].adminPassword = schoolRecord.adminPassword;
-            writeDb(platformDb);
-          }
-        }
-        resetFailedAttempts(loginKey);
-        const adminRole = (db.roles || []).find(r => r.id === 'role-principal' || r.name === 'Principal' || r.id === 'role-super-admin' || r.name === 'Super Admin');
-        let permissions = {};
-        if (adminRole) {
-          permissions = adminRole.permissions;
-        } else {
-          // Dynamic fallback to full access permissions
-          const modules = [
-            'dashboard', 'students', 'teachers', 'staff', 'academics', 'calendar', 'exams',
-            'results', 'notices', 'events', 'holidays', 'attendance', 'fee-structures',
-            'salaries', 'expenses', 'income', 'roles-permissions'
-          ];
-          const actions = ['view', 'create', 'edit', 'delete', 'approve', 'publish', 'export', 'import', 'manage-settings'];
-          const matrix = {};
-          modules.forEach(m => {
-            matrix[m] = {};
-            actions.forEach(a => {
-              matrix[m][a] = true;
-            });
-          });
-          permissions = matrix;
-        }
-        const payload = { role: 'Main Admin', tenantId, username, permissions, passwordHash: schoolRecord.adminPassword };
-        const token = generateToken(payload);
-        const refreshToken = generateRefreshToken(payload);
-        setAuthCookie(res, token, 'Main Admin');
-        return res.json({ token, refreshToken, role: 'Main Admin', name: schoolRecord.principalName || schoolRecord.principal || schoolRecord.adminName, school: schoolRecord, permissions });
-      }
-
-    } else if (currentRole === 'Teacher') {
-      const teacher = (db.teachers || []).find(t =>
-        (t.status === 'Active' || !t.status) &&
-        (t.username === username || t.email === username)
-      );
-      if (teacher && await comparePassword(password, teacher.password)) {
-        if (!isBcryptHash(teacher.password)) {
-          teacher.password = await hashPassword(password);
-          writeDb(db);
-        }
-        resetFailedAttempts(loginKey);
-        
-        const roleRecord = (db.roles || []).find(r => r.id === 'role-teacher' || r.name.toLowerCase() === 'teacher');
-        const permissions = roleRecord ? (typeof roleRecord.permissions === 'string' ? JSON.parse(roleRecord.permissions) : roleRecord.permissions) : {};
-        const payload = {
-          role: 'Teacher',
-          userType: 'Teacher',
-          tenantId,
-          username,
-          id: teacher.id,
-          name: teacher.fullName || teacher.name,
-          permissions,
-          overrides: {},
-          assignedGradeId: teacher.assignedGradeId || '',
-          assignedSectionId: teacher.assignedSectionId || '',
-          isClassTeacher: (teacher.isClassTeacher === 1 || teacher.isClassTeacher === true || teacher.isClassTeacher === 'Yes'),
-          attendancePermission: (teacher.attendancePermission === 1 || teacher.attendancePermission === true || teacher.attendancePermission === 'Yes')
-        };
-        const token = generateToken(payload);
-        const refreshToken = generateRefreshToken(payload);
-        setAuthCookie(res, token, 'Teacher');
-        return res.json({
-          token,
-          refreshToken,
-          role: 'Teacher',
-          userType: 'Teacher',
-          name: teacher.fullName || teacher.name,
-          school: schoolRecord,
-          permissions,
-          overrides: {},
-          assignedGradeId: teacher.assignedGradeId || '',
-          assignedSectionId: teacher.assignedSectionId || '',
-          isClassTeacher: (teacher.isClassTeacher === 1 || teacher.isClassTeacher === true || teacher.isClassTeacher === 'Yes'),
-          attendancePermission: (teacher.attendancePermission === 1 || teacher.attendancePermission === true || teacher.attendancePermission === 'Yes')
-        });
-      }
-    } else if (currentRole === 'Staff') {
-      const staffMember = (db.staff || []).find(s =>
-        (s.status === 'Active' || !s.status) &&
-        (s.username === username || s.email === username || s.phone === username)
-      );
-      if (staffMember && await comparePassword(password, staffMember.password)) {
-        if (!isBcryptHash(staffMember.password)) {
-          staffMember.password = await hashPassword(password);
-          writeDb(db);
-        }
-        resetFailedAttempts(loginKey);
-        const access = (db.userAccess || []).find(ua => ua.userId === staffMember.id && ua.userType === 'Staff');
-        let roleRecord = access ? (db.roles || []).find(r => r.id === access.roleId) : null;
-        
-        const possibleDesignation = staffMember.designation || staffMember.role;
-        if (!roleRecord && possibleDesignation) {
-          roleRecord = (db.roles || []).find(r => r.name.toLowerCase() === possibleDesignation.toLowerCase());
-        }
-
-        if (!roleRecord) {
-          roleRecord = (db.roles || []).find(r => r.name.toLowerCase() === 'staff' || r.id === 'role-receptionist');
-        }
-        
-        const roleName = roleRecord ? roleRecord.name : (staffMember.role || 'Staff');
-        const permissions = roleRecord ? (typeof roleRecord.permissions === 'string' ? JSON.parse(roleRecord.permissions) : roleRecord.permissions) : {};
-        const overrides = access ? access.overrides : {};
-        const payload = {
-          role: roleName,
-          userType: 'Staff',
-          tenantId,
-          username,
-          id: staffMember.id,
-          name: staffMember.fullName || staffMember.name,
-          permissions,
-          overrides
-        };
-        const token = generateToken(payload);
-        const refreshToken = generateRefreshToken(payload);
-        setAuthCookie(res, token, roleName);
-        return res.json({
-          token,
-          refreshToken,
-          role: roleName,
-          userType: 'Staff',
-          name: staffMember.fullName || staffMember.name,
-          school: schoolRecord,
-          permissions,
-          overrides
-        });
-      }
-    } else if (currentRole === 'Employee') {
-      const employeeMember = (db.employees || []).find(e =>
-        (e.status === 'Active' || !e.status) &&
-        (e.email === username || e.phone === username || e.username === username)
-      );
-      if (employeeMember && (password === 'employee123' || await comparePassword(password, employeeMember.password))) {
-        if (password !== 'employee123' && !isBcryptHash(employeeMember.password)) {
-          employeeMember.password = await hashPassword(password);
-          writeDb(db);
-        }
-        resetFailedAttempts(loginKey);
-        const access = (db.userAccess || []).find(ua => ua.userId === employeeMember.id && ua.userType === 'Employee');
-        let roleRecord = access ? (db.roles || []).find(r => r.id === access.roleId) : null;
-        
-        const possibleDesignation = employeeMember.designation || employeeMember.role;
-        if (!roleRecord && possibleDesignation) {
-          roleRecord = (db.roles || []).find(r => r.name.toLowerCase() === possibleDesignation.toLowerCase());
-        }
-
-        const roleName = roleRecord ? roleRecord.name : (employeeMember.role || 'Employee');
-        const permissions = roleRecord ? (typeof roleRecord.permissions === 'string' ? JSON.parse(roleRecord.permissions) : roleRecord.permissions) : {};
-        const overrides = access ? access.overrides : {};
-        const payload = {
-          role: roleName,
-          userType: 'Employee',
-          tenantId,
-          username,
-          id: employeeMember.id,
-          name: employeeMember.fullName || employeeMember.name,
-          permissions,
-          overrides
-        };
-        const token = generateToken(payload);
-        const refreshToken = generateRefreshToken(payload);
-        setAuthCookie(res, token, roleName);
-        return res.json({
-          token,
-          refreshToken,
-          role: roleName,
-          userType: 'Employee',
-          name: employeeMember.fullName || employeeMember.name,
-          school: schoolRecord,
-          permissions,
-          overrides
-        });
-      }
-    } else if (currentRole === 'Student') {
-      const student = (db.students || []).find(s => 
-        (s.status === 'Active' || !s.status) &&
-        (s.studentUsername === username || s.admissionNumber === username)
-      );
-      if (student) {
-        const isPassMatch = await comparePassword(password, student.studentPassword);
-        const isFallbackMatch = password === 'student123';
-        if (isPassMatch || isFallbackMatch) {
-          if (isPassMatch && !isBcryptHash(student.studentPassword)) {
-            student.studentPassword = await hashPassword(password);
-            writeDb(db);
-          }
-          resetFailedAttempts(loginKey);
-          const roleRecord = (db.roles || []).find(r => r.id === 'role-student' || r.name === 'Student');
-          const permissions = roleRecord ? roleRecord.permissions : {};
-          const payload = { role: 'Student', tenantId, username, id: student.id, permissions };
-          const token = generateToken(payload);
-          const refreshToken = generateRefreshToken(payload);
-          setAuthCookie(res, token, 'Student');
-          return res.json({ token, refreshToken, role: 'Student', name: student.name || student.fullName, school: schoolRecord, permissions });
+  let effectiveTenantId = tenantId;
+  if (!effectiveTenantId || effectiveTenantId === 'localhost' || effectiveTenantId === 'platform') {
+    // 1. Match school admin credentials
+    const matchedAdminSchool = (globalDb.schools || []).find(s => s.adminUsername === username || s.adminEmail === username);
+    if (matchedAdminSchool) {
+      effectiveTenantId = slugify(matchedAdminSchool.subdomain);
+    } else {
+      // 2. Search across registered schools for matching teacher, staff, student, or parent username
+      for (const s of (globalDb.schools || [])) {
+        const sSub = slugify(s.subdomain);
+        const tDb = tenantStorage.run(sSub, () => readDb());
+        const hasUser = (tDb.teachers || []).some(t => t.username === username || t.email === username) ||
+                        (tDb.staff || []).some(st => st.username === username || st.email === username || st.phone === username) ||
+                        (tDb.students || []).some(stu => stu.studentUsername === username || stu.admissionNumber === username || stu.parentUsername === username);
+        if (hasUser) {
+          effectiveTenantId = sSub;
+          break;
         }
       }
-    } else if (currentRole === 'Parent') {
-      const student = (db.students || []).find(s => {
-        if (s.status === 'Inactive') return false;
-        const decryptedParentEmail = s.parentEmail ? decrypt(s.parentEmail) : '';
-        const decryptedFatherEmail = s.fatherEmail ? decrypt(s.fatherEmail) : '';
-        const decryptedMotherEmail = s.motherEmail ? decrypt(s.motherEmail) : '';
-        const decryptedFatherMobile = s.fatherMobile ? decrypt(s.fatherMobile) : '';
-        const decryptedMotherMobile = s.motherMobile ? decrypt(s.motherMobile) : '';
-        return (
-          s.parentUsername === username ||
-          decryptedParentEmail === username ||
-          decryptedFatherEmail === username ||
-          decryptedMotherEmail === username ||
-          decryptedFatherMobile === username ||
-          decryptedMotherMobile === username
-        );
-      });
-      if (student) {
-        const isPassMatch = await comparePassword(password, student.parentPassword);
-        const isFallbackMatch = password === 'parent123';
-        if (isPassMatch || isFallbackMatch) {
-          if (isPassMatch && !isBcryptHash(student.parentPassword)) {
-            student.parentPassword = await hashPassword(password);
-            writeDb(db);
-          }
-          resetFailedAttempts(loginKey);
-          const roleRecord = (db.roles || []).find(r => r.id === 'role-parent' || r.name === 'Parent');
-          const permissions = roleRecord ? roleRecord.permissions : {};
-          const payload = { role: 'Parent', tenantId, username, id: student.id, permissions };
-          const token = generateToken(payload);
-          const refreshToken = generateRefreshToken(payload);
-          setAuthCookie(res, token, 'Parent');
-          const parentEmail = student.fatherEmail ? decrypt(student.fatherEmail) : (student.motherEmail ? decrypt(student.motherEmail) : '');
-          const parentPhone = student.fatherMobile ? decrypt(student.fatherMobile) : (student.motherMobile ? decrypt(student.motherMobile) : '');
-          return res.json({ token, refreshToken, role: 'Parent', name: student.fatherName || student.motherName || 'Parent', username: username, email: parentEmail, phone: parentPhone, school: schoolRecord, permissions });
-        }
+      // 3. Fallback to single school if only 1 exists
+      if ((!effectiveTenantId || effectiveTenantId === 'localhost' || effectiveTenantId === 'platform') && globalDb.schools && globalDb.schools.length === 1) {
+        effectiveTenantId = slugify(globalDb.schools[0].subdomain);
       }
     }
   }
 
-  const attemptsRecord = recordFailedAttempt(loginKey);
-  const remainingAttempts = Math.max(0, 5 - attemptsRecord.count);
-  return res.status(401).json({ error: 'Invalid username or password.', remainingAttempts });
+  if (!effectiveTenantId || effectiveTenantId === 'localhost' || effectiveTenantId === 'platform') {
+    return res.status(401).json({ error: 'Please access through a specific school domain, or enter valid platform owner credentials.' });
+  }
+
+  const resolvedTenantId = effectiveTenantId;
+  return tenantStorage.run(resolvedTenantId, async () => {
+    const tenantId = resolvedTenantId;
+    // School-specific tenant database authentication!
+    const db = readDb(); // This will read the tenant-specific db because tenantId is set!
+    
+    // Find school info
+    const schoolRecord = (globalDb.schools || []).find(s => slugify(s.subdomain) === slugify(tenantId));
+    if (!schoolRecord) {
+      return res.status(404).json({ error: 'School domain registration not found.' });
+    }
+
+    if (schoolRecord.status === 'Suspended') {
+      return res.status(403).json({ error: 'This school account has been suspended. Please contact platform support.' });
+    }
+
+    // Authenticate by role (auto-detect when role is 'Auto')
+    const tryRoles = role === 'Auto' ? ['Main Admin', 'Admin Dashboard', 'Staff', 'Employee', 'Student', 'Parent', 'Teacher'] : [role];
+    
+    for (const currentRole of tryRoles) {
+      if (currentRole === 'Main Admin') {
+        if ((username === schoolRecord.adminUsername || username === schoolRecord.adminEmail) && await comparePassword(password, schoolRecord.adminPassword)) {
+          if (!isBcryptHash(schoolRecord.adminPassword)) {
+            schoolRecord.adminPassword = await hashPassword(password);
+            const platformDb = readDb();
+            const sIdx = platformDb.schools.findIndex(s => s.id === schoolRecord.id);
+            if (sIdx !== -1) {
+              platformDb.schools[sIdx].adminPassword = schoolRecord.adminPassword;
+              writeDb(platformDb);
+            }
+          }
+          resetFailedAttempts(loginKey);
+          const adminRole = (db.roles || []).find(r => r.id === 'role-principal' || r.name === 'Principal' || r.id === 'role-super-admin' || r.name === 'Super Admin');
+          let permissions = {};
+          if (adminRole) {
+            permissions = adminRole.permissions;
+          } else {
+            // Dynamic fallback to full access permissions
+            const modules = [
+              'dashboard', 'students', 'teachers', 'staff', 'academics', 'calendar', 'exams',
+              'results', 'notices', 'events', 'holidays', 'attendance', 'fee-structures',
+              'salaries', 'expenses', 'income', 'roles-permissions'
+            ];
+            const actions = ['view', 'create', 'edit', 'delete', 'approve', 'publish', 'export', 'import', 'manage-settings'];
+            const matrix = {};
+            modules.forEach(m => {
+              matrix[m] = {};
+              actions.forEach(a => {
+                matrix[m][a] = true;
+              });
+            });
+            permissions = matrix;
+          }
+          const payload = { role: 'Main Admin', tenantId, username, permissions, passwordHash: schoolRecord.adminPassword };
+          const token = generateToken(payload);
+          const refreshToken = generateRefreshToken(payload);
+          setAuthCookie(res, token, 'Main Admin');
+          return res.json({ token, refreshToken, role: 'Main Admin', name: schoolRecord.principalName || schoolRecord.principal || schoolRecord.adminName, school: schoolRecord, permissions });
+        }
+
+      } else if (currentRole === 'Teacher') {
+        const teacher = (db.teachers || []).find(t =>
+          (t.status === 'Active' || !t.status) &&
+          (t.username === username || t.email === username)
+        );
+        if (teacher && await comparePassword(password, teacher.password)) {
+          if (!isBcryptHash(teacher.password)) {
+            teacher.password = await hashPassword(password);
+            writeDb(db);
+          }
+          resetFailedAttempts(loginKey);
+          
+          const roleRecord = (db.roles || []).find(r => r.id === 'role-teacher' || r.name.toLowerCase() === 'teacher');
+          const permissions = roleRecord ? (typeof roleRecord.permissions === 'string' ? JSON.parse(roleRecord.permissions) : roleRecord.permissions) : {};
+          const payload = {
+            role: 'Teacher',
+            userType: 'Teacher',
+            tenantId,
+            username,
+            id: teacher.id,
+            name: teacher.fullName || teacher.name,
+            permissions,
+            overrides: {},
+            assignedGradeId: teacher.assignedGradeId || '',
+            assignedSectionId: teacher.assignedSectionId || '',
+            isClassTeacher: (teacher.isClassTeacher === 1 || teacher.isClassTeacher === true || teacher.isClassTeacher === 'Yes'),
+            attendancePermission: (teacher.attendancePermission === 1 || teacher.attendancePermission === true || teacher.attendancePermission === 'Yes')
+          };
+          const token = generateToken(payload);
+          const refreshToken = generateRefreshToken(payload);
+          setAuthCookie(res, token, 'Teacher');
+          return res.json({
+            token,
+            refreshToken,
+            role: 'Teacher',
+            userType: 'Teacher',
+            name: teacher.fullName || teacher.name,
+            school: schoolRecord,
+            permissions,
+            overrides: {},
+            assignedGradeId: teacher.assignedGradeId || '',
+            assignedSectionId: teacher.assignedSectionId || '',
+            isClassTeacher: (teacher.isClassTeacher === 1 || teacher.isClassTeacher === true || teacher.isClassTeacher === 'Yes'),
+            attendancePermission: (teacher.attendancePermission === 1 || teacher.attendancePermission === true || teacher.attendancePermission === 'Yes')
+          });
+        }
+      } else if (currentRole === 'Staff') {
+        const staffMember = (db.staff || []).find(s =>
+          (s.status === 'Active' || !s.status) &&
+          (s.username === username || s.email === username || s.phone === username)
+        );
+        if (staffMember && await comparePassword(password, staffMember.password)) {
+          if (!isBcryptHash(staffMember.password)) {
+            staffMember.password = await hashPassword(password);
+            writeDb(db);
+          }
+          resetFailedAttempts(loginKey);
+          const access = (db.userAccess || []).find(ua => ua.userId === staffMember.id && ua.userType === 'Staff');
+          let roleRecord = access ? (db.roles || []).find(r => r.id === access.roleId) : null;
+          
+          const possibleDesignation = staffMember.designation || staffMember.role;
+          if (!roleRecord && possibleDesignation) {
+            roleRecord = (db.roles || []).find(r => r.name.toLowerCase() === possibleDesignation.toLowerCase());
+          }
+
+          if (!roleRecord) {
+            roleRecord = (db.roles || []).find(r => r.name.toLowerCase() === 'staff' || r.id === 'role-receptionist');
+          }
+          
+          const roleName = roleRecord ? roleRecord.name : (staffMember.role || 'Staff');
+          const permissions = roleRecord ? (typeof roleRecord.permissions === 'string' ? JSON.parse(roleRecord.permissions) : roleRecord.permissions) : {};
+          const overrides = access ? access.overrides : {};
+          const payload = {
+            role: roleName,
+            userType: 'Staff',
+            tenantId,
+            username,
+            id: staffMember.id,
+            name: staffMember.fullName || staffMember.name,
+            permissions,
+            overrides
+          };
+          const token = generateToken(payload);
+          const refreshToken = generateRefreshToken(payload);
+          setAuthCookie(res, token, roleName);
+          return res.json({
+            token,
+            refreshToken,
+            role: roleName,
+            userType: 'Staff',
+            name: staffMember.fullName || staffMember.name,
+            school: schoolRecord,
+            permissions,
+            overrides
+          });
+        }
+      } else if (currentRole === 'Employee') {
+        const employeeMember = (db.employees || []).find(e =>
+          (e.status === 'Active' || !e.status) &&
+          (e.email === username || e.phone === username || e.username === username)
+        );
+        if (employeeMember && (password === 'employee123' || await comparePassword(password, employeeMember.password))) {
+          if (password !== 'employee123' && !isBcryptHash(employeeMember.password)) {
+            employeeMember.password = await hashPassword(password);
+            writeDb(db);
+          }
+          resetFailedAttempts(loginKey);
+          const access = (db.userAccess || []).find(ua => ua.userId === employeeMember.id && ua.userType === 'Employee');
+          let roleRecord = access ? (db.roles || []).find(r => r.id === access.roleId) : null;
+          
+          const possibleDesignation = employeeMember.designation || employeeMember.role;
+          if (!roleRecord && possibleDesignation) {
+            roleRecord = (db.roles || []).find(r => r.name.toLowerCase() === possibleDesignation.toLowerCase());
+          }
+
+          const roleName = roleRecord ? roleRecord.name : (employeeMember.role || 'Employee');
+          const permissions = roleRecord ? (typeof roleRecord.permissions === 'string' ? JSON.parse(roleRecord.permissions) : roleRecord.permissions) : {};
+          const overrides = access ? access.overrides : {};
+          const payload = {
+            role: roleName,
+            userType: 'Employee',
+            tenantId,
+            username,
+            id: employeeMember.id,
+            name: employeeMember.fullName || employeeMember.name,
+            permissions,
+            overrides
+          };
+          const token = generateToken(payload);
+          const refreshToken = generateRefreshToken(payload);
+          setAuthCookie(res, token, roleName);
+          return res.json({
+            token,
+            refreshToken,
+            role: roleName,
+            userType: 'Employee',
+            name: employeeMember.fullName || employeeMember.name,
+            school: schoolRecord,
+            permissions,
+            overrides
+          });
+        }
+      } else if (currentRole === 'Student') {
+        const student = (db.students || []).find(s => 
+          (s.status === 'Active' || !s.status) &&
+          (s.studentUsername === username || s.admissionNumber === username)
+        );
+        if (student) {
+          const isPassMatch = await comparePassword(password, student.studentPassword);
+          const isFallbackMatch = password === 'student123';
+          if (isPassMatch || isFallbackMatch) {
+            if (isPassMatch && !isBcryptHash(student.studentPassword)) {
+              student.studentPassword = await hashPassword(password);
+              writeDb(db);
+            }
+            resetFailedAttempts(loginKey);
+            const roleRecord = (db.roles || []).find(r => r.id === 'role-student' || r.name === 'Student');
+            const permissions = roleRecord ? roleRecord.permissions : {};
+            const payload = { role: 'Student', tenantId, username, id: student.id, permissions };
+            const token = generateToken(payload);
+            const refreshToken = generateRefreshToken(payload);
+            setAuthCookie(res, token, 'Student');
+            return res.json({ token, refreshToken, role: 'Student', name: student.name || student.fullName, school: schoolRecord, permissions });
+          }
+        }
+      } else if (currentRole === 'Parent') {
+        const student = (db.students || []).find(s => {
+          if (s.status === 'Inactive') return false;
+          const decryptedParentEmail = s.parentEmail ? decrypt(s.parentEmail) : '';
+          const decryptedFatherEmail = s.fatherEmail ? decrypt(s.fatherEmail) : '';
+          const decryptedMotherEmail = s.motherEmail ? decrypt(s.motherEmail) : '';
+          const decryptedFatherMobile = s.fatherMobile ? decrypt(s.fatherMobile) : '';
+          const decryptedMotherMobile = s.motherMobile ? decrypt(s.motherMobile) : '';
+          return (
+            s.parentUsername === username ||
+            decryptedParentEmail === username ||
+            decryptedFatherEmail === username ||
+            decryptedMotherEmail === username ||
+            decryptedFatherMobile === username ||
+            decryptedMotherMobile === username
+          );
+        });
+        if (student) {
+          const isPassMatch = await comparePassword(password, student.parentPassword);
+          const isFallbackMatch = password === 'parent123';
+          if (isPassMatch || isFallbackMatch) {
+            if (isPassMatch && !isBcryptHash(student.parentPassword)) {
+              student.parentPassword = await hashPassword(password);
+              writeDb(db);
+            }
+            resetFailedAttempts(loginKey);
+            const roleRecord = (db.roles || []).find(r => r.id === 'role-parent' || r.name === 'Parent');
+            const permissions = roleRecord ? roleRecord.permissions : {};
+            const payload = { role: 'Parent', tenantId, username, id: student.id, permissions };
+            const token = generateToken(payload);
+            const refreshToken = generateRefreshToken(payload);
+            setAuthCookie(res, token, 'Parent');
+            const parentEmail = student.fatherEmail ? decrypt(student.fatherEmail) : (student.motherEmail ? decrypt(student.motherEmail) : '');
+            const parentPhone = student.fatherMobile ? decrypt(student.fatherMobile) : (student.motherMobile ? decrypt(student.motherMobile) : '');
+            return res.json({ token, refreshToken, role: 'Parent', name: student.fatherName || student.motherName || 'Parent', username: username, email: parentEmail, phone: parentPhone, school: schoolRecord, permissions });
+          }
+        }
+      }
+    }
+
+    const attemptsRecord = recordFailedAttempt(loginKey);
+    const remainingAttempts = Math.max(0, 5 - attemptsRecord.count);
+    return res.status(401).json({ error: 'Invalid username or password.', remainingAttempts });
+  });
 });
 
 // Refresh Token API
