@@ -20,15 +20,15 @@
       "adminName": "School Admin",
       "adminEmail": "admin@greenvalleyschool.edu",
       "adminUsername": "school_admin",
-      "adminPassword": "$2b$10$jV/vXOcV.0SjmkvidhUlJebYdlbfuecz3OI4J58szzNdroTkaAS/q",
+      "adminPassword": "$2b$10$d5tW2iDBcIDCwxrmfQwOkufOOB64rgBvW4c3J5yzAD90aHZtGXz7S",
       "dbName": "school_green-valley",
       "ratePerStudent": "250.00",
       "examTypes": "[\"Term 1\",\"Term 2\",\"Final Exam\"]",
       "eventTypes": "[\"Sports\",\"Cultural\",\"Academic\",\"Holiday\"]",
       "noticeCategories": "[\"Academic\",\"Administrative\",\"Examination\",\"General\"]",
       "holidayClassifications": "[\"National Holiday\",\"Festival\",\"Vacation\"]",
-      "createdAt": "2026-09-19T04:27:01.916Z",
-      "updatedAt": "2026-09-19T04:27:01.917Z"
+      "createdAt": "2026-09-19T04:53:43.940Z",
+      "updatedAt": "2026-09-19T04:53:43.942Z"
     }
   ],
   "platformOwner": {

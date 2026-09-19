@@ -12,7 +12,7 @@
     "adminName": "School Admin",
     "adminEmail": "admin@greenvalleyschool.edu",
     "adminUsername": "school_admin",
-    "adminPassword": "$2b$10$jV/vXOcV.0SjmkvidhUlJebYdlbfuecz3OI4J58szzNdroTkaAS/q",
+    "adminPassword": "$2b$10$d5tW2iDBcIDCwxrmfQwOkufOOB64rgBvW4c3J5yzAD90aHZtGXz7S",
     "principal": "Dr. Robert Green",
     "academicSession": "2026-2027",
     "examTypes": [
@@ -2349,7 +2349,7 @@
       "roleId": "role-accountant",
       "status": "Active",
       "overrides": {},
-      "updatedAt": "2026-09-19T04:27:03.374Z"
+      "updatedAt": "2026-09-19T04:53:45.315Z"
     },
     {
       "id": "access-STF-2026-1002",
@@ -2359,7 +2359,7 @@
       "roleId": "role-academic-coordinator",
       "status": "Active",
       "overrides": {},
-      "updatedAt": "2026-09-19T04:27:03.374Z"
+      "updatedAt": "2026-09-19T04:53:45.315Z"
     },
     {
       "id": "access-STF-2026-1003",
@@ -2369,7 +2369,7 @@
       "roleId": "role-receptionist",
       "status": "Active",
       "overrides": {},
-      "updatedAt": "2026-09-19T04:27:03.374Z"
+      "updatedAt": "2026-09-19T04:53:45.315Z"
     },
     {
       "id": "access-STF-2026-1004",
@@ -2379,7 +2379,7 @@
       "roleId": "role-expense-manager",
       "status": "Active",
       "overrides": {},
-      "updatedAt": "2026-09-19T04:27:03.374Z"
+      "updatedAt": "2026-09-19T04:53:45.315Z"
     },
     {
       "id": "access-STF-2026-1005",
@@ -2389,7 +2389,7 @@
       "roleId": "role-accountant",
       "status": "Active",
       "overrides": {},
-      "updatedAt": "2026-09-19T04:27:03.374Z"
+      "updatedAt": "2026-09-19T04:53:45.315Z"
     },
     {
       "id": "access-STF-2026-1006",
@@ -2399,7 +2399,7 @@
       "roleId": "role-academic-coordinator",
       "status": "Active",
       "overrides": {},
-      "updatedAt": "2026-09-19T04:27:03.374Z"
+      "updatedAt": "2026-09-19T04:53:45.315Z"
     },
     {
       "id": "access-STF-2026-1007",
@@ -2409,7 +2409,7 @@
       "roleId": "role-receptionist",
       "status": "Active",
       "overrides": {},
-      "updatedAt": "2026-09-19T04:27:03.374Z"
+      "updatedAt": "2026-09-19T04:53:45.315Z"
     },
     {
       "id": "access-STF-2026-1008",
@@ -2419,7 +2419,7 @@
       "roleId": "role-accountant",
       "status": "Active",
       "overrides": {},
-      "updatedAt": "2026-09-19T04:27:03.374Z"
+      "updatedAt": "2026-09-19T04:53:45.315Z"
     },
     {
       "id": "access-STF-2026-1009",
@@ -2429,7 +2429,7 @@
       "roleId": "role-academic-coordinator",
       "status": "Active",
       "overrides": {},
-      "updatedAt": "2026-09-19T04:27:03.374Z"
+      "updatedAt": "2026-09-19T04:53:45.315Z"
     },
     {
       "id": "access-STF-2026-1010",
@@ -2439,7 +2439,7 @@
       "roleId": "role-expense-manager",
       "status": "Active",
       "overrides": {},
-      "updatedAt": "2026-09-19T04:27:03.374Z"
+      "updatedAt": "2026-09-19T04:53:45.315Z"
     }
   ],
   "grades": [
@@ -2451,8 +2451,8 @@
         "A",
         "B"
       ],
-      "createdAt": "2026-09-19T04:27:01.917Z",
-      "updatedAt": "2026-09-19T04:27:01.917Z"
+      "createdAt": "2026-09-19T04:53:43.942Z",
+      "updatedAt": "2026-09-19T04:53:43.942Z"
     },
     {
       "id": "grade-green-valley-ii",
@@ -2462,8 +2462,8 @@
         "A",
         "B"
       ],
-      "createdAt": "2026-09-19T04:27:01.917Z",
-      "updatedAt": "2026-09-19T04:27:01.917Z"
+      "createdAt": "2026-09-19T04:53:43.942Z",
+      "updatedAt": "2026-09-19T04:53:43.942Z"
     },
     {
       "id": "grade-green-valley-iii",
@@ -2473,8 +2473,8 @@
         "A",
         "B"
       ],
-      "createdAt": "2026-09-19T04:27:01.917Z",
-      "updatedAt": "2026-09-19T04:27:01.917Z"
+      "createdAt": "2026-09-19T04:53:43.942Z",
+      "updatedAt": "2026-09-19T04:53:43.942Z"
     },
     {
       "id": "grade-green-valley-iv",
@@ -2484,8 +2484,8 @@
         "A",
         "B"
       ],
-      "createdAt": "2026-09-19T04:27:01.917Z",
-      "updatedAt": "2026-09-19T04:27:01.917Z"
+      "createdAt": "2026-09-19T04:53:43.942Z",
+      "updatedAt": "2026-09-19T04:53:43.942Z"
     },
     {
       "id": "grade-green-valley-xi",
@@ -2495,8 +2495,8 @@
         "A",
         "B"
       ],
-      "createdAt": "2026-09-19T04:27:01.917Z",
-      "updatedAt": "2026-09-19T04:27:01.917Z"
+      "createdAt": "2026-09-19T04:53:43.942Z",
+      "updatedAt": "2026-09-19T04:53:43.942Z"
     }
   ],
   "departments": [
@@ -2504,8 +2504,8 @@
       "id": "dept-green-valley-arts",
       "name": "Arts",
       "status": "Active",
-      "createdAt": "2026-09-19T04:27:01.917Z",
-      "updatedAt": "2026-09-19T04:27:01.917Z"
+      "createdAt": "2026-09-19T04:53:43.942Z",
+      "updatedAt": "2026-09-19T04:53:43.942Z"
     }
   ],
   "gradeDepartments": [
@@ -2518,8 +2518,8 @@
         "A",
         "B"
       ],
-      "createdAt": "2026-09-19T04:27:01.917Z",
-      "updatedAt": "2026-09-19T04:27:01.917Z"
+      "createdAt": "2026-09-19T04:53:43.942Z",
+      "updatedAt": "2026-09-19T04:53:43.942Z"
     }
   ],
   "sections": [
@@ -2527,15 +2527,15 @@
       "id": "sec-green-valley-a",
       "name": "A",
       "status": "Active",
-      "createdAt": "2026-09-19T04:27:01.917Z",
-      "updatedAt": "2026-09-19T04:27:01.917Z"
+      "createdAt": "2026-09-19T04:53:43.942Z",
+      "updatedAt": "2026-09-19T04:53:43.942Z"
     },
     {
       "id": "sec-green-valley-b",
       "name": "B",
       "status": "Active",
-      "createdAt": "2026-09-19T04:27:01.917Z",
-      "updatedAt": "2026-09-19T04:27:01.917Z"
+      "createdAt": "2026-09-19T04:53:43.942Z",
+      "updatedAt": "2026-09-19T04:53:43.942Z"
     }
   ],
   "subjects": [
@@ -2731,7 +2731,7 @@
       "email": "sarah.jenkins@greenvalley.edu",
       "phone": "9871000001",
       "username": "teacher1_admin",
-      "password": "$2b$10$3ZVwSOhTvb/pLuRCXuxBuuUwoAxtXK3kSlnTed1s1YOs82AlWFvhq",
+      "password": "$2b$10$Ke6A2LCca7kcwpyB9nkxe.tAgYTwsSXPMmmgXmTE46cF0EZuO6.N6",
       "gender": "Female",
       "isClassTeacher": 1,
       "attendancePermission": 1,
@@ -2756,7 +2756,7 @@
       "email": "michael.chang@greenvalley.edu",
       "phone": "9871000002",
       "username": "teacher2_admin",
-      "password": "$2b$10$QG27lOqGZ0kwzuAk00ll7OptkhY4285ooLGah/Docy41yB4qz0lcS",
+      "password": "$2b$10$PozguAmndlqhtOBkUdN/ueMbcHUkKLDdyZfgNV118JgY3NBIncTSy",
       "gender": "Male",
       "isClassTeacher": 1,
       "attendancePermission": 1,
@@ -2781,7 +2781,7 @@
       "email": "emily.rodriguez@greenvalley.edu",
       "phone": "9871000003",
       "username": "teacher3_admin",
-      "password": "$2b$10$BNFo3p7yWMZTbGwBG2VRM.TM.0QCA682kW6yztxQmVxDKacXC8moi",
+      "password": "$2b$10$W87ZoD2z8C5XvhHvn7BQg.jhLdbH5wtXtYB.QaHGdo/L7qndC9mBu",
       "gender": "Female",
       "isClassTeacher": 1,
       "attendancePermission": 1,
@@ -2806,7 +2806,7 @@
       "email": "david.miller@greenvalley.edu",
       "phone": "9871000004",
       "username": "teacher4_admin",
-      "password": "$2b$10$ZqHQhb0KND9czYh9grVCK.UFx9j5WJ02oFHaunAfhMUFD7eN0fx9O",
+      "password": "$2b$10$HMvORBhXxGOoNU8I/.5Km.I6SnAYHEJPaXmXPW05VGIZlYJQ4G5XW",
       "gender": "Male",
       "isClassTeacher": 1,
       "attendancePermission": 1,
@@ -2831,7 +2831,7 @@
       "email": "ananya.sharma@greenvalley.edu",
       "phone": "9871000005",
       "username": "teacher5_admin",
-      "password": "$2b$10$271kfkqfoPwBJxmEIS7O7.juxu6bGTshQFc5tcXlcp55JC7NK/Hau",
+      "password": "$2b$10$r9o3Na0NXGZC2247wI3C8eRZNEQT5ltr0XS5fMFzTwQVSXet7c5K6",
       "gender": "Female",
       "isClassTeacher": 1,
       "attendancePermission": 1,
@@ -2963,7 +2963,7 @@
       "email": "accountant@greenvalley.edu",
       "phone": "9872000001",
       "username": "account_admin",
-      "password": "$2b$10$tyHAebHFo/QRjY.FGBqC4ObbKzq.EpeDUPC.CZzafseFlpiPqHK8i",
+      "password": "$2b$10$yp5Lrgm1xvNs4l2U5o/lm.11QGU3j9ONLUjE2uxxCis1Sw5Ruzniq",
       "gender": "Male",
       "role": "Accountant",
       "designation": "Accountant",
@@ -2983,7 +2983,7 @@
       "email": "academic@greenvalley.edu",
       "phone": "9872000002",
       "username": "academic_admin",
-      "password": "$2b$10$pMEEzvJnE9TxDwZoEjWBPeQjJfAOwDXfGyZuKKWRdqMk.iVf.4QFu",
+      "password": "$2b$10$T37yyhrM2McqmyD6e8OAjONH.wM.qhMNezpqcrd34dlNCa4yOrE3m",
       "gender": "Female",
       "role": "Academic Coordinator",
       "designation": "Academic Coordinator",
@@ -3003,7 +3003,7 @@
       "email": "reception@greenvalley.edu",
       "phone": "9872000003",
       "username": "reception_admin",
-      "password": "$2b$10$OVWJHkBEyGRrh5QMm3g59.6lgkqAp1UFDDnpjfUGOdHFdny1ajLzu",
+      "password": "$2b$10$zPLzcycaPO8mD6u3WaiKFuNNoYeEUrZEsrDj8qVFbdl6h.zGqFpk.",
       "gender": "Female",
       "role": "Receptionist",
       "designation": "Receptionist",
@@ -3023,7 +3023,7 @@
       "email": "expense@greenvalley.edu",
       "phone": "9872000004",
       "username": "expense_admin",
-      "password": "$2b$10$afi6FRsqOzJJiwfKhpE9ZOhEEMj0RP8YLP8bIwthLzxhA..u9a4Ce",
+      "password": "$2b$10$HFAgKPGyW0r5x04SNwvn9u8h9PRpB40KijUJjewDmpn1/r8jjhrLO",
       "gender": "Male",
       "role": "Expense Manager",
       "designation": "Expense Manager",
@@ -3043,7 +3043,7 @@
       "email": "george.c@greenvalley.edu",
       "phone": "9872000005",
       "username": "account2_admin",
-      "password": "$2b$10$Cwzqkbx8KCL41uuplnrdjOA1r5gLeCQPC1DTBMnTvCT2Edg8NcK82",
+      "password": "$2b$10$L1F7LcNax1ZfxDuTeays2eTygnaIKGKC5H.HSsB14UuLSFinTLOoq",
       "gender": "Male",
       "role": "Accountant",
       "designation": "Accountant",
@@ -3063,7 +3063,7 @@
       "email": "rachel.g@greenvalley.edu",
       "phone": "9872000006",
       "username": "academic2_admin",
-      "password": "$2b$10$clHxM.Kba7DJbXmsh4f4z.rTezPpwePzrMXnk4vhfxObrRwlAHxBO",
+      "password": "$2b$10$aHe8CTXHNed0URuvBvtsoeLAmLsnxq9z8WeJBd9HZ6e6cFyZQzJvm",
       "gender": "Female",
       "role": "Academic Coordinator",
       "designation": "Academic Coordinator",
@@ -3083,7 +3083,7 @@
       "email": "pam.b@greenvalley.edu",
       "phone": "9872000007",
       "username": "reception2_admin",
-      "password": "$2b$10$z6YVM2SAN/cXyv16j5PmJeZ8AHiIUrO2X5e4Bo6z4B1khU4mir16m",
+      "password": "$2b$10$sEgTUxfFhm6ffB60thkT6eGldHwETYgQGkimZkHM/hYXPL1UM.9l2",
       "gender": "Female",
       "role": "Receptionist",
       "designation": "Receptionist",
@@ -3103,7 +3103,7 @@
       "email": "kevin.m@greenvalley.edu",
       "phone": "9872000008",
       "username": "account3_admin",
-      "password": "$2b$10$mxr9y8Is2qL1emB2tEUxo.A1j7vb5mMWqffIsffHzbLOk070VSYgS",
+      "password": "$2b$10$Zr/5GTIEARAM/EE9JRCGO.cbN9ErRC5PKLCCYlREwjaKD67cruQ7a",
       "gender": "Male",
       "role": "Accountant",
       "designation": "Accountant",
@@ -3123,7 +3123,7 @@
       "email": "monica.g@greenvalley.edu",
       "phone": "9872000009",
       "username": "academic3_admin",
-      "password": "$2b$10$nMlYqAG9gnt7ety49hemAOuBe0BEpB/XUUr3PjdZulLcnTSlQWUIG",
+      "password": "$2b$10$3H4Z3eBYFUdLEzDfdGfMSOvKhv9jSd5ynLYoqJXAf28eid4jDINTG",
       "gender": "Female",
       "role": "Academic Coordinator",
       "designation": "Academic Coordinator",
@@ -3143,7 +3143,7 @@
       "email": "oscar.m@greenvalley.edu",
       "phone": "9872000010",
       "username": "expense2_admin",
-      "password": "$2b$10$gYCOkzIIVjDcknM7vMQSIuHfaEFBehOvkt30WLOP6uDs3h27An/K2",
+      "password": "$2b$10$sfHAlRnQ0RGXGVYsYFjy8.cfINGmAkFRkR5Bb706mV4dPx6o4mj8K",
       "gender": "Male",
       "role": "Expense Manager",
       "designation": "Expense Manager",
@@ -3181,9 +3181,9 @@
       "state": "California",
       "pincode": "94016",
       "studentUsername": "student1",
-      "studentPassword": "$2b$10$S29bSA22VjX.pWHaOytfmuw5gAADx/t0MU5lNaJZvu/cJrL0ZeEwi",
+      "studentPassword": "$2b$10$Au64lkc8/rQymPI7UyasOurs4muB8CwbCgNvwWnJM8Pp.2i2s/j9G",
       "parentUsername": "parent1",
-      "parentPassword": "$2b$10$wTqBl1QYXOJK/LkET4wD9eTGHQCSqu.C5VMgpxius3Waq5UDyhXcG",
+      "parentPassword": "$2b$10$P777ArNDWIk6bJvSoJZXCuvOmChw7abnV0Omc4zayd.htFNR89v0m",
       "feeStatus": "Paid"
     },
     {
@@ -3212,9 +3212,9 @@
       "state": "California",
       "pincode": "94016",
       "studentUsername": "student2",
-      "studentPassword": "$2b$10$jEKNtoSr47gkfAUrVz/ev.Bt1xP47BrfnSdnQylGL2iWZvKrkLOV.",
+      "studentPassword": "$2b$10$VmLx1jOI0beLdX8bRcjYJeOMZdjQN2G/CKMOlwdm/jDQokQ7jq4uW",
       "parentUsername": "parent2",
-      "parentPassword": "$2b$10$Or9F51JBQa7w2O.XX.igZOZZjx.Rrc4XcthhlWYFoDy3XGoAQYMi6",
+      "parentPassword": "$2b$10$KeGW21DzdYegBeSu3doVR.9fa0HCUnUmhQHerwIRnWWhFl5Ua0O06",
       "feeStatus": "Pending"
     },
     {
@@ -3243,9 +3243,9 @@
       "state": "California",
       "pincode": "94016",
       "studentUsername": "student3",
-      "studentPassword": "$2b$10$PgL48FYaQZkgNsoVoXJ6vOqzvSC2Bd27LyXj6tgwUFvMsu3S1dAnO",
+      "studentPassword": "$2b$10$2x444Vl9CKUaI2zt8vDJPekeJ2lX8jcS/7ln12qqgKsztFFTzi3sW",
       "parentUsername": "parent3",
-      "parentPassword": "$2b$10$LX08On2khQvNQC1JQF78.OCBMjbOAcDGmT7wYquFRjTrD.gERGtyK",
+      "parentPassword": "$2b$10$FLJwtmjr5aEBLi5/NaitguETHc5hq/B6hZZLsN/7fGC/WMPtfksVG",
       "feeStatus": "Paid"
     },
     {
@@ -3274,9 +3274,9 @@
       "state": "California",
       "pincode": "94016",
       "studentUsername": "student4",
-      "studentPassword": "$2b$10$LUkLph.vUDf7GJ9gBBksCunpbePg1xddgFn1K8Qkan6BJQqA7vtrS",
+      "studentPassword": "$2b$10$BPxV5cpjuLfuRGv57poEOugJdrCkL8S8leANekij/TMAwIhspJfcW",
       "parentUsername": "parent4",
-      "parentPassword": "$2b$10$xLlIWAkNQYs6.gLn0tzXoe1HQLtflSFf0d381SvbkyqkCTJU.DCMq",
+      "parentPassword": "$2b$10$r/Cdhkt2IKG6v6Gxd1xnJem2EchKeV9bvQctIBPtprpWQ9Ct9pJTO",
       "feeStatus": "Paid"
     },
     {
@@ -3305,9 +3305,9 @@
       "state": "California",
       "pincode": "94016",
       "studentUsername": "student5",
-      "studentPassword": "$2b$10$Y1LSa/qp9QFkPIrFDuuPK.ySb6c.LOLG3qef1KL14/MMQddGpMak.",
+      "studentPassword": "$2b$10$818qrbBynwLiLskx9LghLup0/3qUr8zIQJkOZfWzhO9eGyLe8HiQe",
       "parentUsername": "parent5",
-      "parentPassword": "$2b$10$i9NRDe6PFunL0LXnzghi9exH1FLjgY6KH22vmIrhLVdJtrLqnWZ2q",
+      "parentPassword": "$2b$10$JMzqKbCIeZfhKixOCSFjK.sAcpABCwvfDHaRQZGXvL4pKBuPix.Wu",
       "feeStatus": "Pending"
     },
     {
@@ -3336,9 +3336,9 @@
       "state": "California",
       "pincode": "94016",
       "studentUsername": "student6",
-      "studentPassword": "$2b$10$cbnP8iW2yXKUMG8r.9rfMeMK0m6RJ91o9aKVcTbEsy3XtIpv3iKH6",
+      "studentPassword": "$2b$10$NOQhzgZv18Xn7GbNpxggHOxPP22DaXD9N71mZKwCmC/cPNYlL0jT6",
       "parentUsername": "parent6",
-      "parentPassword": "$2b$10$C7GM9Mby0f.sIqDPxL6z7uRsm2ig6Q5UC9oZN9l6iR2ia8jzsfPZ.",
+      "parentPassword": "$2b$10$54azGW1wrx4V9S/tgEK4Gu7OIVaFwBKkDHEbQyug5ADUhwL6Cb/Ai",
       "feeStatus": "Paid"
     },
     {
@@ -3367,9 +3367,9 @@
       "state": "California",
       "pincode": "94016",
       "studentUsername": "student7",
-      "studentPassword": "$2b$10$rH.QkAvvndEykKtklNz.Q.0f4FxCy.Vl6xS8k9TFv/jWX7HlohCTq",
+      "studentPassword": "$2b$10$FjwU7Grz/BVnZUInYwQKzecTwV/B4i9D6X9TMshWar.kqV32ItRZ6",
       "parentUsername": "parent7",
-      "parentPassword": "$2b$10$sZC6lqMpWQG/ARCuuts5WeejtejmUIMNpsZXRzvXgI0BWo6jcR6Xy",
+      "parentPassword": "$2b$10$3KlVSIngqadGfyYj9tEeae9/XmLZKB3/3LJ/OubD3brsIMH8mLy1q",
       "feeStatus": "Paid"
     },
     {
@@ -3398,9 +3398,9 @@
       "state": "California",
       "pincode": "94016",
       "studentUsername": "student8",
-      "studentPassword": "$2b$10$mH7YZHJuOkaXO3AMNbnSW.DbNilxMYJeTYaBkpWM3N/jbVXkpI85C",
+      "studentPassword": "$2b$10$tBgdVZjfCH0bxDXIZlxzi.zgj4qlMWbDcayFX4irP.wRD1ZTW49uW",
       "parentUsername": "parent8",
-      "parentPassword": "$2b$10$iMh1.xXBqYVQiUxm2VUJT.nVyPRW0NtmtdG3RDUXqXUMH/bPhuuvC",
+      "parentPassword": "$2b$10$pf4jiG00RSOyBFjPNnpvc.sp46b7AFwKHkuJTHFU9Tj7HfL0bKcpm",
       "feeStatus": "Pending"
     },
     {
@@ -3429,9 +3429,9 @@
       "state": "California",
       "pincode": "94016",
       "studentUsername": "student9",
-      "studentPassword": "$2b$10$sxY1t5sk1aBSJbFmOVmlfuhl5.VoL0gLCm7NmfPgGNfUwzierjdB.",
+      "studentPassword": "$2b$10$nxOMOmhsLGP7w9coMY2dX.8xqwV9oqmIRfcy2jjXxMlhRO8Lly27S",
       "parentUsername": "parent9",
-      "parentPassword": "$2b$10$0S/BrxSynG2qMYbjUKEj9OinLAn7ZRGN93de1BwFeew8VypujE1GW",
+      "parentPassword": "$2b$10$z/td8/1VYR4JjzEeKjCn5uLeA/vm5g0Od6mhortVlARY0qpYAF7oq",
       "feeStatus": "Paid"
     },
     {
@@ -3460,9 +3460,9 @@
       "state": "California",
       "pincode": "94016",
       "studentUsername": "student10",
-      "studentPassword": "$2b$10$jbkCx/6JHPbgCEWInbFsD.diMxu5ZPgUWnVZh4YTNNjGf4.GCoSrm",
+      "studentPassword": "$2b$10$sovL6vajqBVfTPekdK06f.G9CDbvnAqE4IdzJNmLfFuvAbgOcbJAu",
       "parentUsername": "parent10",
-      "parentPassword": "$2b$10$H0TREtoc9LWf1zC7lBOBdO805Ol/urcYFvXq8z/2f/jYY8LZTFMjm",
+      "parentPassword": "$2b$10$Y0K9vbOQ60LLsxMOBdIW/uVxdnfS379GfEbHUDvGGbb0m0LwILjZO",
       "feeStatus": "Paid"
     }
   ],
@@ -3479,7 +3479,7 @@
       "title": "Academic Session Initialized",
       "description": "Green Valley School session 2026-2027 ready.",
       "time": "Just now",
-      "timestamp": "2026-09-19T04:27:04.824Z"
+      "timestamp": "2026-09-19T04:53:46.703Z"
     }
   ],
   "exams": [
