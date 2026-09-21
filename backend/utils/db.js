@@ -1690,15 +1690,8 @@ export const startSqlDbInit = () => {
 startSqlDbInit();
 
 export const ensureOverviewPermissions = (roles) => {
-  if (!roles || !Array.isArray(roles)) return;
-  const actionsList = ['view', 'create', 'edit', 'delete', 'approve', 'publish', 'export', 'import', 'manage-settings'];
-  roles.forEach(r => {
-    if (!r.permissions) r.permissions = {};
-    if (!r.permissions.overview) r.permissions.overview = {};
-    actionsList.forEach(act => {
-      r.permissions.overview[act] = true;
-    });
-  });
+  // Respect permission matrix strictly. Do not forcefully inject overview permissions.
+  return;
 };
 
 // Default roles and permissions seeder data
@@ -1759,18 +1752,6 @@ export const getDefaultRoles = () => {
     return matrix;
   };
 
-  const createRoleMatrix = (allowedModules = []) => {
-    const matrix = {};
-    modules.forEach(m => {
-      matrix[m] = {};
-      const isAllowed = allowedModules.includes(m);
-      actions.forEach(a => {
-        matrix[m][a] = isAllowed;
-      });
-    });
-    return matrix;
-  };
-
   const defaultRoles = [
     // ===== STAFF ROLES =====
     {
@@ -1779,12 +1760,7 @@ export const getDefaultRoles = () => {
       description: 'Coordinates academic programs, timetables, exam schedules, and curriculum planning.',
       active: true,
       isSystem: true,
-      permissions: createRoleMatrix([
-        'overview', 'academic-manager', 'published-timetable', 'published-exam', 
-        'academic-activities', 'academic-calendar', 'results-manager', 'results-marks-entry', 
-        'results-history', 'grade-management', 'attendance', 'attendance-history', 
-        'student-directory', 'teacher-directory', 'settings'
-      ])
+      permissions: createEmptyMatrix()
     },
     {
       id: 'role-teacher',
@@ -1792,11 +1768,7 @@ export const getDefaultRoles = () => {
       description: 'Teacher. Records attendance, enters marks, manages academic activities, and views student profiles.',
       active: true,
       isSystem: true,
-      permissions: createRoleMatrix([
-        'overview', 'student-directory', 'attendance', 'attendance-history', 
-        'results-marks-entry', 'results-manager', 'results-history', 
-        'academic-activities', 'academic-calendar', 'published-timetable', 'published-exam'
-      ])
+      permissions: createEmptyMatrix()
     },
     {
       id: 'role-receptionist',
@@ -1804,10 +1776,7 @@ export const getDefaultRoles = () => {
       description: 'Front-office receptionist. Manages admissions, visitor records, and inquiry handling.',
       active: true,
       isSystem: true,
-      permissions: createRoleMatrix([
-        'overview', 'student-directory', 'teacher-directory', 'staff-directory', 
-        'employee-directory', 'register-student', 'academic-activities', 'academic-calendar', 'attendance'
-      ])
+      permissions: createEmptyMatrix()
     },
     {
       id: 'role-accountant',
@@ -1815,12 +1784,7 @@ export const getDefaultRoles = () => {
       description: 'Accounts administrator. Manages fee structures, collections, invoices, salaries, and financial reports.',
       active: true,
       isSystem: true,
-      permissions: createRoleMatrix([
-        'overview', 'finance', 'staff-payroll', 'staff-pay-structure', 'teacher-payroll', 
-        'teacher-pay-structure', 'employee-payroll', 'employee-pay-structure', 'payroll-history', 
-        'income', 'financial-reports', 'fee-structures', 'fee-periods', 'auxiliary-income', 
-        'expense-dashboard', 'expense-all-expenses', 'expense-history', 'expense-tracker', 'student-directory'
-      ])
+      permissions: createEmptyMatrix()
     },
     {
       id: 'role-expense-manager',
@@ -1828,13 +1792,33 @@ export const getDefaultRoles = () => {
       description: 'Expense manager. Oversees school expenses, financial reporting, and budgeting.',
       active: true,
       isSystem: true,
-      permissions: createRoleMatrix([
-        'overview', 'expense-dashboard', 'expense-all-expenses', 'expense-history', 
-        'expense-tracker', 'financial-reports', 'income'
-      ])
+      permissions: createEmptyMatrix()
+    },
+    {
+      id: 'role-principal',
+      name: 'Principal',
+      description: 'School Principal. Academic and administrative head.',
+      active: true,
+      isSystem: true,
+      permissions: createEmptyMatrix()
+    },
+    {
+      id: 'role-vice-principal',
+      name: 'Vice Principal',
+      description: 'Vice Principal. Oversees operations and academic execution.',
+      active: true,
+      isSystem: true,
+      permissions: createEmptyMatrix()
+    },
+    {
+      id: 'role-staff',
+      name: 'Staff',
+      description: 'General school staff member.',
+      active: true,
+      isSystem: true,
+      permissions: createEmptyMatrix()
     }
   ];
-  ensureOverviewPermissions(defaultRoles);
   return defaultRoles;
 };
 
@@ -2633,9 +2617,7 @@ export const loadTenantSqlIntoMemory = async (tenantId) => {
         r.description = 'Teacher. Records attendance, enters marks, manages academic activities, and views student profiles.';
       }
     });
-
-    ensureOverviewPermissions(data.roles);
-
+    // Ensure permissions matrix is respected as configured in database
     data.userAccess = dbUserAccess.map(ua => ({
       ...ua,
       overrides: typeof ua.overrides === 'string' ? JSON.parse(ua.overrides) : (ua.overrides || {})
@@ -4483,9 +4465,6 @@ export const readDb = () => {
 
 // Central Database Writer (Preserves synchronous signature)
 export const writeDb = (data) => {
-  if (data && data.roles) {
-    ensureOverviewPermissions(data.roles);
-  }
   const tenantId = tenantStorage.getStore();
   let activeTenant = tenantId ? slugify(tenantId) : 'platform';
   if (activeTenant === 'default') {
@@ -4524,6 +4503,14 @@ export const writeDb = (data) => {
       for (const key of trackKeys) {
         const oldVal = oldCache[key];
         const newVal = data[key];
+        if (key === 'roles' && data.roles !== undefined) {
+          changedKeys.add('roles');
+          continue;
+        }
+        if (key === 'userAccess' && data.userAccess !== undefined) {
+          changedKeys.add('userAccess');
+          continue;
+        }
         if (oldVal === newVal) continue;
         if (!oldVal || !newVal) { changedKeys.add(key); continue; }
         if (Array.isArray(newVal)) {

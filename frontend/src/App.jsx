@@ -661,6 +661,42 @@ export default function App() {
     initialised.current = true;
   }, []);
 
+  // Real-time synchronization of permissions across all dashboards and tabs
+  useEffect(() => {
+    const handlePermissionsUpdated = () => {
+      fetchUserProfile();
+    };
+
+    window.addEventListener('permissionsUpdated', handlePermissionsUpdated);
+
+    let bc = null;
+    try {
+      if (typeof BroadcastChannel !== 'undefined') {
+        bc = new BroadcastChannel('aether_permissions_channel');
+        bc.onmessage = (msg) => {
+          if (msg?.data?.type === 'PERMISSIONS_UPDATED') {
+            fetchUserProfile();
+          }
+        };
+      }
+    } catch (e) {}
+
+    const handleStorageChange = (e) => {
+      if (e.key === 'permissions_updated_at') {
+        fetchUserProfile();
+      }
+    };
+    window.addEventListener('storage', handleStorageChange);
+
+    return () => {
+      window.removeEventListener('permissionsUpdated', handlePermissionsUpdated);
+      window.removeEventListener('storage', handleStorageChange);
+      if (bc) {
+        try { bc.close(); } catch (e) {}
+      }
+    };
+  }, []);
+
   // Sliding Session & Background Token Auto-Refresh
   useEffect(() => {
     const checkSession = async () => {

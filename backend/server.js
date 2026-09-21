@@ -1513,6 +1513,8 @@ app.get('/api/auth/profile', auth, restoreTenantContext, (req, res) => {
     if (!schoolRecord) {
       return res.status(404).json({ error: 'School domain registration not found.' });
     }
+    const adminRole = (db.roles || []).find(r => r.id === 'role-principal' || r.name === 'Principal' || r.id === 'role-super-admin' || r.name === 'Super Admin');
+    const permissions = adminRole ? (typeof adminRole.permissions === 'string' ? JSON.parse(adminRole.permissions) : adminRole.permissions) : {};
     return res.json({
       role: 'Main Admin',
       name: schoolRecord.principalName || schoolRecord.principal || schoolRecord.adminName,
@@ -1520,112 +1522,162 @@ app.get('/api/auth/profile', auth, restoreTenantContext, (req, res) => {
       email: schoolRecord.adminEmail,
       phone: schoolRecord.phone,
       photo: schoolRecord.adminPhoto || '',
-      password: schoolRecord.adminPassword
+      password: schoolRecord.adminPassword,
+      permissions: permissions,
+      overrides: {}
     });
   }
 
-  // Teachers / Staff / Employees
+  // Teachers / Staff / Employees / Sub-admin roles
   const db = readDb();
   if (user.userType === 'Teacher') {
-    const teacher = (db.teachers || []).find(t => t.id === user.id);
-    if (!teacher) {
-      return res.status(404).json({ error: 'Teacher profile not found.' });
-    }
-    
-    let permissions = {};
-    const roleRecord = (db.roles || []).find(r => r.id === 'role-teacher' || r.name.toLowerCase() === 'teacher');
-    if (roleRecord) {
-      permissions = typeof roleRecord.permissions === 'string' ? JSON.parse(roleRecord.permissions) : (roleRecord.permissions || {});
-    }
+    const teacher = (db.teachers || []).find(t => t.id === user.id || t.username === user.username);
+    if (teacher) {
+      let permissions = {};
+      let userOverrides = {};
+      const access = (db.userAccess || []).find(ua => ua.userId === teacher.id && ua.userType === 'Teacher');
+      let roleRecord = access ? (db.roles || []).find(r => r.id === access.roleId) : null;
+      if (access && access.overrides) {
+        userOverrides = access.overrides;
+      }
+      if (!roleRecord && teacher.role) {
+        roleRecord = (db.roles || []).find(r => r.name.toLowerCase() === teacher.role.toLowerCase() || r.id === teacher.role);
+      }
+      if (!roleRecord && teacher.designation) {
+        roleRecord = (db.roles || []).find(r => r.name.toLowerCase() === teacher.designation.toLowerCase());
+      }
+      if (!roleRecord) {
+        roleRecord = (db.roles || []).find(r => r.id === 'role-teacher' || r.name.toLowerCase() === 'teacher');
+      }
+      if (roleRecord) {
+        permissions = typeof roleRecord.permissions === 'string' ? JSON.parse(roleRecord.permissions) : (roleRecord.permissions || {});
+      }
 
-    const matchedGrade = (db.grades || []).find(g => g.id === teacher.assignedGradeId || g.name === teacher.assignedGradeId);
-    const matchedSection = (db.sections || []).find(s => s.id === teacher.assignedSectionId || s.name === teacher.assignedSectionId);
+      const matchedGrade = (db.grades || []).find(g => g.id === teacher.assignedGradeId || g.name === teacher.assignedGradeId);
+      const matchedSection = (db.sections || []).find(s => s.id === teacher.assignedSectionId || s.name === teacher.assignedSectionId);
 
-    return res.json({
-      id: teacher.id,
-      role: 'Teacher',
-      userType: 'Teacher',
-      name: teacher.fullName || teacher.name,
-      username: teacher.username || teacher.email,
-      email: teacher.email,
-      phone: teacher.phone || teacher.mobile,
-      photo: teacher.photo,
-      password: teacher.password || '',
-      permissions: permissions,
-      assignedGradeId: teacher.assignedGradeId || '',
-      assignedSectionId: teacher.assignedSectionId || '',
-      assignedGradeName: matchedGrade ? matchedGrade.name : (teacher.assignedGradeId || ''),
-      assignedSectionName: matchedSection ? matchedSection.name : (teacher.assignedSectionId || ''),
-      isClassTeacher: (teacher.isClassTeacher === 1 || teacher.isClassTeacher === true || teacher.isClassTeacher === 'Yes'),
-      attendancePermission: (teacher.attendancePermission === 1 || teacher.attendancePermission === true || teacher.attendancePermission === 'Yes')
-    });
-  } else if (user.userType === 'Staff') {
-    const staffMember = (db.staff || []).find(s => s.id === user.id);
-    if (!staffMember) {
-      return res.status(404).json({ error: 'Staff profile not found.' });
+      return res.json({
+        id: teacher.id,
+        role: roleRecord ? roleRecord.name : (teacher.role || 'Teacher'),
+        userType: 'Teacher',
+        name: teacher.fullName || teacher.name,
+        username: teacher.username || teacher.email,
+        email: teacher.email,
+        phone: teacher.phone || teacher.mobile,
+        photo: teacher.photo,
+        password: teacher.password || '',
+        permissions: permissions,
+        overrides: userOverrides,
+        assignedGradeId: teacher.assignedGradeId || '',
+        assignedSectionId: teacher.assignedSectionId || '',
+        assignedGradeName: matchedGrade ? matchedGrade.name : (teacher.assignedGradeId || ''),
+        assignedSectionName: matchedSection ? matchedSection.name : (teacher.assignedSectionId || ''),
+        isClassTeacher: (teacher.isClassTeacher === 1 || teacher.isClassTeacher === true || teacher.isClassTeacher === 'Yes'),
+        attendancePermission: (teacher.attendancePermission === 1 || teacher.attendancePermission === true || teacher.attendancePermission === 'Yes')
+      });
     }
-
-    let permissions = {};
-    const access = (db.userAccess || []).find(ua => ua.userId === staffMember.id && ua.userType === 'Staff');
-    let roleRecord = access ? (db.roles || []).find(r => r.id === access.roleId) : null;
-    
-    const possibleDesignation = staffMember.designation || staffMember.role;
-    if (!roleRecord && possibleDesignation) {
-      roleRecord = (db.roles || []).find(r => r.name.toLowerCase() === possibleDesignation.toLowerCase());
-    }
-
-    if (!roleRecord) {
-      roleRecord = (db.roles || []).find(r => r.name.toLowerCase() === 'staff' || r.id === 'role-receptionist');
-    }
-    
-    if (roleRecord) {
-      permissions = typeof roleRecord.permissions === 'string' ? JSON.parse(roleRecord.permissions) : (roleRecord.permissions || {});
-    }
-
-    return res.json({
-      id: staffMember.id,
-      role: roleRecord ? roleRecord.name : user.role,
-      userType: 'Staff',
-      name: staffMember.fullName || staffMember.name,
-      username: staffMember.username || staffMember.email,
-      email: staffMember.email,
-      phone: staffMember.phone || staffMember.mobile,
-      photo: staffMember.photo,
-      password: staffMember.password || '',
-      permissions: permissions
-    });
-  } else if (user.userType === 'Employee') {
-    const employeeMember = (db.employees || []).find(e => e.id === user.id);
-    if (!employeeMember) {
-      return res.status(404).json({ error: 'Employee profile not found.' });
-    }
-
-    let permissions = {};
-    const access = (db.userAccess || []).find(ua => ua.userId === employeeMember.id && ua.userType === 'Employee');
-    let roleRecord = access ? (db.roles || []).find(r => r.id === access.roleId) : null;
-    
-    const possibleDesignation = employeeMember.designation || employeeMember.role;
-    if (!roleRecord && possibleDesignation) {
-      roleRecord = (db.roles || []).find(r => r.name.toLowerCase() === possibleDesignation.toLowerCase());
-    }
-
-    if (roleRecord) {
-      permissions = typeof roleRecord.permissions === 'string' ? JSON.parse(roleRecord.permissions) : (roleRecord.permissions || {});
-    }
-
-    return res.json({
-      id: employeeMember.id,
-      role: roleRecord ? roleRecord.name : user.role,
-      userType: 'Employee',
-      name: employeeMember.fullName || employeeMember.name,
-      username: employeeMember.username || employeeMember.email,
-      email: employeeMember.email,
-      phone: employeeMember.phone || employeeMember.mobile,
-      photo: employeeMember.photo,
-      password: employeeMember.password || '',
-      permissions: permissions
-    });
   }
+
+  if (user.userType === 'Staff') {
+    const staffMember = (db.staff || []).find(s => s.id === user.id || s.username === user.username);
+    if (staffMember) {
+      let permissions = {};
+      let userOverrides = {};
+      const access = (db.userAccess || []).find(ua => ua.userId === staffMember.id && ua.userType === 'Staff');
+      let roleRecord = access ? (db.roles || []).find(r => r.id === access.roleId) : null;
+      if (access && access.overrides) {
+        userOverrides = access.overrides;
+      }
+      const possibleDesignation = staffMember.designation || staffMember.role || user.role;
+      if (!roleRecord && possibleDesignation) {
+        roleRecord = (db.roles || []).find(r => r.name.toLowerCase() === possibleDesignation.toLowerCase() || r.id === possibleDesignation);
+      }
+      if (!roleRecord && user.role) {
+        roleRecord = (db.roles || []).find(r => r.name.toLowerCase() === user.role.toLowerCase() || r.id === user.role);
+      }
+      if (!roleRecord) {
+        roleRecord = (db.roles || []).find(r => r.name.toLowerCase() === 'staff' || r.id === 'role-receptionist');
+      }
+      if (roleRecord) {
+        permissions = typeof roleRecord.permissions === 'string' ? JSON.parse(roleRecord.permissions) : (roleRecord.permissions || {});
+      }
+
+      return res.json({
+        id: staffMember.id,
+        role: roleRecord ? roleRecord.name : (staffMember.role || user.role || 'Staff'),
+        userType: 'Staff',
+        name: staffMember.fullName || staffMember.name,
+        username: staffMember.username || staffMember.email,
+        email: staffMember.email,
+        phone: staffMember.phone || staffMember.mobile,
+        photo: staffMember.photo,
+        password: staffMember.password || '',
+        permissions: permissions,
+        overrides: userOverrides
+      });
+    }
+  }
+
+  if (user.userType === 'Employee') {
+    const employeeMember = (db.employees || []).find(e => e.id === user.id || e.username === user.username);
+    if (employeeMember) {
+      let permissions = {};
+      let userOverrides = {};
+      const access = (db.userAccess || []).find(ua => ua.userId === employeeMember.id && ua.userType === 'Employee');
+      let roleRecord = access ? (db.roles || []).find(r => r.id === access.roleId) : null;
+      if (access && access.overrides) {
+        userOverrides = access.overrides;
+      }
+      const possibleDesignation = employeeMember.designation || employeeMember.role || user.role;
+      if (!roleRecord && possibleDesignation) {
+        roleRecord = (db.roles || []).find(r => r.name.toLowerCase() === possibleDesignation.toLowerCase() || r.id === possibleDesignation);
+      }
+      if (!roleRecord && user.role) {
+        roleRecord = (db.roles || []).find(r => r.name.toLowerCase() === user.role.toLowerCase() || r.id === user.role);
+      }
+      if (roleRecord) {
+        permissions = typeof roleRecord.permissions === 'string' ? JSON.parse(roleRecord.permissions) : (roleRecord.permissions || {});
+      }
+
+      return res.json({
+        id: employeeMember.id,
+        role: roleRecord ? roleRecord.name : (employeeMember.role || user.role || 'Employee'),
+        userType: 'Employee',
+        name: employeeMember.fullName || employeeMember.name,
+        username: employeeMember.username || employeeMember.email,
+        email: employeeMember.email,
+        phone: employeeMember.phone || employeeMember.mobile,
+        photo: employeeMember.photo,
+        password: employeeMember.password || '',
+        permissions: permissions,
+        overrides: userOverrides
+      });
+    }
+  }
+
+  // Fallback for ANY authenticated role or dashboard user
+  let roleRecord = (db.roles || []).find(r => 
+    r.id === user.role || 
+    r.name.toLowerCase() === (user.role || '').toLowerCase() ||
+    r.id === `role-${slugify(user.role || '')}`
+  );
+  let permissions = {};
+  if (roleRecord) {
+    permissions = typeof roleRecord.permissions === 'string' ? JSON.parse(roleRecord.permissions) : (roleRecord.permissions || {});
+  }
+
+  return res.json({
+    id: user.id || user.username,
+    role: roleRecord ? roleRecord.name : user.role,
+    userType: user.userType || user.role,
+    name: user.name || user.username || user.role,
+    username: user.username,
+    email: user.email || '',
+    phone: user.phone || '',
+    photo: user.photo || '',
+    permissions: permissions,
+    overrides: user.overrides || {}
+  });
 });
 
 // UPLOAD Profile Photo

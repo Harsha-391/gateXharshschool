@@ -120,22 +120,16 @@ const COMPATIBILITY_MAP = {
 export function hasPermission(module, action) {
   const role = localStorage.getItem('portal_role') || localStorage.getItem('role');
   
-  // Developer Admin and Super Admins (Main Admin, Admin Dashboard, Principal) have absolute access
+  // Developer Admin and Master Admin accounts have absolute system configuration access
   if (
     role === 'Developer Admin' || 
     role === 'Main Admin' || 
-    role === 'Admin Dashboard' ||
-    role === 'Principal'
+    role === 'Admin Dashboard'
   ) {
     return true;
   }
 
-  // Always permit overview/panel view
-  if (module === 'overview' && action === 'view') {
-    return true;
-  }
-
-  // Parse permissions from session storage
+  // Parse permissions from storage
   let permissions = {};
   let overrides = {};
   
@@ -157,34 +151,24 @@ export function hasPermission(module, action) {
     console.error('Failed to parse overrides from localStorage:', e);
   }
 
-  // 1. Check specific granular module override first (takes priority if true)
-  if (overrides && overrides[module] && overrides[module][action] === true) {
-    return true;
+  // 1. Check specific granular module override first (if explicitly defined, respect it directly)
+  if (overrides && overrides[module] && overrides[module][action] !== undefined) {
+    return Boolean(overrides[module][action]);
   }
 
-  // 2. Check specific granular module permission (takes priority if true)
-  if (permissions && permissions[module] && permissions[module][action] === true) {
-    return true;
+  // 2. Check specific granular module permission in permissions matrix
+  if (permissions && permissions[module] && permissions[module][action] !== undefined) {
+    return Boolean(permissions[module][action]);
   }
 
-  // If the module is explicitly configured in the matrix, we respect its value directly and bypass fallbacks
-  if (MATRIX_CONFIGURABLE_MODULES.includes(module)) {
-    if (overrides && overrides[module] && overrides[module][action] !== undefined) {
-      return !!overrides[module][action];
-    }
-    if (permissions && permissions[module] && permissions[module][action] !== undefined) {
-      return !!permissions[module][action];
-    }
-  }
-
-  // Compatibility fallback for renamed modules (e.g. staff-directory -> teacher-directory) (takes priority if true)
+  // Compatibility fallback for renamed modules (e.g. staff-directory -> teacher-directory)
   const compatModule = COMPATIBILITY_MAP[module];
   if (compatModule) {
-    if (overrides && overrides[compatModule] && overrides[compatModule][action] === true) {
-      return true;
+    if (overrides && overrides[compatModule] && overrides[compatModule][action] !== undefined) {
+      return Boolean(overrides[compatModule][action]);
     }
-    if (permissions && permissions[compatModule] && permissions[compatModule][action] === true) {
-      return true;
+    if (permissions && permissions[compatModule] && permissions[compatModule][action] !== undefined) {
+      return Boolean(permissions[compatModule][action]);
     }
   }
 
@@ -192,51 +176,22 @@ export function hasPermission(module, action) {
   const legacyModule = LEGACY_MODULE_MAP[module];
   if (legacyModule) {
     if (overrides && overrides[legacyModule] && overrides[legacyModule][action] !== undefined) {
-      return !!overrides[legacyModule][action];
+      return Boolean(overrides[legacyModule][action]);
     }
     if (permissions && permissions[legacyModule] && permissions[legacyModule][action] !== undefined) {
-      return !!permissions[legacyModule][action];
+      return Boolean(permissions[legacyModule][action]);
     }
   }
 
-  // Backward compatibility fallback for grade-management checking legacy parameters
-  if (module === 'grade-management') {
-    const fallbacks = ['grade-settings', 'grade-subjects'];
-    for (const fb of fallbacks) {
-      if (overrides && overrides[fb] && overrides[fb][action] !== undefined) {
-        if (overrides[fb][action]) return true;
-      }
-      if (permissions && permissions[fb] && permissions[fb][action] !== undefined) {
-        if (permissions[fb][action]) return true;
-      }
-    }
-  }
-
-  // 4. Default to explicit specific false values if no legacy check succeeded
-  if (overrides && overrides[module] && overrides[module][action] !== undefined) {
-    return !!overrides[module][action];
-  }
-  if (permissions && permissions[module] && permissions[module][action] !== undefined) {
-    return !!permissions[module][action];
-  }
-  if (compatModule) {
-    if (overrides && overrides[compatModule] && overrides[compatModule][action] !== undefined) {
-      return !!overrides[compatModule][action];
-    }
-    if (permissions && permissions[compatModule] && permissions[compatModule][action] !== undefined) {
-      return !!permissions[compatModule][action];
-    }
-  }
-
-  // Default to access denied for security
+  // Default to access denied for security (if not explicitly granted in the matrix, denied)
   return false;
 }
 
 /**
- * Checks if the logged in user is a Super Admin (Main Admin, Admin Dashboard, Developer Admin, or Principal)
+ * Checks if the logged in user is a Super Admin (Main Admin, Admin Dashboard, or Developer Admin)
  * @returns {boolean}
  */
 export function isSuperAdmin() {
   const role = localStorage.getItem('portal_role') || localStorage.getItem('role');
-  return role === 'Developer Admin' || role === 'Main Admin' || role === 'Admin Dashboard' || role === 'Principal';
+  return role === 'Developer Admin' || role === 'Main Admin' || role === 'Admin Dashboard';
 }

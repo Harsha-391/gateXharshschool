@@ -563,7 +563,15 @@ export default function AdminPanel({ setActiveView, onLogout, adminView, setAdmi
     const viewPerm = getViewPermissionModuleAndAction(adminView);
     const isAllowed = !viewPerm || hasPermission(viewPerm.module, viewPerm.action);
     if (!isAllowed) {
-      return null;
+      return (
+        <div style={{ textAlign: 'center', padding: '100px 20px', color: 'var(--text-muted)' }}>
+          <ShieldAlert size={52} style={{ color: '#EF4444', marginBottom: '16px' }} />
+          <h3 style={{ color: 'var(--text-main)', fontSize: '1.25rem', fontWeight: 700, marginBottom: '8px' }}>Access Restricted</h3>
+          <p style={{ maxWidth: '440px', margin: '0 auto', fontSize: '0.9rem', lineHeight: '1.6' }}>
+            You do not currently have permission to access this module. Please contact your school administrator to grant permissions from the Permission Matrix.
+          </p>
+        </div>
+      );
     }
 
     const isAcademicView = [

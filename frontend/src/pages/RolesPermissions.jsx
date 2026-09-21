@@ -234,7 +234,7 @@ export default function RolesPermissions({ initialTab = 'dashboard', onPermissio
         modules.forEach(m => {
           initialMatrix[m.id] = {};
           actions.forEach(a => {
-            initialMatrix[m.id][a.id] = (m.id === 'overview');
+            initialMatrix[m.id][a.id] = false;
           });
         });
         payload.permissions = initialMatrix;
@@ -443,6 +443,26 @@ export default function RolesPermissions({ initialTab = 'dashboard', onPermissio
       showToast('Permissions saved successfully!', 'success');
       setOriginalRoles(JSON.parse(JSON.stringify(roles)));
       
+      // Update local storage if current user has one of the updated roles
+      try {
+        const currentRole = localStorage.getItem('portal_role') || localStorage.getItem('role');
+        const matchingRole = roles.find(r => r.name === currentRole || r.id === currentRole);
+        if (matchingRole) {
+          localStorage.setItem('permissions', JSON.stringify(matchingRole.permissions || {}));
+        }
+      } catch (e) {}
+
+      // Signal all open tabs and components in this browser that permissions have been updated
+      try {
+        localStorage.setItem('permissions_updated_at', Date.now().toString());
+        window.dispatchEvent(new CustomEvent('permissionsUpdated'));
+        if (typeof BroadcastChannel !== 'undefined') {
+          const bc = new BroadcastChannel('aether_permissions_channel');
+          bc.postMessage({ type: 'PERMISSIONS_UPDATED', timestamp: Date.now() });
+          bc.close();
+        }
+      } catch (e) {}
+
       if (onPermissionsSave) {
         await onPermissionsSave();
       }

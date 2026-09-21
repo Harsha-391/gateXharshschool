@@ -1,5 +1,5 @@
 import express from 'express';
-import { readDb, writeDb, getDefaultRoles } from '../utils/db.js';
+import { readDb, writeDb, getDefaultRoles, restoreTenantContext, ensureTenantSqlLoaded } from '../utils/db.js';
 import { auth } from '../middleware/auth.js';
 import { logAudit as fileLogAudit } from '../utils/logger.js';
 
@@ -34,8 +34,10 @@ const logAudit = (db, req, action, details) => {
   fileLogAudit(action, 'Roles & Permissions', details, req);
 };
 
-// Apply auth to all RBAC endpoints
+// Apply auth, tenant context restoration, and tenant SQL cache sync to all RBAC endpoints
 router.use(auth);
+router.use(restoreTenantContext);
+router.use(ensureTenantSqlLoaded);
 
 // ==========================================
 // READ-ONLY ENDPOINTS (accessible to all authenticated users)
@@ -144,14 +146,16 @@ router.put('/roles/:id', (req, res) => {
     // Update fields
     if (description !== undefined) existingRole.description = description;
     if (active !== undefined) existingRole.active = active;
-    if (permissions) existingRole.permissions = permissions;
+    if (permissions !== undefined) existingRole.permissions = permissions;
 
     const isSystemName = ['Academic Coordinator', 'Staff', 'Teacher', 'Receptionist', 'Accountant', 'Expense Manager', 'Principal', 'Vice Principal'].includes(existingRole.name);
     if (isSystemName) {
       existingRole.isSystem = true;
     }
 
-    db.roles[roleIndex] = existingRole;
+    // Clone array and object reference to ensure change detection and database sync triggers
+    db.roles = [...db.roles];
+    db.roles[roleIndex] = { ...existingRole };
     logAudit(db, req, 'Update Role', `Updated role: ${existingRole.name}`);
     writeDb(db);
 
