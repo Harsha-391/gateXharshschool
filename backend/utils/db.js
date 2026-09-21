@@ -420,7 +420,16 @@ const createTablesFromSchema = async () => {
       "ALTER TABLE notices ADD COLUMN isDeleted TINYINT(1) DEFAULT 0",
       "ALTER TABLE holidays ADD COLUMN status VARCHAR(50) DEFAULT 'Published'",
       "ALTER TABLE holidays ADD COLUMN isDeleted TINYINT(1) DEFAULT 0",
-      "ALTER TABLE holidays ADD COLUMN name VARCHAR(255)"
+      "ALTER TABLE holidays ADD COLUMN name VARCHAR(255)",
+      "ALTER TABLE employees MODIFY COLUMN email VARCHAR(255) NULL",
+      "ALTER TABLE employees MODIFY COLUMN role VARCHAR(255) NULL",
+      "ALTER TABLE employees MODIFY COLUMN department VARCHAR(255) NULL",
+      "ALTER TABLE employees MODIFY COLUMN qualification TEXT NULL",
+      "ALTER TABLE employees MODIFY COLUMN experience TEXT NULL",
+      "ALTER TABLE employees ADD COLUMN designation VARCHAR(100) NULL",
+      "ALTER TABLE employees ADD COLUMN designationLevel VARCHAR(100) NULL",
+      "ALTER TABLE employees ADD COLUMN employmentType VARCHAR(100) NULL",
+      "ALTER TABLE employees ADD COLUMN qrCodePath TEXT NULL"
     ];
 
     for (const sql of extraSchemaAlters) {
@@ -2238,7 +2247,26 @@ export const loadTenantSqlIntoMemory = async (tenantId) => {
       };
     });
 
-    data.employees = dbEmployees;
+    data.employees = (dbEmployees || []).map(e => {
+      let qual = e.qualification;
+      if (qual && typeof qual === 'string' && (qual.startsWith('[') || qual.startsWith('{'))) {
+        try { qual = JSON.parse(qual); } catch (err) {}
+      }
+      let exp = e.experience;
+      if (exp && typeof exp === 'string' && (exp.startsWith('[') || exp.startsWith('{'))) {
+        try { exp = JSON.parse(exp); } catch (err) {}
+      }
+      return {
+        ...e,
+        name: e.fullName || e.name || '',
+        fullName: e.fullName || e.name || '',
+        mobile: e.mobile || e.phone || '',
+        phone: e.phone || e.mobile || '',
+        qualification: qual,
+        experiences: Array.isArray(exp) ? exp : (e.experiences || []),
+        status: e.status || 'Active'
+      };
+    });
     data.invoices = dbInvoices;
     
     data.fees = rawFees.map(f => ({
@@ -3143,13 +3171,40 @@ export const saveMemoryDbToSql = async (tenantId, db, changedKeys, newUpdatedAt)
             await sqlDb.query('DELETE FROM employees WHERE tenantId = ?', [tId]);
           }
 
+          if (activeEmployeeIds.length === 0) return;
+
           const columns = ['id', 'name', 'fullName', 'role', 'department', 'email', 'phone', 'gender', 'qualification', 'experience', 'dateOfJoining', 'salaryGrade', 'reportingTo', 'address', 'city', 'state', 'pincode', 'emergencyContact', 'emergencyPhone', 'photo', 'aadharFile', 'certificateFile', 'status', 'avatarBg', 'password', 'tenantId', 'designation', 'designationLevel', 'employmentType'];
-          const updateColumns = ['name', 'role', 'department', 'email', 'phone', 'status', 'password', 'designation', 'designationLevel', 'employmentType', 'photo'];
+          const updateColumns = ['name', 'fullName', 'role', 'department', 'email', 'phone', 'gender', 'qualification', 'experience', 'dateOfJoining', 'salaryGrade', 'reportingTo', 'address', 'city', 'state', 'pincode', 'emergencyContact', 'emergencyPhone', 'photo', 'aadharFile', 'certificateFile', 'status', 'avatarBg', 'password', 'designation', 'designationLevel', 'employmentType'];
           const valueRows = db.employees.filter(e => e.id).map(e => [
-            e.id, e.name, e.fullName, e.role, e.department, e.email, e.phone, e.gender, e.qualification, 
-            e.experience, e.dateOfJoining, e.salaryGrade, e.reportingTo, e.address, e.city, e.state, e.pincode, 
-            e.emergencyContact, e.emergencyPhone, e.photo, e.aadharFile, e.certificateFile, e.status || 'Active', 
-            e.avatarBg, e.password, tId, e.designation || '', e.designationLevel || '', e.employmentType || ''
+            e.id,
+            e.name || e.fullName || 'Employee',
+            e.fullName || e.name || 'Employee',
+            e.role || e.designation || 'Employee',
+            e.department || 'General',
+            e.email || '',
+            e.phone || e.mobile || '',
+            e.gender || '',
+            typeof e.qualification === 'object' ? JSON.stringify(e.qualification) : (e.qualification || ''),
+            typeof e.experiences === 'object' ? JSON.stringify(e.experiences) : (typeof e.experience === 'object' ? JSON.stringify(e.experience) : (e.experience || '')),
+            e.dateOfJoining || e.joiningDate || '',
+            e.salaryGrade || '',
+            e.reportingTo || '',
+            e.address || e.currentAddress || '',
+            e.city || e.currentCity || '',
+            e.state || e.currentState || '',
+            e.pincode || e.currentPostalCode || '',
+            e.emergencyContact || '',
+            e.emergencyPhone || e.emergencyContactNumber || '',
+            e.photo || '',
+            e.aadharFile || e.aadhaarFile || '',
+            e.certificateFile || '',
+            e.status || 'Active',
+            e.avatarBg || '',
+            e.password || '',
+            tId,
+            e.designation || '',
+            e.designationLevel || '',
+            e.employmentType || ''
           ].map(v => v === undefined ? null : v));
           await bulkInsertOrUpdate('employees', columns, valueRows, updateColumns);
         })());
@@ -4484,7 +4539,7 @@ export const writeDb = (data) => {
     // a 1-3 second synchronous block into a < 1ms operation.
     const changedKeys = new Set();
     const trackKeys = [
-      'schools', 'school', 'plans', 'teachers', 'staff', 'students', 'timetables',
+      'schools', 'school', 'plans', 'teachers', 'staff', 'employees', 'students', 'timetables',
       'teacherTimetables',
       'invoices', 'fees', 'expenses', 'payroll', 'staffPayments', 'activities',
       'exams', 'examTimetables', 'results', 'overallResults', 'notices',
@@ -4509,6 +4564,10 @@ export const writeDb = (data) => {
         }
         if (key === 'userAccess' && data.userAccess !== undefined) {
           changedKeys.add('userAccess');
+          continue;
+        }
+        if (key === 'employees' && data.employees !== undefined) {
+          changedKeys.add('employees');
           continue;
         }
         if (oldVal === newVal) continue;

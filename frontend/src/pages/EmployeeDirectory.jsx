@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import './EmployeeDirectory.css';
 import { createPortal } from 'react-dom';
 import { 
@@ -104,6 +104,14 @@ export default function EmployeeDirectory({ readOnly = true, onAddClick, onEditC
   const [designations, setDesignations] = useState([]);
   const [sortBy, setSortBy] = useState('name');
   const [sortOrder, setSortOrder] = useState('asc');
+
+  const allDesignationOptions = useMemo(() => {
+    const set = new Set(designations);
+    (staffList || []).forEach(s => {
+      if (s.designation) set.add(s.designation);
+    });
+    return Array.from(set).filter(Boolean).sort();
+  }, [designations, staffList]);
 
   const isSearchOrFilterActive = searchQuery.trim() !== '' || designationFilter !== 'All' || statusFilter !== 'All';
 
@@ -368,12 +376,16 @@ export default function EmployeeDirectory({ readOnly = true, onAddClick, onEditC
 
   useEffect(() => {
     fetchStaff();
-    fetch('/api/designations')
-      .then(res => res.json())
-      .then(data => {
-        setDesignations(data.map(d => d.name));
-      })
-      .catch(err => console.error('Error fetching designations in StaffDirectory:', err));
+    Promise.all([
+      fetch('/api/designations').then(r => r.ok ? r.json() : []).catch(() => []),
+      fetch('/api/designations?type=staff').then(r => r.ok ? r.json() : []).catch(() => [])
+    ]).then(([empDesigs, staffDesigs]) => {
+      const combined = [
+        ...(Array.isArray(empDesigs) ? empDesigs.map(d => d.name || d) : []),
+        ...(Array.isArray(staffDesigs) ? staffDesigs.map(d => d.name || d) : [])
+      ];
+      setDesignations(Array.from(new Set(combined)).filter(Boolean));
+    }).catch(err => console.error('Error fetching designations:', err));
   }, []);
 
   const handleDeleteStaff = async (staffId) => {
@@ -392,6 +404,8 @@ export default function EmployeeDirectory({ readOnly = true, onAddClick, onEditC
           // Rollback on server failure
           setStaffList(originalStaffList);
           alert('Failed to delete staff member.');
+        } else {
+          fetchStaff();
         }
       } catch (err) {
         console.error('Error removing staff:', err);
@@ -453,17 +467,17 @@ export default function EmployeeDirectory({ readOnly = true, onAddClick, onEditC
   const filteredStaff = staffList.filter(s => {
     const name = (s.fullName || s.name || '').toLowerCase();
     const id = (s.employeeId || s.id || '').toLowerCase();
-    const q = searchQuery.toLowerCase();
+    const q = searchQuery.toLowerCase().trim();
     
     let matchesSearch = true;
-    if (q.trim() !== '') {
+    if (q !== '') {
       const cleanQ = q.replace(/^(emp-?|staff-?)/i, '');
       const cleanId = id.replace(/^(emp-?|staff-?)/i, '');
       const idMatch = cleanQ !== '' && cleanId.includes(cleanQ);
-      matchesSearch = name.startsWith(q) || idMatch;
+      matchesSearch = name.includes(q) || id.includes(q) || idMatch;
     }
-    const matchesDesignation = designationFilter === 'All' || (s.designation || '') === designationFilter;
-    const matchesStatus = statusFilter === 'All' || s.status === statusFilter;
+    const matchesDesignation = designationFilter === 'All' || (s.designation || '').toLowerCase() === designationFilter.toLowerCase();
+    const matchesStatus = statusFilter === 'All' || (s.status || 'Active').toLowerCase() === statusFilter.toLowerCase();
     return matchesSearch && matchesDesignation && matchesStatus;
   });
 
@@ -486,7 +500,7 @@ export default function EmployeeDirectory({ readOnly = true, onAddClick, onEditC
     }
   });
 
-  const displayStaff = isSearchOrFilterActive ? filteredStaff : [];
+  const displayStaff = filteredStaff;
 
   // Safe JSON parse for qualifications/experiences
   const parseJSON = (val) => {
@@ -745,7 +759,7 @@ export default function EmployeeDirectory({ readOnly = true, onAddClick, onEditC
         <div className="filter-group" style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
           <select className="select-custom" value={designationFilter} onChange={(e) => setDesignationFilter(e.target.value)}>
             <option value="All">All Designations</option>
-            {designations.map(d => <option key={d} value={d}>{d}</option>)}
+            {allDesignationOptions.map(d => <option key={d} value={d}>{d}</option>)}
           </select>
           <select className="select-custom" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
             <option value="All">All Status</option>
@@ -846,7 +860,7 @@ export default function EmployeeDirectory({ readOnly = true, onAddClick, onEditC
                 ) : (
                   <tr>
                     <td colSpan="8" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
-                      {!isSearchOrFilterActive ? 'Please select a filter or enter a search query to load employees.' : searchQuery ? `No employees found starting with '${searchQuery}'.` : 'No employees match your search criteria.'}
+                      {loading ? 'Loading employee directory...' : searchQuery ? `No employees found matching '${searchQuery}'.` : 'No employees registered yet.'}
                     </td>
                   </tr>
                 )}

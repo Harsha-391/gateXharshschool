@@ -2178,13 +2178,13 @@ app.post('/api/notifications/read', auth, restoreTenantContext, async (req, res)
 // ==========================================
 // 2B. EMPLOYEES ENDPOINTS (Complete Module)
 // ==========================================
-app.get('/api/employees', auth, restoreTenantContext, checkPermission('employee-directory', 'view'), (req, res) => {
+app.get('/api/employees', auth, restoreTenantContext, ensureTenantSqlLoaded, checkPermission('employee-directory', 'view'), (req, res) => {
   const db = readDb();
   res.json(db.employees || []);
 });
 
 // Get single employee by ID
-app.get('/api/employees/:id', auth, restoreTenantContext, checkPermission('employee-directory', 'view'), (req, res) => {
+app.get('/api/employees/:id', auth, restoreTenantContext, ensureTenantSqlLoaded, checkPermission('employee-directory', 'view'), (req, res) => {
   const db = readDb();
   if (!db.employees) db.employees = [];
   const emp = db.employees.find(e => e.id === req.params.id);
@@ -2204,7 +2204,7 @@ const staffUploadFields = upload.fields([
   { name: 'otherFile', maxCount: 1 }
 ]);
 
-app.post('/api/employees', auth, staffUploadFields, restoreTenantContext, checkPermission('add-employee', 'create'), async (req, res) => {
+app.post('/api/employees', auth, staffUploadFields, restoreTenantContext, ensureTenantSqlLoaded, checkPermission('add-employee', 'create'), async (req, res) => {
   try {
     const body = req.body;
 
@@ -2355,7 +2355,7 @@ app.post('/api/employees', auth, staffUploadFields, restoreTenantContext, checkP
 });
 
 // UPDATE EMPLOYEE
-app.put('/api/employees/:id', auth, staffUploadFields, restoreTenantContext, checkPermission('employee-directory', 'edit'), (req, res) => {
+app.put('/api/employees/:id', auth, staffUploadFields, restoreTenantContext, ensureTenantSqlLoaded, checkPermission('employee-directory', 'edit'), (req, res) => {
   try {
     const db = readDb();
     if (!db.employees) db.employees = [];
@@ -2422,7 +2422,7 @@ app.put('/api/employees/:id', auth, staffUploadFields, restoreTenantContext, che
   }
 });
 
-app.delete('/api/employees/:id', auth, restoreTenantContext, checkPermission('employee-directory', 'delete'), (req, res) => {
+app.delete('/api/employees/:id', auth, restoreTenantContext, ensureTenantSqlLoaded, checkPermission('employee-directory', 'delete'), async (req, res) => {
   const db = readDb();
   if (!db.employees) db.employees = [];
   const empIndex = db.employees.findIndex(e => e.id === req.params.id);
@@ -2443,6 +2443,18 @@ app.delete('/api/employees/:id', auth, restoreTenantContext, checkPermission('em
   }
   if (db.attendanceLogs) {
     db.attendanceLogs = db.attendanceLogs.filter(l => l.employeeId !== deletedId && l.staffId !== deletedId);
+  }
+
+  if (isSqlActive()) {
+    try {
+      const sqlDb = await import('./utils/sqlDb.js');
+      const tenantId = tenantStorage.getStore();
+      const tId = tenantId ? slugify(tenantId) : 'platform';
+      await sqlDb.query('DELETE FROM employees WHERE id = ? AND tenantId = ?', [deletedId, tId]);
+      await sqlDb.query('DELETE FROM employee_qr_codes WHERE (employeeId = ? OR staffId = ?) AND tenantId = ?', [deletedId, deletedId, tId]);
+    } catch (sqlErr) {
+      console.error('[SQL Direct Delete Employee Error]', sqlErr.message);
+    }
   }
 
   addActivity(db, 'alert', 'Employee Dismissed', `${staffName} was removed from the roster`, 'rgb(var(--color-danger-rgb))', 'rgba(var(--color-danger-rgb), 0.1)');
