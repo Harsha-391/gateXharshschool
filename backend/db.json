@@ -1,36 +1,5 @@
 {
-  "schools": [
-    {
-      "id": "SCH-701",
-      "name": "Green Valley",
-      "code": "SCH-701",
-      "subdomain": "green-valley",
-      "logo": "",
-      "principalName": "Dr. Robert Green",
-      "email": "admin@greenvalleyschool.edu",
-      "phone": "9876543210",
-      "address": "123 Valley Road, Green Valley Campus",
-      "city": "Greenfield",
-      "state": "California",
-      "country": "India",
-      "academicSession": "2026-2027",
-      "subscriptionPlan": "Enterprise",
-      "url": "https://green-valley.myschoolerp.com",
-      "status": "Active",
-      "adminName": "School Admin",
-      "adminEmail": "admin@greenvalleyschool.edu",
-      "adminUsername": "school_admin",
-      "adminPassword": "$2b$10$d5tW2iDBcIDCwxrmfQwOkufOOB64rgBvW4c3J5yzAD90aHZtGXz7S",
-      "dbName": "school_green-valley",
-      "ratePerStudent": "250.00",
-      "examTypes": "[\"Term 1\",\"Term 2\",\"Final Exam\"]",
-      "eventTypes": "[\"Sports\",\"Cultural\",\"Academic\",\"Holiday\"]",
-      "noticeCategories": "[\"Academic\",\"Administrative\",\"Examination\",\"General\"]",
-      "holidayClassifications": "[\"National Holiday\",\"Festival\",\"Vacation\"]",
-      "createdAt": "2026-09-19T04:53:43.940Z",
-      "updatedAt": "2026-09-19T04:53:43.942Z"
-    }
-  ],
+  "schools": [],
   "platformOwner": {
     "name": "Platform Owner",
     "username": "dev@admin.com",
@@ -38,5 +7,42 @@
     "email": "dev@admin.com",
     "phone": "",
     "photo": ""
-  }
+  },
+  "plans": [
+    {
+      "id": "plan-starter",
+      "name": "Starter",
+      "price": "2999",
+      "features": [
+        "Student Management",
+        "Attendance",
+        "Fee Management",
+        "Basic Reports"
+      ]
+    },
+    {
+      "id": "plan-growth",
+      "name": "Growth",
+      "price": "5999",
+      "features": [
+        "All Starter Features",
+        "Payroll",
+        "Exam & Results",
+        "Parent Portal",
+        "Custom Roles"
+      ]
+    },
+    {
+      "id": "plan-enterprise",
+      "name": "Enterprise",
+      "price": "9999",
+      "features": [
+        "All Growth Features",
+        "Multi-branch Support",
+        "Dedicated Database",
+        "Priority Support",
+        "API Access"
+      ]
+    }
+  ]
 }

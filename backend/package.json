@@ -8,11 +8,7 @@
     "prestart": "npx -y kill-port 5000",
     "start": "node server.js",
     "predev": "npx -y kill-port 5000",
-    "dev": "nodemon --ignore db.json --ignore tenants/ --ignore uploads/ --ignore scratch/ --ignore backups/ server.js",
-    "seed": "node seed.js",
-    "seed:sql": "node seedSql.js",
-    "seed:20": "node seed20.js",
-    "test-mysql": "node test_mysql.js"
+    "dev": "nodemon --ignore db.json --ignore tenants/ --ignore uploads/ --ignore scratch/ --ignore backups/ server.js"
   },
   "dependencies": {
     "aether-academy-erp": "file:..",

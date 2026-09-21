@@ -2556,7 +2556,7 @@ app.get('/api/school', restoreTenantContext, (req, res) => {
   }
 
   const db = readDb();
-  res.json(db.school || { name: "Aether Academy", principal: "Alex Devlin" });
+  res.json(db.school || { name: "GateX School ERP", principal: "Platform Admin" });
 });
 
 app.post('/api/school', restoreTenantContext, (req, res) => {

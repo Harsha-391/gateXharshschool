@@ -1596,18 +1596,6 @@ export const initializeOnboardedSchoolDatabase = async (subdomain) => {
   }
 };
 
-const ensureSubdomainsRegistered = async (masterPool) => {
-  try {
-    const [rows] = await masterPool.query("SELECT subdomain FROM schools WHERE subdomain = 'green-valley'");
-    if (!rows || rows.length === 0) {
-      console.log("[SQL Init] Green Valley school not found in database. Running auto-seeder...");
-      const { seedGreenValley } = await import('../seedGreenValley.js');
-      await seedGreenValley();
-    }
-  } catch (err) {
-    console.warn("[SQL Init WARNING] Auto-seed check error:", err.message);
-  }
-};
 
 // Initial database check called on server boot
 export const initSqlDb = async () => {
@@ -1641,11 +1629,8 @@ export const initSqlDb = async () => {
     // Load subdomain-to-dbName mappings
     await sqlDb.loadDbMappings();
 
-    // Auto-register missing subdomains
-    await ensureSubdomainsRegistered(masterPool);
-
     // Fetch all registered schools and register their mappings
-    const schools = await sqlDb.query("SELECT id, subdomain, dbName FROM schools", [], 'platform');
+    const schools = await sqlDb.query("SELECT * FROM schools", [], 'platform');
     for (const school of (schools || [])) {
       const dbName = school.dbName || `school_${slugify(school.subdomain)}`;
       if (!school.dbName) {
@@ -1657,6 +1642,21 @@ export const initSqlDb = async () => {
       }
       sqlDb.registerDbMapping(school.subdomain, dbName);
     }
+
+    // Ensure platform memory cache & db.json reflect the persisted schools from SQL
+    if (!dbCache['platform']) {
+      dbCache['platform'] = readDb();
+    }
+    dbCache['platform'].schools = (schools || []).map(s => ({
+      ...s,
+      examTypes: typeof s.examTypes === 'string' ? JSON.parse(s.examTypes || '[]') : (s.examTypes || []),
+      eventTypes: typeof s.eventTypes === 'string' ? JSON.parse(s.eventTypes || '[]') : (s.eventTypes || []),
+      noticeCategories: typeof s.noticeCategories === 'string' ? JSON.parse(s.noticeCategories || '[]') : (s.noticeCategories || []),
+      holidayClassifications: typeof s.holidayClassifications === 'string' ? JSON.parse(s.holidayClassifications || '[]') : (s.holidayClassifications || [])
+    }));
+    try {
+      fs.writeFileSync(GLOBAL_DB_FILE, JSON.stringify(dbCache['platform'], null, 2), 'utf8');
+    } catch (e) {}
 
     isSqlInitialized = true;
     console.log('[SQL Init] MySQL Database-Per-School Multi-Tenant Adapter is active and running.');
@@ -2981,39 +2981,10 @@ export const saveMemoryDbToSql = async (tenantId, db, changedKeys, newUpdatedAt)
       const tasks = [];
       const dependentTasks = [];
 
-      // 1. Sync global platforms
+      // 1. Sync global platforms (insert/update only - deletions handled explicitly in delete endpoint)
       if (tId === 'platform' && db.schools && Array.isArray(db.schools) && hasTableChanged('schools')) {
         tasks.push((async () => {
-          const activeSchoolIds = db.schools.map(s => s.id).filter(Boolean);
-          let deletedSubdomains = [];
-          if (activeSchoolIds.length > 0) {
-            const rows = await sqlDb.query(`SELECT subdomain FROM schools WHERE id NOT IN (${activeSchoolIds.map(() => '?').join(',')})`, activeSchoolIds);
-            deletedSubdomains = (rows || []).map(r => r.subdomain);
-            await sqlDb.query(`DELETE FROM schools WHERE id NOT IN (${activeSchoolIds.map(() => '?').join(',')})`, activeSchoolIds);
-          } else {
-            const rows = await sqlDb.query(`SELECT subdomain FROM schools`);
-            deletedSubdomains = (rows || []).map(r => r.subdomain);
-            await sqlDb.query('DELETE FROM schools');
-          }
-
-          if (deletedSubdomains.length > 0) {
-            const tenantTables = [
-              'employees', 'staff', 'students', 'invoices', 'fees', 'expenses', 'payroll',
-              'staff_payments', 'activities', 'exams', 'exam_timetables', 'notices',
-              'holidays', 'events', 'results', 'overall_results', 'subjects', 'timeslots',
-              'fee_structures', 'salary_structures', 'staff_salary_structures', 'income',
-              'attendance', 'roles', 'user_access', 'audit_logs', 'employee_qr_codes',
-              'attendance_records', 'attendance_logs', 'attendance_reports', 'designations'
-            ];
-            await Promise.all(deletedSubdomains.flatMap(sub => 
-              tenantTables.map(tbl => 
-                sqlDb.query(`DELETE FROM \`${tbl}\` WHERE tenantId = ?`, [sub]).catch(() => {})
-              )
-            ));
-            deletedSubdomains.forEach(sub => {
-              delete dbCache[sub];
-            });
-          }
+          if (db.schools.length === 0) return;
 
           const columns = [
             'id', 'name', 'code', 'subdomain', 'logo', 'principalName', 'email', 'phone', 'address', 'city', 'state', 'country', 
@@ -4593,8 +4564,17 @@ export const writeDb = (data) => {
     }
   }
 
-  // db.json backup removed — system is fully SQL-driven.
-  // All writes (platform + tenant) are persisted exclusively via saveMemoryDbToSql().
+  // Write to disk file to guarantee permanent lifetime persistence across restarts
+  try {
+    const dbFilePath = getDbPath();
+    const dir = path.dirname(dbFilePath);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+    fs.writeFileSync(dbFilePath, JSON.stringify(data, null, 2), 'utf8');
+  } catch (err) {
+    console.error(`[writeDb] Error writing database to ${getDbPath()}:`, err.message);
+  }
 };
 
 // Helper to log system activities
