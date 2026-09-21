@@ -367,7 +367,6 @@ export default function App() {
   };
 
   const initialised = useRef(false);
-  const currentSessionId = useRef(localStorage.getItem('active_session_id') || null);
 
   const getActiveTenant = () => {
     const host = window.location.hostname.toLowerCase();
@@ -628,58 +627,34 @@ export default function App() {
 
   // Restore session & path on mount
   useEffect(() => {
-    const isReload = (() => {
-      try {
-        const navs = performance.getEntriesByType('navigation');
-        if (navs.length > 0) {
-          return navs[0].type === 'reload';
-        }
-        return window.performance?.navigation?.type === 1;
-      } catch (e) {
-        return false;
-      }
-    })();
+    const token = localStorage.getItem('token');
+    if (token && token !== 'null' && token !== 'undefined' && !isTokenExpired(token)) {
+      localStorage.setItem('lastActive', Date.now().toString());
+      fetchUserProfile();
 
-    if (!isReload) {
-      // Always clear session on fresh navigate/URL entry to force password login
-      const authKeys = [
-        'token', 'role', 'portal_role', 'username', 'name', 
-        'permissions', 'overrides', 'from_dev_admin', 'dev_token', 
-        'admin_view', 'userType', 'refreshToken', 'lastActive',
-        'active_session_id'
-      ];
-      authKeys.forEach(k => localStorage.removeItem(k));
-      currentSessionId.current = null;
+      const savedRole = localStorage.getItem('role') || localStorage.getItem('portal_role');
+      if (savedRole) {
+        switch (savedRole) {
+          case 'Developer Admin':
+            setIsDeveloperAdmin(true);
+            setActiveView('dashboard');
+            break;
+          case 'Student':
+          case 'Parent':
+            setIsAdmin(false);
+            setIsSchoolAdmin(false);
+            setActiveView('students');
+            break;
+          default:
+            setIsAdmin(true);
+            setIsSchoolAdmin(false);
+            break;
+        }
+      }
+    } else {
       setIsDeveloperAdmin(false);
       setIsAdmin(false);
       setIsSchoolAdmin(false);
-    } else {
-      // Restore session on reload
-      const token = localStorage.getItem('token');
-      if (token && token !== 'null' && token !== 'undefined') {
-        localStorage.setItem('lastActive', Date.now().toString());
-        fetchUserProfile();
-
-        const savedRole = localStorage.getItem('role') || localStorage.getItem('portal_role');
-        if (savedRole) {
-          switch (savedRole) {
-            case 'Developer Admin':
-              setIsDeveloperAdmin(true);
-              setActiveView('dashboard');
-              break;
-            case 'Student':
-            case 'Parent':
-              setIsAdmin(false);
-              setIsSchoolAdmin(false);
-              setActiveView('students');
-              break;
-            default:
-              setIsAdmin(true);
-              setIsSchoolAdmin(false);
-              break;
-          }
-        }
-      }
     }
 
     fetchSchoolDetails();
@@ -755,70 +730,6 @@ export default function App() {
       clearInterval(intervalId);
       window.removeEventListener('click', handleActivity);
       window.removeEventListener('keydown', handleActivity);
-    };
-  }, []);
-
-  // Single-session-per-browser: auto-logout other tabs when a new login happens
-  useEffect(() => {
-    let bc;
-    try {
-      bc = new BroadcastChannel('sms_session_channel');
-      bc.onmessage = (event) => {
-        if (event.data && event.data.type === 'NEW_LOGIN') {
-          const mySessionId = currentSessionId.current;
-          if (mySessionId && mySessionId !== event.data.sessionId) {
-            // Another tab logged in with a different session — auto-logout this tab
-            console.log('[Session Guard] Another login detected. Logging out this tab.');
-            const authKeys = [
-              'token', 'role', 'portal_role', 'username', 'name',
-              'permissions', 'overrides', 'school_name', 'school_subdomain',
-              'from_dev_admin', 'dev_token', 'admin_view', 'userType',
-              'refreshToken', 'lastActive', 'email', 'phone', 'parent_photo'
-            ];
-            authKeys.forEach(k => localStorage.removeItem(k));
-            setIsDeveloperAdmin(false);
-            setIsAdmin(false);
-            setIsSchoolAdmin(false);
-            setActiveView('students');
-            // Update the current session ref to the new one so this tab doesn't keep firing
-            currentSessionId.current = event.data.sessionId;
-            // Redirect to login
-            const tenant = getActiveTenant();
-            const host = window.location.hostname;
-            const parts = host.split('.');
-            const isSubdomainResolved = parts.length > 2 || (parts.length === 2 && parts[1] === 'localhost') || (parts.length === 1 && !['localhost', 'platform', 'www', 'admin'].includes(parts[0].toLowerCase()));
-            const query = (tenant && !isSubdomainResolved) ? `?tenant=${tenant}` : '';
-            window.location.replace(`/${query}`);
-          }
-        }
-      };
-    } catch (e) { /* BroadcastChannel not supported */ }
-
-    // Fallback: listen for storage changes (covers browsers without BroadcastChannel)
-    const handleStorageChange = (e) => {
-      if (e.key === 'active_session_id' && e.newValue) {
-        const mySessionId = currentSessionId.current;
-        if (mySessionId && mySessionId !== e.newValue) {
-          console.log('[Session Guard] Storage event: another login detected. Logging out this tab.');
-          setIsDeveloperAdmin(false);
-          setIsAdmin(false);
-          setIsSchoolAdmin(false);
-          setActiveView('students');
-          currentSessionId.current = e.newValue;
-          const tenant = getActiveTenant();
-          const host = window.location.hostname;
-          const parts = host.split('.');
-          const isSubdomainResolved = parts.length > 2 || (parts.length === 2 && parts[1] === 'localhost') || (parts.length === 1 && !['localhost', 'platform', 'www', 'admin'].includes(parts[0].toLowerCase()));
-          const query = (tenant && !isSubdomainResolved) ? `?tenant=${tenant}` : '';
-          window.location.replace(`/${query}`);
-        }
-      }
-    };
-    window.addEventListener('storage', handleStorageChange);
-
-    return () => {
-      if (bc) bc.close();
-      window.removeEventListener('storage', handleStorageChange);
     };
   }, []);
 
@@ -1011,11 +922,6 @@ export default function App() {
   const handleLoginSuccess = (role, name) => {
     localStorage.setItem('portal_role', role);
 
-    // Single-session-per-browser: generate unique session ID for this tab
-    const sessionId = localStorage.getItem('active_session_id') || `sess_${Date.now()}_${Math.random().toString(36).substring(2, 10)}`;
-    currentSessionId.current = sessionId;
-    localStorage.setItem('active_session_id', sessionId);
-
     if (role === 'Developer Admin') {
       setIsDeveloperAdmin(true);
       setActiveView('dashboard');
@@ -1062,7 +968,6 @@ export default function App() {
       'active_session_id'
     ];
     authKeys.forEach(k => localStorage.removeItem(k));
-    currentSessionId.current = null;
     localStorage.removeItem('tenant_subdomain');
     setIsDeveloperAdmin(false);
     setIsAdmin(false);

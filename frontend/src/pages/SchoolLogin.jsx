@@ -96,15 +96,6 @@ export default function SchoolLogin({ tenantSubdomain, onLoginSuccess }) {
           sessionStorage.setItem('tenant_subdomain', tenantSubdomain);
         }
 
-        // Single-session-per-browser: generate unique session ID and broadcast to other tabs
-        const sessionId = `sess_${Date.now()}_${Math.random().toString(36).substring(2, 10)}`;
-        localStorage.setItem('active_session_id', sessionId);
-        try {
-          const bc = new BroadcastChannel('sms_session_channel');
-          bc.postMessage({ type: 'NEW_LOGIN', sessionId, role: data.role, username: data.username || username });
-          bc.close();
-        } catch (e) { /* BroadcastChannel not supported, storage event fallback will handle */ }
-        
         onLoginSuccess(data.role, data.name);
       } else {
         setError(data.error || 'Invalid credentials. Please verify your login details.');

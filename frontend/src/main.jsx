@@ -135,8 +135,8 @@ window.fetch = (input, init) => {
   return fetchPromise.then(res => res.clone());
 };
 
-// Intercept session and auth reads/writes to redirect to sessionStorage
-const sessionKeys = [
+// Intercept session and auth reads/writes to redirect to sessionStorage (enabling multi-tab multi-dashboard support)
+const sessionKeys = new Set([
   'token',
   'refreshToken',
   'role',
@@ -145,48 +145,65 @@ const sessionKeys = [
   'overrides',
   'username',
   'name',
+  'email',
+  'phone',
   'lastActive',
   'userType',
   'photo',
+  'parent_photo',
   'admin_view',
   'school_name',
   'school_subdomain',
   'tenant_subdomain',
   'from_dev_admin',
-  'dev_token'
-];
+  'dev_token',
+  'active_session_id',
+  'fee_filter_class',
+  'fee_filter_dept',
+  'fee_filter_section',
+  'fee_transport_filter'
+]);
 
-const originalGetItem = localStorage.getItem;
+const originalGetItem = localStorage.getItem.bind(localStorage);
 localStorage.getItem = function(key) {
-  if (sessionKeys.includes(key)) {
+  if (sessionKeys.has(key)) {
     return sessionStorage.getItem(key);
   }
-  return originalGetItem.apply(this, arguments);
+  return originalGetItem(key);
 };
 
-const originalSetItem = localStorage.setItem;
+const originalSetItem = localStorage.setItem.bind(localStorage);
 localStorage.setItem = function(key, value) {
-  if (sessionKeys.includes(key)) {
+  if (sessionKeys.has(key)) {
     sessionStorage.setItem(key, value);
     return;
   }
-  return originalSetItem.apply(this, arguments);
+  return originalSetItem(key, value);
 };
 
-const originalRemoveItem = localStorage.removeItem;
+const originalRemoveItem = localStorage.removeItem.bind(localStorage);
 localStorage.removeItem = function(key) {
-  if (sessionKeys.includes(key)) {
+  if (sessionKeys.has(key)) {
     sessionStorage.removeItem(key);
+    // Also clean from localStorage in case old legacy data was left over
+    try { originalRemoveItem(key); } catch (e) {}
     return;
   }
-  return originalRemoveItem.apply(this, arguments);
+  return originalRemoveItem(key);
 };
 
-const originalClear = localStorage.clear;
+const originalClear = localStorage.clear.bind(localStorage);
 localStorage.clear = function() {
   sessionStorage.clear();
-  return originalClear.apply(this, arguments);
+  return originalClear();
 };
+
+// Clean up any legacy auth keys mistakenly left in global localStorage so they don't leak across tabs
+sessionKeys.forEach(k => {
+  try {
+    originalRemoveItem(k);
+  } catch (e) {}
+});
 
 createRoot(document.getElementById('root')).render(
   <App />
