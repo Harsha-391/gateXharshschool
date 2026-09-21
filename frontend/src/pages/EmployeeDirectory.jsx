@@ -362,12 +362,24 @@ export default function EmployeeDirectory({ readOnly = true, onAddClick, onEditC
     printWindow.document.close();
   };
 
+  const getRequestHeaders = (contentType = null) => {
+    const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+    const hostTenant = typeof window !== 'undefined' ? window.location.hostname.split('.')[0] : null;
+    const tenantId = localStorage.getItem('tenant_subdomain') || (hostTenant && !['localhost', 'platform', 'www', 'admin'].includes(hostTenant.toLowerCase()) ? hostTenant : null);
+    const headers = {};
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    if (tenantId) headers['x-tenant-id'] = tenantId;
+    if (contentType) headers['Content-Type'] = contentType;
+    return headers;
+  };
+
   const fetchStaff = async () => {
     try {
-      const res = await fetch('/api/employees');
+      const headers = getRequestHeaders();
+      const res = await fetch('/api/employees', { headers });
       if (res.ok) {
         const data = await res.json();
-        setStaffList(data);
+        setStaffList(Array.isArray(data) ? data : []);
       }
     } catch (err) {
       console.error('Error loading staff roster:', err);
@@ -378,7 +390,8 @@ export default function EmployeeDirectory({ readOnly = true, onAddClick, onEditC
 
   useEffect(() => {
     fetchStaff();
-    fetch('/api/designations?type=employee')
+    const headers = getRequestHeaders();
+    fetch('/api/designations?type=employee', { headers })
       .then(r => r.ok ? r.json() : [])
       .then(empDesigs => {
         const list = (Array.isArray(empDesigs) ? empDesigs : [])
@@ -400,16 +413,12 @@ export default function EmployeeDirectory({ readOnly = true, onAddClick, onEditC
       }
 
       try {
-        const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-        const tenantId = localStorage.getItem('tenant_subdomain');
-        const headers = {};
-        if (token) headers['Authorization'] = `Bearer ${token}`;
-        if (tenantId) headers['x-tenant-id'] = tenantId;
+        const headers = getRequestHeaders();
         const res = await fetch(`/api/employees/${staffId}`, { method: 'DELETE', headers });
         if (!res.ok) {
           // Rollback on server failure
           setStaffList(originalStaffList);
-          alert('Failed to delete staff member.');
+          alert('Failed to delete employee from database.');
         } else {
           fetchStaff();
         }
@@ -448,9 +457,10 @@ export default function EmployeeDirectory({ readOnly = true, onAddClick, onEditC
   const handleEditSave = async () => {
     setEditLoading(true);
     try {
+      const headers = getRequestHeaders('application/json');
       const res = await fetch(`/api/employees/${editStaff.id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify(editData)
       });
       if (res.ok) {
@@ -460,7 +470,7 @@ export default function EmployeeDirectory({ readOnly = true, onAddClick, onEditC
         setEditSuccess(true);
         setTimeout(() => { setEditStaff(null); setEditSuccess(false); }, 1200);
       } else {
-        alert('Failed to update staff.');
+        alert('Failed to update employee in database.');
       }
     } catch (err) {
       console.error('Error updating staff:', err);

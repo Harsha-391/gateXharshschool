@@ -68,7 +68,7 @@ import staffLeaveRoutes from './routes/staffLeaveRoutes.js';
 import teacherReportRoutes from './routes/teacherReportRoutes.js';
 import staffReportRoutes from './routes/staffReportRoutes.js';
 import upload from './middleware/upload.js';
-import { readDb, writeDb, addActivity, tenantStorage, slugify, restoreTenantContext, isSubdomainRegistered, ensureTenantSqlLoaded, isSqlActive, initializeOnboardedSchoolDatabase, startSqlDbInit, closeAllPools } from './utils/db.js';
+import { readDb, writeDb, addActivity, tenantStorage, slugify, restoreTenantContext, isSubdomainRegistered, ensureTenantSqlLoaded, isSqlActive, initializeOnboardedSchoolDatabase, startSqlDbInit, closeAllPools, ensureEmployeeTableReady } from './utils/db.js';
 import { checkPermission } from './middleware/permissionMiddleware.js';
 import { generateQrCode } from './utils/qrService.js';
 
@@ -2185,8 +2185,9 @@ app.get('/api/employees', auth, restoreTenantContext, ensureTenantSqlLoaded, che
   const tId = tenantId ? slugify(tenantId) : 'platform';
   if (isSqlActive() && tId !== 'platform') {
     try {
+      await ensureEmployeeTableReady(tId);
       const sqlDb = await import('./utils/sqlDb.js');
-      const rows = await sqlDb.query('SELECT * FROM employees WHERE tenantId = ?', [tId]);
+      const rows = await sqlDb.query('SELECT * FROM employees WHERE tenantId = ? OR tenantId IS NULL OR tenantId = ?', [tId, ''], tId);
       if (rows && Array.isArray(rows) && rows.length > 0) {
         return res.json(rows.map(e => {
           let qual = e.qualification;
@@ -2203,7 +2204,7 @@ app.get('/api/employees', auth, restoreTenantContext, ensureTenantSqlLoaded, che
             fullName: e.fullName || e.name || '',
             phone: e.phone || e.mobile || '',
             mobile: e.phone || e.mobile || '',
-            role: e.role || e.designation || '',
+            role: e.designation || e.role || '',
             designation: e.designation || e.role || '',
             qualification: qual,
             experience: exp,
@@ -2417,9 +2418,12 @@ app.post('/api/employees', auth, staffUploadFields, restoreTenantContext, ensure
     // Direct MySQL Insert for Immediate Persistence
     if (isSqlActive()) {
       try {
-        const sqlDb = await import('./utils/sqlDb.js');
         const tenantId = tenantStorage.getStore();
         const tId = tenantId ? slugify(tenantId) : 'platform';
+        if (tId !== 'platform') {
+          await ensureEmployeeTableReady(tId);
+        }
+        const sqlDb = await import('./utils/sqlDb.js');
         const columns = ['id', 'name', 'fullName', 'role', 'department', 'email', 'phone', 'gender', 'qualification', 'experience', 'dateOfJoining', 'salaryGrade', 'reportingTo', 'address', 'city', 'state', 'pincode', 'emergencyContact', 'emergencyPhone', 'photo', 'aadharFile', 'certificateFile', 'status', 'avatarBg', 'password', 'tenantId', 'designation', 'designationLevel', 'employmentType', 'qrCodePath'];
         const updateColumns = ['name', 'fullName', 'role', 'department', 'email', 'phone', 'gender', 'qualification', 'experience', 'dateOfJoining', 'salaryGrade', 'reportingTo', 'address', 'city', 'state', 'pincode', 'emergencyContact', 'emergencyPhone', 'photo', 'aadharFile', 'certificateFile', 'status', 'avatarBg', 'password', 'designation', 'designationLevel', 'employmentType', 'qrCodePath'];
         const values = [
@@ -2472,7 +2476,7 @@ app.post('/api/employees', auth, staffUploadFields, restoreTenantContext, ensure
           }
         }
       } catch (sqlErr) {
-        console.error('[SQL Direct Insert Employee Error]', sqlErr.message);
+        console.error('[SQL Direct Insert Employee Error]', sqlErr);
       }
     }
 
@@ -2549,9 +2553,12 @@ app.put('/api/employees/:id', auth, staffUploadFields, restoreTenantContext, ens
     // Direct MySQL Update for Immediate Persistence
     if (isSqlActive()) {
       try {
-        const sqlDb = await import('./utils/sqlDb.js');
         const tenantId = tenantStorage.getStore();
         const tId = tenantId ? slugify(tenantId) : 'platform';
+        if (tId !== 'platform') {
+          await ensureEmployeeTableReady(tId);
+        }
+        const sqlDb = await import('./utils/sqlDb.js');
         const columns = ['name', 'fullName', 'role', 'department', 'email', 'phone', 'gender', 'qualification', 'experience', 'dateOfJoining', 'salaryGrade', 'reportingTo', 'address', 'city', 'state', 'pincode', 'emergencyContact', 'emergencyPhone', 'photo', 'aadharFile', 'certificateFile', 'status', 'avatarBg', 'password', 'designation', 'designationLevel', 'employmentType'];
         const values = [
           updatedStaff.name || updatedStaff.fullName || 'Employee',
@@ -2584,9 +2591,9 @@ app.put('/api/employees/:id', auth, staffUploadFields, restoreTenantContext, ens
         ].map(v => v === undefined ? null : v);
 
         const setClause = columns.map(c => `\`${c}\` = ?`).join(', ');
-        await sqlDb.query(`UPDATE employees SET ${setClause} WHERE id = ? AND tenantId = ?`, [...values, req.params.id, tId], tId);
+        await sqlDb.query(`UPDATE employees SET ${setClause} WHERE id = ? AND (tenantId = ? OR tenantId IS NULL OR tenantId = ?)`, [...values, req.params.id, tId, ''], tId);
       } catch (sqlErr) {
-        console.error('[SQL Direct Update Employee Error]', sqlErr.message);
+        console.error('[SQL Direct Update Employee Error]', sqlErr);
       }
     }
 
@@ -2628,10 +2635,10 @@ app.delete('/api/employees/:id', auth, restoreTenantContext, ensureTenantSqlLoad
       const sqlDb = await import('./utils/sqlDb.js');
       const tenantId = tenantStorage.getStore();
       const tId = tenantId ? slugify(tenantId) : 'platform';
-      await sqlDb.query('DELETE FROM employees WHERE id = ? AND tenantId = ?', [deletedId, tId]);
-      await sqlDb.query('DELETE FROM employee_qr_codes WHERE (employeeId = ? OR staffId = ?) AND tenantId = ?', [deletedId, deletedId, tId]);
+      await sqlDb.query('DELETE FROM employees WHERE id = ? AND (tenantId = ? OR tenantId IS NULL OR tenantId = ?)', [deletedId, tId, ''], tId);
+      await sqlDb.query('DELETE FROM employee_qr_codes WHERE (employeeId = ? OR staffId = ?) AND (tenantId = ? OR tenantId IS NULL OR tenantId = ?)', [deletedId, deletedId, tId, ''], tId);
     } catch (sqlErr) {
-      console.error('[SQL Direct Delete Employee Error]', sqlErr.message);
+      console.error('[SQL Direct Delete Employee Error]', sqlErr);
     }
   }
 

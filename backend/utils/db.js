@@ -109,7 +109,10 @@ export const restoreTenantContext = (req, res, next) => {
   }
   
   if (tenantId && !req.admin?.tenantId && !isSubdomainRegistered(tenantId)) {
-    tenantId = null;
+    const host = (req.headers.host || '').split(':')[0].toLowerCase();
+    if (!host.endsWith('acadmay.in') && !host.includes('.')) {
+      tenantId = null;
+    }
   }
   
   if (tenantId) {
@@ -1606,6 +1609,38 @@ export const initializeOnboardedSchoolDatabase = async (subdomain) => {
 };
 
 
+// Ensure employee table has all required columns and nullable constraints
+export const ensureEmployeeTableReady = async (targetTenant) => {
+  if (!isSqlActive()) return;
+  const tId = targetTenant && targetTenant !== 'platform' && targetTenant !== 'localhost' ? slugify(targetTenant) : null;
+  if (!tId) return;
+  try {
+    const pool = sqlDb.getPoolForTenant(tId);
+    if (!pool) return;
+    const alters = [
+      "ALTER TABLE employees MODIFY COLUMN email VARCHAR(255) NULL",
+      "ALTER TABLE employees MODIFY COLUMN role VARCHAR(255) NULL",
+      "ALTER TABLE employees MODIFY COLUMN department VARCHAR(255) NULL",
+      "ALTER TABLE employees MODIFY COLUMN qualification TEXT NULL",
+      "ALTER TABLE employees MODIFY COLUMN experience TEXT NULL",
+      "ALTER TABLE employees ADD COLUMN designation VARCHAR(100) NULL",
+      "ALTER TABLE employees ADD COLUMN designationLevel VARCHAR(100) NULL",
+      "ALTER TABLE employees ADD COLUMN employmentType VARCHAR(100) NULL",
+      "ALTER TABLE employees ADD COLUMN qrCodePath TEXT NULL",
+      "ALTER TABLE employees ADD COLUMN fullName VARCHAR(255) NULL"
+    ];
+    for (const sql of alters) {
+      try {
+        await pool.query(sql);
+      } catch (err) {
+        // Ignore ER_DUP_FIELDNAME (1060) or already modified
+      }
+    }
+  } catch (err) {
+    console.error(`[ensureEmployeeTableReady ERROR for ${tId}]`, err.message);
+  }
+};
+
 // Initial database check called on server boot
 export const initSqlDb = async () => {
   try {
@@ -2901,6 +2936,7 @@ export const ensureTenantSqlLoaded = async (req, res, next) => {
                   data._updatedAt = dbUpdatedAt;
                   dbCache[activeTenant] = data;
                 }
+                await ensureEmployeeTableReady(activeTenant);
               } catch (loadErr) {
                 console.warn(`[SQL Cache] Tenant database '${activeTenant}' failed to load (probably missing or uninitialized). Provisioning database on the fly... Error: ${loadErr.message}`);
                 try {
@@ -2910,6 +2946,7 @@ export const ensureTenantSqlLoaded = async (req, res, next) => {
                     data._updatedAt = dbUpdatedAt;
                     dbCache[activeTenant] = data;
                   }
+                  await ensureEmployeeTableReady(activeTenant);
                 } catch (provErr) {
                   console.error(`[SQL Cache] On-the-fly provisioning failed for tenant '${activeTenant}':`, provErr.message);
                   throw provErr;

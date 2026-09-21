@@ -726,7 +726,8 @@ export default function AddEmployee({ setActiveView, editData }) {
       const method = editData ? 'PUT' : 'POST';
 
       const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-      const tenantId = localStorage.getItem('tenant_subdomain');
+      const hostTenant = typeof window !== 'undefined' ? window.location.hostname.split('.')[0] : null;
+      const tenantId = localStorage.getItem('tenant_subdomain') || (hostTenant && !['localhost', 'platform', 'www', 'admin'].includes(hostTenant.toLowerCase()) ? hostTenant : null);
       const headers = {};
       if (token) headers['Authorization'] = `Bearer ${token}`;
       if (tenantId) headers['x-tenant-id'] = tenantId;
@@ -737,12 +738,13 @@ export default function AddEmployee({ setActiveView, editData }) {
         setCurrentStep(1);
         setLoading(false);
         isSubmitting.current = false;
-        if (editData && typeof setActiveView === 'function') {
+        alert('Employee registered successfully!');
+        if (typeof setActiveView === 'function') {
           setActiveView('employees');
         }
       } else {
-        const err = await res.json();
-        alert(err.error || 'Failed to register staff.');
+        const err = await res.json().catch(() => ({}));
+        alert(err.error || 'Failed to register employee.');
         setLoading(false);
         isSubmitting.current = false;
       }

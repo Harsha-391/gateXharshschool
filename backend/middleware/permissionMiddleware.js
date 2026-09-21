@@ -240,6 +240,38 @@ export const checkPermission = (module, action) => {
       }
     }
 
+    // Receptionists have front-office access (directories, registrations, and designations)
+    if (
+      roleName === 'Receptionist' ||
+      role === 'Receptionist' ||
+      (roleName && roleName.toLowerCase() === 'receptionist') ||
+      (role && role.toLowerCase() === 'receptionist')
+    ) {
+      const receptionistModules = [
+        'student-directory',
+        'teacher-directory',
+        'staff-directory',
+        'employee-directory',
+        'register-student',
+        'register-teacher',
+        'add-staff',
+        'add-employee',
+        'designation-manager',
+        'overview',
+        'dashboard'
+      ];
+      if (receptionistModules.includes(module)) {
+        const rawPerms = roleRecord ? (typeof roleRecord.permissions === 'string' ? JSON.parse(roleRecord.permissions) : roleRecord.permissions) : {};
+        if (rawPerms && rawPerms[module] && rawPerms[module][action] !== undefined) {
+          if (rawPerms[module][action] === true) return next();
+          if (rawPerms[module][action] === false) {
+            return res.status(403).json({ error: `Insufficient permissions for module '${module}' and action '${action}'.` });
+          }
+        }
+        return next();
+      }
+    }
+
 
     // Teachers are always permitted to view timetable, exam, and calendar schedules
     if (action === 'view') {
