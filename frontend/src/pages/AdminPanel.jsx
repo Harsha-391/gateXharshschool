@@ -384,9 +384,9 @@ export default function AdminPanel({ setActiveView, onLogout, adminView, setAdmi
   }, [userProfile, adminView]);
 
   useEffect(() => {
-    if (userProfile && userProfile.role === 'Teacher') {
-      const assignedClass = userProfile.assignedGradeId || '';
-      const assignedSection = userProfile.assignedSectionId || '';
+    if (userProfile && (userProfile.role === 'Teacher' || userProfile.userType === 'Teacher')) {
+      const assignedClass = userProfile.assignedGradeName || userProfile.assignedGradeId || '';
+      const assignedSection = userProfile.assignedSectionName || userProfile.assignedSectionId || '';
       if (assignedClass) {
         setSelectedClass(assignedClass);
       }
@@ -534,18 +534,29 @@ export default function AdminPanel({ setActiveView, onLogout, adminView, setAdmi
           fetchActiveGrades(),
           fetchActiveSections()
         ]);
-        if (grades.length > 0) {
-          setSelectedClass(grades[0].name);
+        const isTeacher = userProfile?.role === 'Teacher' || userProfile?.userType === 'Teacher';
+        const teacherClass = userProfile?.assignedGradeName || userProfile?.assignedGradeId;
+        const teacherSec = userProfile?.assignedSectionName || userProfile?.assignedSectionId;
+
+        if (isTeacher && teacherClass) {
+          const foundGrade = grades.find(g => g.name === teacherClass || g.id === teacherClass);
+          setSelectedClass(foundGrade ? foundGrade.name : teacherClass);
+        } else if (grades.length > 0) {
+          setSelectedClass(prev => prev || grades[0].name);
         } else {
           setSelectedClass('');
         }
-        if (secs.length > 0) {
-          setSelectedSection(secs[0].name);
+
+        if (isTeacher && teacherSec) {
+          const foundSec = secs.find(s => s.name === teacherSec || s.id === teacherSec);
+          setSelectedSection(foundSec ? foundSec.name : teacherSec);
+        } else if (secs.length > 0) {
+          setSelectedSection(prev => prev || secs[0].name);
         }
       };
       loadGradesAndSections();
     }
-  }, [adminView]);
+  }, [adminView, userProfile]);
 
   // Reset student editing state when navigating away from register-student
   useEffect(() => {

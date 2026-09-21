@@ -28,9 +28,9 @@ import { hasPermission } from '../utils/permissions';
 import { fetchActiveGrades, fetchActiveSections } from '../utils/grades';
 
 export default function StudentDirectory({ readOnly = true, onAddClick, onEditClick, userProfile }) {
-  const isTeacher = userProfile?.role === 'Teacher';
-  const assignedClass = isTeacher ? userProfile?.assignedGradeId || '' : '';
-  const assignedSection = isTeacher ? userProfile?.assignedSectionId || '' : '';
+  const isTeacher = userProfile?.role === 'Teacher' || userProfile?.userType === 'Teacher';
+  const assignedClass = isTeacher ? (userProfile?.assignedGradeName || userProfile?.assignedGradeId || '') : '';
+  const assignedSection = isTeacher ? (userProfile?.assignedSectionName || userProfile?.assignedSectionId || '') : '';
 
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(true);

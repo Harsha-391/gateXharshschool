@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import './AdminAttendanceViews.css';
 import { 
   Search, 
@@ -54,9 +54,9 @@ const getStatusBadge = (status) => {
 // ADMIN VERSION OF ROSTER DAILY MARKING VIEW (Single Submit Button)
 // ============================================================================
 export function MarkAttendanceView({ date, setDate, studentClass, setClass, section, setSection, search, setSearch, showToast, userProfile }) {
-  const isTeacher = userProfile?.role === 'Teacher';
-  const assignedClass = isTeacher ? userProfile?.assignedGradeId || '' : '';
-  const assignedSection = isTeacher ? userProfile?.assignedSectionId || '' : '';
+  const isTeacher = userProfile?.role === 'Teacher' || userProfile?.userType === 'Teacher';
+  const assignedClass = isTeacher ? (userProfile?.assignedGradeName || userProfile?.assignedGradeId || '') : '';
+  const assignedSection = isTeacher ? (userProfile?.assignedSectionName || userProfile?.assignedSectionId || '') : '';
 
   useEffect(() => {
     if (isTeacher) {
@@ -215,15 +215,28 @@ export function MarkAttendanceView({ date, setDate, studentClass, setClass, sect
         fetchActiveSections()
       ]);
       setActiveGrades(grades);
-      if (grades.length > 0) {
+      setActiveSections(secs);
+
+      const isTeacherUser = userProfile?.role === 'Teacher' || userProfile?.userType === 'Teacher';
+      const teacherClass = userProfile?.assignedGradeName || userProfile?.assignedGradeId;
+      const teacherSec = userProfile?.assignedSectionName || userProfile?.assignedSectionId;
+
+      if (isTeacherUser && teacherClass) {
+        const found = grades.find(g => g.name === teacherClass || g.id === teacherClass);
+        setClass(found ? found.name : teacherClass);
+      } else if (grades.length > 0) {
         if (!studentClass) setClass(grades[0].name);
       } else {
         setClass('');
       }
-      setActiveSections(secs);
+
+      if (isTeacherUser && teacherSec) {
+        const foundS = secs.find(s => s.name === teacherSec || s.id === teacherSec);
+        setSection(foundS ? foundS.name : teacherSec);
+      }
     };
     loadGradesAndSections();
-  }, []);
+  }, [userProfile]);
 
   useEffect(() => {
     fetchRoster();
@@ -776,14 +789,14 @@ export function MarkAttendanceView({ date, setDate, studentClass, setClass, sect
 // ADMIN VERSION OF ATTENDANCE HISTORY LOG VIEW (Read-only + Single Edit Buttons)
 // ============================================================================
 export function AttendanceHistoryView({ date, showToast, userProfile }) {
-  const isTeacher = userProfile?.role === 'Teacher';
-  const assignedClass = isTeacher ? userProfile?.assignedGradeId || '' : '';
-  const assignedSection = isTeacher ? userProfile?.assignedSectionId || '' : '';
+  const isTeacher = userProfile?.role === 'Teacher' || userProfile?.userType === 'Teacher';
+  const assignedClass = isTeacher ? (userProfile?.assignedGradeName || userProfile?.assignedGradeId || '') : '';
+  const assignedSection = isTeacher ? (userProfile?.assignedSectionName || userProfile?.assignedSectionId || '') : '';
 
   const todayStr = new Date().toISOString().split('T')[0];
   const [historyDate, setHistoryDate] = useState(date || todayStr);
-  const [studentClass, setClass] = useState('');
-  const [section, setSection] = useState('A');
+  const [studentClass, setClass] = useState(assignedClass || '');
+  const [section, setSection] = useState(assignedSection || 'A');
 
   const [roster, setRoster] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -897,14 +910,17 @@ export function AttendanceHistoryView({ date, showToast, userProfile }) {
     const loadGrades = async () => {
       const grades = await fetchActiveGrades();
       setActiveGrades(grades);
-      if (grades.length > 0) {
+      const isTeacherUser = userProfile?.role === 'Teacher' || userProfile?.userType === 'Teacher';
+      const teacherClass = userProfile?.assignedGradeName || userProfile?.assignedGradeId;
+      if (isTeacherUser && teacherClass) {
+        const found = grades.find(g => g.name === teacherClass || g.id === teacherClass);
+        setClass(found ? found.name : teacherClass);
+      } else if (grades.length > 0 && !studentClass) {
         setClass(grades[0].name);
-      } else {
-        setClass('');
       }
     };
     loadGrades();
-  }, []);
+  }, [userProfile]);
 
   useEffect(() => {
     fetchRoster();
