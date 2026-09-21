@@ -243,3 +243,33 @@ export const removePoolForTenant = async (tenantId) => {
   console.log(`[SQL Pool] Removed mapping and closed pool for tenant subdomain: ${subdomain}`);
 };
 
+// Cleanly closes tenant pool and permanently drops the MySQL database schema
+export const dropTenantDatabase = async (tenantId) => {
+  if (!tenantId) return;
+  const subdomain = slugify(tenantId);
+  const dbName = dbMappings[subdomain] || `school_${subdomain}`;
+  
+  // 1. Close connection pool first so MySQL does not lock the schema
+  await removePoolForTenant(subdomain);
+
+  // 2. Drop the database schema from master pool
+  if (masterPool) {
+    const candidates = new Set([
+      dbName,
+      `school_${subdomain}`,
+      `school_${subdomain.replace(/-/g, '_')}`,
+      `school_${subdomain.replace(/[-_]/g, '')}`
+    ]);
+
+    for (const name of candidates) {
+      try {
+        await masterPool.query(`DROP DATABASE IF EXISTS \`${name}\``);
+        console.log(`[SQL Drop] Successfully dropped MySQL database: ${name}`);
+      } catch (err) {
+        console.error(`[SQL Drop ERROR] Failed to drop database ${name}:`, err.message);
+      }
+    }
+  }
+};
+
+

@@ -1189,98 +1189,122 @@ app.post('/api/platform/schools/:id/activate', (req, res) => {
 });
 // Delete school
 app.delete('/api/platform/schools/:id', async (req, res) => {
-  const db = readDb();
-  let index = db.schools.findIndex(s => s.id === req.params.id);
-
+  const target = req.params.id;
+  let schoolId = target;
   let subdomainToDelete = null;
 
-  if (index !== -1) {
-    subdomainToDelete = db.schools[index].subdomain;
-    db.schools.splice(index, 1);
+  // 1. Check in-memory database cache
+  const db = readDb();
+  const inMemIndex = db.schools.findIndex(s => s.id === target || s.subdomain === target);
+  if (inMemIndex !== -1) {
+    schoolId = db.schools[inMemIndex].id;
+    subdomainToDelete = db.schools[inMemIndex].subdomain;
+    db.schools.splice(inMemIndex, 1);
     writeDb(db);
-  } else {
-    // If not found in active cache, fallback to checking local db.json directly
-    const dbJsonPath = path.join(__dirname, 'db.json');
-    if (fs.existsSync(dbJsonPath)) {
-      try {
-        const rawJson = fs.readFileSync(dbJsonPath, 'utf8');
-        const localDb = JSON.parse(rawJson);
-        const localIndex = (localDb.schools || []).findIndex(s => s.id === req.params.id);
-        if (localIndex !== -1) {
-          subdomainToDelete = localDb.schools[localIndex].subdomain;
-          localDb.schools.splice(localIndex, 1);
-          writeDb(localDb); // Updates both disk backup and active memory cache
-        }
-      } catch (err) {
-        console.error('Failed to update local db.json fallback during delete:', err);
+  }
+
+  // 2. Fallback check local db.json directly
+  const dbJsonPath = path.join(__dirname, 'db.json');
+  if (fs.existsSync(dbJsonPath)) {
+    try {
+      const rawJson = fs.readFileSync(dbJsonPath, 'utf8');
+      const localDb = JSON.parse(rawJson);
+      const localIndex = (localDb.schools || []).findIndex(s => s.id === target || s.subdomain === target);
+      if (localIndex !== -1) {
+        schoolId = localDb.schools[localIndex].id || schoolId;
+        subdomainToDelete = localDb.schools[localIndex].subdomain || subdomainToDelete;
+        localDb.schools.splice(localIndex, 1);
+        writeDb(localDb);
       }
+    } catch (err) {
+      console.error('Failed to update local db.json fallback during delete:', err);
     }
   }
 
-  // Also attempt deletion directly from MySQL database if active
-  const { isSqlActive } = await import('./utils/db.js');
+  // 3. Check and delete from MySQL master database if active
+  const { isSqlActive, slugify, invalidateTenantCache } = await import('./utils/db.js');
   if (isSqlActive()) {
     try {
       const sqlDb = await import('./utils/sqlDb.js');
       if (!subdomainToDelete) {
-        const rows = await sqlDb.query('SELECT subdomain FROM schools WHERE id = ?', [req.params.id]);
+        const rows = await sqlDb.query('SELECT id, subdomain FROM schools WHERE id = ? OR subdomain = ?', [target, target]);
         if (rows && rows.length > 0) {
-          subdomainToDelete = rows[0].subdomain;
+          schoolId = rows[0].id || schoolId;
+          subdomainToDelete = rows[0].subdomain || subdomainToDelete;
         }
       }
-      await sqlDb.query('DELETE FROM schools WHERE id = ?', [req.params.id]);
+      await sqlDb.query('DELETE FROM schools WHERE id = ? OR subdomain = ?', [schoolId, target]);
+      if (subdomainToDelete) {
+        await sqlDb.query('DELETE FROM schools WHERE subdomain = ?', [subdomainToDelete]);
+      }
     } catch (err) {
       console.error('Failed to delete school from SQL directly:', err);
     }
   }
 
-  if (subdomainToDelete) {
-    // Delete tenant JSON file
-    const tenantDbPath = path.join(__dirname, 'tenants', `db_${subdomainToDelete}.json`);
-    if (fs.existsSync(tenantDbPath)) {
-      try {
-        fs.unlinkSync(tenantDbPath);
-      } catch (err) {
-        console.error('Failed to delete tenant database file:', err);
-      }
-    }
-
-    // Delete all tenant-specific rows from SQL tables if active
-    const { isSqlActive, slugify } = await import('./utils/db.js');
-    if (isSqlActive()) {
-      try {
-        const sqlDb = await import('./utils/sqlDb.js');
-
-        // Drop the dedicated database schema if active
-        const dbName = `school_${slugify(subdomainToDelete)}`;
-        await sqlDb.query(`DROP DATABASE IF EXISTS \`${dbName}\``, [], 'platform').catch((e) => {
-          console.error(`Failed to drop dedicated database for ${subdomainToDelete}:`, e.message);
-        });
-
-        // Close and remove connection pool for the deleted tenant
-        await sqlDb.removePoolForTenant(subdomainToDelete);
-
-        const tenantTables = [
-          'employees', 'staff', 'students', 'invoices', 'fees', 'expenses', 'payroll',
-          'staff_payments', 'activities', 'exams', 'exam_timetables', 'notices',
-          'holidays', 'events', 'results', 'overall_results', 'subjects', 'timeslots',
-          'fee_structures', 'salary_structures', 'staff_salary_structures', 'income',
-          'attendance', 'roles', 'user_access', 'audit_logs', 'employee_qr_codes',
-          'attendance_records', 'attendance_logs', 'attendance_reports'
-        ];
-        await Promise.all(tenantTables.map(tbl => 
-          sqlDb.query(`DELETE FROM \`${tbl}\` WHERE tenantId = ?`, [subdomainToDelete]).catch(() => {})
-        ));
-      } catch (err) {
-        console.error('Failed to purge SQL tenant tables and databases:', err);
-      }
-    }
-
-    broadcastPlatformUpdate();
-    return res.json({ success: true, message: 'School removed from the platform.' });
+  // If subdomain wasn't in db/table, treat target itself as potential subdomain
+  if (!subdomainToDelete) {
+    subdomainToDelete = target;
   }
 
-  return res.status(404).json({ error: 'School not found.' });
+  const cleanSubdomain = slugify(subdomainToDelete);
+
+  // 4. Delete tenant JSON file from disk
+  const tenantDbPath = path.join(__dirname, 'tenants', `db_${cleanSubdomain}.json`);
+  if (fs.existsSync(tenantDbPath)) {
+    try {
+      fs.unlinkSync(tenantDbPath);
+    } catch (err) {
+      console.error('Failed to delete tenant database file:', err);
+    }
+  }
+
+  // 5. Invalidate tenant cache
+  try {
+    invalidateTenantCache(cleanSubdomain);
+    if (subdomainToDelete !== cleanSubdomain) {
+      invalidateTenantCache(subdomainToDelete);
+    }
+  } catch (e) {}
+
+  // 6. Permanently drop dedicated MySQL database schema and purge master tenant rows
+  if (isSqlActive()) {
+    try {
+      const sqlDb = await import('./utils/sqlDb.js');
+
+      // Drop dedicated database schema (closes pool first, then drops schema)
+      await sqlDb.dropTenantDatabase(cleanSubdomain);
+      if (subdomainToDelete !== cleanSubdomain) {
+        await sqlDb.dropTenantDatabase(subdomainToDelete);
+      }
+
+      // Purge tenant from master tables
+      const masterTenantTables = ['roles', 'user_access', 'student_accounts', 'parent_accounts'];
+      for (const tbl of masterTenantTables) {
+        try {
+          await sqlDb.query(`DELETE FROM \`${tbl}\` WHERE tenantId = ? OR tenantId = ?`, [cleanSubdomain, subdomainToDelete]);
+        } catch (e) {}
+      }
+
+      // Also purge from legacy/shared tables if present
+      const tenantTables = [
+        'employees', 'staff', 'students', 'invoices', 'fees', 'expenses', 'payroll',
+        'staff_payments', 'activities', 'exams', 'exam_timetables', 'notices',
+        'holidays', 'events', 'results', 'overall_results', 'subjects', 'timeslots',
+        'fee_structures', 'salary_structures', 'staff_salary_structures', 'income',
+        'attendance', 'audit_logs', 'employee_qr_codes',
+        'attendance_records', 'attendance_logs', 'attendance_reports'
+      ];
+      await Promise.all(tenantTables.map(tbl => 
+        sqlDb.query(`DELETE FROM \`${tbl}\` WHERE tenantId = ? OR tenantId = ?`, [cleanSubdomain, subdomainToDelete]).catch(() => {})
+      ));
+    } catch (err) {
+      console.error('Failed to purge SQL tenant tables and databases:', err);
+    }
+  }
+
+  broadcastPlatformUpdate();
+  return res.json({ success: true, message: 'School removed from platform and database deleted.' });
 });
 
 // Secure endpoint to update an onboarded school's admin account credentials
