@@ -84,31 +84,7 @@ const EMPLOYEE_STATUSES = ['None', 'Active', 'Inactive'];
 const BLOOD_GROUPS = ['None', 'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
 const DESIGNATION_LEVELS = ['None', 'Trainee', 'Junior', 'Associate', 'Senior', 'Lead', 'Supervisor', 'Coordinator', 'Manager', 'Head', 'Director'];
 
-const DESIGNATIONS = [
-  'Administrative Officer',
-  'Office Assistant',
-  'Data Entry Operator',
-  'IT Administrator',
-  'Computer Operator',
-  'Transport Coordinator',
-  'Driver',
-  'Hostel Warden',
-  'Security Supervisor',
-  'Security Guard',
-  'Maintenance Staff',
-  'Electrician',
-  'Plumber',
-  'Housekeeping Supervisor',
-  'Housekeeping Staff',
-  'Cleaner',
-  'School Nurse',
-  'Store Keeper',
-  'Peon',
-  'Attendant',
-  'Office Boy',
-  'Gardener',
-  'Other'
-];
+
 
 const DESIGNATION_DETAILS = {
   'Administrative Officer': { category: 'Administration', department: 'Administration' },
@@ -346,10 +322,14 @@ export default function AddEmployee({ setActiveView, editData }) {
     ]).then(([empData, staffData]) => {
       const activeEmp = (Array.isArray(empData) ? empData : []).filter(d => d.status === 'Active' || !d.status).map(d => (typeof d === 'string' ? d : d.name));
       const activeStaff = (Array.isArray(staffData) ? staffData : []).filter(d => d.status === 'Active' || !d.status).map(d => (typeof d === 'string' ? d : d.name));
-      const allDesigs = Array.from(new Set([...DESIGNATIONS, ...activeEmp, ...activeStaff])).filter(Boolean).sort();
+      const allDesigs = Array.from(new Set([
+        ...activeEmp, 
+        ...activeStaff,
+        ...(editData?.designation ? [editData.designation] : [])
+      ])).filter(Boolean).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
       setDesignations(allDesigs);
     }).catch(err => console.error('Error fetching designations in AddEmployee:', err));
-  }, []);
+  }, [editData]);
 
   // Generate Staff ID on mount
   useEffect(() => {
