@@ -60,6 +60,27 @@ window.fetch = (input, init) => {
     }
   }
 
+  const token = localStorage.getItem('token');
+  if (token) {
+    if (!init) init = {};
+    if (!init.headers) {
+      init.headers = {};
+    }
+    if (init.headers instanceof Headers) {
+      if (!init.headers.has('Authorization') && !init.headers.has('authorization')) {
+        init.headers.set('Authorization', `Bearer ${token}`);
+      }
+    } else if (Array.isArray(init.headers)) {
+      if (!init.headers.some(h => h[0].toLowerCase() === 'authorization')) {
+        init.headers.push(['Authorization', `Bearer ${token}`]);
+      }
+    } else {
+      if (!init.headers['Authorization'] && !init.headers['authorization']) {
+        init.headers['Authorization'] = `Bearer ${token}`;
+      }
+    }
+  }
+
   const baseUrl = import.meta.env.VITE_API_URL || '';
   let target = url;
   if (baseUrl) {

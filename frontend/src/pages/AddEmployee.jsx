@@ -340,13 +340,15 @@ export default function AddEmployee({ setActiveView, editData }) {
       })
       .catch(err => console.error('Error fetching roles in AddStaff:', err));
 
-    fetch('/api/designations')
-      .then(res => res.json())
-      .then(data => {
-        const active = data.filter(d => d.status === 'Active' || !d.status);
-        setDesignations(active.map(d => d.name));
-      })
-      .catch(err => console.error('Error fetching designations in AddStaff:', err));
+    Promise.all([
+      fetch('/api/designations').then(res => res.json()).catch(() => []),
+      fetch('/api/designations?type=staff').then(res => res.json()).catch(() => [])
+    ]).then(([empData, staffData]) => {
+      const activeEmp = (Array.isArray(empData) ? empData : []).filter(d => d.status === 'Active' || !d.status).map(d => (typeof d === 'string' ? d : d.name));
+      const activeStaff = (Array.isArray(staffData) ? staffData : []).filter(d => d.status === 'Active' || !d.status).map(d => (typeof d === 'string' ? d : d.name));
+      const allDesigs = Array.from(new Set([...DESIGNATIONS, ...activeEmp, ...activeStaff])).filter(Boolean).sort();
+      setDesignations(allDesigs);
+    }).catch(err => console.error('Error fetching designations in AddEmployee:', err));
   }, []);
 
   // Generate Staff ID on mount
@@ -743,7 +745,13 @@ export default function AddEmployee({ setActiveView, editData }) {
       const url = editData ? `/api/employees/${editData.id}` : '/api/employees';
       const method = editData ? 'PUT' : 'POST';
 
-      const res = await fetch(url, { method: method, body: fd });
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+      const tenantId = localStorage.getItem('tenant_subdomain');
+      const headers = {};
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      if (tenantId) headers['x-tenant-id'] = tenantId;
+
+      const res = await fetch(url, { method: method, headers, body: fd });
       if (res.ok) {
         resetForm();
         setCurrentStep(1);

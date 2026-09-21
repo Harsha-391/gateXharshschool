@@ -2178,13 +2178,82 @@ app.post('/api/notifications/read', auth, restoreTenantContext, async (req, res)
 // ==========================================
 // 2B. EMPLOYEES ENDPOINTS (Complete Module)
 // ==========================================
-app.get('/api/employees', auth, restoreTenantContext, ensureTenantSqlLoaded, checkPermission('employee-directory', 'view'), (req, res) => {
+// 2B. EMPLOYEES ENDPOINTS (Support Staff)
+// ==========================================
+app.get('/api/employees', auth, restoreTenantContext, ensureTenantSqlLoaded, checkPermission('employee-directory', 'view'), async (req, res) => {
+  const tenantId = tenantStorage.getStore();
+  const tId = tenantId ? slugify(tenantId) : 'platform';
+  if (isSqlActive() && tId !== 'platform') {
+    try {
+      const sqlDb = await import('./utils/sqlDb.js');
+      const rows = await sqlDb.query('SELECT * FROM employees WHERE tenantId = ?', [tId]);
+      if (rows && Array.isArray(rows) && rows.length > 0) {
+        return res.json(rows.map(e => {
+          let qual = e.qualification;
+          if (qual && typeof qual === 'string' && (qual.startsWith('[') || qual.startsWith('{'))) {
+            try { qual = JSON.parse(qual); } catch (err) {}
+          }
+          let exp = e.experience;
+          if (exp && typeof exp === 'string' && (exp.startsWith('[') || exp.startsWith('{'))) {
+            try { exp = JSON.parse(exp); } catch (err) {}
+          }
+          return {
+            ...e,
+            name: e.fullName || e.name || '',
+            fullName: e.fullName || e.name || '',
+            phone: e.phone || e.mobile || '',
+            mobile: e.phone || e.mobile || '',
+            role: e.role || e.designation || '',
+            designation: e.designation || e.role || '',
+            qualification: qual,
+            experience: exp,
+            experiences: exp
+          };
+        }));
+      }
+    } catch (sqlErr) {
+      console.error('[SQL Direct Get Employees Error]', sqlErr.message);
+    }
+  }
   const db = readDb();
   res.json(db.employees || []);
 });
 
 // Get single employee by ID
-app.get('/api/employees/:id', auth, restoreTenantContext, ensureTenantSqlLoaded, checkPermission('employee-directory', 'view'), (req, res) => {
+app.get('/api/employees/:id', auth, restoreTenantContext, ensureTenantSqlLoaded, checkPermission('employee-directory', 'view'), async (req, res) => {
+  const tenantId = tenantStorage.getStore();
+  const tId = tenantId ? slugify(tenantId) : 'platform';
+  if (isSqlActive() && tId !== 'platform') {
+    try {
+      const sqlDb = await import('./utils/sqlDb.js');
+      const rows = await sqlDb.query('SELECT * FROM employees WHERE id = ? AND tenantId = ?', [req.params.id, tId]);
+      if (rows && rows.length > 0) {
+        const e = rows[0];
+        let qual = e.qualification;
+        if (qual && typeof qual === 'string' && (qual.startsWith('[') || qual.startsWith('{'))) {
+          try { qual = JSON.parse(qual); } catch (err) {}
+        }
+        let exp = e.experience;
+        if (exp && typeof exp === 'string' && (exp.startsWith('[') || exp.startsWith('{'))) {
+          try { exp = JSON.parse(exp); } catch (err) {}
+        }
+        return res.json({
+          ...e,
+          name: e.fullName || e.name || '',
+          fullName: e.fullName || e.name || '',
+          phone: e.phone || e.mobile || '',
+          mobile: e.phone || e.mobile || '',
+          role: e.role || e.designation || '',
+          designation: e.designation || e.role || '',
+          qualification: qual,
+          experience: exp,
+          experiences: exp
+        });
+      }
+    } catch (sqlErr) {
+      console.error('[SQL Direct Get Employee By ID Error]', sqlErr.message);
+    }
+  }
   const db = readDb();
   if (!db.employees) db.employees = [];
   const emp = db.employees.find(e => e.id === req.params.id);
@@ -2336,13 +2405,76 @@ app.post('/api/employees', auth, staffUploadFields, restoreTenantContext, ensure
     db.employees.push(newStaff);
 
     if (!db.employeeQrCodes) db.employeeQrCodes = [];
-    db.employeeQrCodes.push({
+    const newQrEntry = {
       id: `QR-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
       employeeId: staffId,
       employeeType: 'Employee',
       qrPath: qrPath,
       createdAt: new Date().toISOString()
-    });
+    };
+    db.employeeQrCodes.push(newQrEntry);
+
+    // Direct MySQL Insert for Immediate Persistence
+    if (isSqlActive()) {
+      try {
+        const sqlDb = await import('./utils/sqlDb.js');
+        const tenantId = tenantStorage.getStore();
+        const tId = tenantId ? slugify(tenantId) : 'platform';
+        const columns = ['id', 'name', 'fullName', 'role', 'department', 'email', 'phone', 'gender', 'qualification', 'experience', 'dateOfJoining', 'salaryGrade', 'reportingTo', 'address', 'city', 'state', 'pincode', 'emergencyContact', 'emergencyPhone', 'photo', 'aadharFile', 'certificateFile', 'status', 'avatarBg', 'password', 'tenantId', 'designation', 'designationLevel', 'employmentType', 'qrCodePath'];
+        const updateColumns = ['name', 'fullName', 'role', 'department', 'email', 'phone', 'gender', 'qualification', 'experience', 'dateOfJoining', 'salaryGrade', 'reportingTo', 'address', 'city', 'state', 'pincode', 'emergencyContact', 'emergencyPhone', 'photo', 'aadharFile', 'certificateFile', 'status', 'avatarBg', 'password', 'designation', 'designationLevel', 'employmentType', 'qrCodePath'];
+        const values = [
+          newStaff.id,
+          newStaff.name || newStaff.fullName || 'Employee',
+          newStaff.fullName || newStaff.name || 'Employee',
+          newStaff.role || newStaff.designation || 'Employee',
+          newStaff.department || 'General',
+          newStaff.email || '',
+          newStaff.phone || newStaff.mobile || '',
+          newStaff.gender || '',
+          typeof newStaff.qualification === 'object' ? JSON.stringify(newStaff.qualification) : (newStaff.qualification || ''),
+          typeof newStaff.experiences === 'object' ? JSON.stringify(newStaff.experiences) : (typeof newStaff.experience === 'object' ? JSON.stringify(newStaff.experience) : (newStaff.experience || '')),
+          newStaff.dateOfJoining || newStaff.joiningDate || '',
+          newStaff.salaryGrade || '',
+          newStaff.reportingTo || '',
+          newStaff.address || newStaff.currentAddress || '',
+          newStaff.city || newStaff.currentCity || '',
+          newStaff.state || newStaff.currentState || '',
+          newStaff.pincode || newStaff.currentPostalCode || '',
+          newStaff.emergencyContact || '',
+          newStaff.emergencyPhone || newStaff.emergencyContactNumber || '',
+          newStaff.photo || '',
+          newStaff.aadharFile || newStaff.aadhaarFile || '',
+          newStaff.certificateFile || '',
+          newStaff.status || 'Active',
+          newStaff.avatarBg || '',
+          newStaff.password || '',
+          tId,
+          newStaff.designation || '',
+          newStaff.designationLevel || '',
+          newStaff.employmentType || '',
+          newStaff.qrCodePath || ''
+        ].map(v => v === undefined ? null : v);
+
+        const placeholders = columns.map(() => '?').join(', ');
+        const updateClause = updateColumns.map(col => `\`${col}\`=VALUES(\`${col}\`)`).join(', ');
+        const insertSql = `INSERT INTO employees (${columns.map(c => `\`${c}\``).join(', ')}) VALUES (${placeholders}) ON DUPLICATE KEY UPDATE ${updateClause}`;
+        await sqlDb.query(insertSql, values, tId);
+
+        if (newQrEntry.qrPath) {
+          try {
+            await sqlDb.query(
+              'INSERT INTO employee_qr_codes (id, employeeId, employeeType, qrPath, createdAt, tenantId) VALUES (?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE qrPath=VALUES(qrPath)',
+              [newQrEntry.id, newStaff.id, 'Employee', newQrEntry.qrPath, newQrEntry.createdAt, tId],
+              tId
+            );
+          } catch (qrSqlErr) {
+            console.error('[SQL Insert Employee QR Code Warning]', qrSqlErr.message);
+          }
+        }
+      } catch (sqlErr) {
+        console.error('[SQL Direct Insert Employee Error]', sqlErr.message);
+      }
+    }
 
     addActivity(db, 'registration', 'New Employee Recruited', `${derivedFullName} joined as ${staffRole || 'Employee'}`, 'hsl(var(--color-info))', 'rgba(hsl(var(--color-info)), 0.1)');
     writeDb(db);
@@ -2355,7 +2487,7 @@ app.post('/api/employees', auth, staffUploadFields, restoreTenantContext, ensure
 });
 
 // UPDATE EMPLOYEE
-app.put('/api/employees/:id', auth, staffUploadFields, restoreTenantContext, ensureTenantSqlLoaded, checkPermission('employee-directory', 'edit'), (req, res) => {
+app.put('/api/employees/:id', auth, staffUploadFields, restoreTenantContext, ensureTenantSqlLoaded, checkPermission('employee-directory', 'edit'), async (req, res) => {
   try {
     const db = readDb();
     if (!db.employees) db.employees = [];
@@ -2408,10 +2540,56 @@ app.put('/api/employees/:id', auth, staffUploadFields, restoreTenantContext, ens
       mobile: updateData.mobile || updateData.phone || currentStaff.mobile,
       role: updateData.staffCategory || updateData.role || currentStaff.role,
       staffCategory: updateData.staffCategory || updateData.role || currentStaff.staffCategory,
+      designation: updateData.designation || currentStaff.designation || updateData.staffCategory || currentStaff.role,
       updatedAt: new Date().toISOString()
     };
 
     db.employees[empIndex] = updatedStaff;
+
+    // Direct MySQL Update for Immediate Persistence
+    if (isSqlActive()) {
+      try {
+        const sqlDb = await import('./utils/sqlDb.js');
+        const tenantId = tenantStorage.getStore();
+        const tId = tenantId ? slugify(tenantId) : 'platform';
+        const columns = ['name', 'fullName', 'role', 'department', 'email', 'phone', 'gender', 'qualification', 'experience', 'dateOfJoining', 'salaryGrade', 'reportingTo', 'address', 'city', 'state', 'pincode', 'emergencyContact', 'emergencyPhone', 'photo', 'aadharFile', 'certificateFile', 'status', 'avatarBg', 'password', 'designation', 'designationLevel', 'employmentType'];
+        const values = [
+          updatedStaff.name || updatedStaff.fullName || 'Employee',
+          updatedStaff.fullName || updatedStaff.name || 'Employee',
+          updatedStaff.role || updatedStaff.designation || 'Employee',
+          updatedStaff.department || 'General',
+          updatedStaff.email || '',
+          updatedStaff.phone || updatedStaff.mobile || '',
+          updatedStaff.gender || '',
+          typeof updatedStaff.qualification === 'object' ? JSON.stringify(updatedStaff.qualification) : (updatedStaff.qualification || ''),
+          typeof updatedStaff.experiences === 'object' ? JSON.stringify(updatedStaff.experiences) : (typeof updatedStaff.experience === 'object' ? JSON.stringify(updatedStaff.experience) : (updatedStaff.experience || '')),
+          updatedStaff.dateOfJoining || updatedStaff.joiningDate || '',
+          updatedStaff.salaryGrade || '',
+          updatedStaff.reportingTo || '',
+          updatedStaff.address || updatedStaff.currentAddress || '',
+          updatedStaff.city || updatedStaff.currentCity || '',
+          updatedStaff.state || updatedStaff.currentState || '',
+          updatedStaff.pincode || updatedStaff.currentPostalCode || '',
+          updatedStaff.emergencyContact || '',
+          updatedStaff.emergencyPhone || updatedStaff.emergencyContactNumber || '',
+          updatedStaff.photo || '',
+          updatedStaff.aadharFile || updatedStaff.aadhaarFile || '',
+          updatedStaff.certificateFile || '',
+          updatedStaff.status || 'Active',
+          updatedStaff.avatarBg || '',
+          updatedStaff.password || '',
+          updatedStaff.designation || '',
+          updatedStaff.designationLevel || '',
+          updatedStaff.employmentType || ''
+        ].map(v => v === undefined ? null : v);
+
+        const setClause = columns.map(c => `\`${c}\` = ?`).join(', ');
+        await sqlDb.query(`UPDATE employees SET ${setClause} WHERE id = ? AND tenantId = ?`, [...values, req.params.id, tId], tId);
+      } catch (sqlErr) {
+        console.error('[SQL Direct Update Employee Error]', sqlErr.message);
+      }
+    }
+
     addActivity(db, 'alert', 'Employee Profile Updated', `${updatedStaff.name}'s profile was updated.`, 'hsl(var(--color-info))', 'rgba(hsl(var(--color-info)), 0.1)');
     writeDb(db);
 

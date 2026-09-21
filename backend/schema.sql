@@ -201,13 +201,13 @@ CREATE TABLE IF NOT EXISTS employees (
   id VARCHAR(50) PRIMARY KEY,
   name VARCHAR(255) NOT NULL,
   fullName VARCHAR(255),
-  role VARCHAR(255) NOT NULL,
-  department VARCHAR(255) NOT NULL,
-  email VARCHAR(255) NOT NULL,
+  role VARCHAR(255) NULL,
+  department VARCHAR(255) NULL,
+  email VARCHAR(255) NULL,
   phone VARCHAR(50),
   gender VARCHAR(50),
-  qualification VARCHAR(255),
-  experience VARCHAR(100),
+  qualification TEXT NULL,
+  experience TEXT NULL,
   dateOfJoining VARCHAR(50),
   salaryGrade VARCHAR(100),
   reportingTo VARCHAR(255),
@@ -224,9 +224,10 @@ CREATE TABLE IF NOT EXISTS employees (
   avatarBg TEXT,
   password VARCHAR(255),
   tenantId VARCHAR(100),
-  designation VARCHAR(100),
-  designationLevel VARCHAR(100),
-  employmentType VARCHAR(100)
+  designation VARCHAR(100) NULL,
+  designationLevel VARCHAR(100) NULL,
+  employmentType VARCHAR(100) NULL,
+  qrCodePath TEXT NULL
 );
 
 -- 12. Staff Table

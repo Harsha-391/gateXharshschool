@@ -106,11 +106,13 @@ export default function EmployeeDirectory({ readOnly = true, onAddClick, onEditC
   const [sortOrder, setSortOrder] = useState('asc');
 
   const allDesignationOptions = useMemo(() => {
-    const set = new Set(designations);
+    const set = new Set(designations.map(d => (typeof d === 'string' ? d.trim() : d?.name?.trim())).filter(Boolean));
     (staffList || []).forEach(s => {
-      if (s.designation) set.add(s.designation);
+      if (s.designation) set.add(s.designation.trim());
+      if (s.role) set.add(s.role.trim());
+      if (s.staffCategory) set.add(s.staffCategory.trim());
     });
-    return Array.from(set).filter(Boolean).sort();
+    return Array.from(set).filter(Boolean).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
   }, [designations, staffList]);
 
   const isSearchOrFilterActive = searchQuery.trim() !== '' || designationFilter !== 'All' || statusFilter !== 'All';
@@ -399,7 +401,12 @@ export default function EmployeeDirectory({ readOnly = true, onAddClick, onEditC
       }
 
       try {
-        const res = await fetch(`/api/employees/${staffId}`, { method: 'DELETE' });
+        const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+        const tenantId = localStorage.getItem('tenant_subdomain');
+        const headers = {};
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+        if (tenantId) headers['x-tenant-id'] = tenantId;
+        const res = await fetch(`/api/employees/${staffId}`, { method: 'DELETE', headers });
         if (!res.ok) {
           // Rollback on server failure
           setStaffList(originalStaffList);
@@ -476,7 +483,12 @@ export default function EmployeeDirectory({ readOnly = true, onAddClick, onEditC
       const idMatch = cleanQ !== '' && cleanId.includes(cleanQ);
       matchesSearch = name.includes(q) || id.includes(q) || idMatch;
     }
-    const matchesDesignation = designationFilter === 'All' || (s.designation || '').toLowerCase() === designationFilter.toLowerCase();
+    const sDesig = (s.designation || s.role || s.staffCategory || s.position || '').trim().toLowerCase();
+    const filterDesig = (designationFilter || '').trim().toLowerCase();
+    const matchesDesignation = designationFilter === 'All' || 
+      sDesig === filterDesig || 
+      (filterDesig && sDesig.includes(filterDesig)) || 
+      (sDesig && filterDesig.includes(sDesig));
     const matchesStatus = statusFilter === 'All' || (s.status || 'Active').toLowerCase() === statusFilter.toLowerCase();
     return matchesSearch && matchesDesignation && matchesStatus;
   });

@@ -93,7 +93,7 @@ export const isSubdomainRegistered = (subdomain) => {
 
 // Middleware to restore tenant context lost during async processing
 export const restoreTenantContext = (req, res, next) => {
-  let tenantId = req.headers['x-tenant-id'] || req.query.tenantId;
+  let tenantId = req.admin?.tenantId || req.headers['x-tenant-id'] || req.query.tenantId;
   if (!tenantId && req.headers.host) {
     const host = req.headers.host.split(':')[0].toLowerCase(); // Remove port
     const isIp = /^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$/.test(host);
@@ -108,7 +108,7 @@ export const restoreTenantContext = (req, res, next) => {
     }
   }
   
-  if (tenantId && !isSubdomainRegistered(tenantId)) {
+  if (tenantId && !req.admin?.tenantId && !isSubdomainRegistered(tenantId)) {
     tenantId = null;
   }
   

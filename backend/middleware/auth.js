@@ -44,11 +44,12 @@ export const isTokenBlacklisted = (token) => {
 export const auth = async (req, res, next) => {
   let token = null;
 
-  // Read token from Authorization header ONLY (disable cookie-based auth fallback
-  // to ensure token is isolated to sessionStorage per tab on the frontend)
+  // Read token from Authorization header first, fallback to cookie if header is not present
   const authHeader = req.headers.authorization;
   if (authHeader && authHeader.startsWith('Bearer ')) {
     token = authHeader.split(' ')[1];
+  } else if (req.cookies && req.cookies.token) {
+    token = req.cookies.token;
   }
 
   if (!token || token === 'null' || token === 'undefined') {
