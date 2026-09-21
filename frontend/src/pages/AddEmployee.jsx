@@ -316,19 +316,19 @@ export default function AddEmployee({ setActiveView, editData }) {
       })
       .catch(err => console.error('Error fetching roles in AddStaff:', err));
 
-    Promise.all([
-      fetch('/api/designations').then(res => res.json()).catch(() => []),
-      fetch('/api/designations?type=staff').then(res => res.json()).catch(() => [])
-    ]).then(([empData, staffData]) => {
-      const activeEmp = (Array.isArray(empData) ? empData : []).filter(d => d.status === 'Active' || !d.status).map(d => (typeof d === 'string' ? d : d.name));
-      const activeStaff = (Array.isArray(staffData) ? staffData : []).filter(d => d.status === 'Active' || !d.status).map(d => (typeof d === 'string' ? d : d.name));
-      const allDesigs = Array.from(new Set([
-        ...activeEmp, 
-        ...activeStaff,
-        ...(editData?.designation ? [editData.designation] : [])
-      ])).filter(Boolean).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
-      setDesignations(allDesigs);
-    }).catch(err => console.error('Error fetching designations in AddEmployee:', err));
+    fetch('/api/designations?type=employee')
+      .then(res => res.json())
+      .then(data => {
+        const activeEmp = (Array.isArray(data) ? data : [])
+          .filter(d => d.status === 'Active' || !d.status)
+          .map(d => (typeof d === 'string' ? d : d.name));
+        const allDesigs = Array.from(new Set([
+          ...activeEmp,
+          ...(editData?.designation ? [editData.designation] : [])
+        ])).filter(Boolean).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+        setDesignations(allDesigs);
+      })
+      .catch(err => console.error('Error fetching employee designations in AddEmployee:', err));
   }, [editData]);
 
   // Generate Staff ID on mount

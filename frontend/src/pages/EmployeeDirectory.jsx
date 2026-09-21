@@ -378,16 +378,15 @@ export default function EmployeeDirectory({ readOnly = true, onAddClick, onEditC
 
   useEffect(() => {
     fetchStaff();
-    Promise.all([
-      fetch('/api/designations').then(r => r.ok ? r.json() : []).catch(() => []),
-      fetch('/api/designations?type=staff').then(r => r.ok ? r.json() : []).catch(() => [])
-    ]).then(([empDesigs, staffDesigs]) => {
-      const combined = [
-        ...(Array.isArray(empDesigs) ? empDesigs.map(d => d.name || d) : []),
-        ...(Array.isArray(staffDesigs) ? staffDesigs.map(d => d.name || d) : [])
-      ];
-      setDesignations(Array.from(new Set(combined)).filter(Boolean));
-    }).catch(err => console.error('Error fetching designations:', err));
+    fetch('/api/designations?type=employee')
+      .then(r => r.ok ? r.json() : [])
+      .then(empDesigs => {
+        const list = (Array.isArray(empDesigs) ? empDesigs : [])
+          .filter(d => d.status === 'Active' || !d.status)
+          .map(d => (typeof d === 'string' ? d : d.name));
+        setDesignations(Array.from(new Set(list)).filter(Boolean));
+      })
+      .catch(err => console.error('Error fetching employee designations in EmployeeDirectory:', err));
   }, []);
 
   const handleDeleteStaff = async (staffId) => {
