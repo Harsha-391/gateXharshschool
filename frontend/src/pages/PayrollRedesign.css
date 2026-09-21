@@ -1,4 +1,4 @@
-﻿/* Payroll Redesign Styling Overrides for Dark Theme Compatibility */
+/* Payroll Redesign Styling Overrides for Dark Theme Compatibility */
 
 /* Container and background card overrides */
 [data-theme='dark'] .payroll-module-container,
@@ -89,4 +89,39 @@
   color: var(--text-inverse) !important;
   border-color: var(--text-main) !important;
 }
+
+/* Sleek modern horizontal scrollbar for payroll tables */
+.payroll-table-wrapper {
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  max-width: 100%;
+}
+
+.payroll-table-wrapper::-webkit-scrollbar {
+  height: 6px;
+}
+
+.payroll-table-wrapper::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 4px;
+}
+
+.payroll-table-wrapper::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+.payroll-table-wrapper::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+[data-theme='dark'] .payroll-table-wrapper::-webkit-scrollbar-track {
+  background: var(--bg-dropdown, #1e293b);
+}
+
+[data-theme='dark'] .payroll-table-wrapper::-webkit-scrollbar-thumb {
+  background: var(--border-glass, #334155);
+}
+
 

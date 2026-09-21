@@ -296,14 +296,14 @@ function SalaryConfigurationTab({ directoryData, loading, searchQuery, setSearch
 
   const renderTableHeader = () => (
     <tr style={{ background: '#f8fafc', borderBottom: '2px solid #cbd5e1' }}>
-      <th style={{ padding: '16px', color: '#0f172a', fontWeight: 700 }}>Photo</th>
-      <th style={{ padding: '16px', color: '#0f172a', fontWeight: 700 }}>ID</th>
-      <th style={{ padding: '16px', color: '#0f172a', fontWeight: 700 }}>Name</th>
-      <th style={{ padding: '16px', color: '#0f172a', fontWeight: 700 }}>Department</th>
-      <th style={{ padding: '16px', color: '#0f172a', fontWeight: 700 }}>{type === 'Staff' ? 'Role' : 'Designation'}</th>
-      <th style={{ padding: '16px', color: '#0f172a', fontWeight: 700 }}>Salary Status</th>
-      <th style={{ padding: '16px', color: '#0f172a', fontWeight: 700 }}>Current Package</th>
-      <th style={{ padding: '16px', textAlign: 'center', color: '#0f172a', fontWeight: 700 }}>Actions</th>
+      <th style={{ padding: '12px 14px', color: '#0f172a', fontWeight: 700, width: '56px' }}>Photo</th>
+      <th style={{ padding: '12px 14px', color: '#0f172a', fontWeight: 700, whiteSpace: 'nowrap' }}>ID</th>
+      <th style={{ padding: '12px 14px', color: '#0f172a', fontWeight: 700, whiteSpace: 'nowrap' }}>Name</th>
+      <th style={{ padding: '12px 14px', color: '#0f172a', fontWeight: 700, whiteSpace: 'nowrap' }}>Department</th>
+      <th style={{ padding: '12px 14px', color: '#0f172a', fontWeight: 700, whiteSpace: 'nowrap' }}>{type === 'Staff' ? 'Role' : 'Designation'}</th>
+      <th style={{ padding: '12px 14px', color: '#0f172a', fontWeight: 700, whiteSpace: 'nowrap' }}>Salary Status</th>
+      <th style={{ padding: '12px 14px', color: '#0f172a', fontWeight: 700, whiteSpace: 'nowrap' }}>Current Package</th>
+      <th style={{ padding: '12px 16px', textAlign: 'center', color: '#0f172a', fontWeight: 700, whiteSpace: 'nowrap' }}>Actions</th>
     </tr>
   );
 
@@ -313,61 +313,66 @@ function SalaryConfigurationTab({ directoryData, loading, searchQuery, setSearch
       background: index % 2 === 0 ? '#ffffff' : '#f8fafc',
       transition: 'all 0.15s'
     }}>
-      <td style={{ padding: '14px 16px' }}>
+      <td style={{ padding: '10px 14px', width: '56px' }}>
         {emp.photo ? (
-          <img src={emp.photo} alt={emp.name} style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover', border: '1px solid #cbd5e1' }} />
+          <img src={emp.photo} alt={emp.name} style={{ width: '36px', height: '36px', borderRadius: '50%', objectFit: 'cover', border: '1px solid #cbd5e1' }} />
         ) : (
-          <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: '#e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, color: '#475569', fontSize: '0.85rem' }}>
+          <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: '#e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, color: '#475569', fontSize: '0.8rem' }}>
             {emp.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()}
           </div>
         )}
       </td>
-      <td style={{ padding: '14px 16px', fontWeight: 600, color: '#1e293b' }}>{emp.id}</td>
-      <td style={{ padding: '14px 16px', fontWeight: 700, color: '#0f172a' }}>{emp.name}</td>
-      <td style={{ padding: '14px 16px', color: '#334155' }}>{emp.department}</td>
-      <td style={{ padding: '14px 16px', color: '#334155' }}>
+      <td style={{ padding: '10px 14px', fontWeight: 600, color: '#1e293b', whiteSpace: 'nowrap' }}>{emp.id}</td>
+      <td style={{ padding: '10px 14px', fontWeight: 700, color: '#0f172a', whiteSpace: 'nowrap' }}>{emp.name}</td>
+      <td style={{ padding: '10px 14px', color: '#334155', whiteSpace: 'nowrap' }}>{emp.department}</td>
+      <td style={{ padding: '10px 14px', color: '#334155', whiteSpace: 'nowrap' }}>
         <span style={{
           padding: '4px 10px',
           borderRadius: '12px',
           fontSize: '0.78rem',
           fontWeight: 700,
           background: type === 'Staff' ? '#ede9fe' : '#e0f2fe',
-          color: type === 'Staff' ? '#5b21b6' : '#0369a1'
+          color: type === 'Staff' ? '#5b21b6' : '#0369a1',
+          whiteSpace: 'nowrap',
+          display: 'inline-block'
         }}>
           {emp.role || emp.designation}
         </span>
       </td>
-      <td style={{ padding: '14px 16px' }}>
+      <td style={{ padding: '10px 14px', whiteSpace: 'nowrap' }}>
         <span style={{
-          padding: '6px 12px',
+          padding: '5px 10px',
           borderRadius: '20px',
-          fontSize: '0.8rem',
+          fontSize: '0.78rem',
           fontWeight: 700,
           background: emp.salaryStatus === 'Configured' ? '#d1fae5' : '#fef3c7',
-          color: emp.salaryStatus === 'Configured' ? '#065f46' : '#92400e'
+          color: emp.salaryStatus === 'Configured' ? '#065f46' : '#92400e',
+          whiteSpace: 'nowrap',
+          display: 'inline-block'
         }}>
           {emp.salaryStatus}
         </span>
       </td>
-      <td style={{ padding: '14px 16px', fontWeight: 700, color: '#0f172a' }}>
+      <td style={{ padding: '10px 14px', fontWeight: 700, color: '#0f172a', whiteSpace: 'nowrap' }}>
         {emp.salaryStatus === 'Configured' ? formatCurrency(emp.currentSalary) : '—'}
       </td>
-      <td style={{ padding: '14px 16px', textAlign: 'center' }}>
+      <td style={{ padding: '10px 16px', textAlign: 'center', whiteSpace: 'nowrap' }}>
         <button
           onClick={() => onConfigureSalary(emp)}
           style={{
-            padding: '8px 18px',
+            padding: '7px 14px',
             borderRadius: '8px',
             background: 'rgba(255, 107, 0, 0.1)',
             border: 'none',
             color: 'hsl(var(--color-primary))',
             cursor: 'pointer',
             fontWeight: 700,
-            fontSize: '0.85rem',
+            fontSize: '0.82rem',
             display: 'inline-flex',
             alignItems: 'center',
             gap: '6px',
-            transition: 'all 0.15s'
+            transition: 'all 0.15s',
+            whiteSpace: 'nowrap'
           }}
         >
           <Settings size={14} />
@@ -441,8 +446,8 @@ function SalaryConfigurationTab({ directoryData, loading, searchQuery, setSearch
         </div>
       ) : (
         // RENDER SINGLE TABLE
-        <div style={{ border: '1px solid #cbd5e1', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 2px 10px rgba(0,0,0,0.02)' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.92rem', background: '#ffffff' }}>
+        <div className="payroll-table-wrapper" style={{ border: '1px solid #cbd5e1', borderRadius: '12px', boxShadow: '0 2px 10px rgba(0,0,0,0.02)' }}>
+          <table style={{ width: '100%', minWidth: '820px', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.9rem', background: '#ffffff' }}>
             <thead>
               {renderTableHeader()}
             </thead>
@@ -538,14 +543,14 @@ function PaymentsTab({ directoryData, loading, onPaySalary, showToast, type, all
 
   const renderTableHeader = () => (
     <tr style={{ background: '#f8fafc', borderBottom: '2px solid #cbd5e1' }}>
-      <th style={{ padding: '16px', color: '#0f172a', fontWeight: 700 }}>Photo</th>
-      <th style={{ padding: '16px', color: '#0f172a', fontWeight: 700 }}>ID</th>
-      <th style={{ padding: '16px', color: '#0f172a', fontWeight: 700 }}>Name</th>
-      <th style={{ padding: '16px', color: '#0f172a', fontWeight: 700 }}>Department</th>
-      <th style={{ padding: '16px', color: '#0f172a', fontWeight: 700 }}>{type === 'Staff' ? 'Role' : 'Designation'}</th>
-      <th style={{ padding: '16px', color: '#0f172a', fontWeight: 700 }}>Net Package Salary</th>
-      <th style={{ padding: '16px', color: '#0f172a', fontWeight: 700 }}>Period Status</th>
-      <th style={{ padding: '16px', textAlign: 'center', color: '#0f172a', fontWeight: 700 }}>Action</th>
+      <th style={{ padding: '12px 14px', color: '#0f172a', fontWeight: 700, width: '56px' }}>Photo</th>
+      <th style={{ padding: '12px 14px', color: '#0f172a', fontWeight: 700, whiteSpace: 'nowrap' }}>ID</th>
+      <th style={{ padding: '12px 14px', color: '#0f172a', fontWeight: 700, whiteSpace: 'nowrap' }}>Name</th>
+      <th style={{ padding: '12px 14px', color: '#0f172a', fontWeight: 700, whiteSpace: 'nowrap' }}>Department</th>
+      <th style={{ padding: '12px 14px', color: '#0f172a', fontWeight: 700, whiteSpace: 'nowrap' }}>{type === 'Staff' ? 'Role' : 'Designation'}</th>
+      <th style={{ padding: '12px 14px', color: '#0f172a', fontWeight: 700, whiteSpace: 'nowrap' }}>Net Package Salary</th>
+      <th style={{ padding: '12px 14px', color: '#0f172a', fontWeight: 700, whiteSpace: 'nowrap' }}>Period Status</th>
+      <th style={{ padding: '12px 16px', textAlign: 'center', color: '#0f172a', fontWeight: 700, whiteSpace: 'nowrap' }}>Action</th>
     </tr>
   );
 
@@ -557,60 +562,65 @@ function PaymentsTab({ directoryData, loading, onPaySalary, showToast, type, all
         background: index % 2 === 0 ? '#ffffff' : '#f8fafc',
         transition: 'all 0.15s'
       }}>
-        <td style={{ padding: '14px 16px' }}>
+        <td style={{ padding: '10px 14px', width: '56px' }}>
           {emp.photo ? (
-            <img src={emp.photo} alt={emp.name} style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover', border: '1px solid #cbd5e1' }} />
+            <img src={emp.photo} alt={emp.name} style={{ width: '36px', height: '36px', borderRadius: '50%', objectFit: 'cover', border: '1px solid #cbd5e1' }} />
           ) : (
-            <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: '#e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, color: '#475569', fontSize: '0.85rem' }}>
+            <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: '#e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, color: '#475569', fontSize: '0.8rem' }}>
               {emp.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()}
             </div>
           )}
         </td>
-        <td style={{ padding: '14px 16px', fontWeight: 600, color: '#1e293b' }}>{emp.id}</td>
-        <td style={{ padding: '14px 16px', fontWeight: 700, color: '#0f172a' }}>{emp.name}</td>
-        <td style={{ padding: '14px 16px', color: '#334155' }}>{emp.department}</td>
-        <td style={{ padding: '14px 16px', color: '#334155' }}>
+        <td style={{ padding: '10px 14px', fontWeight: 600, color: '#1e293b', whiteSpace: 'nowrap' }}>{emp.id}</td>
+        <td style={{ padding: '10px 14px', fontWeight: 700, color: '#0f172a', whiteSpace: 'nowrap' }}>{emp.name}</td>
+        <td style={{ padding: '10px 14px', color: '#334155', whiteSpace: 'nowrap' }}>{emp.department}</td>
+        <td style={{ padding: '10px 14px', color: '#334155', whiteSpace: 'nowrap' }}>
           <span style={{
             padding: '4px 10px',
             borderRadius: '12px',
             fontSize: '0.78rem',
             fontWeight: 700,
             background: type === 'Staff' ? '#ede9fe' : '#e0f2fe',
-            color: type === 'Staff' ? '#5b21b6' : '#0369a1'
+            color: type === 'Staff' ? '#5b21b6' : '#0369a1',
+            whiteSpace: 'nowrap',
+            display: 'inline-block'
           }}>
             {emp.role || emp.designation}
           </span>
         </td>
-        <td style={{ padding: '14px 16px', fontWeight: 700, color: '#0f172a' }}>{formatCurrency(emp.currentSalary)}</td>
-        <td style={{ padding: '14px 16px' }}>
+        <td style={{ padding: '10px 14px', fontWeight: 700, color: '#0f172a', whiteSpace: 'nowrap' }}>{formatCurrency(emp.currentSalary)}</td>
+        <td style={{ padding: '10px 14px', whiteSpace: 'nowrap' }}>
           <span style={{
-            padding: '6px 12px',
+            padding: '5px 10px',
             borderRadius: '20px',
-            fontSize: '0.8rem',
+            fontSize: '0.78rem',
             fontWeight: 700,
             background: payStatus === 'Paid' ? '#d1fae5' : '#fee2e2',
-            color: payStatus === 'Paid' ? '#065f46' : '#991b1b'
+            color: payStatus === 'Paid' ? '#065f46' : '#991b1b',
+            whiteSpace: 'nowrap',
+            display: 'inline-block'
           }}>
             {payStatus}
           </span>
         </td>
-        <td style={{ padding: '14px 16px', textAlign: 'center' }}>
+        <td style={{ padding: '10px 16px', textAlign: 'center', whiteSpace: 'nowrap' }}>
           <button
             onClick={() => onPaySalary(emp, selectedMonth, selectedYear)}
             disabled={payStatus === 'Paid'}
             style={{
-              padding: '8px 18px',
+              padding: '7px 14px',
               borderRadius: '8px',
               background: payStatus === 'Paid' ? '#f1f5f9' : '#10b981',
               border: 'none',
               color: payStatus === 'Paid' ? '#94a3b8' : '#ffffff',
               cursor: payStatus === 'Paid' ? 'not-allowed' : 'pointer',
               fontWeight: 700,
-              fontSize: '0.85rem',
+              fontSize: '0.82rem',
               display: 'inline-flex',
               alignItems: 'center',
               gap: '6px',
-              transition: 'all 0.15s'
+              transition: 'all 0.15s',
+              whiteSpace: 'nowrap'
             }}
           >
             <CreditCard size={14} />
@@ -729,8 +739,8 @@ function PaymentsTab({ directoryData, loading, onPaySalary, showToast, type, all
         </div>
       ) : (
         // RENDER SINGLE TABLE
-        <div style={{ border: '1px solid #cbd5e1', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 2px 10px rgba(0,0,0,0.02)' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.92rem', background: '#ffffff' }}>
+        <div className="payroll-table-wrapper" style={{ border: '1px solid #cbd5e1', borderRadius: '12px', boxShadow: '0 2px 10px rgba(0,0,0,0.02)' }}>
+          <table style={{ width: '100%', minWidth: '860px', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.9rem', background: '#ffffff' }}>
             <thead>
               {renderTableHeader()}
             </thead>
@@ -1654,25 +1664,25 @@ export function PayrollHistoryViewRedesign({ showToast }) {
       </div>
 
       {/* History Table */}
-      <div style={{ border: '1px solid #cbd5e1', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 2px 10px rgba(0,0,0,0.02)' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.92rem', background: '#ffffff' }}>
+      <div className="payroll-table-wrapper" style={{ border: '1px solid #cbd5e1', borderRadius: '12px', boxShadow: '0 2px 10px rgba(0,0,0,0.02)' }}>
+        <table style={{ width: '100%', minWidth: '1100px', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.9rem', background: '#ffffff' }}>
           <thead>
             <tr style={{ background: '#f8fafc', borderBottom: '2px solid #cbd5e1' }}>
-              <th style={{ padding: '16px', color: '#0f172a', fontWeight: 700 }}>Receipt No</th>
-              <th style={{ padding: '16px', color: '#0f172a', fontWeight: 700 }}>Employee ID</th>
-              <th style={{ padding: '16px', color: '#0f172a', fontWeight: 700 }}>Name</th>
-              <th style={{ padding: '16px', color: '#0f172a', fontWeight: 700 }}>Category</th>
-              <th style={{ padding: '16px', color: filterCategory === 'Staff' ? '#5b21b6' : filterCategory === 'Employee' ? '#0369a1' : '#0f172a', fontWeight: 700 }}>
+              <th style={{ padding: '12px 14px', color: '#0f172a', fontWeight: 700, whiteSpace: 'nowrap' }}>Receipt No</th>
+              <th style={{ padding: '12px 14px', color: '#0f172a', fontWeight: 700, whiteSpace: 'nowrap' }}>Employee ID</th>
+              <th style={{ padding: '12px 14px', color: '#0f172a', fontWeight: 700, whiteSpace: 'nowrap' }}>Name</th>
+              <th style={{ padding: '12px 14px', color: '#0f172a', fontWeight: 700, whiteSpace: 'nowrap' }}>Category</th>
+              <th style={{ padding: '12px 14px', color: filterCategory === 'Staff' ? '#5b21b6' : filterCategory === 'Employee' ? '#0369a1' : '#0f172a', fontWeight: 700, whiteSpace: 'nowrap' }}>
                 {colConfig.label}
               </th>
-              <th style={{ padding: '16px', color: '#0f172a', fontWeight: 700 }}>Period</th>
-              <th style={{ padding: '16px', color: '#0f172a', fontWeight: 700 }}>Payable Amount</th>
-              <th style={{ padding: '16px', color: '#0f172a', fontWeight: 700 }}>Paid Amount</th>
-              <th style={{ padding: '16px', color: '#0f172a', fontWeight: 700 }}>Balance</th>
-              <th style={{ padding: '16px', color: '#0f172a', fontWeight: 700 }}>Method</th>
-              <th style={{ padding: '16px', color: '#0f172a', fontWeight: 700 }}>Payment Date</th>
-              <th style={{ padding: '16px', color: '#0f172a', fontWeight: 700 }}>Status</th>
-              <th style={{ padding: '16px', textAlign: 'center', color: '#0f172a', fontWeight: 700 }}>Action</th>
+              <th style={{ padding: '12px 14px', color: '#0f172a', fontWeight: 700, whiteSpace: 'nowrap' }}>Period</th>
+              <th style={{ padding: '12px 14px', color: '#0f172a', fontWeight: 700, whiteSpace: 'nowrap' }}>Payable Amount</th>
+              <th style={{ padding: '12px 14px', color: '#0f172a', fontWeight: 700, whiteSpace: 'nowrap' }}>Paid Amount</th>
+              <th style={{ padding: '12px 14px', color: '#0f172a', fontWeight: 700, whiteSpace: 'nowrap' }}>Balance</th>
+              <th style={{ padding: '12px 14px', color: '#0f172a', fontWeight: 700, whiteSpace: 'nowrap' }}>Method</th>
+              <th style={{ padding: '12px 14px', color: '#0f172a', fontWeight: 700, whiteSpace: 'nowrap' }}>Payment Date</th>
+              <th style={{ padding: '12px 14px', color: '#0f172a', fontWeight: 700, whiteSpace: 'nowrap' }}>Status</th>
+              <th style={{ padding: '12px 16px', textAlign: 'center', color: '#0f172a', fontWeight: 700, whiteSpace: 'nowrap' }}>Action</th>
             </tr>
           </thead>
           <tbody>
@@ -1700,45 +1710,49 @@ export function PayrollHistoryViewRedesign({ showToast }) {
                     background: index % 2 === 0 ? '#ffffff' : '#f8fafc',
                     transition: 'all 0.15s'
                   }}>
-                    <td style={{ padding: '14px 16px', fontWeight: 800, color: 'hsl(var(--color-primary))' }}>{p.receiptNo}</td>
-                    <td style={{ padding: '14px 16px', color: '#1e293b' }}>{p.employeeId}</td>
-                    <td style={{ padding: '14px 16px', fontWeight: 700, color: '#0f172a' }}>{p.employeeName}</td>
-                    <td style={{ padding: '14px 16px', color: '#334155' }}>{p.employeeType}</td>
-                    <td style={{ padding: '14px 16px' }}>
+                    <td style={{ padding: '10px 14px', fontWeight: 800, color: 'hsl(var(--color-primary))', whiteSpace: 'nowrap' }}>{p.receiptNo}</td>
+                    <td style={{ padding: '10px 14px', color: '#1e293b', whiteSpace: 'nowrap' }}>{p.employeeId}</td>
+                    <td style={{ padding: '10px 14px', fontWeight: 700, color: '#0f172a', whiteSpace: 'nowrap' }}>{p.employeeName}</td>
+                    <td style={{ padding: '10px 14px', color: '#334155', whiteSpace: 'nowrap' }}>{p.employeeType}</td>
+                    <td style={{ padding: '10px 14px', whiteSpace: 'nowrap' }}>
                       <span style={{
                         padding: '4px 10px',
                         borderRadius: '12px',
                         fontSize: '0.78rem',
                         fontWeight: 700,
+                        whiteSpace: 'nowrap',
+                        display: 'inline-block',
                         ...badgeStyle
                       }}>
                         {secondaryVal}
                       </span>
                     </td>
-                    <td style={{ padding: '14px 16px', fontWeight: 700, color: '#0f172a' }}>{p.month} {p.year}</td>
-                    <td style={{ padding: '14px 16px', color: '#0f172a' }}>{formatCurrency(p.finalPayable)}</td>
-                    <td style={{ padding: '14px 16px', fontWeight: 700, color: '#10b981' }}>{formatCurrency(p.paidAmount)}</td>
-                    <td style={{ padding: '14px 16px', color: p.balance > 0 ? '#b45309' : '#0f172a', fontWeight: p.balance > 0 ? 700 : 500 }}>{formatCurrency(p.balance)}</td>
-                    <td style={{ padding: '14px 16px', color: '#334155' }}>{p.paymentMethod}</td>
-                    <td style={{ padding: '14px 16px', color: '#334155' }}>{p.paymentDate}</td>
-                    <td style={{ padding: '14px 16px' }}>
+                    <td style={{ padding: '10px 14px', fontWeight: 700, color: '#0f172a', whiteSpace: 'nowrap' }}>{p.month} {p.year}</td>
+                    <td style={{ padding: '10px 14px', color: '#0f172a', whiteSpace: 'nowrap' }}>{formatCurrency(p.finalPayable)}</td>
+                    <td style={{ padding: '10px 14px', fontWeight: 700, color: '#10b981', whiteSpace: 'nowrap' }}>{formatCurrency(p.paidAmount)}</td>
+                    <td style={{ padding: '10px 14px', color: p.balance > 0 ? '#b45309' : '#0f172a', fontWeight: p.balance > 0 ? 700 : 500, whiteSpace: 'nowrap' }}>{formatCurrency(p.balance)}</td>
+                    <td style={{ padding: '10px 14px', color: '#334155', whiteSpace: 'nowrap' }}>{p.paymentMethod}</td>
+                    <td style={{ padding: '10px 14px', color: '#334155', whiteSpace: 'nowrap' }}>{p.paymentDate}</td>
+                    <td style={{ padding: '10px 14px', whiteSpace: 'nowrap' }}>
                       <span style={{
-                        padding: '6px 12px',
+                        padding: '5px 10px',
                         borderRadius: '20px',
-                        fontSize: '0.8rem',
+                        fontSize: '0.78rem',
                         fontWeight: 700,
                         background: p.status === 'Paid' ? '#d1fae5' : p.status === 'Partial' ? '#fef3c7' : '#fee2e2',
-                        color: p.status === 'Paid' ? '#065f46' : p.status === 'Partial' ? '#b45309' : '#991b1b'
+                        color: p.status === 'Paid' ? '#065f46' : p.status === 'Partial' ? '#b45309' : '#991b1b',
+                        whiteSpace: 'nowrap',
+                        display: 'inline-block'
                       }}>
                         {p.status}
                       </span>
                     </td>
-                    <td style={{ padding: '14px 16px', textAlign: 'center' }}>
+                    <td style={{ padding: '10px 16px', textAlign: 'center', whiteSpace: 'nowrap' }}>
                       <button
                         onClick={() => setActiveReceipt(p)}
                         title="View Slip / Receipt"
                         style={{
-                          padding: '8px',
+                          padding: '7px 10px',
                           borderRadius: '8px',
                           background: '#f1f5f9',
                           border: '1px solid #cbd5e1',
