@@ -183,6 +183,39 @@ export function hasPermission(module, action) {
     }
   }
 
+  // Always permit overview dashboard for logged-in users
+  if ((module === 'overview' || module === 'dashboard') && action === 'view') {
+    return true;
+  }
+
+  // Teacher role built-in view access for teaching & academic modules
+  const userType = localStorage.getItem('userType');
+  if (role === 'Teacher' || userType === 'Teacher') {
+    const teacherAllowedModules = [
+      'overview', 'dashboard', 'class-timetable', 'teacher-timetable',
+      'published-timetable', 'published-exam', 'exam-timetable',
+      'academic-manager', 'academic-calendar', 'academic-activities',
+      'events', 'notices', 'holidays', 'results', 'results-manager',
+      'results-marks-entry', 'student-directory', 'teacher-directory',
+      'attendance', 'teacher-leave', 'teacher-work-report'
+    ];
+    if (action === 'view' && teacherAllowedModules.includes(module)) {
+      return true;
+    }
+  }
+
+  // Receptionist role built-in view access
+  if (role === 'Receptionist') {
+    const receptionistAllowedModules = [
+      'overview', 'dashboard', 'student-directory', 'teacher-directory',
+      'staff-directory', 'employee-directory', 'register-student',
+      'register-teacher', 'add-staff', 'add-employee', 'designation-manager'
+    ];
+    if (receptionistAllowedModules.includes(module)) {
+      return true;
+    }
+  }
+
   // Default to access denied for security (if not explicitly granted in the matrix, denied)
   return false;
 }
