@@ -139,6 +139,33 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
     loadGradesAndSections();
   }, []);
 
+  // Teacher dashboard context resolution
+  const isTeacher = userProfile?.role === 'Teacher' || userProfile?.userType === 'Teacher' || localStorage.getItem('role') === 'Teacher' || localStorage.getItem('userType') === 'Teacher';
+
+  const teacherGradeName = React.useMemo(() => {
+    if (!isTeacher || !userProfile) return '';
+    const match = activeGrades.find(g => 
+      g.id === userProfile.assignedGradeId || 
+      g.name === userProfile.assignedGradeId ||
+      g.gradeId === userProfile.assignedGradeId
+    );
+    return match ? match.name : (userProfile.assignedGradeName || userProfile.assignedGradeId || '');
+  }, [isTeacher, userProfile, activeGrades]);
+
+  const teacherSectionName = React.useMemo(() => {
+    if (!isTeacher || !userProfile) return '';
+    const match = activeSections.find(s => 
+      s.id === userProfile.assignedSectionId || 
+      s.name === userProfile.assignedSectionId
+    );
+    return match ? match.name : (userProfile.assignedSectionName || userProfile.assignedSectionId || '');
+  }, [isTeacher, userProfile, activeSections]);
+
+  const teacherFullName = React.useMemo(() => {
+    if (!isTeacher || !userProfile) return '';
+    return userProfile.name || userProfile.fullName || localStorage.getItem('name') || '';
+  }, [isTeacher, userProfile]);
+
   // Modal toggles
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingId, setEditingId] = useState(null);
@@ -3977,13 +4004,16 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
   };
 
   const renderPublishedExams = () => {
-    const isFiltered = pubExamSearch.trim() !== '' || pubExamGrade !== 'All';
+    const isFiltered = isTeacher ? Boolean(teacherGradeName) : (pubExamSearch.trim() !== '' || pubExamGrade !== 'All');
     const showExams = exams.filter(ex => ex.status === 'Published' && !isExamExpiredOrCompleted(ex));
     const filteredPublishedExams = isFiltered
       ? showExams.filter(ex => {
           const query = pubExamSearch.toLowerCase().trim();
           const matchesSearch = query === '' || ex.examName.toLowerCase().startsWith(query) || (ex.name || '').toLowerCase().startsWith(query);
           const gsList = ex.gradeSections || [];
+          if (isTeacher) {
+            return matchesSearch && gsList.some(gs => gs.grade === teacherGradeName && (!teacherSectionName || !gs.section || gs.section === 'All' || gs.section === teacherSectionName));
+          }
           if (pubExamGrade === 'All') return matchesSearch;
           return matchesSearch && gsList.some(gs => gs.grade === pubExamGrade);
         })
@@ -4005,54 +4035,84 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
             <Search size={18} style={{ color: 'var(--text-muted)' }} />
             <h4 style={{ fontSize: '0.9rem', fontWeight: 800, margin: 0, color: 'var(--text-main)' }}>Search & Filter Published Exams</h4>
           </div>
-          <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
-            <input
-              type="text"
-              className="form-control"
-              placeholder="Search exam name..."
-              value={pubExamSearch}
-              onChange={(e) => setPubExamSearch(e.target.value.replace(/[^A-Za-z0-9\s]/g, ''))}
-              style={{ width: '220px', padding: '6px 12px', borderRadius: '8px', fontSize: '0.82rem', background: 'var(--bg-glass-active)', border: '1px solid var(--border-glass)', color: 'var(--text-main)' }}
-            />
+          {isTeacher ? (
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+              <div style={{
+                padding: '6px 14px',
+                borderRadius: '8px',
+                fontSize: '0.82rem',
+                fontWeight: 700,
+                background: 'rgba(255, 140, 66, 0.12)',
+                color: '#FF8C42',
+                border: '1px solid rgba(255, 140, 66, 0.3)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px'
+              }}>
+                <ClipboardList size={14} />
+                {teacherGradeName ? `Class: Grade ${teacherGradeName}${teacherSectionName ? ` - Section ${teacherSectionName}` : ''}` : 'No Assigned Class'}
+              </div>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
+              <input
+                type="text"
+                className="form-control"
+                placeholder="Search exam name..."
+                value={pubExamSearch}
+                onChange={(e) => setPubExamSearch(e.target.value.replace(/[^A-Za-z0-9\s]/g, ''))}
+                style={{ width: '220px', padding: '6px 12px', borderRadius: '8px', fontSize: '0.82rem', background: 'var(--bg-glass-active)', border: '1px solid var(--border-glass)', color: 'var(--text-main)' }}
+              />
 
-            <CustomSelect              className="select-custom"
-              value={pubExamGrade}
-              onChange={(e) => setPubExamGrade(e.target.value)}
-              style={{ padding: '6px 12px', borderRadius: '8px', fontSize: '0.82rem', background: 'var(--bg-glass-active)', border: '1px solid var(--border-glass)', color: 'var(--text-main)' }}
-            >
-              <option value="All">All Grades</option>
-              {activeGrades.map(g => (
-                <option key={g.id} value={g.name}>Grade {g.name}</option>
-              ))}
-            </CustomSelect>
-
-            {(pubExamSearch || pubExamGrade !== 'All') && (
-              <button
-                onClick={() => {
-                  setPubExamSearch('');
-                  setPubExamGrade('All');
-                }}
-                className="btn-secondary"
-                style={{ padding: '6px 12px', fontSize: '0.8rem', borderRadius: '8px', border: '1px solid #ef4444', color: '#ef4444' }}
+              <CustomSelect
+                className="select-custom"
+                value={pubExamGrade}
+                onChange={(e) => setPubExamGrade(e.target.value)}
+                style={{ padding: '6px 12px', borderRadius: '8px', fontSize: '0.82rem', background: 'var(--bg-glass-active)', border: '1px solid var(--border-glass)', color: 'var(--text-main)' }}
               >
-                Clear Filters
-              </button>
-            )}
-          </div>
+                <option value="All">All Grades</option>
+                {activeGrades.map(g => (
+                  <option key={g.id} value={g.name}>Grade {g.name}</option>
+                ))}
+              </CustomSelect>
+
+              {(pubExamSearch || pubExamGrade !== 'All') && (
+                <button
+                  onClick={() => {
+                    setPubExamSearch('');
+                    setPubExamGrade('All');
+                  }}
+                  className="btn-secondary"
+                  style={{ padding: '6px 12px', fontSize: '0.8rem', borderRadius: '8px', border: '1px solid #ef4444', color: '#ef4444' }}
+                >
+                  Clear Filters
+                </button>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Exam Cards */}
         {!isFiltered ? (
           <div className="glass-panel" style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>
             <Search size={32} style={{ opacity: 0.3, marginBottom: '12px' }} />
-            <p style={{ fontWeight: 600 }}>Please select a filter or enter a search query to load published exams.</p>
+            <p style={{ fontWeight: 600 }}>
+              {isTeacher
+                ? 'No assigned class found for your teacher profile. Please contact the administrator.'
+                : 'Please select a filter or enter a search query to load published exams.'}
+            </p>
           </div>
         ) : filteredPublishedExams.length > 0 ? (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: '20px' }}>
             {filteredPublishedExams.flatMap(ex => {
               const gsList = ex.gradeSections || [];
-              const allowedGsList = pubExamGrade === 'All' ? gsList : gsList.filter(gs => gs.grade === pubExamGrade);
-              if (allowedGsList.length === 0) return [{ ex, gs: null }];
+              const allowedGsList = isTeacher
+                ? gsList.filter(gs => gs.grade === teacherGradeName && (!teacherSectionName || !gs.section || gs.section === 'All' || gs.section === teacherSectionName))
+                : (pubExamGrade === 'All' ? gsList : gsList.filter(gs => gs.grade === pubExamGrade));
+              if (allowedGsList.length === 0) {
+                if (isTeacher) return [];
+                return [{ ex, gs: null }];
+              }
               return allowedGsList.map(gs => ({ ex, gs }));
             }).map(({ ex, gs }) => {
               const earliestStart = gs ? gs.startDate : '';
@@ -4087,71 +4147,99 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                   key={`${ex.id}-${gs ? `${gs.grade}-${gs.section || ''}` : 'none'}`}
                   className="glass-panel"
                   style={{
-                    padding: '0',
+                    padding: '24px',
                     borderRadius: '16px',
-                    overflow: 'hidden',
                     display: 'flex',
-                    flexDirection: 'column'
+                    flexDirection: 'column',
+                    justifyContent: 'space-between',
+                    border: '1px solid var(--border-glass)',
+                    transition: 'all 0.3s ease',
+                    position: 'relative'
                   }}
                 >
-                  {/* Card Header */}
-                  <div style={{ padding: '20px 20px 16px', borderBottom: '1px solid var(--border-glass)', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                    <div>
-                      <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'hsl(var(--color-primary))', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '4px' }}>
-                        {gs ? (gs.section ? `Grade - ${gs.grade}-${gs.section}` : `Grade - ${gs.grade}`) : 'No Grades'}
-                        {ex.academicSession && ` Â· Session ${ex.academicSession}`}
-                      </div>
-                      <h3 style={{ fontSize: '1.05rem', fontWeight: 800, margin: 0, color: 'var(--text-main)' }}>{ex.examName}</h3>
-                      <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '6px' }}>
-                        <span style={{ fontSize: '0.72rem', padding: '2px 8px', borderRadius: '10px', background: 'rgba(255, 107, 0, 0.08)', color: 'hsl(var(--color-primary))', border: '1px solid rgba(255, 107, 0, 0.15)', fontWeight: 600 }}>{ex.examType}</span>
-                        <span style={{ fontSize: '0.72rem', padding: '2px 8px', borderRadius: '10px', background: 'rgba(245, 158, 11, 0.08)', color: '#f59e0b', border: '1px solid rgba(245, 158, 11, 0.15)', fontWeight: 600 }}>Total Marks: {ex.totalMarks || 100}</span>
-                      </div>
-                    </div>
-                    <span style={{ padding: '4px 10px', borderRadius: '20px', fontSize: '0.68rem', fontWeight: 700, ...sc }}>{ex.status}</span>
-                  </div>
-
-                  {/* Card Body */}
-                  <div style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: '12px', flex: 1 }}>
-                    <div style={{ display: 'grid', gridTemplateColumns: '130px 1fr', gap: '8px', fontSize: '0.8rem' }}>
-                      <div style={{ color: 'var(--text-muted)' }}>Total Subjects</div>
-                      <div style={{ fontWeight: 600, textAlign: 'right' }}>{totalSubjects}</div>
-                      <div style={{ color: 'var(--text-muted)' }}>Start Date</div>
-                      <div style={{ fontWeight: 600, textAlign: 'right' }}>{earliestStart || '-'}</div>
-                      <div style={{ color: 'var(--text-muted)' }}>End Date</div>
-                      <div style={{ fontWeight: 600, textAlign: 'right' }}>{endDate || 'Not scheduled'}</div>
+                  <div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
+                      <span style={{
+                        padding: '4px 10px',
+                        borderRadius: '20px',
+                        fontSize: '0.75rem',
+                        fontWeight: 700,
+                        backgroundColor: sc.bg,
+                        color: sc.color,
+                        border: sc.border,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px'
+                      }}>
+                        <CheckCircle size={12} /> Published
+                      </span>
+                      <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                        Session: {ex.academicSession || '2026-2027'}
+                      </span>
                     </div>
 
-                    <div style={{ marginTop: '4px', paddingTop: '10px', borderTop: '1px dashed var(--border-glass)' }}>
-                      <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Subjects & Marks</div>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                        {(() => {
-                          const list = [];
-                          if (gs) {
-                            const gradeSubs = subjects.filter(sub => sub.grade === gs.grade).map(sub => sub.subjectName);
-                            const uniqueGradeSubs = [...new Set(gradeSubs)];
-                            uniqueGradeSubs.forEach(sub => {
-                              const subKey = `${gs.grade}-${sub}`;
-                              const isIncluded = ex.subjectIncluded ? ex.subjectIncluded[subKey] !== false : true;
-                              if (isIncluded) {
-                                const marks = ex.subjectMarks && ex.subjectMarks[subKey] !== undefined ? ex.subjectMarks[subKey] : (ex.totalMarks || 100);
-                                list.push({ grade: gs.grade, section: gs.section, subject: sub, marks });
-                              }
-                            });
-                          }
-                          if (list.length === 0) {
-                            return <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>No subjects added</div>;
-                          }
-                          return list.map((item, idx) => (
-                            <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', alignItems: 'center', padding: '4px 0' }}>
-                              <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>
-                                {item.subject}
-                              </span>
-                              <span style={{ fontWeight: 700, color: '#f59e0b', fontSize: '0.78rem' }}>{item.marks} Marks</span>
-                            </div>
-                          ));
-                        })()}
+                    <h4 style={{ fontSize: '1.15rem', fontWeight: 800, margin: '0 0 6px 0', color: 'var(--text-main)' }}>
+                      {ex.examName || ex.name}
+                    </h4>
+
+                    {gs && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+                        <span style={{
+                          padding: '3px 8px',
+                          borderRadius: '6px',
+                          fontSize: '0.75rem',
+                          fontWeight: 700,
+                          background: 'rgba(59, 130, 246, 0.1)',
+                          color: '#3b82f6',
+                          border: '1px solid rgba(59, 130, 246, 0.2)'
+                        }}>
+                          Grade {gs.grade} {gs.section ? `- ${gs.section}` : ''}
+                        </span>
+                        {totalSubjects > 0 && (
+                          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                            {totalSubjects} Subjects Scheduled
+                          </span>
+                        )}
+                      </div>
+                    )}
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <Calendar size={14} style={{ color: 'hsl(var(--color-primary))' }} />
+                        <span>Date Range: {earliestStart ? `${earliestStart} to ${endDate}` : 'Dates TBD'}</span>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <Clock size={14} style={{ color: 'hsl(var(--color-primary))' }} />
+                        <span>Duration: {ex.duration || 'Standard Session'}</span>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <Award size={14} style={{ color: 'hsl(var(--color-primary))' }} />
+                        <span>Passing Marks: {ex.passingMarks || 40} / {ex.totalMarks || 100}</span>
                       </div>
                     </div>
+
+                    {/* Subjects Badges */}
+                    {cohortSubjects.length > 0 && (
+                      <div style={{ marginTop: '16px' }}>
+                        <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                          Included Subjects
+                        </span>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '6px' }}>
+                          {cohortSubjects.map(sub => (
+                            <span key={sub} style={{
+                              fontSize: '0.75rem',
+                              padding: '2px 8px',
+                              borderRadius: '6px',
+                              background: 'rgba(255,255,255,0.03)',
+                              border: '1px solid var(--border-glass)',
+                              color: 'var(--text-main)'
+                            }}>
+                              {sub}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
 
                     {/* Collapsible Published Timetable Section */}
                     {gs && ex.timetablePublished && cohortSchedules.length > 0 && (
@@ -4231,7 +4319,11 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
         ) : (
           <div className="glass-panel" style={{ padding: '60px 40px', textAlign: 'center', color: 'var(--text-muted)' }}>
             <BookOpen size={40} style={{ opacity: 0.3 }} />
-            <p style={{ fontWeight: 600, marginTop: '12px' }}>No published exams found matching search criteria.</p>
+            <p style={{ fontWeight: 600, marginTop: '12px' }}>
+              {isTeacher
+                ? `No published exams found for Grade ${teacherGradeName}${teacherSectionName ? ` - Section ${teacherSectionName}` : ''}.`
+                : 'No published exams found matching search criteria.'}
+            </p>
           </div>
         )}
       </div>
@@ -4247,12 +4339,15 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
     const daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
     const showClassTimetables = publishedData && publishedData.classTimetables ? publishedData.classTimetables : [];
-    const isClassFiltered = pubTtSearch.trim() !== '' || pubTtGrade !== 'All' || pubTtSection !== 'All';
+    const isClassFiltered = isTeacher ? Boolean(teacherGradeName) : (pubTtSearch.trim() !== '' || pubTtGrade !== 'All' || pubTtSection !== 'All');
     const filteredClassTimetables = isClassFiltered
       ? showClassTimetables.filter(pub => {
           const query = pubTtSearch.toLowerCase().trim();
           const matchesSearch = query === '' || pub.cohort.toLowerCase().startsWith(query);
           const [g, s] = pub.cohort.split('-');
+          if (isTeacher) {
+            return matchesSearch && g === teacherGradeName && (!teacherSectionName || s === teacherSectionName);
+          }
           const matchesGrade = pubTtGrade === 'All' || g === pubTtGrade;
           const matchesSection = pubTtSection === 'All' || s === pubTtSection;
           return matchesSearch && matchesGrade && matchesSection;
@@ -4260,9 +4355,14 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
       : [];
 
     const showTeacherTimetables = publishedData && publishedData.teacherTimetables ? publishedData.teacherTimetables : [];
-    const isTeacherFiltered = pubTtSearch.trim() !== '' || pubTtTeacher !== '';
+    const isTeacherFiltered = isTeacher ? Boolean(teacherFullName) : (pubTtSearch.trim() !== '' || pubTtTeacher !== '');
     const filteredTeacherTimetables = isTeacherFiltered
       ? showTeacherTimetables.filter(pub => {
+          if (isTeacher) {
+            const pubName = (pub.teacher || '').toLowerCase().trim();
+            const myName = (teacherFullName || '').toLowerCase().trim();
+            return pubName === myName || pubName.includes(myName) || myName.includes(pubName);
+          }
           const query = pubTtSearch.toLowerCase().trim();
           const matchesSearch = query === '' || pub.teacher.toLowerCase().startsWith(query);
           const matchesSelect = pubTtTeacher === '' || pub.teacher.toLowerCase() === pubTtTeacher.toLowerCase();
@@ -4315,87 +4415,130 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
             <h4 style={{ fontSize: '0.9rem', fontWeight: 800, margin: 0, color: 'var(--text-main)' }}>Search & Filter Published</h4>
           </div>
           {publishedSubTab === 'class' ? (
-            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Search cohort (e.g. IX-A)..."
-                value={pubTtSearch}
-                onChange={(e) => setPubTtSearch(e.target.value.replace(/[^A-Za-z0-9\-\s]/g, ''))}
-                style={{ width: '220px', padding: '6px 12px', borderRadius: '8px', fontSize: '0.82rem', background: 'var(--bg-glass-active)', border: '1px solid var(--border-glass)', color: 'var(--text-main)' }}
-              />
+            isTeacher ? (
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                <div style={{
+                  padding: '6px 14px',
+                  borderRadius: '8px',
+                  fontSize: '0.82rem',
+                  fontWeight: 700,
+                  background: 'rgba(255, 107, 0, 0.12)',
+                  color: 'rgb(255, 107, 0)',
+                  border: '1px solid rgba(255, 107, 0, 0.3)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px'
+                }}>
+                  <Clock size={14} />
+                  {teacherGradeName ? `Class: Grade ${teacherGradeName}${teacherSectionName ? ` - Section ${teacherSectionName}` : ''}` : 'No Assigned Class'}
+                </div>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
+                <input
+                  type="text"
+                  className="form-control"
+                  placeholder="Search cohort (e.g. IX-A)..."
+                  value={pubTtSearch}
+                  onChange={(e) => setPubTtSearch(e.target.value.replace(/[^A-Za-z0-9\-\s]/g, ''))}
+                  style={{ width: '220px', padding: '6px 12px', borderRadius: '8px', fontSize: '0.82rem', background: 'var(--bg-glass-active)', border: '1px solid var(--border-glass)', color: 'var(--text-main)' }}
+                />
 
-              <CustomSelect                className="select-custom"
-                value={pubTtGrade}
-                onChange={(e) => setPubTtGrade(e.target.value)}
-                style={{ padding: '6px 12px', borderRadius: '8px', fontSize: '0.82rem', background: 'var(--bg-glass-active)', border: '1px solid var(--border-glass)', color: 'var(--text-main)' }}
-              >
-                <option value="All">All Grades</option>
-                {activeGrades.map(g => (
-                  <option key={g.id} value={g.name}>Grade {g.name}</option>
-                ))}
-              </CustomSelect>
-
-              <CustomSelect                className="select-custom"
-                value={pubTtSection}
-                onChange={(e) => setPubTtSection(e.target.value)}
-                style={{ padding: '6px 12px', borderRadius: '8px', fontSize: '0.82rem', background: 'var(--bg-glass-active)', border: '1px solid var(--border-glass)', color: 'var(--text-main)' }}
-              >
-                <option value="All">All Sections</option>
-                {activeSections.map(s => (
-                  <option key={s.id} value={s.name}>Section {s.name}</option>
-                ))}
-              </CustomSelect>
-
-              {(pubTtSearch || pubTtGrade !== 'All' || pubTtSection !== 'All') && (
-                <button
-                  onClick={() => {
-                    setPubTtSearch('');
-                    setPubTtGrade('All');
-                    setPubTtSection('All');
-                  }}
-                  className="btn-secondary"
-                  style={{ padding: '6px 12px', fontSize: '0.8rem', borderRadius: '8px', border: '1px solid #ef4444', color: '#ef4444' }}
+                <CustomSelect
+                  className="select-custom"
+                  value={pubTtGrade}
+                  onChange={(e) => setPubTtGrade(e.target.value)}
+                  style={{ padding: '6px 12px', borderRadius: '8px', fontSize: '0.82rem', background: 'var(--bg-glass-active)', border: '1px solid var(--border-glass)', color: 'var(--text-main)' }}
                 >
-                  Clear Filters
-                </button>
-              )}
-            </div>
+                  <option value="All">All Grades</option>
+                  {activeGrades.map(g => (
+                    <option key={g.id} value={g.name}>Grade {g.name}</option>
+                  ))}
+                </CustomSelect>
+
+                <CustomSelect
+                  className="select-custom"
+                  value={pubTtSection}
+                  onChange={(e) => setPubTtSection(e.target.value)}
+                  style={{ padding: '6px 12px', borderRadius: '8px', fontSize: '0.82rem', background: 'var(--bg-glass-active)', border: '1px solid var(--border-glass)', color: 'var(--text-main)' }}
+                >
+                  <option value="All">All Sections</option>
+                  {activeSections.map(s => (
+                    <option key={s.id} value={s.name}>Section {s.name}</option>
+                  ))}
+                </CustomSelect>
+
+                {(pubTtSearch || pubTtGrade !== 'All' || pubTtSection !== 'All') && (
+                  <button
+                    onClick={() => {
+                      setPubTtSearch('');
+                      setPubTtGrade('All');
+                      setPubTtSection('All');
+                    }}
+                    className="btn-secondary"
+                    style={{ padding: '6px 12px', fontSize: '0.8rem', borderRadius: '8px', border: '1px solid #ef4444', color: '#ef4444' }}
+                  >
+                    Clear Filters
+                  </button>
+                )}
+              </div>
+            )
           ) : (
-            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Search teacher name..."
-                value={pubTtSearch}
-                onChange={(e) => setPubTtSearch(e.target.value.replace(/[^A-Za-z\s]/g, ''))}
-                style={{ width: '220px', padding: '6px 12px', borderRadius: '8px', fontSize: '0.82rem', background: 'var(--bg-glass-active)', border: '1px solid var(--border-glass)', color: 'var(--text-main)' }}
-              />
+            isTeacher ? (
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                <div style={{
+                  padding: '6px 14px',
+                  borderRadius: '8px',
+                  fontSize: '0.82rem',
+                  fontWeight: 700,
+                  background: 'rgba(59, 130, 246, 0.12)',
+                  color: '#3b82f6',
+                  border: '1px solid rgba(59, 130, 246, 0.3)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px'
+                }}>
+                  <UserCheck size={14} />
+                  {teacherFullName ? `Teacher: ${teacherFullName}` : 'Teacher Schedule'}
+                </div>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
+                <input
+                  type="text"
+                  className="form-control"
+                  placeholder="Search teacher name..."
+                  value={pubTtSearch}
+                  onChange={(e) => setPubTtSearch(e.target.value.replace(/[^A-Za-z\s]/g, ''))}
+                  style={{ width: '220px', padding: '6px 12px', borderRadius: '8px', fontSize: '0.82rem', background: 'var(--bg-glass-active)', border: '1px solid var(--border-glass)', color: 'var(--text-main)' }}
+                />
 
-              <CustomSelect                className="select-custom"
-                value={pubTtTeacher}
-                onChange={(e) => setPubTtTeacher(e.target.value)}
-                style={{ padding: '6px 12px', borderRadius: '8px', fontSize: '0.82rem', background: 'var(--bg-glass-active)', border: '1px solid var(--border-glass)', color: 'var(--text-main)' }}
-              >
-                <option value="">All Teachers</option>
-                {teachers.map((t, idx) => (
-                  <option key={idx} value={t.name}>{t.fullName || t.name}</option>
-                ))}
-              </CustomSelect>
-
-              {(pubTtSearch || pubTtTeacher) && (
-                <button
-                  onClick={() => {
-                    setPubTtSearch('');
-                    setPubTtTeacher('');
-                  }}
-                  className="btn-secondary"
-                  style={{ padding: '6px 12px', fontSize: '0.8rem', borderRadius: '8px', border: '1px solid #ef4444', color: '#ef4444' }}
+                <CustomSelect
+                  className="select-custom"
+                  value={pubTtTeacher}
+                  onChange={(e) => setPubTtTeacher(e.target.value)}
+                  style={{ padding: '6px 12px', borderRadius: '8px', fontSize: '0.82rem', background: 'var(--bg-glass-active)', border: '1px solid var(--border-glass)', color: 'var(--text-main)' }}
                 >
-                  Clear Filters
-                </button>
-              )}
-            </div>
+                  <option value="">All Teachers</option>
+                  {teachers.map((t, idx) => (
+                    <option key={idx} value={t.name}>{t.fullName || t.name}</option>
+                  ))}
+                </CustomSelect>
+
+                {(pubTtSearch || pubTtTeacher) && (
+                  <button
+                    onClick={() => {
+                      setPubTtSearch('');
+                      setPubTtTeacher('');
+                    }}
+                    className="btn-secondary"
+                    style={{ padding: '6px 12px', fontSize: '0.8rem', borderRadius: '8px', border: '1px solid #ef4444', color: '#ef4444' }}
+                  >
+                    Clear Filters
+                  </button>
+                )}
+              </div>
+            )
           )}
         </div>
 
@@ -4405,7 +4548,11 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
             {!isClassFiltered ? (
               <div className="glass-panel" style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>
                 <Search size={32} style={{ opacity: 0.3, marginBottom: '12px' }} />
-                <p style={{ fontWeight: 600 }}>Please select a filter or enter a search query to load published class timetables.</p>
+                <p style={{ fontWeight: 600 }}>
+                  {isTeacher
+                    ? 'No assigned class found for your teacher profile. Please contact the administrator.'
+                    : 'Please select a filter or enter a search query to load published class timetables.'}
+                </p>
               </div>
             ) : filteredClassTimetables.length > 0 ? (
               filteredClassTimetables.map(pub => (
@@ -4498,7 +4645,11 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
             ) : (
               <div className="glass-panel" style={{ padding: '60px 40px', textAlign: 'center', color: 'var(--text-muted)' }}>
                 <Clock size={40} style={{ opacity: 0.3 }} />
-                <p style={{ fontWeight: 600, marginTop: '12px' }}>No published class timetables found matching search criteria.</p>
+                <p style={{ fontWeight: 600, marginTop: '12px' }}>
+                  {isTeacher
+                    ? `No published class timetables found for Grade ${teacherGradeName}${teacherSectionName ? ` - Section ${teacherSectionName}` : ''}.`
+                    : 'No published class timetables found matching search criteria.'}
+                </p>
               </div>
             )}
           </div>
@@ -4507,7 +4658,11 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
             {!isTeacherFiltered ? (
               <div className="glass-panel" style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>
                 <Search size={32} style={{ opacity: 0.3, marginBottom: '12px' }} />
-                <p style={{ fontWeight: 600 }}>Please select a filter or enter a search query to load published teacher timetables.</p>
+                <p style={{ fontWeight: 600 }}>
+                  {isTeacher
+                    ? 'No teacher profile found. Please contact the administrator.'
+                    : 'Please select a filter or enter a search query to load published teacher timetables.'}
+                </p>
               </div>
             ) : filteredTeacherTimetables.length > 0 ? (
               filteredTeacherTimetables.map(pub => (
@@ -4597,7 +4752,11 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
             ) : (
               <div className="glass-panel" style={{ padding: '60px 40px', textAlign: 'center', color: 'var(--text-muted)' }}>
                 <UserCheck size={40} style={{ opacity: 0.3 }} />
-                <p style={{ fontWeight: 600, marginTop: '12px' }}>No published teacher timetables found matching search criteria.</p>
+                <p style={{ fontWeight: 600, marginTop: '12px' }}>
+                  {isTeacher
+                    ? `No published teacher timetable found for ${teacherFullName || 'your account'}.`
+                    : 'No published teacher timetables found matching search criteria.'}
+                </p>
               </div>
             )}
           </div>
