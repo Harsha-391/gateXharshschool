@@ -2301,11 +2301,6 @@ export const updateExamTypes = (req, res) => {
   res.json({ success: true, examTypes });
 };
 
-// Default Categories for Academic Activities
-const DEFAULT_EVENT_TYPES = ['Sports', 'Cultural', 'Academic', 'Holiday', 'PTA Meet', 'Competition', 'Workshop'];
-const DEFAULT_NOTICE_CATEGORIES = ['Academic', 'Administrative', 'Examination', 'General', 'Events', 'Important'];
-const DEFAULT_HOLIDAY_CLASSIFICATIONS = ['National Holiday', 'Festival', 'Vacation', 'Gazetted Holiday', 'Restricted Holiday'];
-
 // Event Types Controllers
 export const getEventTypes = (req, res) => {
   const db = readDb();
@@ -2317,10 +2312,8 @@ export const getEventTypes = (req, res) => {
   if (typeof eventTypes === 'string') {
     try { eventTypes = JSON.parse(eventTypes); } catch(e) { eventTypes = []; }
   }
-  if (!Array.isArray(eventTypes) || eventTypes.length === 0) {
-    eventTypes = DEFAULT_EVENT_TYPES;
-    db.school = { ...db.school, eventTypes };
-    writeDb(db);
+  if (!Array.isArray(eventTypes)) {
+    eventTypes = [];
   }
   res.json(eventTypes);
 };
@@ -2374,10 +2367,8 @@ export const getNoticeCategories = (req, res) => {
   if (typeof noticeCategories === 'string') {
     try { noticeCategories = JSON.parse(noticeCategories); } catch(e) { noticeCategories = []; }
   }
-  if (!Array.isArray(noticeCategories) || noticeCategories.length === 0) {
-    noticeCategories = DEFAULT_NOTICE_CATEGORIES;
-    db.school = { ...db.school, noticeCategories };
-    writeDb(db);
+  if (!Array.isArray(noticeCategories)) {
+    noticeCategories = [];
   }
   res.json(noticeCategories);
 };
@@ -2431,10 +2422,8 @@ export const getHolidayClassifications = (req, res) => {
   if (typeof holidayClassifications === 'string') {
     try { holidayClassifications = JSON.parse(holidayClassifications); } catch(e) { holidayClassifications = []; }
   }
-  if (!Array.isArray(holidayClassifications) || holidayClassifications.length === 0) {
-    holidayClassifications = DEFAULT_HOLIDAY_CLASSIFICATIONS;
-    db.school = { ...db.school, holidayClassifications };
-    writeDb(db);
+  if (!Array.isArray(holidayClassifications)) {
+    holidayClassifications = [];
   }
   res.json(holidayClassifications);
 };

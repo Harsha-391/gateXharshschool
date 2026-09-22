@@ -75,10 +75,6 @@ const isTeacherProfile = (t) => {
   return false;
 };
 
-const DEFAULT_EVENT_TYPES = ['Sports', 'Cultural', 'Academic', 'Holiday', 'PTA Meet', 'Competition', 'Workshop'];
-const DEFAULT_NOTICE_CATEGORIES = ['Academic', 'Administrative', 'Examination', 'General', 'Events', 'Important'];
-const DEFAULT_HOLIDAY_CLASSIFICATIONS = ['National Holiday', 'Festival', 'Vacation', 'Gazetted Holiday', 'Restricted Holiday'];
-
 export default function AcademicPanel({ subView, setAdminView, userProfile }) {
   // Master API states
   const [timetables, setTimetables] = useState([]);
@@ -246,13 +242,13 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
   const [historyTypeFilter, setHistoryTypeFilter] = useState('All');
   const [eventTypeOpen, setEventTypeOpen] = useState(false);
   const eventTypeRef = useRef(null);
-  const [eventTypes, setEventTypes] = useState(DEFAULT_EVENT_TYPES);
+  const [eventTypes, setEventTypes] = useState([]);
   const [showManageEventTypesModal, setShowManageEventTypesModal] = useState(false);
 
   const [noticesTab, setNoticesTab] = useState('active'); // 'active' or 'history'
   const [noticeSearch, setNoticeSearch] = useState('');
   const [noticeCategoryFilter, setNoticeCategoryFilter] = useState('All');
-  const [noticeCategories, setNoticeCategories] = useState(DEFAULT_NOTICE_CATEGORIES);
+  const [noticeCategories, setNoticeCategories] = useState([]);
   const [showManageNoticeCategoriesModal, setShowManageNoticeCategoriesModal] = useState(false);
   const [noticeCategoryOpen, setNoticeCategoryOpen] = useState(false);
   const noticeCategoryRef = useRef(null);
@@ -260,7 +256,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
   const [holidaysTab, setHolidaysTab] = useState('active'); // 'active' or 'history'
   const [holidaySearch, setHolidaySearch] = useState('');
   const [holidayClassificationFilter, setHolidayClassificationFilter] = useState('All');
-  const [holidayClassifications, setHolidayClassifications] = useState(DEFAULT_HOLIDAY_CLASSIFICATIONS);
+  const [holidayClassifications, setHolidayClassifications] = useState([]);
   const [showManageHolidayClassificationsModal, setShowManageHolidayClassificationsModal] = useState(false);
   const [holidayClassificationOpen, setHolidayClassificationOpen] = useState(false);
   const holidayClassificationRef = useRef(null);
@@ -529,21 +525,19 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
         { url: '/api/academics/exam-types', setter: setExamTypes },
         { url: '/api/academics/event-types', setter: (data) => {
           let arr = Array.isArray(data) ? data : (typeof data === 'string' ? JSON.parse(data || '[]') : []);
-          setEventTypes(arr && arr.length > 0 ? arr : DEFAULT_EVENT_TYPES);
+          setEventTypes(Array.isArray(arr) ? arr : []);
         }},
         { url: '/api/academics/notice-categories', setter: (data) => {
           let arr = data;
           if (typeof arr === 'string') { try { arr = JSON.parse(arr); } catch(e) { arr = []; } }
           if (typeof arr === 'string') { try { arr = JSON.parse(arr); } catch(e) { arr = []; } }
-          const list = Array.isArray(arr) ? arr : [];
-          setNoticeCategories(list.length > 0 ? list : DEFAULT_NOTICE_CATEGORIES);
+          setNoticeCategories(Array.isArray(arr) ? arr : []);
         }},
         { url: '/api/academics/holiday-classifications', setter: (data) => {
           let arr = data;
           if (typeof arr === 'string') { try { arr = JSON.parse(arr); } catch(e) { arr = []; } }
           if (typeof arr === 'string') { try { arr = JSON.parse(arr); } catch(e) { arr = []; } }
-          const list = Array.isArray(arr) ? arr : [];
-          setHolidayClassifications(list.length > 0 ? list : DEFAULT_HOLIDAY_CLASSIFICATIONS);
+          setHolidayClassifications(Array.isArray(arr) ? arr : []);
         }}
       ];
 
