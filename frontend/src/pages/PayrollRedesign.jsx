@@ -9,7 +9,8 @@ import {
 // Common utility to get headers with token
 const getAuthHeaders = () => {
   const token = localStorage.getItem('token');
-  const tenant = localStorage.getItem('tenant') || '';
+  const hostTenant = typeof window !== 'undefined' ? window.location.hostname.split('.')[0] : null;
+  const tenant = localStorage.getItem('tenant_subdomain') || localStorage.getItem('tenant') || (hostTenant && !['localhost', 'platform', 'www', 'admin'].includes(hostTenant.toLowerCase()) ? hostTenant : '');
   return {
     'Content-Type': 'application/json',
     'Authorization': token ? `Bearer ${token}` : '',
@@ -294,7 +295,9 @@ function SalaryConfigurationTab({ directoryData, loading, searchQuery, setSearch
       const targetRole = activeRole.trim().toLowerCase();
       const userRole = (e.role || '').trim().toLowerCase();
       const userDesig = (e.designation || '').trim().toLowerCase();
-      return userRole === targetRole || userDesig === targetRole;
+      return userRole === targetRole || userDesig === targetRole ||
+             (userDesig && (targetRole.includes(userDesig) || userDesig.includes(targetRole))) ||
+             (userRole && (targetRole.includes(userRole) || userRole.includes(targetRole)));
     }
     return true;
   });
@@ -544,7 +547,9 @@ function PaymentsTab({ directoryData, loading, onPaySalary, showToast, type, all
       const targetRole = activeRole.trim().toLowerCase();
       const userRole = (e.role || '').trim().toLowerCase();
       const userDesig = (e.designation || '').trim().toLowerCase();
-      return userRole === targetRole || userDesig === targetRole;
+      return userRole === targetRole || userDesig === targetRole ||
+             (userDesig && (targetRole.includes(userDesig) || userDesig.includes(targetRole))) ||
+             (userRole && (targetRole.includes(userRole) || userRole.includes(targetRole)));
     }
     return true;
   });
