@@ -798,20 +798,12 @@ function AddExpenseView({ showToast, setExpenseView, onClose, onSuccess, isModal
                 name="amount"
                 id="expense-amount"
                 data-type="numeric"
-                data-bypass="true"
                 inputMode="numeric"
                 required 
                 placeholder="12500" 
                 value={form.amount} 
-                onKeyDown={e => {
-                  if (['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'Tab', 'Enter'].includes(e.key)) return;
-                  if (e.ctrlKey || e.metaKey) return;
-                  if (!/^\d$/.test(e.key)) {
-                    e.preventDefault();
-                  }
-                }}
                 onChange={e => {
-                  const val = e.target.value.replace(/\D/g, ''); // Only numbers allowed
+                  const val = e.target.value.replace(/[^0-9]/g, ''); // Allow numbers only
                   if (val.length <= 20) {
                     setForm({ ...form, amount: val });
                   }
@@ -832,8 +824,6 @@ function AddExpenseView({ showToast, setExpenseView, onClose, onSuccess, isModal
               <label style={fieldLabelStyle}>Description / Statement of Purpose</label>
               <input 
                 type="text" placeholder="Annual renewal of high-speed office fiber line (500Mbps)" 
-                name="remarks"
-                data-bypass="true"
                 value={form.remarks} onChange={e => setForm({ ...form, remarks: e.target.value })}
                 style={inputStyle}
               />
@@ -851,7 +841,6 @@ function AddExpenseView({ showToast, setExpenseView, onClose, onSuccess, isModal
               <label style={fieldLabelStyle}>Vendor Name</label>
               <input 
                 type="text" placeholder="Aegis Digital Solutions" 
-                name="vendorName"
                 value={form.vendorName} onChange={e => setForm({ ...form, vendorName: e.target.value })}
                 style={inputStyle}
               />
@@ -860,10 +849,6 @@ function AddExpenseView({ showToast, setExpenseView, onClose, onSuccess, isModal
               <label style={fieldLabelStyle}>Contact Number</label>
               <input 
                 type="text" placeholder="9876543210" 
-                name="vendorContact"
-                data-type="numeric"
-                data-bypass="true"
-                inputMode="numeric"
                 value={form.vendorContact} 
                 onChange={e => {
                   const val = e.target.value.replace(/\D/g, ''); // Strip non-numeric characters
@@ -878,7 +863,6 @@ function AddExpenseView({ showToast, setExpenseView, onClose, onSuccess, isModal
               <label style={fieldLabelStyle}>Email Address</label>
               <input 
                 type="email" placeholder="billing@aegissolutions.com" 
-                name="vendorEmail"
                 value={form.vendorEmail} onChange={e => setForm({ ...form, vendorEmail: e.target.value })}
                 style={inputStyle}
               />
@@ -887,8 +871,6 @@ function AddExpenseView({ showToast, setExpenseView, onClose, onSuccess, isModal
               <label style={fieldLabelStyle}>Postal Address</label>
               <input 
                 type="text" placeholder="Plot 12, Sector 5, Industrial Area" 
-                name="vendorAddress"
-                data-bypass="true"
                 value={form.vendorAddress} onChange={e => setForm({ ...form, vendorAddress: e.target.value })}
                 style={inputStyle}
               />
@@ -915,9 +897,6 @@ function AddExpenseView({ showToast, setExpenseView, onClose, onSuccess, isModal
                   <label style={fieldLabelStyle}>Transaction / Reference ID</label>
                   <input 
                     type="text" placeholder="TXN-938210398" 
-                    name="transactionId"
-                    data-type="alphanumeric"
-                    data-bypass="true"
                     value={form.transactionId} onChange={e => setForm({ ...form, transactionId: e.target.value })}
                     style={inputStyle}
                   />
