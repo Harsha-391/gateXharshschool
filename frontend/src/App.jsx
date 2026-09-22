@@ -529,13 +529,28 @@ export default function App() {
                                   target.getAttribute('data-type') === 'alphanumeric';
 
       // Check if it is a phone number, pin number, or PAN card field:
-      const isPhone = !isBypassedString && (name.includes('phone') || name.includes('contact') || name.includes('mobile') || id.includes('phone') || id.includes('contact') || id.includes('mobile') || placeholder.includes('phone') || placeholder.includes('contact') || placeholder.includes('mobile'));
+      const isPhone = !isBypassedString && (name.includes('phone') || name.includes('contact') || name.includes('mobile') || id.includes('phone') || id.includes('contact') || id.includes('mobile') || placeholder.includes('phone') || placeholder.includes('contact') || placeholder.includes('mobile') || label.includes('phone') || label.includes('contact') || label.includes('mobile'));
       const isPin = !isBypassedString && (name.includes('pin') || id.includes('pin') || placeholder.includes('pin') || placeholder.includes('postal') || name.includes('postal') || id.includes('postal') || name.includes('zip') || id.includes('zip'));
       const isPan = !isBypassedString && (name.includes('pan') || id.includes('pan') || placeholder.includes('pan') || label.includes('pan'));
       const isAadhaar = !isBypassedString && (name.includes('aadhaar') || name.includes('aadhar') || id.includes('aadhaar') || id.includes('aadhar') || placeholder.includes('aadhaar') || placeholder.includes('aadhar') || label.includes('aadhaar') || label.includes('aadhar') || placeholder.includes('uidai') || label.includes('uidai'));
 
       const isNumericType = type === 'number' || target.getAttribute('inputmode') === 'numeric';
-      const isNumericField = !isBypassedString && (isNumericType || name.includes('amount') || name.includes('salary') || name.includes('marks') || name.includes('roll') || name.includes('price') || name.includes('fee') || name.includes('budget') || name.includes('rate') || name.includes('count') || name.includes('limit') || name.includes('percentage'));
+      const isNumericField = !isBypassedString && (
+        isNumericType || 
+        target.getAttribute('data-type') === 'numeric' ||
+        target.getAttribute('data-type') === 'number' ||
+        name.includes('amount') || id.includes('amount') || label.includes('amount') || placeholder.includes('amount') || label.includes('₹') || label.includes('rs') ||
+        name.includes('salary') || id.includes('salary') || label.includes('salary') ||
+        name.includes('marks') || id.includes('marks') || label.includes('marks') ||
+        name.includes('roll') || id.includes('roll') || label.includes('roll') ||
+        name.includes('price') || id.includes('price') || label.includes('price') ||
+        name.includes('fee') || id.includes('fee') || label.includes('fee') ||
+        name.includes('budget') || id.includes('budget') || label.includes('budget') ||
+        name.includes('rate') || id.includes('rate') || label.includes('rate') ||
+        name.includes('count') || id.includes('count') || label.includes('count') ||
+        name.includes('limit') || id.includes('limit') || label.includes('limit') ||
+        name.includes('percentage') || id.includes('percentage') || label.includes('percentage')
+      );
       const isGradeName = name === 'gradename' || 
                           (target.classList && target.classList.contains('grade-name-input')) || 
                           target.getAttribute('data-type') === 'grade-name' || 
