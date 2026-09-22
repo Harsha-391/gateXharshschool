@@ -75,6 +75,9 @@ const isTeacherProfile = (t) => {
   return false;
 };
 
+const DEFAULT_EVENT_TYPES = ['Sports', 'Cultural', 'Academic', 'Holiday', 'PTA Meet', 'Competition', 'Workshop'];
+const DEFAULT_NOTICE_CATEGORIES = ['Academic', 'Administrative', 'Examination', 'General', 'Events', 'Important'];
+const DEFAULT_HOLIDAY_CLASSIFICATIONS = ['National Holiday', 'Festival', 'Vacation', 'Gazetted Holiday', 'Restricted Holiday'];
 
 export default function AcademicPanel({ subView, setAdminView, userProfile }) {
   // Master API states
@@ -243,13 +246,13 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
   const [historyTypeFilter, setHistoryTypeFilter] = useState('All');
   const [eventTypeOpen, setEventTypeOpen] = useState(false);
   const eventTypeRef = useRef(null);
-  const [eventTypes, setEventTypes] = useState([]);
+  const [eventTypes, setEventTypes] = useState(DEFAULT_EVENT_TYPES);
   const [showManageEventTypesModal, setShowManageEventTypesModal] = useState(false);
 
   const [noticesTab, setNoticesTab] = useState('active'); // 'active' or 'history'
   const [noticeSearch, setNoticeSearch] = useState('');
   const [noticeCategoryFilter, setNoticeCategoryFilter] = useState('All');
-  const [noticeCategories, setNoticeCategories] = useState([]);
+  const [noticeCategories, setNoticeCategories] = useState(DEFAULT_NOTICE_CATEGORIES);
   const [showManageNoticeCategoriesModal, setShowManageNoticeCategoriesModal] = useState(false);
   const [noticeCategoryOpen, setNoticeCategoryOpen] = useState(false);
   const noticeCategoryRef = useRef(null);
@@ -257,10 +260,61 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
   const [holidaysTab, setHolidaysTab] = useState('active'); // 'active' or 'history'
   const [holidaySearch, setHolidaySearch] = useState('');
   const [holidayClassificationFilter, setHolidayClassificationFilter] = useState('All');
-  const [holidayClassifications, setHolidayClassifications] = useState([]);
+  const [holidayClassifications, setHolidayClassifications] = useState(DEFAULT_HOLIDAY_CLASSIFICATIONS);
   const [showManageHolidayClassificationsModal, setShowManageHolidayClassificationsModal] = useState(false);
   const [holidayClassificationOpen, setHolidayClassificationOpen] = useState(false);
   const holidayClassificationRef = useRef(null);
+
+  const saveEventTypesToServer = async (typesList) => {
+    try {
+      const cleanList = [...new Set(typesList.map(t => String(t).trim()).filter(Boolean))];
+      setEventTypes(cleanList);
+      const res = await fetch('/api/academics/event-types', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ eventTypes: cleanList })
+      });
+      if (res.ok) {
+        showToast('Event types saved successfully.', 'success');
+      }
+    } catch (e) {
+      console.error('Failed to save event types:', e);
+    }
+  };
+
+  const saveNoticeCategoriesToServer = async (categoriesList) => {
+    try {
+      const cleanList = [...new Set(categoriesList.map(c => String(c).trim()).filter(Boolean))];
+      setNoticeCategories(cleanList);
+      const res = await fetch('/api/academics/notice-categories', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ noticeCategories: cleanList })
+      });
+      if (res.ok) {
+        showToast('Notice categories saved successfully.', 'success');
+      }
+    } catch (e) {
+      console.error('Failed to save notice categories:', e);
+    }
+  };
+
+  const saveHolidayClassificationsToServer = async (classificationsList) => {
+    try {
+      const cleanList = [...new Set(classificationsList.map(c => String(c).trim()).filter(Boolean))];
+      setHolidayClassifications(cleanList);
+      const res = await fetch('/api/academics/holiday-classifications', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ holidayClassifications: cleanList })
+      });
+      if (res.ok) {
+        showToast('Holiday classifications saved successfully.', 'success');
+      }
+    } catch (e) {
+      console.error('Failed to save holiday classifications:', e);
+    }
+  };
 
   const [noticeForm, setNoticeForm] = useState({
     title: '', content: '', category: '', publishDate: new Date().toISOString().split('T')[0], expiryDate: '', visibility: 'All'
@@ -473,9 +527,24 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
         { url: '/api/academics/calendar-imports', setter: setCalendarImports },
         { url: '/api/academics/calendar/published', setter: setPublishedEventIds },
         { url: '/api/academics/exam-types', setter: setExamTypes },
-        { url: '/api/academics/event-types', setter: setEventTypes },
-        { url: '/api/academics/notice-categories', setter: (data) => { let arr = data; if (typeof arr === 'string') { try { arr = JSON.parse(arr); } catch(e) { arr = []; } } setNoticeCategories(Array.isArray(arr) ? arr : []); } },
-        { url: '/api/academics/holiday-classifications', setter: (data) => { let arr = data; if (typeof arr === 'string') { try { arr = JSON.parse(arr); } catch(e) { arr = []; } } setHolidayClassifications(Array.isArray(arr) ? arr : []); } }
+        { url: '/api/academics/event-types', setter: (data) => {
+          let arr = Array.isArray(data) ? data : (typeof data === 'string' ? JSON.parse(data || '[]') : []);
+          setEventTypes(arr && arr.length > 0 ? arr : DEFAULT_EVENT_TYPES);
+        }},
+        { url: '/api/academics/notice-categories', setter: (data) => {
+          let arr = data;
+          if (typeof arr === 'string') { try { arr = JSON.parse(arr); } catch(e) { arr = []; } }
+          if (typeof arr === 'string') { try { arr = JSON.parse(arr); } catch(e) { arr = []; } }
+          const list = Array.isArray(arr) ? arr : [];
+          setNoticeCategories(list.length > 0 ? list : DEFAULT_NOTICE_CATEGORIES);
+        }},
+        { url: '/api/academics/holiday-classifications', setter: (data) => {
+          let arr = data;
+          if (typeof arr === 'string') { try { arr = JSON.parse(arr); } catch(e) { arr = []; } }
+          if (typeof arr === 'string') { try { arr = JSON.parse(arr); } catch(e) { arr = []; } }
+          const list = Array.isArray(arr) ? arr : [];
+          setHolidayClassifications(list.length > 0 ? list : DEFAULT_HOLIDAY_CLASSIFICATIONS);
+        }}
       ];
 
       await Promise.all(
@@ -7895,7 +7964,16 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                 <input type="text" className="form-control" placeholder="e.g. Sports Carnival" value={eventForm.title} onChange={(e) => setEventForm({ ...eventForm, title: e.target.value })} required />
               </div>
               <div className="form-group">
-                <label>Event Type</label>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                  <label style={{ margin: 0 }}>Event Type</label>
+                  <button
+                    type="button"
+                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowManageEventTypesModal(true); }}
+                    style={{ background: 'none', border: 'none', color: 'hsl(var(--color-primary))', fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', padding: 0 }}
+                  >
+                    <Plus size={13} /> Manage Types
+                  </button>
+                </div>
                 <div className="form-control" ref={eventTypeRef} style={{ position: 'relative', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', userSelect: 'none' }} onClick={() => setEventTypeOpen(!eventTypeOpen)}>
                   <span>{eventForm.type || 'Select Event Type...'}</span>
                   <ChevronDown size={16} style={{ transform: eventTypeOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
@@ -7912,6 +7990,16 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                           No event types created yet.
                         </div>
                       )}
+                      <div
+                        style={{ padding: '8px 12px', cursor: 'pointer', borderTop: '1px solid var(--border-glass)', color: 'hsl(var(--color-primary))', fontWeight: 700, fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: '6px', background: 'var(--bg-glass-active)' }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setEventTypeOpen(false);
+                          setShowManageEventTypesModal(true);
+                        }}
+                      >
+                        <Plus size={14} /> + Add / Manage Event Types
+                      </div>
                     </div>
                   )}
                 </div>
@@ -8006,7 +8094,16 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                 <textarea className="form-control" placeholder="Enter instructions details..." value={noticeForm.content} onChange={(e) => setNoticeForm({ ...noticeForm, content: e.target.value })} required />
               </div>
               <div className="form-group">
-                <label>Category</label>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                  <label style={{ margin: 0 }}>Category</label>
+                  <button
+                    type="button"
+                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowManageNoticeCategoriesModal(true); }}
+                    style={{ background: 'none', border: 'none', color: 'hsl(var(--color-primary))', fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', padding: 0 }}
+                  >
+                    <Plus size={13} /> Manage Categories
+                  </button>
+                </div>
                 <div className="form-control" ref={noticeCategoryRef} style={{ position: 'relative', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', userSelect: 'none' }} onClick={() => setNoticeCategoryOpen(!noticeCategoryOpen)}>
                   <span>{noticeForm.category || 'Select Category...'}</span>
                   <ChevronDown size={16} style={{ transform: noticeCategoryOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
@@ -8023,6 +8120,16 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                           No notice categories created yet.
                         </div>
                       )}
+                      <div
+                        style={{ padding: '8px 12px', cursor: 'pointer', borderTop: '1px solid var(--border-glass)', color: 'hsl(var(--color-primary))', fontWeight: 700, fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: '6px', background: 'var(--bg-glass-active)' }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setNoticeCategoryOpen(false);
+                          setShowManageNoticeCategoriesModal(true);
+                        }}
+                      >
+                        <Plus size={14} /> + Add / Manage Notice Categories
+                      </div>
                     </div>
                   )}
                 </div>
@@ -8096,7 +8203,16 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                 <input type="text" className="form-control" placeholder="e.g. Diwali Break" value={holidayForm.name} onChange={(e) => setHolidayForm({ ...holidayForm, name: e.target.value })} required />
               </div>
               <div className="form-group">
-                <label>Classification Type</label>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                  <label style={{ margin: 0 }}>Classification Type</label>
+                  <button
+                    type="button"
+                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowManageHolidayClassificationsModal(true); }}
+                    style={{ background: 'none', border: 'none', color: 'hsl(var(--color-primary))', fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', padding: 0 }}
+                  >
+                    <Plus size={13} /> Manage Classifications
+                  </button>
+                </div>
                 <div className="form-control" ref={holidayClassificationRef} style={{ position: 'relative', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', userSelect: 'none' }} onClick={() => setHolidayClassificationOpen(!holidayClassificationOpen)}>
                   <span>{holidayForm.type || 'Select Classification...'}</span>
                   <ChevronDown size={16} style={{ transform: holidayClassificationOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
@@ -8113,6 +8229,16 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                           No classifications created yet.
                         </div>
                       )}
+                      <div
+                        style={{ padding: '8px 12px', cursor: 'pointer', borderTop: '1px solid var(--border-glass)', color: 'hsl(var(--color-primary))', fontWeight: 700, fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: '6px', background: 'var(--bg-glass-active)' }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setHolidayClassificationOpen(false);
+                          setShowManageHolidayClassificationsModal(true);
+                        }}
+                      >
+                        <Plus size={14} /> + Add / Manage Classifications
+                      </div>
                     </div>
                   )}
                 </div>
@@ -9647,10 +9773,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
               </h3>
               <button
                 type="button"
-                onClick={() => {
-                  fetchAllData();
-                  setShowManageEventTypesModal(false);
-                }}
+                onClick={() => setShowManageEventTypesModal(false)}
                 style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '1.5rem', lineHeight: 1 }}
               >
                 {"\u00d7"}
@@ -9668,6 +9791,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                       onClick={() => {
                         const updated = eventTypes.filter((_, i) => i !== idx);
                         setEventTypes(updated);
+                        saveEventTypesToServer(updated);
                       }}
                       style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: '4px' }}
                       title="Delete Event Type"
@@ -9700,11 +9824,13 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                       e.preventDefault();
                       const val = e.target.value.trim();
                       if (!val) return;
-                      if (eventTypes.includes(val)) {
+                      if (eventTypes.some(t => t.toLowerCase() === val.toLowerCase())) {
                         showToast('Event type already exists.', 'error');
                         return;
                       }
-                      setEventTypes([...eventTypes, val]);
+                      const updated = [...eventTypes, val];
+                      setEventTypes(updated);
+                      saveEventTypesToServer(updated);
                       e.target.value = '';
                     }
                   }}
@@ -9720,11 +9846,13 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                       showToast('Please enter an event type.', 'error');
                       return;
                     }
-                    if (eventTypes.includes(val)) {
+                    if (eventTypes.some(t => t.toLowerCase() === val.toLowerCase())) {
                       showToast('Event type already exists.', 'error');
                       return;
                     }
-                    setEventTypes([...eventTypes, val]);
+                    const updated = [...eventTypes, val];
+                    setEventTypes(updated);
+                    saveEventTypesToServer(updated);
                     if (input) input.value = '';
                   }}
                 >
@@ -9737,34 +9865,24 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
             <div style={{ display: 'flex', gap: '12px', width: '100%', borderTop: '1px solid var(--border-glass)', paddingTop: '16px' }}>
               <button
                 type="button"
-                onClick={() => {
-                  fetchAllData();
-                  setShowManageEventTypesModal(false);
-                }}
+                onClick={() => setShowManageEventTypesModal(false)}
                 className="btn-secondary"
                 style={{ flex: 1, borderRadius: '8px', padding: '10px 18px', fontWeight: 600, justifyContent: 'center' }}
               >
-                Cancel
+                Close
               </button>
               <button
                 type="button"
                 onClick={async () => {
-                  try {
-                    const res = await fetch('/api/academics/event-types', {
-                      method: 'PUT',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ eventTypes })
-                    });
-                    if (res.ok) {
-                      showToast('Event types saved successfully.', 'success');
-                      setShowManageEventTypesModal(false);
-                      fetchAllData();
-                    } else {
-                      showToast('Failed to save event types.', 'error');
-                    }
-                  } catch (e) {
-                    showToast('Failed to save event types.', 'error');
+                  const input = document.getElementById('new-event-type-input');
+                  const val = input ? input.value.trim() : '';
+                  let updated = [...eventTypes];
+                  if (val && !updated.some(t => t.toLowerCase() === val.toLowerCase())) {
+                    updated.push(val);
+                    if (input) input.value = '';
                   }
+                  await saveEventTypesToServer(updated);
+                  setShowManageEventTypesModal(false);
                 }}
                 className="btn-primary"
                 style={{ flex: 1, borderRadius: '8px', padding: '10px 18px', fontWeight: 700, justifyContent: 'center' }}
@@ -9790,10 +9908,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
               </h3>
               <button
                 type="button"
-                onClick={() => {
-                  fetchAllData();
-                  setShowManageNoticeCategoriesModal(false);
-                }}
+                onClick={() => setShowManageNoticeCategoriesModal(false)}
                 style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '1.5rem', lineHeight: 1 }}
               >
                 {"\u00d7"}
@@ -9811,6 +9926,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                       onClick={() => {
                         const updated = noticeCategories.filter((_, i) => i !== idx);
                         setNoticeCategories(updated);
+                        saveNoticeCategoriesToServer(updated);
                       }}
                       style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: '4px' }}
                       title="Delete Notice Category"
@@ -9843,11 +9959,13 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                       e.preventDefault();
                       const val = e.target.value.trim();
                       if (!val) return;
-                      if (noticeCategories.includes(val)) {
+                      if (noticeCategories.some(c => c.toLowerCase() === val.toLowerCase())) {
                         showToast('Category already exists.', 'error');
                         return;
                       }
-                      setNoticeCategories([...noticeCategories, val]);
+                      const updated = [...noticeCategories, val];
+                      setNoticeCategories(updated);
+                      saveNoticeCategoriesToServer(updated);
                       e.target.value = '';
                     }
                   }}
@@ -9863,11 +9981,13 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                       showToast('Please enter a notice category.', 'error');
                       return;
                     }
-                    if (noticeCategories.includes(val)) {
+                    if (noticeCategories.some(c => c.toLowerCase() === val.toLowerCase())) {
                       showToast('Category already exists.', 'error');
                       return;
                     }
-                    setNoticeCategories([...noticeCategories, val]);
+                    const updated = [...noticeCategories, val];
+                    setNoticeCategories(updated);
+                    saveNoticeCategoriesToServer(updated);
                     if (input) input.value = '';
                   }}
                 >
@@ -9880,34 +10000,24 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
             <div style={{ display: 'flex', gap: '12px', width: '100%', borderTop: '1px solid var(--border-glass)', paddingTop: '16px' }}>
               <button
                 type="button"
-                onClick={() => {
-                  fetchAllData();
-                  setShowManageNoticeCategoriesModal(false);
-                }}
+                onClick={() => setShowManageNoticeCategoriesModal(false)}
                 className="btn-secondary"
                 style={{ flex: 1, borderRadius: '8px', padding: '10px 18px', fontWeight: 600, justifyContent: 'center' }}
               >
-                Cancel
+                Close
               </button>
               <button
                 type="button"
                 onClick={async () => {
-                  try {
-                    const res = await fetch('/api/academics/notice-categories', {
-                      method: 'PUT',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ noticeCategories })
-                    });
-                    if (res.ok) {
-                      showToast('Notice categories saved successfully.', 'success');
-                      setShowManageNoticeCategoriesModal(false);
-                      fetchAllData();
-                    } else {
-                      showToast('Failed to save notice categories.', 'error');
-                    }
-                  } catch (e) {
-                    showToast('Failed to save notice categories.', 'error');
+                  const input = document.getElementById('new-notice-category-input');
+                  const val = input ? input.value.trim() : '';
+                  let updated = [...noticeCategories];
+                  if (val && !updated.some(c => c.toLowerCase() === val.toLowerCase())) {
+                    updated.push(val);
+                    if (input) input.value = '';
                   }
+                  await saveNoticeCategoriesToServer(updated);
+                  setShowManageNoticeCategoriesModal(false);
                 }}
                 className="btn-primary"
                 style={{ flex: 1, borderRadius: '8px', padding: '10px 18px', fontWeight: 700, justifyContent: 'center' }}
@@ -9933,10 +10043,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
               </h3>
               <button
                 type="button"
-                onClick={() => {
-                  fetchAllData();
-                  setShowManageHolidayClassificationsModal(false);
-                }}
+                onClick={() => setShowManageHolidayClassificationsModal(false)}
                 style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '1.5rem', lineHeight: 1 }}
               >
                 {"\u00d7"}
@@ -9954,6 +10061,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                       onClick={() => {
                         const updated = holidayClassifications.filter((_, i) => i !== idx);
                         setHolidayClassifications(updated);
+                        saveHolidayClassificationsToServer(updated);
                       }}
                       style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: '4px' }}
                       title="Delete Holiday Classification"
@@ -9986,11 +10094,13 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                       e.preventDefault();
                       const val = e.target.value.trim();
                       if (!val) return;
-                      if (holidayClassifications.includes(val)) {
+                      if (holidayClassifications.some(c => c.toLowerCase() === val.toLowerCase())) {
                         showToast('Classification already exists.', 'error');
                         return;
                       }
-                      setHolidayClassifications([...holidayClassifications, val]);
+                      const updated = [...holidayClassifications, val];
+                      setHolidayClassifications(updated);
+                      saveHolidayClassificationsToServer(updated);
                       e.target.value = '';
                     }
                   }}
@@ -10006,11 +10116,13 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                       showToast('Please enter a classification.', 'error');
                       return;
                     }
-                    if (holidayClassifications.includes(val)) {
+                    if (holidayClassifications.some(c => c.toLowerCase() === val.toLowerCase())) {
                       showToast('Classification already exists.', 'error');
                       return;
                     }
-                    setHolidayClassifications([...holidayClassifications, val]);
+                    const updated = [...holidayClassifications, val];
+                    setHolidayClassifications(updated);
+                    saveHolidayClassificationsToServer(updated);
                     if (input) input.value = '';
                   }}
                 >
@@ -10023,34 +10135,24 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
             <div style={{ display: 'flex', gap: '12px', width: '100%', borderTop: '1px solid var(--border-glass)', paddingTop: '16px' }}>
               <button
                 type="button"
-                onClick={() => {
-                  fetchAllData();
-                  setShowManageHolidayClassificationsModal(false);
-                }}
+                onClick={() => setShowManageHolidayClassificationsModal(false)}
                 className="btn-secondary"
                 style={{ flex: 1, borderRadius: '8px', padding: '10px 18px', fontWeight: 600, justifyContent: 'center' }}
               >
-                Cancel
+                Close
               </button>
               <button
                 type="button"
                 onClick={async () => {
-                  try {
-                    const res = await fetch('/api/academics/holiday-classifications', {
-                      method: 'PUT',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ holidayClassifications })
-                    });
-                    if (res.ok) {
-                      showToast('Holiday classifications saved successfully.', 'success');
-                      setShowManageHolidayClassificationsModal(false);
-                      fetchAllData();
-                    } else {
-                      showToast('Failed to save holiday classifications.', 'error');
-                    }
-                  } catch (e) {
-                    showToast('Failed to save holiday classifications.', 'error');
+                  const input = document.getElementById('new-holiday-classification-input');
+                  const val = input ? input.value.trim() : '';
+                  let updated = [...holidayClassifications];
+                  if (val && !updated.some(c => c.toLowerCase() === val.toLowerCase())) {
+                    updated.push(val);
+                    if (input) input.value = '';
                   }
+                  await saveHolidayClassificationsToServer(updated);
+                  setShowManageHolidayClassificationsModal(false);
                 }}
                 className="btn-primary"
                 style={{ flex: 1, borderRadius: '8px', padding: '10px 18px', fontWeight: 700, justifyContent: 'center' }}

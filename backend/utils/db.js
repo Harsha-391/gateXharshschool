@@ -2173,8 +2173,30 @@ export const loadTenantSqlIntoMemory = async (tenantId) => {
     if (data.publishedTeacherTimetables === undefined) data.publishedTeacherTimetables = [];
 
     data.schools = globalSchools.map(s => {
+      let parsedEventTypes = [];
+      let parsedExamTypes = [];
       let parsedNoticeCategories = [];
       let parsedHolidayClassifications = [];
+      try {
+        if (s.eventTypes) {
+          parsedEventTypes = typeof s.eventTypes === 'string' ? JSON.parse(s.eventTypes) : s.eventTypes;
+          if (typeof parsedEventTypes === 'string') {
+            parsedEventTypes = JSON.parse(parsedEventTypes);
+          }
+        }
+      } catch (e) {
+        console.error('Failed to parse eventTypes for school', s.subdomain, e);
+      }
+      try {
+        if (s.examTypes) {
+          parsedExamTypes = typeof s.examTypes === 'string' ? JSON.parse(s.examTypes) : s.examTypes;
+          if (typeof parsedExamTypes === 'string') {
+            parsedExamTypes = JSON.parse(parsedExamTypes);
+          }
+        }
+      } catch (e) {
+        console.error('Failed to parse examTypes for school', s.subdomain, e);
+      }
       try {
         if (s.noticeCategories) {
           parsedNoticeCategories = typeof s.noticeCategories === 'string' ? JSON.parse(s.noticeCategories) : s.noticeCategories;
@@ -2197,6 +2219,8 @@ export const loadTenantSqlIntoMemory = async (tenantId) => {
       }
       return {
         ...s,
+        eventTypes: Array.isArray(parsedEventTypes) ? parsedEventTypes : [],
+        examTypes: Array.isArray(parsedExamTypes) ? parsedExamTypes : [],
         noticeCategories: Array.isArray(parsedNoticeCategories) ? parsedNoticeCategories : [],
         holidayClassifications: Array.isArray(parsedHolidayClassifications) ? parsedHolidayClassifications : []
       };
@@ -2239,10 +2263,10 @@ export const loadTenantSqlIntoMemory = async (tenantId) => {
           adminUsername: matchedSchool.adminUsername || '',
           adminPassword: matchedSchool.adminPassword || '',
           principal: matchedSchool.principalName || '',
-          examTypes: matchedSchool.examTypes ? (typeof matchedSchool.examTypes === 'string' ? JSON.parse(matchedSchool.examTypes) : matchedSchool.examTypes) : [],
-          eventTypes: matchedSchool.eventTypes ? (typeof matchedSchool.eventTypes === 'string' ? JSON.parse(matchedSchool.eventTypes) : matchedSchool.eventTypes) : [],
-          noticeCategories: matchedSchool.noticeCategories || [],
-          holidayClassifications: matchedSchool.holidayClassifications || []
+          examTypes: Array.isArray(matchedSchool.examTypes) ? matchedSchool.examTypes : (matchedSchool.examTypes ? (typeof matchedSchool.examTypes === 'string' ? JSON.parse(matchedSchool.examTypes) : matchedSchool.examTypes) : []),
+          eventTypes: Array.isArray(matchedSchool.eventTypes) ? matchedSchool.eventTypes : (matchedSchool.eventTypes ? (typeof matchedSchool.eventTypes === 'string' ? JSON.parse(matchedSchool.eventTypes) : matchedSchool.eventTypes) : []),
+          noticeCategories: Array.isArray(matchedSchool.noticeCategories) ? matchedSchool.noticeCategories : (matchedSchool.noticeCategories ? (typeof matchedSchool.noticeCategories === 'string' ? JSON.parse(matchedSchool.noticeCategories) : matchedSchool.noticeCategories) : []),
+          holidayClassifications: Array.isArray(matchedSchool.holidayClassifications) ? matchedSchool.holidayClassifications : (matchedSchool.holidayClassifications ? (typeof matchedSchool.holidayClassifications === 'string' ? JSON.parse(matchedSchool.holidayClassifications) : matchedSchool.holidayClassifications) : [])
         };
       }
     }
@@ -3036,24 +3060,26 @@ export const saveMemoryDbToSql = async (tenantId, db, changedKeys, newUpdatedAt)
           const columns = [
             'id', 'name', 'code', 'subdomain', 'logo', 'principalName', 'email', 'phone', 'address', 'city', 'state', 'country', 
             'academicSession', 'subscriptionPlan', 'url', 'status', 'adminName', 'adminEmail', 'adminUsername', 'adminPassword', 
-            'noticeCategories', 'holidayClassifications', 'createdAt', 'updatedAt', 'dbName'
+            'examTypes', 'eventTypes', 'noticeCategories', 'holidayClassifications', 'createdAt', 'updatedAt', 'dbName'
           ];
           const updateColumns = [
             'name', 'logo', 'principalName', 'email', 'phone', 'address', 'city', 'state',
             'academicSession', 'subscriptionPlan', 'status', 'adminName', 'adminEmail',
-            'adminUsername', 'adminPassword', 'noticeCategories', 'holidayClassifications', 'updatedAt', 'dbName'
+            'adminUsername', 'adminPassword', 'examTypes', 'eventTypes', 'noticeCategories', 'holidayClassifications', 'updatedAt', 'dbName'
           ];
           const valueRows = db.schools.map(s => [
             s.id, s.name, s.code, s.subdomain, s.logo, s.principalName || s.principal || '', s.email, 
             s.phone, s.address, s.city, s.state, s.country || 'India', s.academicSession || '2026-2027', 
             s.subscriptionPlan || 'Starter', s.url, s.status || 'Active', s.adminName || '', s.adminEmail || '', 
             s.adminUsername || '', s.adminPassword || '', 
-             s.noticeCategories ? (typeof s.noticeCategories === 'string' ? s.noticeCategories : JSON.stringify(s.noticeCategories)) : null,
-             s.holidayClassifications ? (typeof s.holidayClassifications === 'string' ? s.holidayClassifications : JSON.stringify(s.holidayClassifications)) : null,
-             s.createdAt, s.updatedAt || s.createdAt || new Date().toISOString(),
-             s.dbName || `school_${slugify(s.subdomain)}`
-           ]);
-           await bulkInsertOrUpdate('schools', columns, valueRows, updateColumns);
+            s.examTypes ? (typeof s.examTypes === 'string' ? s.examTypes : JSON.stringify(s.examTypes)) : null,
+            s.eventTypes ? (typeof s.eventTypes === 'string' ? s.eventTypes : JSON.stringify(s.eventTypes)) : null,
+            s.noticeCategories ? (typeof s.noticeCategories === 'string' ? s.noticeCategories : JSON.stringify(s.noticeCategories)) : null,
+            s.holidayClassifications ? (typeof s.holidayClassifications === 'string' ? s.holidayClassifications : JSON.stringify(s.holidayClassifications)) : null,
+            s.createdAt, s.updatedAt || s.createdAt || new Date().toISOString(),
+            s.dbName || `school_${slugify(s.subdomain)}`
+          ]);
+          await bulkInsertOrUpdate('schools', columns, valueRows, updateColumns);
          })());
        }
 
@@ -4595,6 +4621,14 @@ export const writeDb = (data) => {
       for (const key of trackKeys) {
         const oldVal = oldCache[key];
         const newVal = data[key];
+        if (key === 'school' && data.school !== undefined) {
+          changedKeys.add('school');
+          continue;
+        }
+        if (key === 'schools' && data.schools !== undefined) {
+          changedKeys.add('schools');
+          continue;
+        }
         if (key === 'roles' && data.roles !== undefined) {
           changedKeys.add('roles');
           continue;

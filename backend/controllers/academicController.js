@@ -1,4 +1,5 @@
 import { readDb, writeDb, addActivity, convertToRoman, tenantStorage, slugify } from '../utils/db.js';
+import * as sqlDb from '../utils/sqlDb.js';
 import * as XLSX from 'xlsx';
 import { PDFParse } from 'pdf-parse';
 
@@ -2300,47 +2301,72 @@ export const updateExamTypes = (req, res) => {
   res.json({ success: true, examTypes });
 };
 
+// Default Categories for Academic Activities
+const DEFAULT_EVENT_TYPES = ['Sports', 'Cultural', 'Academic', 'Holiday', 'PTA Meet', 'Competition', 'Workshop'];
+const DEFAULT_NOTICE_CATEGORIES = ['Academic', 'Administrative', 'Examination', 'General', 'Events', 'Important'];
+const DEFAULT_HOLIDAY_CLASSIFICATIONS = ['National Holiday', 'Festival', 'Vacation', 'Gazetted Holiday', 'Restricted Holiday'];
+
 // Event Types Controllers
 export const getEventTypes = (req, res) => {
   const db = readDb();
   if (!db.school) db.school = {};
-  const eventTypes = db.school.eventTypes || [];
+  let eventTypes = db.school.eventTypes;
+  if (typeof eventTypes === 'string') {
+    try { eventTypes = JSON.parse(eventTypes); } catch(e) { eventTypes = []; }
+  }
+  if (typeof eventTypes === 'string') {
+    try { eventTypes = JSON.parse(eventTypes); } catch(e) { eventTypes = []; }
+  }
+  if (!Array.isArray(eventTypes) || eventTypes.length === 0) {
+    eventTypes = DEFAULT_EVENT_TYPES;
+    db.school = { ...db.school, eventTypes };
+    writeDb(db);
+  }
   res.json(eventTypes);
 };
 
-export const updateEventTypes = (req, res) => {
+export const updateEventTypes = async (req, res) => {
   const { eventTypes } = req.body;
   if (!Array.isArray(eventTypes)) {
     return res.status(400).json({ error: 'eventTypes must be an array of strings.' });
   }
+  const cleanList = [...new Set(eventTypes.map(s => String(s).trim()).filter(Boolean))];
   const db = readDb();
   if (!db.school) db.school = {};
   
-  db.school.eventTypes = eventTypes;
+  db.school = {
+    ...db.school,
+    eventTypes: cleanList
+  };
   writeDb(db);
 
-  // Sync to global platform list too
+  // Directly update MySQL schools table too for immediate consistency
   const tenantId = tenantStorage.getStore();
   if (tenantId) {
+    try {
+      await sqlDb.query('UPDATE schools SET eventTypes = ? WHERE subdomain = ?', [JSON.stringify(cleanList), tenantId]);
+    } catch (err) {
+      console.error('[updateEventTypes SQL Error]:', err.message);
+    }
     const platformDb = tenantStorage.run(null, () => readDb());
     const index = (platformDb.schools || []).findIndex(s => slugify(s.subdomain) === slugify(tenantId));
     if (index !== -1) {
       platformDb.schools[index] = {
         ...platformDb.schools[index],
-        eventTypes: JSON.stringify(eventTypes) // Save serialized version for SQL update
+        eventTypes: cleanList
       };
       tenantStorage.run(null, () => writeDb(platformDb));
     }
   }
 
-  res.json({ success: true, eventTypes });
+  res.json({ success: true, eventTypes: cleanList });
 };
 
 // Notice Categories Controllers
 export const getNoticeCategories = (req, res) => {
   const db = readDb();
   if (!db.school) db.school = {};
-  let noticeCategories = db.school.noticeCategories || [];
+  let noticeCategories = db.school.noticeCategories;
   // Safety: handle corrupted double-stringified data
   if (typeof noticeCategories === 'string') {
     try { noticeCategories = JSON.parse(noticeCategories); } catch(e) { noticeCategories = []; }
@@ -2348,43 +2374,56 @@ export const getNoticeCategories = (req, res) => {
   if (typeof noticeCategories === 'string') {
     try { noticeCategories = JSON.parse(noticeCategories); } catch(e) { noticeCategories = []; }
   }
-  if (!Array.isArray(noticeCategories)) noticeCategories = [];
+  if (!Array.isArray(noticeCategories) || noticeCategories.length === 0) {
+    noticeCategories = DEFAULT_NOTICE_CATEGORIES;
+    db.school = { ...db.school, noticeCategories };
+    writeDb(db);
+  }
   res.json(noticeCategories);
 };
 
-export const updateNoticeCategories = (req, res) => {
+export const updateNoticeCategories = async (req, res) => {
   const { noticeCategories } = req.body;
   if (!Array.isArray(noticeCategories)) {
     return res.status(400).json({ error: 'noticeCategories must be an array of strings.' });
   }
+  const cleanList = [...new Set(noticeCategories.map(s => String(s).trim()).filter(Boolean))];
   const db = readDb();
   if (!db.school) db.school = {};
   
-  db.school.noticeCategories = noticeCategories;
+  db.school = {
+    ...db.school,
+    noticeCategories: cleanList
+  };
   writeDb(db);
 
-  // Sync to global platform list too
+  // Directly update MySQL schools table too for immediate consistency
   const tenantId = tenantStorage.getStore();
   if (tenantId) {
+    try {
+      await sqlDb.query('UPDATE schools SET noticeCategories = ? WHERE subdomain = ?', [JSON.stringify(cleanList), tenantId]);
+    } catch (err) {
+      console.error('[updateNoticeCategories SQL Error]:', err.message);
+    }
     const platformDb = tenantStorage.run(null, () => readDb());
     const index = (platformDb.schools || []).findIndex(s => slugify(s.subdomain) === slugify(tenantId));
     if (index !== -1) {
       platformDb.schools[index] = {
         ...platformDb.schools[index],
-        noticeCategories: noticeCategories
+        noticeCategories: cleanList
       };
       tenantStorage.run(null, () => writeDb(platformDb));
     }
   }
 
-  res.json({ success: true, noticeCategories });
+  res.json({ success: true, noticeCategories: cleanList });
 };
 
 // Holiday Classifications Controllers
 export const getHolidayClassifications = (req, res) => {
   const db = readDb();
   if (!db.school) db.school = {};
-  let holidayClassifications = db.school.holidayClassifications || [];
+  let holidayClassifications = db.school.holidayClassifications;
   // Safety: handle corrupted double-stringified data
   if (typeof holidayClassifications === 'string') {
     try { holidayClassifications = JSON.parse(holidayClassifications); } catch(e) { holidayClassifications = []; }
@@ -2392,36 +2431,49 @@ export const getHolidayClassifications = (req, res) => {
   if (typeof holidayClassifications === 'string') {
     try { holidayClassifications = JSON.parse(holidayClassifications); } catch(e) { holidayClassifications = []; }
   }
-  if (!Array.isArray(holidayClassifications)) holidayClassifications = [];
+  if (!Array.isArray(holidayClassifications) || holidayClassifications.length === 0) {
+    holidayClassifications = DEFAULT_HOLIDAY_CLASSIFICATIONS;
+    db.school = { ...db.school, holidayClassifications };
+    writeDb(db);
+  }
   res.json(holidayClassifications);
 };
 
-export const updateHolidayClassifications = (req, res) => {
+export const updateHolidayClassifications = async (req, res) => {
   const { holidayClassifications } = req.body;
   if (!Array.isArray(holidayClassifications)) {
     return res.status(400).json({ error: 'holidayClassifications must be an array of strings.' });
   }
+  const cleanList = [...new Set(holidayClassifications.map(s => String(s).trim()).filter(Boolean))];
   const db = readDb();
   if (!db.school) db.school = {};
   
-  db.school.holidayClassifications = holidayClassifications;
+  db.school = {
+    ...db.school,
+    holidayClassifications: cleanList
+  };
   writeDb(db);
 
-  // Sync to global platform list too
+  // Directly update MySQL schools table too for immediate consistency
   const tenantId = tenantStorage.getStore();
   if (tenantId) {
+    try {
+      await sqlDb.query('UPDATE schools SET holidayClassifications = ? WHERE subdomain = ?', [JSON.stringify(cleanList), tenantId]);
+    } catch (err) {
+      console.error('[updateHolidayClassifications SQL Error]:', err.message);
+    }
     const platformDb = tenantStorage.run(null, () => readDb());
     const index = (platformDb.schools || []).findIndex(s => slugify(s.subdomain) === slugify(tenantId));
     if (index !== -1) {
       platformDb.schools[index] = {
         ...platformDb.schools[index],
-        holidayClassifications: holidayClassifications
+        holidayClassifications: cleanList
       };
       tenantStorage.run(null, () => writeDb(platformDb));
     }
   }
 
-  res.json({ success: true, holidayClassifications });
+  res.json({ success: true, holidayClassifications: cleanList });
 };
 
 
