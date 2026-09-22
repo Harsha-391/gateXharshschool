@@ -130,6 +130,7 @@ const getPermissionParams = (req) => {
     return { module: 'results-marks-entry', action };
   }
   if (path.startsWith('/calendar-events') || path.startsWith('/calendar-imports') || path.startsWith('/calendar-upload') || path.startsWith('/calendar-import-confirm') || path.startsWith('/calendar-template') || path.startsWith('/calendar-export') || path.startsWith('/calendar')) {
+    if (path.startsWith('/calendar/published') && action === 'view') return null;
     return { module: 'academic-calendar', action };
   }
   

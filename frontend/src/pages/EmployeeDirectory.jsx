@@ -83,10 +83,10 @@ const DESIGNATION_DETAILS = {
 
 export default function EmployeeDirectory({ readOnly = true, onAddClick, onEditClick }) {
   const getQrImageUrl = (qrCodePath, employeeId, employeeType) => {
-    if (qrCodePath && qrCodePath.startsWith('data:')) {
+    if (qrCodePath && (qrCodePath.startsWith('data:') || qrCodePath.startsWith('http://') || qrCodePath.startsWith('https://') || qrCodePath.startsWith('/'))) {
       return qrCodePath;
     }
-    const payload = JSON.stringify({ employeeId, employeeType });
+    const payload = JSON.stringify({ employeeId, employeeType: employeeType || 'Employee' });
     return `https://api.qrserver.com/v1/create-qr-code/?size=300x300&color=1e1b4b&data=${encodeURIComponent(payload)}`;
   };
 

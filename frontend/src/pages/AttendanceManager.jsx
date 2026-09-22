@@ -414,22 +414,33 @@ export default function AttendanceManager() {
       inversionAttempts: 'dontInvert'
     });
 
-    if (code) {
+    if (code && code.data) {
       try {
-        const payload = JSON.parse(code.data);
-        if (payload.employeeId && payload.employeeType) {
+        let payload = null;
+        try {
+          payload = JSON.parse(code.data);
+        } catch (e) {
+          if (typeof code.data === 'string' && code.data.trim()) {
+            payload = { employeeId: code.data.trim(), employeeType: 'Teacher' };
+          }
+        }
+
+        const employeeId = payload?.employeeId || payload?.id;
+        const employeeType = payload?.employeeType || payload?.type || 'Teacher';
+
+        if (employeeId) {
           // Debounce same scan to prevent duplicate scans in a row (5 seconds threshold)
           const now = Date.now();
-          if (payload.employeeId === lastScannedId && (now - lastScanTime) < 5000) {
+          if (employeeId === lastScannedId && (now - lastScanTime) < 5000) {
             // Skip processing, wait for timeout
           } else {
-            setLastScannedId(payload.employeeId);
+            setLastScannedId(employeeId);
             setLastScanTime(now);
-            processAttendanceScan(payload.employeeId, payload.employeeType, payload);
+            processAttendanceScan(employeeId, employeeType, payload);
           }
         }
       } catch (err) {
-        // Code read is not our ERP payload
+        // Code read error
       }
     }
     requestRef.current = requestAnimationFrame(scanLoop);
