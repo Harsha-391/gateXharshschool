@@ -2301,6 +2301,11 @@ export const updateExamTypes = (req, res) => {
   res.json({ success: true, examTypes });
 };
 
+// Known static legacy default sets to purge until created manually by user
+const OLD_STATIC_EVENT_DEFAULTS = new Set(['sports', 'cultural', 'academic', 'holiday', 'pta meet', 'competition', 'workshop']);
+const OLD_STATIC_NOTICE_DEFAULTS = new Set(['academic', 'administrative', 'examination', 'general', 'events', 'important']);
+const OLD_STATIC_HOLIDAY_DEFAULTS = new Set(['national holiday', 'festival', 'vacation', 'gazetted holiday', 'restricted holiday']);
+
 // Event Types Controllers
 export const getEventTypes = (req, res) => {
   const db = readDb();
@@ -2314,6 +2319,14 @@ export const getEventTypes = (req, res) => {
   }
   if (!Array.isArray(eventTypes)) {
     eventTypes = [];
+  }
+  if (!db.school.hasCustomEventTypes) {
+    const cleaned = eventTypes.filter(c => !OLD_STATIC_EVENT_DEFAULTS.has(String(c).toLowerCase().trim()));
+    if (cleaned.length !== eventTypes.length) {
+      eventTypes = cleaned;
+      db.school.eventTypes = cleaned;
+      writeDb(db);
+    }
   }
   res.json(eventTypes);
 };
@@ -2329,7 +2342,8 @@ export const updateEventTypes = async (req, res) => {
   
   db.school = {
     ...db.school,
-    eventTypes: cleanList
+    eventTypes: cleanList,
+    hasCustomEventTypes: true
   };
   writeDb(db);
 
@@ -2346,7 +2360,8 @@ export const updateEventTypes = async (req, res) => {
     if (index !== -1) {
       platformDb.schools[index] = {
         ...platformDb.schools[index],
-        eventTypes: cleanList
+        eventTypes: cleanList,
+        hasCustomEventTypes: true
       };
       tenantStorage.run(null, () => writeDb(platformDb));
     }
@@ -2370,6 +2385,14 @@ export const getNoticeCategories = (req, res) => {
   if (!Array.isArray(noticeCategories)) {
     noticeCategories = [];
   }
+  if (!db.school.hasCustomNoticeCategories) {
+    const cleaned = noticeCategories.filter(c => !OLD_STATIC_NOTICE_DEFAULTS.has(String(c).toLowerCase().trim()));
+    if (cleaned.length !== noticeCategories.length) {
+      noticeCategories = cleaned;
+      db.school.noticeCategories = cleaned;
+      writeDb(db);
+    }
+  }
   res.json(noticeCategories);
 };
 
@@ -2384,7 +2407,8 @@ export const updateNoticeCategories = async (req, res) => {
   
   db.school = {
     ...db.school,
-    noticeCategories: cleanList
+    noticeCategories: cleanList,
+    hasCustomNoticeCategories: true
   };
   writeDb(db);
 
@@ -2401,7 +2425,8 @@ export const updateNoticeCategories = async (req, res) => {
     if (index !== -1) {
       platformDb.schools[index] = {
         ...platformDb.schools[index],
-        noticeCategories: cleanList
+        noticeCategories: cleanList,
+        hasCustomNoticeCategories: true
       };
       tenantStorage.run(null, () => writeDb(platformDb));
     }
@@ -2425,6 +2450,14 @@ export const getHolidayClassifications = (req, res) => {
   if (!Array.isArray(holidayClassifications)) {
     holidayClassifications = [];
   }
+  if (!db.school.hasCustomHolidayClassifications) {
+    const cleaned = holidayClassifications.filter(c => !OLD_STATIC_HOLIDAY_DEFAULTS.has(String(c).toLowerCase().trim()));
+    if (cleaned.length !== holidayClassifications.length) {
+      holidayClassifications = cleaned;
+      db.school.holidayClassifications = cleaned;
+      writeDb(db);
+    }
+  }
   res.json(holidayClassifications);
 };
 
@@ -2439,7 +2472,8 @@ export const updateHolidayClassifications = async (req, res) => {
   
   db.school = {
     ...db.school,
-    holidayClassifications: cleanList
+    holidayClassifications: cleanList,
+    hasCustomHolidayClassifications: true
   };
   writeDb(db);
 
@@ -2456,7 +2490,8 @@ export const updateHolidayClassifications = async (req, res) => {
     if (index !== -1) {
       platformDb.schools[index] = {
         ...platformDb.schools[index],
-        holidayClassifications: cleanList
+        holidayClassifications: cleanList,
+        hasCustomHolidayClassifications: true
       };
       tenantStorage.run(null, () => writeDb(platformDb));
     }

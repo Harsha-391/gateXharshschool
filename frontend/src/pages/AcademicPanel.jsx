@@ -75,6 +75,11 @@ const isTeacherProfile = (t) => {
   return false;
 };
 
+// Known legacy defaults to ignore unless explicitly created manually by user
+const OLD_LEGACY_EVENT_DEFAULTS = new Set(['sports', 'cultural', 'academic', 'holiday', 'pta meet', 'competition', 'workshop']);
+const OLD_LEGACY_NOTICE_DEFAULTS = new Set(['academic', 'administrative', 'examination', 'general', 'events', 'important']);
+const OLD_LEGACY_HOLIDAY_DEFAULTS = new Set(['national holiday', 'festival', 'vacation', 'gazetted holiday', 'restricted holiday']);
+
 export default function AcademicPanel({ subView, setAdminView, userProfile }) {
   // Master API states
   const [timetables, setTimetables] = useState([]);
@@ -263,6 +268,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
 
   const saveEventTypesToServer = async (typesList) => {
     try {
+      localStorage.setItem('custom_event_types_created', 'true');
       const cleanList = [...new Set(typesList.map(t => String(t).trim()).filter(Boolean))];
       setEventTypes(cleanList);
       const res = await fetch('/api/academics/event-types', {
@@ -280,6 +286,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
 
   const saveNoticeCategoriesToServer = async (categoriesList) => {
     try {
+      localStorage.setItem('custom_notice_categories_created', 'true');
       const cleanList = [...new Set(categoriesList.map(c => String(c).trim()).filter(Boolean))];
       setNoticeCategories(cleanList);
       const res = await fetch('/api/academics/notice-categories', {
@@ -297,6 +304,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
 
   const saveHolidayClassificationsToServer = async (classificationsList) => {
     try {
+      localStorage.setItem('custom_holiday_classifications_created', 'true');
       const cleanList = [...new Set(classificationsList.map(c => String(c).trim()).filter(Boolean))];
       setHolidayClassifications(cleanList);
       const res = await fetch('/api/academics/holiday-classifications', {
@@ -525,19 +533,31 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
         { url: '/api/academics/exam-types', setter: setExamTypes },
         { url: '/api/academics/event-types', setter: (data) => {
           let arr = Array.isArray(data) ? data : (typeof data === 'string' ? JSON.parse(data || '[]') : []);
-          setEventTypes(Array.isArray(arr) ? arr : []);
+          let list = Array.isArray(arr) ? arr : [];
+          if (!localStorage.getItem('custom_event_types_created')) {
+            list = list.filter(c => !OLD_LEGACY_EVENT_DEFAULTS.has(String(c).toLowerCase().trim()));
+          }
+          setEventTypes(list);
         }},
         { url: '/api/academics/notice-categories', setter: (data) => {
           let arr = data;
           if (typeof arr === 'string') { try { arr = JSON.parse(arr); } catch(e) { arr = []; } }
           if (typeof arr === 'string') { try { arr = JSON.parse(arr); } catch(e) { arr = []; } }
-          setNoticeCategories(Array.isArray(arr) ? arr : []);
+          let list = Array.isArray(arr) ? arr : [];
+          if (!localStorage.getItem('custom_notice_categories_created')) {
+            list = list.filter(c => !OLD_LEGACY_NOTICE_DEFAULTS.has(String(c).toLowerCase().trim()));
+          }
+          setNoticeCategories(list);
         }},
         { url: '/api/academics/holiday-classifications', setter: (data) => {
           let arr = data;
           if (typeof arr === 'string') { try { arr = JSON.parse(arr); } catch(e) { arr = []; } }
           if (typeof arr === 'string') { try { arr = JSON.parse(arr); } catch(e) { arr = []; } }
-          setHolidayClassifications(Array.isArray(arr) ? arr : []);
+          let list = Array.isArray(arr) ? arr : [];
+          if (!localStorage.getItem('custom_holiday_classifications_created')) {
+            list = list.filter(c => !OLD_LEGACY_HOLIDAY_DEFAULTS.has(String(c).toLowerCase().trim()));
+          }
+          setHolidayClassifications(list);
         }}
       ];
 
