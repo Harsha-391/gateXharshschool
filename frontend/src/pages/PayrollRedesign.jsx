@@ -269,27 +269,32 @@ export function PayrollHubRedesign({ type, showToast }) {
 // 2. SALARY CONFIGURATION TAB SUB-COMPONENT
 // ==========================================
 function SalaryConfigurationTab({ directoryData, loading, searchQuery, setSearchQuery, onConfigureSalary, type, allDesignations = [] }) {
-  const [selectedRole, setSelectedRole] = useState('');
+  const [selectedRole, setSelectedRole] = useState('All');
 
   const uniqueDesignations = Array.from(new Set([
     ...allDesignations,
     ...directoryData.map(e => e.role || e.designation).filter(Boolean)
-  ]));
-  const rolesList = uniqueDesignations;
+  ])).filter(d => d !== 'All');
+  const rolesList = ['All', ...uniqueDesignations];
 
-  const activeRole = selectedRole === '' || selectedRole === 'All' || !uniqueDesignations.includes(selectedRole) ? (uniqueDesignations[0] || '') : selectedRole;
+  const activeRole = selectedRole || 'All';
 
   // Filter query
   const filtered = directoryData.filter(e => {
     const roleOrDesig = (e.role || e.designation || '').toLowerCase();
-    const matchesSearch = e.name.toLowerCase().startsWith(searchQuery.toLowerCase()) ||
-                          e.id.toLowerCase().startsWith(searchQuery.toLowerCase()) ||
-                          (e.department || '').toLowerCase().startsWith(searchQuery.toLowerCase()) ||
-                          roleOrDesig.startsWith(searchQuery.toLowerCase());
+    const query = (searchQuery || '').trim().toLowerCase();
+    const matchesSearch = !query ||
+                          (e.name || '').toLowerCase().includes(query) ||
+                          (e.id || '').toLowerCase().includes(query) ||
+                          (e.department || '').toLowerCase().includes(query) ||
+                          roleOrDesig.includes(query);
     if (!matchesSearch) return false;
 
-    if ((type === 'Staff' || type === 'Employee') && activeRole !== '') {
-      return (e.role || e.designation) === activeRole;
+    if ((type === 'Staff' || type === 'Employee') && activeRole !== 'All') {
+      const targetRole = activeRole.trim().toLowerCase();
+      const userRole = (e.role || '').trim().toLowerCase();
+      const userDesig = (e.designation || '').trim().toLowerCase();
+      return userRole === targetRole || userDesig === targetRole;
     }
     return true;
   });
@@ -473,7 +478,7 @@ function PaymentsTab({ directoryData, loading, onPaySalary, showToast, type, all
   const [paymentsList, setPaymentsList] = useState([]);
   const [loadingPayHistory, setLoadingPayHistory] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedRole, setSelectedRole] = useState('');
+  const [selectedRole, setSelectedRole] = useState('All');
 
   // Generate years list dynamically from 2024 up to current year
   const dynamicYears = [];
@@ -519,22 +524,27 @@ function PaymentsTab({ directoryData, loading, onPaySalary, showToast, type, all
   const uniqueDesignations = Array.from(new Set([
     ...allDesignations,
     ...directoryData.map(e => e.role || e.designation).filter(Boolean)
-  ]));
-  const rolesList = uniqueDesignations;
+  ])).filter(d => d !== 'All');
+  const rolesList = ['All', ...uniqueDesignations];
 
-  const activeRole = selectedRole === '' || selectedRole === 'All' || !uniqueDesignations.includes(selectedRole) ? (uniqueDesignations[0] || '') : selectedRole;
+  const activeRole = selectedRole || 'All';
 
   // Filter list to show all matching workers
   const filtered = directoryData.filter(e => {
     const roleOrDesig = (e.role || e.designation || '').toLowerCase();
-    const isMatched = e.name.toLowerCase().startsWith(searchQuery.toLowerCase()) ||
-                      e.id.toLowerCase().startsWith(searchQuery.toLowerCase()) ||
-                      (e.department || '').toLowerCase().startsWith(searchQuery.toLowerCase()) ||
-                      roleOrDesig.startsWith(searchQuery.toLowerCase());
+    const query = (searchQuery || '').trim().toLowerCase();
+    const isMatched = !query ||
+                      (e.name || '').toLowerCase().includes(query) ||
+                      (e.id || '').toLowerCase().includes(query) ||
+                      (e.department || '').toLowerCase().includes(query) ||
+                      roleOrDesig.includes(query);
     if (!isMatched) return false;
 
-    if ((type === 'Staff' || type === 'Employee') && activeRole !== '') {
-      return (e.role || e.designation) === activeRole;
+    if ((type === 'Staff' || type === 'Employee') && activeRole !== 'All') {
+      const targetRole = activeRole.trim().toLowerCase();
+      const userRole = (e.role || '').trim().toLowerCase();
+      const userDesig = (e.designation || '').trim().toLowerCase();
+      return userRole === targetRole || userDesig === targetRole;
     }
     return true;
   });
@@ -1036,12 +1046,18 @@ function PayrollDashboardRedesign({ type, showToast }) {
         })
         .catch(() => setAvailableRoles([]));
     } else if (type === 'Employee') {
-      fetch('/api/employees?limit=1000', { headers: getAuthHeaders() })
+      fetch('/api/designations', { headers: getAuthHeaders() })
         .then(res => res.json())
         .then(data => {
-          const items = data.employees || data.data || data || [];
-          const desigs = [...new Set(items.map(e => e.designation).filter(Boolean))].sort();
-          setAvailableRoles(desigs);
+          const list = (Array.isArray(data) ? data : []).filter(d => d.status === 'Active' || !d.status).map(d => typeof d === 'string' ? d : d.name).filter(Boolean);
+          fetch('/api/employees?limit=1000', { headers: getAuthHeaders() })
+            .then(res => res.json())
+            .then(empData => {
+              const items = empData.employees || empData.data || empData || [];
+              const desigs = [...new Set([...list, ...items.map(e => e.designation || e.role).filter(Boolean)])].sort();
+              setAvailableRoles(desigs);
+            })
+            .catch(() => setAvailableRoles([...new Set(list)].sort()));
         })
         .catch(() => setAvailableRoles([]));
     } else if (type === 'Teacher') {

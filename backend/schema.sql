@@ -209,6 +209,7 @@ CREATE TABLE IF NOT EXISTS employees (
   qualification TEXT NULL,
   experience TEXT NULL,
   dateOfJoining VARCHAR(50),
+  joiningDate VARCHAR(50) NULL,
   salaryGrade VARCHAR(100),
   reportingTo VARCHAR(255),
   address TEXT,

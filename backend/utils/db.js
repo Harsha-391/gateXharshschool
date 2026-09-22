@@ -432,7 +432,8 @@ const createTablesFromSchema = async () => {
       "ALTER TABLE employees ADD COLUMN designation VARCHAR(100) NULL",
       "ALTER TABLE employees ADD COLUMN designationLevel VARCHAR(100) NULL",
       "ALTER TABLE employees ADD COLUMN employmentType VARCHAR(100) NULL",
-      "ALTER TABLE employees ADD COLUMN qrCodePath TEXT NULL"
+      "ALTER TABLE employees ADD COLUMN qrCodePath TEXT NULL",
+      "ALTER TABLE employees ADD COLUMN joiningDate VARCHAR(50) NULL"
     ];
 
     for (const sql of extraSchemaAlters) {
@@ -1627,7 +1628,8 @@ export const ensureEmployeeTableReady = async (targetTenant) => {
       "ALTER TABLE employees ADD COLUMN designationLevel VARCHAR(100) NULL",
       "ALTER TABLE employees ADD COLUMN employmentType VARCHAR(100) NULL",
       "ALTER TABLE employees ADD COLUMN qrCodePath TEXT NULL",
-      "ALTER TABLE employees ADD COLUMN fullName VARCHAR(255) NULL"
+      "ALTER TABLE employees ADD COLUMN fullName VARCHAR(255) NULL",
+      "ALTER TABLE employees ADD COLUMN joiningDate VARCHAR(50) NULL"
     ];
     for (const sql of alters) {
       try {

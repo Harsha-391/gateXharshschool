@@ -22,7 +22,7 @@ router.get('/directory', async (req, res) => {
     } else if (type === 'Staff') {
       queryStr = 'SELECT id, name, department, role, joiningDate, status, photo FROM staff';
     } else if (type === 'Employee') {
-      queryStr = 'SELECT id, name, department, designation, joiningDate, status, photo FROM employees';
+      queryStr = 'SELECT id, name, department, designation, role, COALESCE(joiningDate, dateOfJoining, "") as joiningDate, status, photo FROM employees';
     } else {
       return res.status(400).json({ error: 'Invalid type parameter. Must be Teacher, Staff, or Employee.' });
     }
@@ -44,7 +44,7 @@ router.get('/directory', async (req, res) => {
     const mapped = records.map(r => {
       const salary = salaryMasters.find(s => s.employeeId === r.id);
       const lastPay = lastPayments.find(p => p.employeeId === r.id);
-      const roleValue = type === 'Employee' ? (r.designation || 'N/A') : (r.role || 'N/A');
+      const roleValue = type === 'Employee' ? (r.designation || r.role || 'N/A') : (r.role || r.designation || 'N/A');
       return {
         id: r.id,
         name: r.name,
@@ -176,7 +176,7 @@ router.get('/payments', async (req, res) => {
       `SELECT p.*, 
         COALESCE(t.name, st.name, emp.name) as employeeName,
         COALESCE(t.department, st.department, emp.department) as department,
-        COALESCE(t.role, st.role, emp.designation) as designation,
+        COALESCE(t.role, st.role, emp.designation, emp.role) as designation,
         st.role as staffRole
        FROM salary_payments p
        LEFT JOIN teachers t ON p.employeeId = t.id AND p.employeeType = 'Teacher'
