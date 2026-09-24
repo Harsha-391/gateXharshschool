@@ -664,20 +664,38 @@ export default function AttendanceManager() {
     <div className="animate-slide-up" style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
       
       {/* Top Title Section */}
-      <div className="glass-panel" style={{ padding: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-          <div style={{ padding: '12px', borderRadius: '14px', background: 'rgba(hsl(var(--color-primary)), 0.1)', color: 'hsl(var(--color-primary))' }}>
+      <div className="glass-panel attendance-header-panel" style={{ overflow: 'hidden', boxSizing: 'border-box' }}>
+        <div className="attendance-header-title" style={{ display: 'flex', alignItems: 'center', gap: '16px', maxWidth: '100%', minWidth: 0 }}>
+          <div style={{ padding: '12px', borderRadius: '14px', background: 'rgba(hsl(var(--color-primary)), 0.1)', color: 'hsl(var(--color-primary))', flexShrink: 0 }}>
             <QrCode size={28} />
           </div>
-          <div>
+          <div className="attendance-header-title-text" style={{ minWidth: 0, flex: 1 }}>
             <h2 style={{ fontSize: '1.4rem', fontWeight: 800, margin: 0 }}>QR Staff/Employee Attendance</h2>
             <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', margin: '4px 0 0 0' }}>Camera-based instant scanning, real-time analytics, and detailed compliance reporting.</p>
           </div>
         </div>
 
         {/* Tab Selection & Manual Action */}
-        <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
-          <div style={{ display: 'flex', gap: '8px', background: 'rgba(255,255,255,0.03)', padding: '6px', borderRadius: '10px', border: '1px solid var(--border-glass)' }}>
+        <div className="attendance-header-actions" style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap', maxWidth: '100%', minWidth: 0 }}>
+          <div
+            className="attendance-main-tabs-container"
+            style={{
+              display: 'flex',
+              gap: '6px',
+              background: 'rgba(0,0,0,0.03)',
+              padding: '5px',
+              borderRadius: '10px',
+              border: '1px solid var(--border-glass)',
+              maxWidth: '100%',
+              overflowX: 'auto',
+              WebkitOverflowScrolling: 'touch',
+              scrollbarWidth: 'none',
+              msOverflowStyle: 'none',
+              boxSizing: 'border-box',
+              minWidth: 0,
+              flexShrink: 1
+            }}
+          >
             {[
               { id: 'dashboard', label: 'Dashboard', icon: Users },
               { id: 'scanner', label: 'QR Scanner', icon: Camera },
@@ -690,10 +708,23 @@ export default function AttendanceManager() {
                   setActiveTab(tab.id);
                   if (tab.id !== 'scanner') stopScanner();
                 }}
+                className={`attendance-main-tab-btn ${activeTab === tab.id ? 'active' : ''}`}
                 style={{
-                  display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: '0.82rem', transition: 'all 0.2s',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  padding: '8px 14px',
+                  borderRadius: '8px',
+                  border: 'none',
+                  cursor: 'pointer',
+                  fontWeight: 600,
+                  fontSize: '0.82rem',
+                  transition: 'all 0.2s',
+                  whiteSpace: 'nowrap',
+                  flexShrink: 0,
                   background: activeTab === tab.id ? 'hsl(var(--color-primary))' : 'transparent',
-                  color: activeTab === tab.id ? '#ffffff' : 'var(--text-muted)'
+                  color: activeTab === tab.id ? '#ffffff' : 'var(--text-muted)',
+                  boxShadow: activeTab === tab.id ? '0 2px 8px rgba(255, 107, 0, 0.25)' : 'none'
                 }}
               >
                 <tab.icon size={15} />
@@ -713,7 +744,7 @@ export default function AttendanceManager() {
               });
               setShowManualModal(true);
             }}
-            className="btn-primary"
+            className="btn-primary attendance-manual-punch-button"
             style={{
               padding: '10px 18px',
               borderRadius: '10px',
@@ -724,7 +755,8 @@ export default function AttendanceManager() {
               gap: '6px',
               background: 'linear-gradient(135deg, hsl(var(--color-primary)) 0%, #e07830 100%)',
               border: 'none',
-              boxShadow: '0 4px 12px rgba(255, 107, 0, 0.25)'
+              boxShadow: '0 4px 12px rgba(255, 107, 0, 0.25)',
+              flexShrink: 0
             }}
           >
             <Clock size={16} />
@@ -741,7 +773,7 @@ export default function AttendanceManager() {
           {/* Staff Attendance Summary */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
             <h4 style={{ fontSize: '0.88rem', fontWeight: 700, margin: 0, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'hsl(var(--color-primary))' }}>Staff Attendance</h4>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '16px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 160px), 1fr))', gap: '16px' }}>
               {[
                 { label: 'Total Staff', value: analytics?.staffSummary?.total ?? '—', icon: Users, color: 'var(--text-main)', bg: 'rgba(255, 255, 255, 0.04)' },
                 { label: 'Present Today', value: analytics?.staffSummary?.present ?? '—', icon: UserCheck, color: 'rgb(var(--color-success-rgb))', bg: 'rgba(var(--color-success-rgb), 0.1)' },
@@ -766,7 +798,7 @@ export default function AttendanceManager() {
           {/* Teacher Attendance Summary */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
             <h4 style={{ fontSize: '0.88rem', fontWeight: 700, margin: 0, textTransform: 'uppercase', letterSpacing: '0.5px', color: '#3b82f6' }}>Teacher Attendance</h4>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '16px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 160px), 1fr))', gap: '16px' }}>
               {[
                 { label: 'Total Teachers', value: analytics?.teacherSummary?.total ?? '—', icon: Users, color: 'var(--text-main)', bg: 'rgba(255, 255, 255, 0.04)' },
                 { label: 'Present Today', value: analytics?.teacherSummary?.present ?? '—', icon: UserCheck, color: 'rgb(var(--color-success-rgb))', bg: 'rgba(var(--color-success-rgb), 0.1)' },
@@ -791,7 +823,7 @@ export default function AttendanceManager() {
           {/* Employee (Support) Attendance Summary */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
             <h4 style={{ fontSize: '0.88rem', fontWeight: 700, margin: 0, textTransform: 'uppercase', letterSpacing: '0.5px', color: '#ec4899' }}>Employee Attendance</h4>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '16px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 160px), 1fr))', gap: '16px' }}>
               {[
                 { label: 'Total Employees', value: analytics?.employeeSummary?.total ?? '—', icon: Users, color: 'var(--text-main)', bg: 'rgba(255, 255, 255, 0.04)' },
                 { label: 'Present Today', value: analytics?.employeeSummary?.present ?? '—', icon: UserCheck, color: 'rgb(var(--color-success-rgb))', bg: 'rgba(var(--color-success-rgb), 0.1)' },
@@ -813,7 +845,7 @@ export default function AttendanceManager() {
             </div>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '20px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 300px), 1fr))', gap: '20px' }}>
             
             {/* Department Breakdown */}
             <div className="glass-panel" style={{ padding: '24px' }}>
@@ -1110,21 +1142,24 @@ export default function AttendanceManager() {
         });
 
         return (
-          <div className="glass-panel" style={{ padding: '24px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
+          <div className="glass-panel" style={{ padding: '24px', overflow: 'hidden', boxSizing: 'border-box' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', gap: '12px', flexWrap: 'wrap' }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                <h3 style={{ fontSize: '1.05rem', fontWeight: 700, margin: 0 }}>Today's Check-ins & Check-outs</h3>
+                <h3 style={{ fontSize: '1.05rem', fontWeight: 700, margin: 0 }}>Today's Check-ins &amp; Check-outs</h3>
                 <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: 0 }}>View logs separated by role category.</p>
               </div>
-              <button onClick={fetchTodayRecords} className="btn-secondary" style={{ padding: '6px 12px', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.8rem' }}>
+              <button onClick={fetchTodayRecords} className="btn-secondary" style={{ padding: '6px 12px', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.8rem', flexShrink: 0 }}>
                 <RefreshCw size={12} /> Refresh Logs
               </button>
+            </div>
 
-              <div style={{ display: 'flex', gap: '8px', background: 'rgba(255,255,255,0.02)', padding: '4px', borderRadius: '8px', border: '1px solid var(--border-glass)' }}>
+            {/* Tab Switcher — own row so it never overflows the card */}
+            <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', marginBottom: '16px', scrollbarWidth: 'none', msOverflowStyle: 'none', maxWidth: '100%', boxSizing: 'border-box' }}>
+              <div style={{ display: 'inline-flex', gap: '6px', background: 'rgba(255,255,255,0.02)', padding: '4px', borderRadius: '8px', border: '1px solid var(--border-glass)', minWidth: 'max-content' }}>
                 <button
                   onClick={() => setTodaySubTab('Staff')}
                   style={{
-                    padding: '6px 14px', borderRadius: '6px', border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: '0.78rem', transition: 'all 0.2s',
+                    padding: '6px 16px', borderRadius: '6px', border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: '0.78rem', transition: 'all 0.2s', whiteSpace: 'nowrap', flexShrink: 0,
                     background: todaySubTab === 'Staff' ? 'hsl(var(--color-primary))' : 'transparent',
                     color: todaySubTab === 'Staff' ? '#ffffff' : 'var(--text-muted)'
                   }}
@@ -1134,7 +1169,7 @@ export default function AttendanceManager() {
                 <button
                   onClick={() => setTodaySubTab('Teacher')}
                   style={{
-                    padding: '6px 14px', borderRadius: '6px', border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: '0.78rem', transition: 'all 0.2s',
+                    padding: '6px 16px', borderRadius: '6px', border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: '0.78rem', transition: 'all 0.2s', whiteSpace: 'nowrap', flexShrink: 0,
                     background: todaySubTab === 'Teacher' ? '#3b82f6' : 'transparent',
                     color: todaySubTab === 'Teacher' ? '#ffffff' : 'var(--text-muted)'
                   }}
@@ -1144,7 +1179,7 @@ export default function AttendanceManager() {
                 <button
                   onClick={() => setTodaySubTab('Employee')}
                   style={{
-                    padding: '6px 14px', borderRadius: '6px', border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: '0.78rem', transition: 'all 0.2s',
+                    padding: '6px 16px', borderRadius: '6px', border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: '0.78rem', transition: 'all 0.2s', whiteSpace: 'nowrap', flexShrink: 0,
                     background: todaySubTab === 'Employee' ? '#ec4899' : 'transparent',
                     color: todaySubTab === 'Employee' ? '#ffffff' : 'var(--text-muted)'
                   }}

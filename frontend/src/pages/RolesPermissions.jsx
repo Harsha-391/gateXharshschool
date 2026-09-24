@@ -532,9 +532,9 @@ export default function RolesPermissions({ initialTab = 'dashboard', onPermissio
       {/* Header telemetry row */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
         <div>
-          <h1 style={{ fontSize: '1.8rem', fontWeight: 800, margin: 0, display: 'flex', alignItems: 'center', gap: '12px', letterSpacing: '-0.02em', color: 'var(--text-main)' }}>
+          <h1 style={{ fontSize: 'clamp(1.25rem, 4vw, 1.8rem)', fontWeight: 800, margin: 0, display: 'flex', alignItems: 'center', gap: '12px', letterSpacing: '-0.02em', color: 'var(--text-main)', flexWrap: 'wrap' }}>
               <>
-                <Shield size={28} style={{ color: 'hsl(var(--color-primary))' }} />
+                <Shield size={28} style={{ color: 'hsl(var(--color-primary))', flexShrink: 0 }} />
                 Role & Permission Management
               </>
           </h1>
@@ -553,7 +553,7 @@ export default function RolesPermissions({ initialTab = 'dashboard', onPermissio
 
       {/* Navigation tabs */}
       {(
-        <div style={{ display: 'flex', borderBottom: '1px solid var(--border-glass)', paddingBottom: '2px', gap: '24px', overflowX: 'auto' }}>
+        <div style={{ display: 'flex', borderBottom: '1px solid var(--border-glass)', paddingBottom: '2px', gap: '20px', overflowX: 'auto', scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch', minWidth: 0 }}>
           {[
             { id: 'dashboard', label: 'Dashboard Overview', icon: Activity },
             { id: 'roles', label: 'Roles Management', icon: Shield },
@@ -621,7 +621,7 @@ export default function RolesPermissions({ initialTab = 'dashboard', onPermissio
           </div>
 
           {/* Quick shortcuts and Recent Audits row */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '24px', flexWrap: 'wrap' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 320px), 1fr))', gap: '24px' }}>
             
             {/* Quick configuration steps */}
             <div className="glass-panel" style={{ padding: '28px', borderRadius: '16px', border: '1px solid var(--border-glass)', background: 'var(--bg-card)', display: 'flex', flexDirection: 'column', gap: '20px' }}>
@@ -683,7 +683,7 @@ export default function RolesPermissions({ initialTab = 'dashboard', onPermissio
       {activeTab === 'roles' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
           
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
             <h2 style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--text-main)', margin: 0 }}>Active Role Profiles</h2>
             <button 
               onClick={() => { setEditingRole(null); setRoleForm({ name: '', description: '', active: true }); setShowRoleModal(true); }}
@@ -694,12 +694,12 @@ export default function RolesPermissions({ initialTab = 'dashboard', onPermissio
             </button>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '20px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 280px), 1fr))', gap: '20px' }}>
             {roles.length > 0 ? (
               roles.map(role => (
                 <div key={role.id} className="glass-panel" style={{
                   borderRadius: '16px', border: '1px solid var(--border-glass)', background: 'var(--bg-card)', overflow: 'hidden',
-                  display: 'flex', flexDirection: 'column', transition: 'all 0.3s ease', opacity: role.active ? 1 : 0.65
+                  display: 'flex', flexDirection: 'column', transition: 'all 0.3s ease', opacity: role.active ? 1 : 0.65, minWidth: 0
                 }}>
                   <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '12px', flex: 1 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -774,30 +774,35 @@ export default function RolesPermissions({ initialTab = 'dashboard', onPermissio
 
       {/* TAB CONTENT: 3. PERMISSIONS MATRIX */}
       {activeTab === 'matrix' && (
-        <div style={{ display: 'grid', gridTemplateColumns: '260px 1fr', gap: '24px' }}>
+        <div className="roles-matrix-layout">
           
-          {/* Left panel role select */}
-          <div className="glass-panel" style={{ padding: '20px', borderRadius: '16px', border: '1px solid var(--border-glass)', background: 'var(--bg-card)', display: 'flex', flexDirection: 'column', gap: '16px', height: 'fit-content' }}>
-            <h3 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.02em', color: 'var(--text-muted)' }}>Role Profiles</h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+          {/* Left / Top panel role select */}
+          <div className="glass-panel role-profiles-card">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 style={{ margin: 0, fontSize: '0.82rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)' }}>Role Profiles</h3>
+              <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 600 }}>{roles.length} roles</span>
+            </div>
+            <div className="role-profiles-list">
               {roles.length > 0 ? (
-                roles.map(r => (
-                  <button
-                    key={r.id}
-                    onClick={() => setMatrixRoleId(r.id)}
-                    style={{
-                      textAlign: 'left', background: r.id === matrixRoleId ? 'rgba(255, 107, 0, 0.08)' : 'none',
-                      border: r.id === matrixRoleId ? '1px solid rgba(255, 107, 0, 0.25)' : '1px solid transparent',
-                      padding: '12px 14px', borderRadius: '10px', color: r.id === matrixRoleId ? 'hsl(var(--color-primary))' : 'var(--text-main)',
-                      fontSize: '0.88rem', fontWeight: r.id === matrixRoleId ? 700 : 500, cursor: 'pointer', outline: 'none',
-                      display: 'flex', justifyContent: 'space-between', alignItems: 'center', transition: 'all 0.2s ease'
-                    }}
-                    className="role-select-item"
-                  >
-                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</span>
-                    <Lock size={12} style={{ color: 'var(--text-muted)' }} />
-                  </button>
-                ))
+                roles.map(r => {
+                  const isSelected = r.id === matrixRoleId;
+                  return (
+                    <button
+                      key={r.id}
+                      onClick={() => setMatrixRoleId(r.id)}
+                      style={{
+                        background: isSelected ? 'rgba(255, 107, 0, 0.1)' : 'var(--bg-glass-active, rgba(0,0,0,0.02))',
+                        border: isSelected ? '1px solid hsl(var(--color-primary))' : '1px solid var(--border-glass)',
+                        color: isSelected ? 'hsl(var(--color-primary))' : 'var(--text-main)',
+                        fontWeight: isSelected ? 700 : 500
+                      }}
+                      className="role-select-item"
+                    >
+                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</span>
+                      <Lock size={12} style={{ color: isSelected ? 'hsl(var(--color-primary))' : 'var(--text-muted)', flexShrink: 0 }} />
+                    </button>
+                  );
+                })
               ) : (
                 <div style={{ color: 'var(--text-muted)', fontSize: '0.88rem', padding: '12px 14px', textAlign: 'center' }}>
                   No Roles Found
@@ -808,18 +813,18 @@ export default function RolesPermissions({ initialTab = 'dashboard', onPermissio
 
           {/* Right panel spreadsheet matrix */}
           {selectedMatrixRole ? (
-            <div className="glass-panel" style={{ padding: '24px', borderRadius: '16px', border: '1px solid var(--border-glass)', background: 'var(--bg-card)', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            <div className="glass-panel permissions-grid-card">
               
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
-                <div>
-                  <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-main)' }}>
+              <div className="matrix-header">
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-main)', wordBreak: 'break-word' }}>
                     Permissions Grid for: <span style={{ color: 'hsl(var(--color-primary))' }}>{selectedMatrixRole?.name}</span>
                   </h3>
                   <p style={{ margin: '4px 0 0 0', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
                     Select or clear checkpoints to allocate functional modules access permissions. Changes must be saved using the Save button to take effect.
                   </p>
                 </div>
-                <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                <div className="matrix-header-actions">
                   {hasUnsavedChanges() && (
                     <button 
                       onClick={handleSavePermissions}
@@ -831,7 +836,7 @@ export default function RolesPermissions({ initialTab = 'dashboard', onPermissio
                         color: '#fff',
                         fontWeight: '700',
                         boxShadow: '0 0 12px rgba(255, 107, 0, 0.4)',
-                        display: 'flex',
+                        display: 'inline-flex',
                         alignItems: 'center',
                         gap: '6px',
                         border: 'none',
@@ -874,29 +879,28 @@ export default function RolesPermissions({ initialTab = 'dashboard', onPermissio
               )}
 
               {/* Matrix Table */}
-              <div style={{ overflowX: 'auto', border: '1px solid var(--border-glass, #cbd5e1)', borderRadius: '16px', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem', textAlign: 'left' }}>
+              <div className="matrix-table-container">
+                <table className="matrix-table">
                   <thead>
-                    <tr style={{ background: 'var(--bg-secondary, #f8fafc)', borderBottom: '1px solid var(--border-glass, #e2e8f0)' }}>
-                      <th style={{ padding: '12px 18px', fontWeight: 800, color: 'var(--text-main, #0f172a)', width: '250px', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>ERP Module Section</th>
+                    <tr>
+                      <th>ERP Module Section</th>
                       {actions.map(act => (
-                        <th key={act.id} style={{ padding: '12px 8px', fontWeight: 800, color: 'var(--text-main, #0f172a)', textAlign: 'center', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                        <th key={act.id} style={{ textAlign: 'center' }}>
                           {act.label}
                         </th>
                       ))}
-                      <th style={{ padding: '12px 8px', fontWeight: 800, color: 'var(--text-main, #0f172a)', textAlign: 'center', width: '100px', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Select All</th>
+                      <th style={{ textAlign: 'center', width: '90px' }}>Select All</th>
                     </tr>
                   </thead>
                   <tbody>
                     {modules.map((mod, modIdx) => (
                       <tr key={mod.id} style={{
-                        borderBottom: modIdx === modules.length - 1 ? 'none' : '1px solid var(--border-glass, #e2e8f0)',
-                        background: modIdx % 2 === 0 ? 'rgba(255, 107, 0, 0.01)' : '#ffffff',
+                        background: modIdx % 2 === 0 ? 'rgba(255, 107, 0, 0.015)' : 'transparent',
                         transition: 'background 0.2s ease'
                       }} className="matrix-row-hover">
-                        <td style={{ padding: '8px 18px', paddingLeft: mod.isSub ? '36px' : '18px', fontWeight: 700, color: 'var(--text-main, #0f172a)' }}>
-                          <span style={{ display: 'block', fontSize: '0.84rem', color: mod.isSub ? '#FF8C42' : 'var(--text-main, #0f172a)', fontWeight: mod.isSub ? 600 : 700 }}>{mod.label}</span>
-                          <div style={{ fontSize: '0.68rem', color: 'var(--text-muted, #64748b)', fontWeight: 500, marginTop: '1px', fontFamily: 'monospace' }}>
+                        <td style={{ paddingLeft: mod.isSub ? '28px' : '14px', fontWeight: 700 }}>
+                          <span style={{ display: 'block', fontSize: '0.84rem', color: mod.isSub ? 'hsl(var(--color-primary))' : 'var(--text-main)', fontWeight: mod.isSub ? 600 : 700 }}>{mod.label}</span>
+                          <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 500, marginTop: '1px', fontFamily: 'monospace' }}>
                             code: {mod.id}
                           </div>
                         </td>
@@ -919,7 +923,7 @@ export default function RolesPermissions({ initialTab = 'dashboard', onPermissio
                             }
                           }
                           return (
-                            <td key={act.id} style={{ padding: '8px', textAlign: 'center' }}>
+                            <td key={act.id} style={{ textAlign: 'center' }}>
                               <input
                                 type="checkbox"
                                 className="perm-cb"
@@ -954,7 +958,7 @@ export default function RolesPermissions({ initialTab = 'dashboard', onPermissio
                           });
 
                           return (
-                            <td style={{ padding: '8px', textAlign: 'center', borderLeft: '1px dashed var(--border-glass, #e2e8f0)' }}>
+                            <td style={{ textAlign: 'center', borderLeft: '1px dashed var(--border-glass)' }}>
                               <input
                                 type="checkbox"
                                 className="perm-cb"

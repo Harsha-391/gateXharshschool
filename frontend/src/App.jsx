@@ -281,7 +281,7 @@ export default function App() {
     return typeof window !== 'undefined' ? window.innerWidth <= 900 : false;
   });
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [theme, setTheme] = useState('light');
+
   const [schoolDetails, setSchoolDetails] = useState({ name: 'Aether Academy', principal: 'Alex Devlin' });
   
   const [userProfile, setUserProfile] = useState({
@@ -433,9 +433,7 @@ export default function App() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  useEffect(() => {
-    document.documentElement.setAttribute('data-theme', theme);
-  }, [theme]);
+
 
   useEffect(() => {
     const handleTenantSuspended = (e) => {
@@ -1116,7 +1114,7 @@ export default function App() {
         </KeepAlive>
 
         <KeepAlive active={activeView === 'academic-calendar'}>
-          <AcademicPanel subView="academic-calendar" setAdminView={setActiveView} />
+          <AcademicPanel subView="academic-calendar" setAdminView={setActiveView} schoolDetails={schoolDetails} />
         </KeepAlive>
 
         {activeView === 'admin-login' && (
@@ -1203,7 +1201,7 @@ export default function App() {
   if (savedRole === 'Parent') {
     return (
       <Suspense fallback={<SkeletonLoader type="page" />}>
-        <ParentDashboard onLogout={handleLogout} theme={theme} setTheme={setTheme} />
+        <ParentDashboard onLogout={handleLogout} />
       </Suspense>
     );
   }
@@ -1253,8 +1251,7 @@ export default function App() {
           setIsCollapsed={setIsCollapsed}
           mobileOpen={mobileOpen}
           setMobileOpen={setMobileOpen}
-          theme={theme}
-          setTheme={setTheme}
+
           schoolDetails={schoolDetails}
           isAdmin={isAdmin}
           isDeveloperAdmin={isDeveloperAdmin}

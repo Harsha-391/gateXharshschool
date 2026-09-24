@@ -57,7 +57,7 @@ export default function TeacherDirectory({ readOnly = true, onAddClick, onEditCl
   const [departmentFilter, setDepartmentFilter] = useState('All');
   const [typeFilter, setTypeFilter] = useState('All');
   const [statusFilter, setStatusFilter] = useState('All');
-  const [classTeacherFilter, setClassTeacherFilter] = useState('');
+  const [classTeacherFilter, setClassTeacherFilter] = useState('Yes');
   const [sortBy, setSortBy] = useState('name');
   const [sortOrder, setSortOrder] = useState('asc');
   

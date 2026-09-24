@@ -3,14 +3,6 @@
    â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 
 /* Dark-theme override for any hardcoded whites */
-[data-theme='dark'] div[style*="background: '#ffffff'"],
-[data-theme='dark'] div[style*='background: "#ffffff"'],
-[data-theme='dark'] div[style*="background: rgb(255, 255, 255)"],
-[data-theme='dark'] div[style*="background-color: rgb(255, 255, 255)"] {
-  background: var(--bg-elevated) !important;
-  color: var(--text-main) !important;
-  border-color: var(--border-glass) !important;
-}
 
 /* ── Tab nav strip ────────────────────────────────────────── */
 .gm-tab-strip {

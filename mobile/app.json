@@ -1,48 +1,59 @@
 {
   "expo": {
-    "name": "Aether School ERP",
-    "slug": "aether-school-erp",
+    "name": "Acadmay School ERP",
+    "slug": "acadmay-school-erp",
     "version": "1.0.2",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
-    "splash": {
-      "image": "./assets/splash-icon.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#0f172a"
-    },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.aether.schoolerp"
+      "bundleIdentifier": "com.acadmay.schoolerp"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#0f172a"
       },
-      "package": "com.aether.schoolerp",
+      "package": "com.acadmay.schoolerp",
       "permissions": [
         "android.permission.INTERNET",
         "android.permission.CAMERA",
         "android.permission.READ_EXTERNAL_STORAGE",
         "android.permission.WRITE_EXTERNAL_STORAGE",
         "android.permission.ACCESS_NETWORK_STATE"
-      ],
-      "usesCleartextTraffic": true
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "expo-status-bar"
+      "expo-status-bar",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "resizeMode": "contain",
+          "backgroundColor": "#0f172a"
+        }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "usesCleartextTraffic": true
+          }
+        }
+      ],
+      "expo-asset"
     ],
     "extra": {
       "eas": {
-        "projectId": "fff56b6c-ad44-4b5d-b11d-aa070fb50029"
+        "projectId": "7aa5a298-9bcd-49fe-9c66-e7276153bc01"
       },
-      "localServerUrl": "http://192.168.1.35:5173",
+      "localServerUrl": "http://192.168.1.28:5173",
       "cloudServerUrl": "https://acadmay.in"
-    }
+    },
+    "owner": "gatecode"
   }
 }

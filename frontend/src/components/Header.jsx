@@ -3,8 +3,6 @@ import './Header.css';
 import { 
   Menu,
   Bell, 
-  Sun, 
-  Moon, 
   MessageSquare, 
   User, 
   LogOut, 
@@ -24,8 +22,6 @@ export default function Header({
   setIsCollapsed, 
   mobileOpen, 
   setMobileOpen,
-  theme,
-  setTheme,
   schoolDetails,
   setActiveView,
   setAdminView,
@@ -202,11 +198,7 @@ export default function Header({
     }
   };
 
-  const toggleTheme = () => {
-    const nextTheme = theme === 'dark' ? 'light' : 'dark';
-    setTheme(nextTheme);
-    document.documentElement.setAttribute('data-theme', nextTheme);
-  };
+
 
   return (
     <header className="app-header animate-fade-in">
@@ -253,10 +245,7 @@ export default function Header({
       </div>
 
       <div className="header-right">
-        {/* Theme Toggler */}
-        <button onClick={toggleTheme} className="action-btn" title="Toggle color scheme">
-          {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
-        </button>
+
 
         {/* Notifications Icon and Dropdown */}
         <div ref={notificationRef} style={{ position: 'relative' }}>

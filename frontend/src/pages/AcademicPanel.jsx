@@ -38,11 +38,16 @@ import {
   X,
   School,
   History,
-  ClipboardList
+  ClipboardList,
+  MapPin,
+  Repeat,
+  Share2,
+  FileText
 } from 'lucide-react';
 import ResultManagementPanel from './ResultManagementPanel';
 import EXAM_TYPES from '../utils/examTypes';
 import { getGradesWithSubjects, getGradeOptions, GRADE_ORDER, fetchActiveGrades, fetchActiveSections } from '../utils/grades';
+import { buildPdfDocument, downloadPdf, printHtmlViaIframe } from '../utils/pdfExport';
 
 const getTeacherSubjects = (t) => {
   if (!t) return '';
@@ -75,12 +80,22 @@ const isTeacherProfile = (t) => {
   return false;
 };
 
-// Known legacy defaults to ignore unless explicitly created manually by user
-const OLD_LEGACY_EVENT_DEFAULTS = new Set(['sports', 'cultural', 'academic', 'holiday', 'pta meet', 'competition', 'workshop']);
-const OLD_LEGACY_NOTICE_DEFAULTS = new Set(['academic', 'administrative', 'examination', 'general', 'events', 'important']);
-const OLD_LEGACY_HOLIDAY_DEFAULTS = new Set(['national holiday', 'festival', 'vacation', 'gazetted holiday', 'restricted holiday']);
 
-export default function AcademicPanel({ subView, setAdminView, userProfile }) {
+export default function AcademicPanel({ subView, setAdminView, userProfile, schoolDetails }) {
+  // Safe School Details state and fallback
+  const [internalSchoolDetails, setInternalSchoolDetails] = useState(null);
+
+  useEffect(() => {
+    fetch('/api/school/profile')
+      .then(res => res.json())
+      .then(data => {
+        if (data && data.name) setInternalSchoolDetails(data);
+      })
+      .catch(() => {});
+  }, []);
+
+  const activeSchoolDetails = (typeof schoolDetails !== 'undefined' && schoolDetails) || internalSchoolDetails || { name: 'Green Valley Academy' };
+
   // Master API states
   const [timetables, setTimetables] = useState([]);
   const [publishedData, setPublishedData] = useState({ classTimetables: [], teacherTimetables: [] });
@@ -143,33 +158,6 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
     loadGradesAndSections();
   }, []);
 
-  // Teacher dashboard context resolution
-  const isTeacher = userProfile?.role === 'Teacher' || userProfile?.userType === 'Teacher' || localStorage.getItem('role') === 'Teacher' || localStorage.getItem('userType') === 'Teacher';
-
-  const teacherGradeName = React.useMemo(() => {
-    if (!isTeacher || !userProfile) return '';
-    const match = activeGrades.find(g => 
-      g.id === userProfile.assignedGradeId || 
-      g.name === userProfile.assignedGradeId ||
-      g.gradeId === userProfile.assignedGradeId
-    );
-    return match ? match.name : (userProfile.assignedGradeName || userProfile.assignedGradeId || '');
-  }, [isTeacher, userProfile, activeGrades]);
-
-  const teacherSectionName = React.useMemo(() => {
-    if (!isTeacher || !userProfile) return '';
-    const match = activeSections.find(s => 
-      s.id === userProfile.assignedSectionId || 
-      s.name === userProfile.assignedSectionId
-    );
-    return match ? match.name : (userProfile.assignedSectionName || userProfile.assignedSectionId || '');
-  }, [isTeacher, userProfile, activeSections]);
-
-  const teacherFullName = React.useMemo(() => {
-    if (!isTeacher || !userProfile) return '';
-    return userProfile.name || userProfile.fullName || localStorage.getItem('name') || '';
-  }, [isTeacher, userProfile]);
-
   // Modal toggles
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingId, setEditingId] = useState(null);
@@ -177,6 +165,9 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [cohortToDelete, setCohortToDelete] = useState(null);
   const [exportFormats, setExportFormats] = useState({});
+  const [exportPreviewDoc, setExportPreviewDoc] = useState(null);
+  const [copiedField, setCopiedField] = useState(false);
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
 
   // Form states
   const [timetableForm, setTimetableForm] = useState({
@@ -187,6 +178,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
   });
   const [showExamWizard, setShowExamWizard] = useState(false);
   const [examWizardStep, setExamWizardStep] = useState(1);
+  const [wizardError, setWizardError] = useState('');
   const [wizardForm, setWizardForm] = useState({
     examName: '',
     examType: '',
@@ -218,6 +210,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
       gapDays: 1
     });
     setExamWizardStep(1);
+    setWizardError('');
   };
 
   const [availableGradeSections, setAvailableGradeSections] = useState([]);
@@ -265,60 +258,6 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
   const [showManageHolidayClassificationsModal, setShowManageHolidayClassificationsModal] = useState(false);
   const [holidayClassificationOpen, setHolidayClassificationOpen] = useState(false);
   const holidayClassificationRef = useRef(null);
-
-  const saveEventTypesToServer = async (typesList) => {
-    try {
-      localStorage.setItem('custom_event_types_created', 'true');
-      const cleanList = [...new Set(typesList.map(t => String(t).trim()).filter(Boolean))];
-      setEventTypes(cleanList);
-      const res = await fetch('/api/academics/event-types', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ eventTypes: cleanList })
-      });
-      if (res.ok) {
-        showToast('Event types saved successfully.', 'success');
-      }
-    } catch (e) {
-      console.error('Failed to save event types:', e);
-    }
-  };
-
-  const saveNoticeCategoriesToServer = async (categoriesList) => {
-    try {
-      localStorage.setItem('custom_notice_categories_created', 'true');
-      const cleanList = [...new Set(categoriesList.map(c => String(c).trim()).filter(Boolean))];
-      setNoticeCategories(cleanList);
-      const res = await fetch('/api/academics/notice-categories', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ noticeCategories: cleanList })
-      });
-      if (res.ok) {
-        showToast('Notice categories saved successfully.', 'success');
-      }
-    } catch (e) {
-      console.error('Failed to save notice categories:', e);
-    }
-  };
-
-  const saveHolidayClassificationsToServer = async (classificationsList) => {
-    try {
-      localStorage.setItem('custom_holiday_classifications_created', 'true');
-      const cleanList = [...new Set(classificationsList.map(c => String(c).trim()).filter(Boolean))];
-      setHolidayClassifications(cleanList);
-      const res = await fetch('/api/academics/holiday-classifications', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ holidayClassifications: cleanList })
-      });
-      if (res.ok) {
-        showToast('Holiday classifications saved successfully.', 'success');
-      }
-    } catch (e) {
-      console.error('Failed to save holiday classifications:', e);
-    }
-  };
 
   const [noticeForm, setNoticeForm] = useState({
     title: '', content: '', category: '', publishDate: new Date().toISOString().split('T')[0], expiryDate: '', visibility: 'All'
@@ -531,34 +470,9 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
         { url: '/api/academics/calendar-imports', setter: setCalendarImports },
         { url: '/api/academics/calendar/published', setter: setPublishedEventIds },
         { url: '/api/academics/exam-types', setter: setExamTypes },
-        { url: '/api/academics/event-types', setter: (data) => {
-          let arr = Array.isArray(data) ? data : (typeof data === 'string' ? JSON.parse(data || '[]') : []);
-          let list = Array.isArray(arr) ? arr : [];
-          if (!localStorage.getItem('custom_event_types_created')) {
-            list = list.filter(c => !OLD_LEGACY_EVENT_DEFAULTS.has(String(c).toLowerCase().trim()));
-          }
-          setEventTypes(list);
-        }},
-        { url: '/api/academics/notice-categories', setter: (data) => {
-          let arr = data;
-          if (typeof arr === 'string') { try { arr = JSON.parse(arr); } catch(e) { arr = []; } }
-          if (typeof arr === 'string') { try { arr = JSON.parse(arr); } catch(e) { arr = []; } }
-          let list = Array.isArray(arr) ? arr : [];
-          if (!localStorage.getItem('custom_notice_categories_created')) {
-            list = list.filter(c => !OLD_LEGACY_NOTICE_DEFAULTS.has(String(c).toLowerCase().trim()));
-          }
-          setNoticeCategories(list);
-        }},
-        { url: '/api/academics/holiday-classifications', setter: (data) => {
-          let arr = data;
-          if (typeof arr === 'string') { try { arr = JSON.parse(arr); } catch(e) { arr = []; } }
-          if (typeof arr === 'string') { try { arr = JSON.parse(arr); } catch(e) { arr = []; } }
-          let list = Array.isArray(arr) ? arr : [];
-          if (!localStorage.getItem('custom_holiday_classifications_created')) {
-            list = list.filter(c => !OLD_LEGACY_HOLIDAY_DEFAULTS.has(String(c).toLowerCase().trim()));
-          }
-          setHolidayClassifications(list);
-        }}
+        { url: '/api/academics/event-types', setter: setEventTypes },
+        { url: '/api/academics/notice-categories', setter: (data) => { let arr = data; if (typeof arr === 'string') { try { arr = JSON.parse(arr); } catch(e) { arr = []; } } setNoticeCategories(Array.isArray(arr) ? arr : []); } },
+        { url: '/api/academics/holiday-classifications', setter: (data) => { let arr = data; if (typeof arr === 'string') { try { arr = JSON.parse(arr); } catch(e) { arr = []; } } setHolidayClassifications(Array.isArray(arr) ? arr : []); } }
       ];
 
       await Promise.all(
@@ -1447,37 +1361,76 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
 
   // Printable View Helper
   const handlePrint = (elementId) => {
-    const prtContent = document.getElementById(elementId);
-    const WinPrint = window.open('', '', 'left=0,top=0,width=800,height=900,toolbar=0,scrollbars=0,status=0');
-    WinPrint.document.write(`
-      <html>
-        <head>
-          <title>Academic Report Printout</title>
-          <style>
-            body { font-family: 'Inter', system-ui, sans-serif; padding: 40px; color: #1e293b; background: #ffffff; }
-            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-            th, td { border: 1px solid #e2e8f0; padding: 12px; text-align: left; }
-            th { background: #f8fafc; font-weight: 700; }
-            .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #0f172a; padding-bottom: 15px; }
-            .header h1 { margin: 0; font-size: 24px; text-transform: uppercase; letter-spacing: 1px; }
-            .header p { margin: 5px 0 0 0; color: #64748b; font-size: 14px; }
-            .print-row { display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 14px; }
-            .print-badge { font-weight: bold; }
-            .no-print { display: none !important; }
-          </style>
-        </head>
-        <body>
-          ${prtContent.innerHTML}
-          <script>window.print(); window.close();</script>
-        </body>
-      </html>
-    `);
-    WinPrint.document.close();
-    WinPrint.focus();
+    try {
+      const prtContent = document.getElementById(elementId);
+      if (prtContent) {
+        printHtmlViaIframe('Academic Report Printout', prtContent.innerHTML);
+      } else {
+        window.print();
+      }
+    } catch (err) {
+      console.warn('Print error fallback:', err);
+      window.print();
+    }
   };
 
   const handlePrintCalendar = () => {
     handlePrint('printable-calendar-view');
+  };
+
+  const handleDownloadPdfAction = async (doc) => {
+    if (!doc) return;
+    setDownloadingPdf(true);
+    try {
+      showToast('Preparing PDF download...', 'info');
+
+      const token = localStorage.getItem('token') || localStorage.getItem('authToken');
+      const res = await fetch('/api/academics/export-pdf-token', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify({
+          title: doc.title,
+          pdfContent: doc.pdfContent,
+          filename: doc.filename
+        })
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        const fullDownloadUrl = window.location.origin + data.downloadPath;
+
+        if (typeof window !== 'undefined' && window.ReactNativeWebView) {
+          window.ReactNativeWebView.postMessage(JSON.stringify({
+            type: 'DOWNLOAD_PDF',
+            url: fullDownloadUrl,
+            title: doc.title,
+            filename: doc.filename,
+            content: doc.summaryText
+          }));
+          showToast('PDF download initiated on device!', 'success');
+        } else {
+          const a = document.createElement('a');
+          a.href = fullDownloadUrl;
+          a.download = doc.filename;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          showToast('PDF file downloaded successfully!', 'success');
+        }
+      } else {
+        downloadPdf(doc.pdfContent, doc.filename);
+        showToast('PDF file downloaded!', 'success');
+      }
+    } catch (err) {
+      console.warn('PDF token download failed, falling back:', err);
+      downloadPdf(doc.pdfContent, doc.filename);
+      showToast('PDF file downloaded!', 'success');
+    } finally {
+      setDownloadingPdf(false);
+    }
   };
 
   const handleExportTimetable = (cohort, format, schedules, examName) => {
@@ -1541,57 +1494,135 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
       URL.revokeObjectURL(url);
       showToast('Timetable exported as JSON.', 'success');
     } else if (format === 'pdf') {
-      handlePrint(`printable-exam-timetable-${cohort}`);
+      try {
+        const title = `${examName} Timetable - Grade ${cohort}`;
+        const headers = ['Subject', 'Exam Date', 'Start Time', 'End Time', 'Duration'];
+        const rows = cohortSchedules.map(s => [
+          s.subject || 'N/A',
+          s.examDate || 'TBD',
+          s.startTime || 'TBD',
+          s.endTime || 'TBD',
+          s.duration || 'N/A'
+        ]);
+
+        const pdfContent = buildPdfDocument({
+          title,
+          schoolName: activeSchoolDetails?.name || 'Green Valley Academy',
+          badgeText: 'Examination Timetable',
+          fields: [
+            { label: 'Grade / Cohort', value: `Grade ${cohort}` },
+            { label: 'Examination', value: examName }
+          ],
+          tableHeaders: headers,
+          tableRows: rows
+        });
+
+        const filename = `Exam_Timetable_${examName.replace(/[^a-zA-Z0-9_-]/g, '_')}_${cohort}.pdf`;
+        const summaryText = `${title}\nSchool: ${activeSchoolDetails?.name || 'Academy'}\nExam: ${examName}\nGrade: ${cohort}\n\n${rows.map(r => `${r[0]}: ${r[1]} (${r[2]} - ${r[3]})`).join('\n')}`;
+
+        const tableHtml = `
+          <table>
+            <thead><tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr></thead>
+            <tbody>${rows.map(r => `<tr>${r.map(c => `<td>${c}</td>`).join('')}</tr>`).join('')}</tbody>
+          </table>
+        `;
+
+        const docObj = {
+          type: 'Timetable',
+          badgeText: 'Examination Timetable',
+          title,
+          fields: [
+            { label: 'Grade / Cohort', value: `Grade ${cohort}` },
+            { label: 'Examination', value: examName }
+          ],
+          tableHeaders: headers,
+          tableRows: rows,
+          pdfContent,
+          filename,
+          summaryText,
+          htmlBody: `
+            <div class="card">
+              <div class="header">
+                <h1>${title}</h1>
+                <span class="badge">Examination Timetable</span>
+              </div>
+              <div class="details">
+                <div class="details-label">Grade:</div><div class="details-val">${cohort}</div>
+                <div class="details-label">Exam:</div><div class="details-val">${examName}</div>
+              </div>
+              ${tableHtml}
+            </div>
+          `
+        };
+
+        setExportPreviewDoc(docObj);
+        handleDownloadPdfAction(docObj);
+      } catch (err) {
+        console.error('Error exporting timetable PDF:', err);
+        showToast('Failed to export PDF: ' + err.message, 'error');
+      }
     }
   };
 
   const handleExportEvent = (evt, format) => {
     if (format === 'pdf') {
-      const WinPrint = window.open('', '', 'left=0,top=0,width=800,height=900,toolbar=0,scrollbars=0,status=0');
-      WinPrint.document.write(`
-        <html>
-          <head>
-            <title>Event Details - ${evt.title}</title>
-            <style>
-              body { font-family: 'Inter', system-ui, sans-serif; padding: 40px; color: #1e293b; background: #ffffff; line-height: 1.6; }
-              .card { border: 1px solid #e2e8f0; padding: 30px; border-radius: 16px; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); max-width: 600px; margin: 0 auto; }
-              .header { border-bottom: 2px solid #0f172a; padding-bottom: 15px; margin-bottom: 20px; }
-              .header h1 { margin: 0; font-size: 24px; color: #0f172a; }
-              .badge { display: inline-block; padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: bold; background: #f1f5f9; color: #475569; margin-top: 8px; text-transform: uppercase; }
-              .description { font-size: 15px; color: #334155; margin-bottom: 20px; }
-              .details { display: grid; grid-template-columns: auto 1fr; gap: 10px; font-size: 14px; border-top: 1px solid #f1f5f9; padding-top: 20px; }
-              .details-label { font-weight: bold; color: #64748b; }
-              .details-value { color: #0f172a; }
-            </style>
-          </head>
-          <body>
+      try {
+        const title = evt.title || 'Academic Event';
+        const formattedDate = new Date(evt.date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+        const timeStr = `${evt.startTime || evt.time || 'N/A'}${evt.endTime ? ` - ${evt.endTime}` : ''}`;
+        
+        const docFields = [
+          { label: 'Date', value: formattedDate },
+          { label: 'Time', value: timeStr },
+          { label: 'Venue', value: evt.venue || 'Campus Main Ground' },
+          { label: 'Target Audience', value: evt.participants || 'All Students & Faculty' },
+          { label: 'Organizer', value: evt.organizer || 'Academic Administration' }
+        ];
+
+        const pdfContent = buildPdfDocument({
+          title,
+          schoolName: activeSchoolDetails?.name || 'Green Valley Academy',
+          badgeText: `${evt.type || 'Event'} • Academic Activity`,
+          fields: docFields,
+          description: evt.description || 'No additional description provided.'
+        });
+
+        const filename = `Event_${title.replace(/[^a-zA-Z0-9_-]/g, '_')}.pdf`;
+        const summaryText = `${title}\nType: ${evt.type || 'Event'}\nDate: ${formattedDate}\nTime: ${timeStr}\nVenue: ${evt.venue || 'Campus Main Ground'}\nAudience: ${evt.participants || 'All Students'}\n\n${evt.description || ''}`;
+
+        const docObj = {
+          type: 'Event',
+          badgeText: `${evt.type || 'Event'} • Academic Activity`,
+          title,
+          fields: docFields,
+          description: evt.description || 'No additional description provided.',
+          pdfContent,
+          filename,
+          summaryText,
+          htmlBody: `
             <div class="card">
               <div class="header">
-                <h1>${evt.title}</h1>
-                <span class="badge">${evt.type}</span>
+                <h1>${title}</h1>
+                <span class="badge">${evt.type || 'Event'}</span>
               </div>
-              <div class="description">
-                ${evt.description || 'No description provided.'}
-              </div>
+              <div class="desc">${evt.description || 'No description provided.'}</div>
               <div class="details">
-                <div class="details-label">Date:</div>
-                <div class="details-value">${new Date(evt.date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</div>
-                <div class="details-label">Time:</div>
-                <div class="details-value">${evt.time || 'N/A'}</div>
-                <div class="details-label">Venue:</div>
-                <div class="details-value">${evt.venue || 'N/A'}</div>
-                <div class="details-label">Target Audience:</div>
-                <div class="details-value">${evt.participants || 'All Students'}</div>
-                <div class="details-label">Organizer:</div>
-                <div class="details-value">${evt.organizer || 'School Admin'}</div>
+                <div class="details-label">Date:</div><div class="details-val">${formattedDate}</div>
+                <div class="details-label">Time:</div><div class="details-val">${timeStr}</div>
+                <div class="details-label">Venue:</div><div class="details-val">${evt.venue || 'Campus Main Ground'}</div>
+                <div class="details-label">Target Audience:</div><div class="details-val">${evt.participants || 'All Students'}</div>
+                <div class="details-label">Organizer:</div><div class="details-val">${evt.organizer || 'Academic Administration'}</div>
               </div>
             </div>
-            <script>window.print(); window.close();</script>
-          </body>
-        </html>
-      `);
-      WinPrint.document.close();
-      WinPrint.focus();
+          `
+        };
+
+        setExportPreviewDoc(docObj);
+        handleDownloadPdfAction(docObj);
+      } catch (err) {
+        console.error('Error exporting event PDF:', err);
+        showToast('Failed to export PDF: ' + err.message, 'error');
+      }
     } else if (format === 'json') {
       const jsonStr = JSON.stringify(evt, null, 2);
       const blob = new Blob([jsonStr], { type: 'application/json;charset=utf-8;' });
@@ -1632,48 +1663,56 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
 
   const handleExportNotice = (nt, format) => {
     if (format === 'pdf') {
-      const WinPrint = window.open('', '', 'left=0,top=0,width=800,height=900,toolbar=0,scrollbars=0,status=0');
-      WinPrint.document.write(`
-        <html>
-          <head>
-            <title>Notice - ${nt.title}</title>
-            <style>
-              body { font-family: 'Inter', system-ui, sans-serif; padding: 40px; color: #1e293b; background: #ffffff; line-height: 1.6; }
-              .card { border: 1px solid #e2e8f0; padding: 30px; border-radius: 16px; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); max-width: 600px; margin: 0 auto; }
-              .header { border-bottom: 2px solid #0f172a; padding-bottom: 15px; margin-bottom: 20px; }
-              .header h1 { margin: 0; font-size: 24px; color: #0f172a; }
-              .badge { display: inline-block; padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: bold; background: #f1f5f9; color: #475569; margin-top: 8px; text-transform: uppercase; }
-              .badge-high { background: #fee2e2; color: #991b1b; }
-              .content { font-size: 15px; color: #334155; margin-bottom: 20px; white-space: pre-wrap; }
-              .details { display: grid; grid-template-columns: auto 1fr; gap: 10px; font-size: 14px; border-top: 1px solid #f1f5f9; padding-top: 20px; }
-              .details-label { font-weight: bold; color: #64748b; }
-              .details-value { color: #0f172a; }
-            </style>
-          </head>
-          <body>
+      try {
+        const title = nt.title || 'Official Notice';
+        const docFields = [
+          { label: 'Category', value: nt.category || 'General Notice' },
+          { label: 'Date Published', value: nt.publishDate || new Date().toLocaleDateString('en-US') },
+          ...(nt.expiryDate ? [{ label: 'Expiry Date', value: nt.expiryDate }] : []),
+          { label: 'Visibility', value: nt.visibility === 'Teachers' ? 'Staff' : (nt.visibility || 'All Members') }
+        ];
+
+        const pdfContent = buildPdfDocument({
+          title,
+          schoolName: activeSchoolDetails?.name || 'Green Valley Academy',
+          badgeText: `${nt.category || 'General'} Notice`,
+          fields: docFields,
+          description: nt.content || 'No content provided.'
+        });
+
+        const filename = `Notice_${title.replace(/[^a-zA-Z0-9_-]/g, '_')}.pdf`;
+        const summaryText = `${title}\nCategory: ${nt.category || 'General'}\nDate: ${nt.publishDate || ''}\nAudience: ${nt.visibility || 'All'}\n\n${nt.content || ''}`;
+
+        const docObj = {
+          type: 'Notice',
+          badgeText: `${nt.category || 'General'} Notice`,
+          title,
+          fields: docFields,
+          description: nt.content || 'No content provided.',
+          pdfContent,
+          filename,
+          summaryText,
+          htmlBody: `
             <div class="card">
               <div class="header">
-                <h1>${nt.title}</h1>
+                <h1>${title}</h1>
                 <span class="badge">${nt.category || 'General'} Notice</span>
               </div>
-              <div class="content">
-                ${nt.content}
-              </div>
+              <div class="desc">${nt.content || 'No content provided.'}</div>
               <div class="details">
-                <div class="details-label">Category:</div>
-                <div class="details-value">${nt.category || 'General'}</div>
-                <div class="details-label">Date Published:</div>
-                <div class="details-value">${nt.publishDate}</div>
-                <div class="details-label">Visibility:</div>
-                <div class="details-value">${nt.visibility || 'All'}</div>
+                <div class="details-label">Date Published:</div><div class="details-val">${nt.publishDate}</div>
+                <div class="details-label">Visibility:</div><div class="details-val">${nt.visibility === 'Teachers' ? 'Staff' : (nt.visibility || 'All')}</div>
               </div>
             </div>
-            <script>window.print(); window.close();</script>
-          </body>
-        </html>
-      `);
-      WinPrint.document.close();
-      WinPrint.focus();
+          `
+        };
+
+        setExportPreviewDoc(docObj);
+        handleDownloadPdfAction(docObj);
+      } catch (err) {
+        console.error('Error exporting notice PDF:', err);
+        showToast('Failed to export PDF: ' + err.message, 'error');
+      }
     } else if (format === 'json') {
       const jsonStr = JSON.stringify(nt, null, 2);
       const blob = new Blob([jsonStr], { type: 'application/json;charset=utf-8;' });
@@ -1711,46 +1750,58 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
 
   const handleExportHoliday = (h, format) => {
     if (format === 'pdf') {
-      const WinPrint = window.open('', '', 'left=0,top=0,width=800,height=900,toolbar=0,scrollbars=0,status=0');
-      WinPrint.document.write(`
-        <html>
-          <head>
-            <title>Holiday Declaration - ${h.name}</title>
-            <style>
-              body { font-family: 'Inter', system-ui, sans-serif; padding: 40px; color: #1e293b; background: #ffffff; line-height: 1.6; }
-              .card { border: 1px solid #e2e8f0; padding: 30px; border-radius: 16px; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); max-width: 600px; margin: 0 auto; }
-              .header { border-bottom: 2px solid #0f172a; padding-bottom: 15px; margin-bottom: 20px; }
-              .header h1 { margin: 0; font-size: 24px; color: #0f172a; }
-              .badge { display: inline-block; padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: bold; background: #fef3c7; color: #d97706; margin-top: 8px; text-transform: uppercase; }
-              .badge-emergency { background: #fee2e2; color: #ef4444; }
-              .description { font-size: 15px; color: #334155; margin-bottom: 20px; }
-              .details { display: grid; grid-template-columns: auto 1fr; gap: 10px; font-size: 14px; border-top: 1px solid #f1f5f9; padding-top: 20px; }
-              .details-label { font-weight: bold; color: #64748b; }
-              .details-value { color: #0f172a; }
-            </style>
-          </head>
-          <body>
+      try {
+        const title = h.name || 'Holiday Declaration';
+        const startFormatted = new Date(h.startDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+        const endFormatted = new Date(h.endDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+
+        const docFields = [
+          { label: 'Holiday Type', value: `${h.type || 'Standard'} Holiday` },
+          { label: 'Start Date', value: startFormatted },
+          { label: 'End Date', value: endFormatted }
+        ];
+
+        const pdfContent = buildPdfDocument({
+          title,
+          schoolName: activeSchoolDetails?.name || 'Green Valley Academy',
+          badgeText: `${h.type || 'Official'} Holiday`,
+          fields: docFields,
+          description: h.description || 'School will remain closed during this period.'
+        });
+
+        const filename = `Holiday_${title.replace(/[^a-zA-Z0-9_-]/g, '_')}.pdf`;
+        const summaryText = `${title}\nType: ${h.type || 'Standard'} Holiday\nPeriod: ${startFormatted} to ${endFormatted}\n\n${h.description || 'School will remain closed.'}`;
+
+        const docObj = {
+          type: 'Holiday',
+          badgeText: `${h.type || 'Official'} Holiday`,
+          title,
+          fields: docFields,
+          description: h.description || 'School will remain closed during this period.',
+          pdfContent,
+          filename,
+          summaryText,
+          htmlBody: `
             <div class="card">
               <div class="header">
-                <h1>${h.name}</h1>
-                <span class="badge ${h.type === 'Emergency' ? 'badge-emergency' : ''}">${h.type} Holiday</span>
+                <h1>${title}</h1>
+                <span class="badge">${h.type || 'Official'} Holiday</span>
               </div>
-              <div class="description">
-                ${h.description || 'No description/notes provided.'}
-              </div>
+              <div class="desc">${h.description || 'School will remain closed during this period.'}</div>
               <div class="details">
-                <div class="details-label">Start Date:</div>
-                <div class="details-value">${new Date(h.startDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</div>
-                <div class="details-label">End Date:</div>
-                <div class="details-value">${new Date(h.endDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</div>
+                <div class="details-label">Start Date:</div><div class="details-val">${startFormatted}</div>
+                <div class="details-label">End Date:</div><div class="details-val">${endFormatted}</div>
               </div>
             </div>
-            <script>window.print(); window.close();</script>
-          </body>
-        </html>
-      `);
-      WinPrint.document.close();
-      WinPrint.focus();
+          `
+        };
+
+        setExportPreviewDoc(docObj);
+        handleDownloadPdfAction(docObj);
+      } catch (err) {
+        console.error('Error exporting holiday PDF:', err);
+        showToast('Failed to export PDF: ' + err.message, 'error');
+      }
     } else if (format === 'json') {
       const jsonStr = JSON.stringify(h, null, 2);
       const blob = new Blob([jsonStr], { type: 'application/json;charset=utf-8;' });
@@ -1821,7 +1872,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
       const day = String(dateObj.getDate()).padStart(2, '0');
       const month = String(dateObj.getMonth() + 1).padStart(2, '0');
       const year = dateObj.getFullYear();
-      return `${weekday},   ${day}/${month}/${year}`;
+      return `${weekday}, ${day}/${month}/${year}`;
     } catch (e) {
       return dateStr;
     }
@@ -1873,10 +1924,10 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
       showToast(`No subjects included/configured for Grade ${targetGrade} in this exam.`, 'error');
       return;
     }
-    const startStr = gsObj ? gsObj.startDate : new Date().toISOString().split('T')[0];
+    const startStr = (gsObj && gsObj.startDate) ? gsObj.startDate : (targetExamObj?.startDate || new Date().toISOString().split('T')[0]);
 
     const examSchedules = examTimetables.filter(s => s.examId === targetExamId);
-    const existingCohortSlots = examSchedules.filter(s => s.cohort === `${targetGrade}-${targetSection}`);
+    const existingCohortSlots = examSchedules.filter(s => s.cohort === `${targetGrade}-${targetSection}` || (s.grade === targetGrade && (s.section === targetSection || !s.section)));
     let initialSlots = [];
     if (existingCohortSlots.length > 0) {
       const includedCohortSlots = existingCohortSlots.filter(s => {
@@ -1943,7 +1994,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
     const targetExamObj = exams.find(ex => ex.id === activeExam);
     const examGradeSections = targetExamObj ? (targetExamObj.gradeSections || []) : [];
     const gsObj = examGradeSections.find(gs => gs.grade === manualGrade && gs.section === manualSection);
-    const startStr = gsObj ? gsObj.startDate : new Date().toISOString().split('T')[0];
+    const startStr = (gsObj && gsObj.startDate) ? gsObj.startDate : (targetExamObj?.startDate || new Date().toISOString().split('T')[0]);
     const dates = getConsecutiveExamDates(startStr, updatedSlots.length);
 
     const reSequencedSlots = updatedSlots.map((slot, idx) => ({
@@ -2018,30 +2069,35 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
   const renderTimetableEditor = () => {
     const selectedExamObj = exams.find(e => e.id === activeExam);
     return (
-      <div className="modal-overlay" style={{ zIndex: 20000000 }}>
-        <div className="animate-scale-up" style={{
-          width: '100%', maxWidth: '750px', maxHeight: '90vh', overflowY: 'auto', padding: '28px', borderRadius: '16px',
-          background: 'var(--bg-card)', border: '1px solid var(--border-glass)',
-          boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)', display: 'flex', flexDirection: 'column', gap: '20px'
-        }}>
+      <div
+        className="modal-overlay"
+        style={{ zIndex: 20000000 }}
+        onClick={(e) => { if (e.target === e.currentTarget) setIsManualSchedulerOpen(false); }}
+      >
+        <div className="modal-content glass-panel" style={{ maxWidth: '750px' }}>
           {/* Modal Header */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-glass)', paddingBottom: '16px' }}>
+          <div className="modal-header">
             <div>
-              <h3 style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--text-main)', margin: 0 }}>Custom Exam Timetable Editor</h3>
-              <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', margin: '4px 0 0 0' }}>
-                Grade {manualGrade}{manualSection ? ` - Section ${manualSection}` : ''} | Exam: {selectedExamObj?.examName}
+              <h3 style={{ fontSize: '1.25rem', fontWeight: 800, margin: 0 }}>Custom Exam Timetable Editor</h3>
+              <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', margin: '4px 0 0 0' }}>
+                Grade {manualGrade}{manualSection ? ` - Section ${manualSection}` : ''} | Exam: {selectedExamObj?.examName || 'Assessment'}
               </p>
             </div>
             <button
+              className="modal-close"
               onClick={() => setIsManualSchedulerOpen(false)}
-              style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '1.8rem', lineHeight: 1, padding: '4px' }}
+              aria-label="Close modal"
             >
-              {"\u00d7"}
+              <X size={20} />
             </button>
           </div>
 
           {/* Modal Body - slots list */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', overflowY: 'auto', maxHeight: '55vh', paddingRight: '4px' }}>
+          <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span>Drag & drop rows using</span> <GripVertical size={14} style={{ display: 'inline', verticalAlign: 'middle' }} /> <span>to reorder exam sequence</span>
+            </div>
+
             {manualSlots.map((slot, index) => {
               const isDragged = draggedSlotIndex === index;
               return (
@@ -2052,89 +2108,94 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                   onDragOver={(e) => handleDragOver(e, index)}
                   onDrop={(e) => handleDrop(e, index)}
                   onDragEnd={handleDragEnd}
+                  className="timetable-editor-slot"
                   style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '16px',
-                    padding: '16px',
-                    background: isDragged ? 'rgba(255, 107, 0,0.04)' : 'var(--bg-glass-active)',
-                    border: isDragged ? '2px dashed hsl(var(--color-primary))' : '1px solid var(--border-glass)',
-                    borderRadius: '12px',
-                    opacity: isDragged ? 0.5 : 1,
-                    cursor: 'grab',
-                    transition: 'all 0.2s ease',
-                    boxShadow: 'var(--shadow-glass)'
+                    opacity: isDragged ? 0.4 : 1,
+                    border: isDragged ? '2px dashed hsl(var(--color-primary))' : undefined,
+                    cursor: 'grab'
                   }}
                 >
-                  <div style={{ color: 'var(--text-muted)', display: 'flex', alignItems: 'center' }}>
-                    <GripVertical size={18} />
-                  </div>
-
-                  <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'rgba(255, 107, 0, 0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'hsl(var(--color-primary))', fontWeight: 800, fontSize: '0.9rem' }}>
-                    {index + 1}
-                  </div>
-
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: 800, fontSize: '0.95rem', color: 'var(--text-main)' }}>
-                      {slot.subject}
+                  <div className="timetable-editor-slot-header">
+                    <div style={{ color: 'var(--text-muted)', display: 'flex', alignItems: 'center', cursor: 'grab', flexShrink: 0 }}>
+                      <GripVertical size={18} />
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
-                      <span style={{ fontSize: '0.72rem', padding: '2px 8px', borderRadius: '12px', background: 'rgba(255, 107, 0, 0.06)', color: 'hsl(var(--color-primary))', fontWeight: 700 }}>
-                        {getDayOfWeek(slot.examDate) || 'No day'}
-                      </span>
+
+                    <div style={{
+                      width: '36px',
+                      height: '36px',
+                      borderRadius: '50%',
+                      background: 'rgba(255, 107, 0, 0.1)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: 'hsl(var(--color-primary))',
+                      fontWeight: 800,
+                      fontSize: '0.88rem',
+                      flexShrink: 0
+                    }}>
+                      {index + 1}
+                    </div>
+
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontWeight: 800, fontSize: '0.95rem', color: 'var(--text-main)', wordBreak: 'break-word' }}>
+                        {slot.subject}
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '3px' }}>
+                        <span style={{
+                          fontSize: '0.72rem',
+                          padding: '2px 8px',
+                          borderRadius: '12px',
+                          background: 'rgba(255, 107, 0, 0.08)',
+                          color: 'hsl(var(--color-primary))',
+                          fontWeight: 700
+                        }}>
+                          {getDayOfWeek(slot.examDate) || 'No day'}
+                        </span>
+                      </div>
                     </div>
                   </div>
 
-                  <div style={{ width: '180px' }}>
-                    <input
-                      type="date"
-                      className="form-control"
-                      value={slot.examDate}
-                      onChange={(e) => handleDateChange(index, e.target.value)}
-                      style={{
-                        width: '100%',
-                        padding: '8px 12px',
-                        borderRadius: '8px',
-                        fontSize: '0.85rem',
-                        background: 'rgba(255,255,255,0.05)',
-                        border: '1px solid var(--border-glass)',
-                        color: 'var(--text-main)'
-                      }}
-                    />
-                  </div>
+                  <div className="timetable-editor-slot-fields">
+                    <div className="timetable-editor-date-wrap" style={{ width: '170px' }}>
+                      <input
+                        type="date"
+                        className="form-control"
+                        value={slot.examDate || ''}
+                        onChange={(e) => handleDateChange(index, e.target.value)}
+                        style={{
+                          width: '100%',
+                          padding: '8px 12px',
+                          borderRadius: '8px',
+                          fontSize: '0.85rem'
+                        }}
+                      />
+                    </div>
 
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <input
-                      type="time"
-                      className="form-control"
-                      value={convertTo24HourFormat(slot.startTime || '09:00 AM')}
-                      onChange={(e) => handleStartTimeChange(index, convertTo12HourFormat(e.target.value))}
-                      style={{
-                        width: '110px',
-                        padding: '8px 12px',
-                        borderRadius: '8px',
-                        fontSize: '0.85rem',
-                        background: 'rgba(255,255,255,0.05)',
-                        border: '1px solid var(--border-glass)',
-                        color: 'var(--text-main)'
-                      }}
-                    />
-                    <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>to</span>
-                    <input
-                      type="time"
-                      className="form-control"
-                      value={convertTo24HourFormat(slot.endTime || '12:00 PM')}
-                      onChange={(e) => handleEndTimeChange(index, convertTo12HourFormat(e.target.value))}
-                      style={{
-                        width: '110px',
-                        padding: '8px 12px',
-                        borderRadius: '8px',
-                        fontSize: '0.85rem',
-                        background: 'rgba(255,255,255,0.05)',
-                        border: '1px solid var(--border-glass)',
-                        color: 'var(--text-main)'
-                      }}
-                    />
+                    <div className="timetable-editor-time-range">
+                      <input
+                        type="time"
+                        className="form-control"
+                        value={convertTo24HourFormat(slot.startTime || '09:00 AM')}
+                        onChange={(e) => handleStartTimeChange(index, convertTo12HourFormat(e.target.value))}
+                        style={{
+                          padding: '8px 10px',
+                          borderRadius: '8px',
+                          fontSize: '0.85rem'
+                        }}
+                      />
+                      <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem', textAlign: 'center', flexShrink: 0 }}>to</span>
+                      <input
+                        type="time"
+                        className="form-control"
+                        value={convertTo24HourFormat(slot.endTime || '12:00 PM')}
+                        onChange={(e) => handleEndTimeChange(index, convertTo12HourFormat(e.target.value))}
+                        style={{
+                          padding: '8px 10px',
+                          borderRadius: '8px',
+                          fontSize: '0.85rem'
+                        }}
+                      />
+                    </div>
                   </div>
                 </div>
               );
@@ -2142,11 +2203,11 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
           </div>
 
           {/* Modal Footer */}
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', borderTop: '1px solid var(--border-glass)', paddingTop: '16px' }}>
-            <button className="btn-secondary" onClick={() => setIsManualSchedulerOpen(false)} style={{ padding: '8px 16px', borderRadius: '8px', fontSize: '0.85rem' }}>
+          <div className="modal-footer">
+            <button className="btn-secondary" onClick={() => setIsManualSchedulerOpen(false)}>
               Cancel
             </button>
-            <button className="btn-primary" onClick={handleSaveCustomTimetable} style={{ padding: '8px 16px', borderRadius: '8px', fontSize: '0.85rem', background: 'linear-gradient(135deg, hsl(var(--color-primary)) 0%, #e07830 100%)', fontWeight: 700 }}>
+            <button className="btn-primary" onClick={handleSaveCustomTimetable}>
               Save Timetable
             </button>
           </div>
@@ -2651,7 +2712,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                                   borderLeft: '1px solid var(--border-glass)',
                                   borderRadius: '8px'
                                 }}>
-                                  {breakType === 'Lunch Break' ? 'ðŸ± ' : breakType === 'Short Break' ? '☕ ' : breakType === 'Recess' ? 'ðŸƒ ' : breakType === 'Assembly' ? '📢 ' : '⚡ '}{breakType}
+                                  {breakType === 'Lunch Break' ? '🍱 ' : breakType === 'Short Break' ? '☕ ' : breakType === 'Recess' ? '🏃 ' : breakType === 'Assembly' ? '📢 ' : '⚡ '}{breakType}
                                 </td>
                               </tr>
                             );
@@ -2925,7 +2986,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                                 borderLeft: '1px solid var(--border-glass)',
                                 borderRadius: '8px'
                               }}>
-                                {breakType === 'Lunch Break' ? 'ðŸ± ' : breakType === 'Short Break' ? '☕ ' : breakType === 'Recess' ? 'ðŸƒ ' : breakType === 'Assembly' ? '📢 ' : '⚡ '}{breakType}
+                                {breakType === 'Lunch Break' ? '🍱 ' : breakType === 'Short Break' ? '☕ ' : breakType === 'Recess' ? '🏃 ' : breakType === 'Assembly' ? '📢 ' : '⚡ '}{breakType}
                               </td>
                             </tr>
                           );
@@ -3100,14 +3161,18 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
 
         {/* Exam Cards */}
         {filteredExams.length > 0 ? (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: '20px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 340px), 1fr))', gap: '20px' }}>
             {filteredExams.flatMap(ex => {
               const gsList = ex.gradeSections || [];
               if (gsList.length === 0) return [{ ex, gs: null }];
               return gsList.map(gs => ({ ex, gs }));
             }).map(({ ex, gs }) => {
-              const earliestStart = gs ? gs.startDate : '';
-              const endDate = gs ? gs.endDate : ex.endDate;
+              const cohortKey = gs ? `${gs.grade}-${gs.section || ''}` : '';
+              const cohortSchedules = gs ? examTimetables.filter(et => et.examId === ex.id && (et.cohort === cohortKey || (et.grade === gs.grade && (et.section === gs.section || !et.section)))) : [];
+
+              const scheduleDates = cohortSchedules.map(s => s.examDate).filter(Boolean).sort();
+              const earliestStart = (gs && gs.startDate) || (scheduleDates.length > 0 ? scheduleDates[0] : ex.startDate) || '';
+              const endDate = (gs && gs.endDate) || (scheduleDates.length > 0 ? scheduleDates[scheduleDates.length - 1] : ex.endDate) || '';
 
               // Compute subjects specifically for this grade
               const gradeSubs = gs ? subjects.filter(sub => sub.grade === gs.grade).map(sub => sub.subjectName) : [];
@@ -3118,8 +3183,6 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
               });
               const totalSubjects = gs ? cohortSubjects.length : (ex.scheduleCount || 0);
 
-              const cohortKey = gs ? `${gs.grade}-${gs.section || ''}` : '';
-              const cohortSchedules = gs ? examTimetables.filter(et => et.examId === ex.id && et.cohort === cohortKey) : [];
               const isExpanded = gs ? !!expandedTimetables[`${ex.id}-${gs.grade}-${gs.section || ''}`] : false;
 
               const toggleTimetableExpansion = () => {
@@ -3133,8 +3196,6 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
               const statusColors = { Draft: { bg: 'rgba(107,114,128,0.08)', color: '#6b7280', border: '1px solid rgba(107,114,128,0.15)' }, Scheduled: { bg: 'rgba(255, 107, 0,0.08)', color: 'hsl(var(--color-primary))', border: '1px solid rgba(255, 107, 0,0.15)' }, Published: { bg: 'rgba(16,185,129,0.08)', color: '#10b981', border: '1px solid rgba(16,185,129,0.15)' }, Completed: { bg: 'rgba(59,130,246,0.08)', color: '#3b82f6', border: '1px solid rgba(59,130,246,0.15)' } };
               const sc = statusColors[ex.status] || statusColors.Draft;
 
-
-
               return (
                 <div
                   key={`${ex.id}-${gs ? `${gs.grade}-${gs.section || ''}` : 'none'}`}
@@ -3145,35 +3206,35 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                     overflow: 'hidden',
                     display: 'flex',
                     flexDirection: 'column',
-                    transition: 'transform 0.2s, box-shadow 0.2s'
+                    transition: 'transform 0.2s, box-shadow 0.2s',
+                    minWidth: 0
                   }}
                 >
                   {/* Card Header */}
-                  <div style={{ padding: '20px 20px 16px', borderBottom: '1px solid var(--border-glass)', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                    <div>
+                  <div style={{ padding: '18px 20px 14px', borderBottom: '1px solid var(--border-glass)', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '10px' }}>
+                    <div style={{ minWidth: 0, flex: 1 }}>
                       <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'hsl(var(--color-primary))', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '4px' }}>
-                        {gs ? (gs.section ? `Grade - ${gs.grade}-${gs.section}` : `Grade - ${gs.grade}`) : 'No Grades'}
-                        {ex.academicSession && ` Â· Session ${ex.academicSession}`}
+                        {gs ? (gs.section ? `Grade ${gs.grade} - Section ${gs.section}` : `Grade ${gs.grade}`) : 'All Grades'}
+                        {ex.academicSession && ` • Session ${ex.academicSession}`}
                       </div>
-                      <h3 style={{ fontSize: '1.05rem', fontWeight: 800, margin: 0, color: 'var(--text-main)' }}>{ex.examName}</h3>
+                      <h3 style={{ fontSize: '1.05rem', fontWeight: 800, margin: 0, color: 'var(--text-main)', wordBreak: 'break-word' }}>{ex.examName || ex.name}</h3>
                       <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '6px' }}>
-                        <span style={{ fontSize: '0.72rem', padding: '2px 8px', borderRadius: '10px', background: 'rgba(255, 107, 0, 0.08)', color: 'hsl(var(--color-primary))', border: '1px solid rgba(255, 107, 0, 0.15)', fontWeight: 600 }}>{ex.examType}</span>
+                        <span style={{ fontSize: '0.72rem', padding: '2px 8px', borderRadius: '10px', background: 'rgba(255, 107, 0, 0.08)', color: 'hsl(var(--color-primary))', border: '1px solid rgba(255, 107, 0, 0.15)', fontWeight: 600 }}>{ex.examType || ex.term}</span>
                         <span style={{ fontSize: '0.72rem', padding: '2px 8px', borderRadius: '10px', background: 'rgba(245, 158, 11, 0.08)', color: '#f59e0b', border: '1px solid rgba(245, 158, 11, 0.15)', fontWeight: 600 }}>Total Marks: {ex.totalMarks || 100}</span>
                       </div>
                     </div>
-                    <span style={{ padding: '4px 10px', borderRadius: '20px', fontSize: '0.68rem', fontWeight: 700, ...sc }}>{ex.status}</span>
+                    <span style={{ padding: '4px 10px', borderRadius: '20px', fontSize: '0.68rem', fontWeight: 700, flexShrink: 0, ...sc }}>{ex.status}</span>
                   </div>
 
                   {/* Card Body */}
                   <div style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: '12px', flex: 1 }}>
                     <div style={{ display: 'grid', gridTemplateColumns: '130px 1fr', gap: '8px', fontSize: '0.8rem' }}>
-
                       <div style={{ color: 'var(--text-muted)' }}>Total Subjects</div>
                       <div style={{ fontWeight: 600, textAlign: 'right' }}>{totalSubjects}</div>
                       <div style={{ color: 'var(--text-muted)' }}>Start Date</div>
-                      <div style={{ fontWeight: 600, textAlign: 'right' }}>{earliestStart || '-'}</div>
+                      <div style={{ fontWeight: 600, textAlign: 'right' }}>{earliestStart ? formatTimetableDate(earliestStart) : '-'}</div>
                       <div style={{ color: 'var(--text-muted)' }}>End Date</div>
-                      <div style={{ fontWeight: 600, textAlign: 'right' }}>{endDate || 'Not scheduled'}</div>
+                      <div style={{ fontWeight: 600, textAlign: 'right' }}>{endDate ? formatTimetableDate(endDate) : 'Not scheduled'}</div>
                     </div>
 
                     {/* Subjects and corresponding marks */}
@@ -3363,41 +3424,44 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                   </div>
 
                   {/* Card Actions */}
-                  <div style={{ padding: '12px 20px', borderTop: '1px solid var(--border-glass)', display: 'flex', gap: '8px', flexWrap: 'wrap', justifyContent: 'flex-end', alignItems: 'center' }}>
-                    {ex.status === 'Published' && (
-                      <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#10b981', display: 'flex', alignItems: 'center', gap: '4px', marginRight: 'auto' }}>
-                        <CheckCircle size={14} /> Published
-                      </span>
-                    )}
-                    {ex.status !== 'Published' && ex.status !== 'Completed' && (
-                      <button
-                        onClick={(e) => { e.stopPropagation(); handlePublishExam(ex.id); }}
-                        className="btn-primary"
-                        style={{ padding: '6px 10px', fontSize: '0.72rem', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '4px', background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', border: 'none', color: '#fff' }}
-                      >
-                        <Send size={13} /> Publish
-                      </button>
-                    )}
+                  <div style={{ padding: '12px 20px', borderTop: '1px solid var(--border-glass)', display: 'flex', gap: '8px', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div>
+                      {ex.status === 'Published' ? (
+                        <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#10b981', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                          <CheckCircle size={14} /> Published
+                        </span>
+                      ) : ex.status !== 'Completed' ? (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handlePublishExam(ex.id); }}
+                          className="btn-primary"
+                          style={{ padding: '6px 12px', fontSize: '0.72rem', borderRadius: '8px', display: 'inline-flex', alignItems: 'center', gap: '4px', background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', border: 'none', color: '#fff' }}
+                        >
+                          <Send size={13} /> Publish
+                        </button>
+                      ) : null}
+                    </div>
 
-                    <button
-                      onClick={(e) => { e.stopPropagation(); handleEditExam(ex); }}
-                      className="btn-secondary"
-                      style={{ padding: '6px 10px', fontSize: '0.72rem', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '4px', border: '1px solid rgba(255, 107, 0,0.3)', color: 'hsl(var(--color-primary))' }}
-                    >
-                      <Edit3 size={13} /> Edit
-                    </button>
-                    <button
-                      onClick={async (e) => {
-                        e.stopPropagation();
-                        if (window.confirm('Are you sure you want to delete this exam configuration? This will permanently delete the exam, all its timetable schedules, and all related results.')) {
-                          await deleteExamConfig(ex.id);
-                        }
-                      }}
-                      className="btn-secondary"
-                      style={{ padding: '6px 10px', fontSize: '0.72rem', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '4px', border: '1px solid rgba(239,68,68,0.3)', color: '#ef4444' }}
-                    >
-                      <Trash2 size={13} /> Delete
-                    </button>
+                    <div style={{ display: 'inline-flex', gap: '8px', alignItems: 'center' }}>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleEditExam(ex); }}
+                        className="btn-secondary"
+                        style={{ padding: '6px 12px', fontSize: '0.72rem', borderRadius: '8px', display: 'inline-flex', alignItems: 'center', gap: '4px', border: '1px solid rgba(255, 107, 0,0.3)', color: 'hsl(var(--color-primary))' }}
+                      >
+                        <Edit3 size={13} /> Edit
+                      </button>
+                      <button
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          if (window.confirm('Are you sure you want to delete this exam configuration? This will permanently delete the exam, all its timetable schedules, and all related results.')) {
+                            await deleteExamConfig(ex.id);
+                          }
+                        }}
+                        className="btn-secondary"
+                        style={{ padding: '6px 12px', fontSize: '0.72rem', borderRadius: '8px', display: 'inline-flex', alignItems: 'center', gap: '4px', border: '1px solid rgba(239,68,68,0.3)', color: '#ef4444' }}
+                      >
+                        <Trash2 size={13} /> Delete
+                      </button>
+                    </div>
                   </div>
                 </div>
               );
@@ -3508,10 +3572,10 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
         showToast(`No subjects configured for Grade ${targetGrade}. Please configure subjects first.`, 'error');
         return;
       }
-      const startStr = gsObj ? gsObj.startDate : new Date().toISOString().split('T')[0];
+      const startStr = (gsObj && gsObj.startDate) ? gsObj.startDate : (targetExamObj?.startDate || new Date().toISOString().split('T')[0]);
 
       const examSchedules = examTimetables.filter(s => s.examId === targetExamId);
-      const existingCohortSlots = examSchedules.filter(s => s.cohort === `${targetGrade}-${targetSection}`);
+      const existingCohortSlots = examSchedules.filter(s => s.cohort === `${targetGrade}-${targetSection}` || (s.grade === targetGrade && (s.section === targetSection || !s.section)));
       let initialSlots = [];
       if (existingCohortSlots.length > 0) {
         initialSlots = existingCohortSlots.map(s => ({
@@ -3557,7 +3621,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
       updatedSlots.splice(targetIndex, 0, draggedItem);
 
       const gsObj = examGradeSections.find(gs => gs.grade === manualGrade && gs.section === manualSection);
-      const startStr = gsObj ? gsObj.startDate : new Date().toISOString().split('T')[0];
+      const startStr = (gsObj && gsObj.startDate) ? gsObj.startDate : (selectedExamObj?.startDate || new Date().toISOString().split('T')[0]);
       const dates = getConsecutiveExamDates(startStr, updatedSlots.length);
 
       const reSequencedSlots = updatedSlots.map((slot, idx) => ({
@@ -3959,14 +4023,18 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
 
         {/* History Cards */}
         {filteredHistory.length > 0 ? (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: '20px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 340px), 1fr))', gap: '20px' }}>
             {filteredHistory.flatMap(ex => {
               const gsList = ex.gradeSections || [];
               if (gsList.length === 0) return [{ ex, gs: null }];
               return gsList.map(gs => ({ ex, gs }));
             }).map(({ ex, gs }) => {
-              const earliestStart = gs ? gs.startDate : '';
-              const endDate = gs ? gs.endDate : ex.endDate;
+              const cohortKey = gs ? `${gs.grade}-${gs.section || ''}` : '';
+              const cohortSchedules = gs ? examTimetables.filter(et => et.examId === ex.id && (et.cohort === cohortKey || (et.grade === gs.grade && (et.section === gs.section || !et.section)))) : [];
+
+              const scheduleDates = cohortSchedules.map(s => s.examDate).filter(Boolean).sort();
+              const earliestStart = (gs && gs.startDate) || (scheduleDates.length > 0 ? scheduleDates[0] : ex.startDate) || '';
+              const endDate = (gs && gs.endDate) || (scheduleDates.length > 0 ? scheduleDates[scheduleDates.length - 1] : ex.endDate) || '';
 
               // Compute subjects specifically for this grade
               const gradeSubs = gs ? subjects.filter(sub => sub.grade === gs.grade).map(sub => sub.subjectName) : [];
@@ -3990,20 +4058,21 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                     overflow: 'hidden',
                     display: 'flex',
                     flexDirection: 'column',
-                    transition: 'transform 0.2s, box-shadow 0.2s'
+                    transition: 'transform 0.2s, box-shadow 0.2s',
+                    minWidth: 0
                   }}
                 >
                   {/* Card Header */}
-                  <div style={{ padding: '20px 20px 16px', borderBottom: '1px solid var(--border-glass)', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                    <div>
+                  <div style={{ padding: '20px 20px 16px', borderBottom: '1px solid var(--border-glass)', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '10px' }}>
+                    <div style={{ minWidth: 0, flex: 1 }}>
                       <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'hsl(var(--color-primary))', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '4px' }}>
-                        {gs ? (gs.section ? `Grade - ${gs.grade}-${gs.section}` : `Grade - ${gs.grade}`) : 'No Grades'}
-                        {ex.academicSession && ` Â· Session ${ex.academicSession}`}
+                        {gs ? (gs.section ? `Grade ${gs.grade} - Section ${gs.section}` : `Grade ${gs.grade}`) : 'All Grades'}
+                        {ex.academicSession && ` • Session ${ex.academicSession}`}
                       </div>
-                      <h3 style={{ fontSize: '1.05rem', fontWeight: 800, margin: 0, color: 'var(--text-main)' }}>{ex.examName}</h3>
+                      <h3 style={{ fontSize: '1.05rem', fontWeight: 800, margin: 0, color: 'var(--text-main)', wordBreak: 'break-word' }}>{ex.examName}</h3>
                       <span style={{ fontSize: '0.72rem', padding: '2px 8px', borderRadius: '10px', background: 'rgba(255, 107, 0, 0.08)', color: 'hsl(var(--color-primary))', border: '1px solid rgba(255, 107, 0, 0.15)', display: 'inline-block', marginTop: '6px', fontWeight: 600 }}>{ex.examType}</span>
                     </div>
-                    <span style={{ padding: '4px 10px', borderRadius: '20px', fontSize: '0.68rem', fontWeight: 700, ...sc }}>{ex.status}</span>
+                    <span style={{ padding: '4px 10px', borderRadius: '20px', fontSize: '0.68rem', fontWeight: 700, flexShrink: 0, ...sc }}>{ex.status}</span>
                   </div>
 
                   {/* Card Body */}
@@ -4013,9 +4082,9 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                       <div style={{ color: 'var(--text-muted)' }}>Total Subjects</div>
                       <div style={{ fontWeight: 600, textAlign: 'right' }}>{totalSubjects}</div>
                       <div style={{ color: 'var(--text-muted)' }}>Start Date</div>
-                      <div style={{ fontWeight: 600, textAlign: 'right' }}>{earliestStart || '-'}</div>
+                      <div style={{ fontWeight: 600, textAlign: 'right' }}>{earliestStart ? formatTimetableDate(earliestStart) : '-'}</div>
                       <div style={{ color: 'var(--text-muted)' }}>End Date</div>
-                      <div style={{ fontWeight: 600, textAlign: 'right' }}>{endDate || 'Not scheduled'}</div>
+                      <div style={{ fontWeight: 600, textAlign: 'right' }}>{endDate ? formatTimetableDate(endDate) : 'Not scheduled'}</div>
                     </div>
 
                     {/* Subjects and corresponding marks */}
@@ -4087,16 +4156,13 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
   };
 
   const renderPublishedExams = () => {
-    const isFiltered = isTeacher ? Boolean(teacherGradeName) : (pubExamSearch.trim() !== '' || pubExamGrade !== 'All');
+    const isFiltered = pubExamSearch.trim() !== '' || pubExamGrade !== 'All';
     const showExams = exams.filter(ex => ex.status === 'Published' && !isExamExpiredOrCompleted(ex));
     const filteredPublishedExams = isFiltered
       ? showExams.filter(ex => {
           const query = pubExamSearch.toLowerCase().trim();
           const matchesSearch = query === '' || ex.examName.toLowerCase().startsWith(query) || (ex.name || '').toLowerCase().startsWith(query);
           const gsList = ex.gradeSections || [];
-          if (isTeacher) {
-            return matchesSearch && gsList.some(gs => gs.grade === teacherGradeName && (!teacherSectionName || !gs.section || gs.section === 'All' || gs.section === teacherSectionName));
-          }
           if (pubExamGrade === 'All') return matchesSearch;
           return matchesSearch && gsList.some(gs => gs.grade === pubExamGrade);
         })
@@ -4118,88 +4184,62 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
             <Search size={18} style={{ color: 'var(--text-muted)' }} />
             <h4 style={{ fontSize: '0.9rem', fontWeight: 800, margin: 0, color: 'var(--text-main)' }}>Search & Filter Published Exams</h4>
           </div>
-          {isTeacher ? (
-            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
-              <div style={{
-                padding: '6px 14px',
-                borderRadius: '8px',
-                fontSize: '0.82rem',
-                fontWeight: 700,
-                background: 'rgba(255, 140, 66, 0.12)',
-                color: '#FF8C42',
-                border: '1px solid rgba(255, 140, 66, 0.3)',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px'
-              }}>
-                <ClipboardList size={14} />
-                {teacherGradeName ? `Class: Grade ${teacherGradeName}${teacherSectionName ? ` - Section ${teacherSectionName}` : ''}` : 'No Assigned Class'}
-              </div>
-            </div>
-          ) : (
-            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Search exam name..."
-                value={pubExamSearch}
-                onChange={(e) => setPubExamSearch(e.target.value.replace(/[^A-Za-z0-9\s]/g, ''))}
-                style={{ width: '220px', padding: '6px 12px', borderRadius: '8px', fontSize: '0.82rem', background: 'var(--bg-glass-active)', border: '1px solid var(--border-glass)', color: 'var(--text-main)' }}
-              />
+          <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
+            <input
+              type="text"
+              className="form-control"
+              placeholder="Search exam name..."
+              value={pubExamSearch}
+              onChange={(e) => setPubExamSearch(e.target.value.replace(/[^A-Za-z0-9\s]/g, ''))}
+              style={{ width: '220px', padding: '6px 12px', borderRadius: '8px', fontSize: '0.82rem', background: 'var(--bg-glass-active)', border: '1px solid var(--border-glass)', color: 'var(--text-main)' }}
+            />
 
-              <CustomSelect
-                className="select-custom"
-                value={pubExamGrade}
-                onChange={(e) => setPubExamGrade(e.target.value)}
-                style={{ padding: '6px 12px', borderRadius: '8px', fontSize: '0.82rem', background: 'var(--bg-glass-active)', border: '1px solid var(--border-glass)', color: 'var(--text-main)' }}
+            <CustomSelect              className="select-custom"
+              value={pubExamGrade}
+              onChange={(e) => setPubExamGrade(e.target.value)}
+              style={{ padding: '6px 12px', borderRadius: '8px', fontSize: '0.82rem', background: 'var(--bg-glass-active)', border: '1px solid var(--border-glass)', color: 'var(--text-main)' }}
+            >
+              <option value="All">All Grades</option>
+              {activeGrades.map(g => (
+                <option key={g.id} value={g.name}>Grade {g.name}</option>
+              ))}
+            </CustomSelect>
+
+            {(pubExamSearch || pubExamGrade !== 'All') && (
+              <button
+                onClick={() => {
+                  setPubExamSearch('');
+                  setPubExamGrade('All');
+                }}
+                className="btn-secondary"
+                style={{ padding: '6px 12px', fontSize: '0.8rem', borderRadius: '8px', border: '1px solid #ef4444', color: '#ef4444' }}
               >
-                <option value="All">All Grades</option>
-                {activeGrades.map(g => (
-                  <option key={g.id} value={g.name}>Grade {g.name}</option>
-                ))}
-              </CustomSelect>
-
-              {(pubExamSearch || pubExamGrade !== 'All') && (
-                <button
-                  onClick={() => {
-                    setPubExamSearch('');
-                    setPubExamGrade('All');
-                  }}
-                  className="btn-secondary"
-                  style={{ padding: '6px 12px', fontSize: '0.8rem', borderRadius: '8px', border: '1px solid #ef4444', color: '#ef4444' }}
-                >
-                  Clear Filters
-                </button>
-              )}
-            </div>
-          )}
+                Clear Filters
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Exam Cards */}
         {!isFiltered ? (
           <div className="glass-panel" style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>
             <Search size={32} style={{ opacity: 0.3, marginBottom: '12px' }} />
-            <p style={{ fontWeight: 600 }}>
-              {isTeacher
-                ? 'No assigned class found for your teacher profile. Please contact the administrator.'
-                : 'Please select a filter or enter a search query to load published exams.'}
-            </p>
+            <p style={{ fontWeight: 600 }}>Please select a filter or enter a search query to load published exams.</p>
           </div>
         ) : filteredPublishedExams.length > 0 ? (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: '20px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 340px), 1fr))', gap: '20px' }}>
             {filteredPublishedExams.flatMap(ex => {
               const gsList = ex.gradeSections || [];
-              const allowedGsList = isTeacher
-                ? gsList.filter(gs => gs.grade === teacherGradeName && (!teacherSectionName || !gs.section || gs.section === 'All' || gs.section === teacherSectionName))
-                : (pubExamGrade === 'All' ? gsList : gsList.filter(gs => gs.grade === pubExamGrade));
-              if (allowedGsList.length === 0) {
-                if (isTeacher) return [];
-                return [{ ex, gs: null }];
-              }
+              const allowedGsList = pubExamGrade === 'All' ? gsList : gsList.filter(gs => gs.grade === pubExamGrade);
+              if (allowedGsList.length === 0) return [{ ex, gs: null }];
               return allowedGsList.map(gs => ({ ex, gs }));
             }).map(({ ex, gs }) => {
-              const earliestStart = gs ? gs.startDate : '';
-              const endDate = gs ? gs.endDate : ex.endDate;
+              const cohortKey = gs ? `${gs.grade}-${gs.section || ''}` : '';
+              const cohortSchedules = gs ? examTimetables.filter(et => et.examId === ex.id && (et.cohort === cohortKey || (et.grade === gs.grade && (et.section === gs.section || !et.section)))) : [];
+
+              const scheduleDates = cohortSchedules.map(s => s.examDate).filter(Boolean).sort();
+              const earliestStart = (gs && gs.startDate) || (scheduleDates.length > 0 ? scheduleDates[0] : ex.startDate) || '';
+              const endDate = (gs && gs.endDate) || (scheduleDates.length > 0 ? scheduleDates[scheduleDates.length - 1] : ex.endDate) || '';
 
               // Compute subjects specifically for this grade
               const gradeSubs = gs ? subjects.filter(sub => sub.grade === gs.grade).map(sub => sub.subjectName) : [];
@@ -4210,8 +4250,6 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
               });
               const totalSubjects = gs ? cohortSubjects.length : (ex.scheduleCount || 0);
 
-              const cohortKey = gs ? `${gs.grade}-${gs.section || ''}` : '';
-              const cohortSchedules = gs ? examTimetables.filter(et => et.examId === ex.id && et.cohort === cohortKey) : [];
               const isExpanded = gs ? !!expandedTimetables[`${ex.id}-${gs.grade}-${gs.section || ''}`] : false;
 
               const toggleTimetableExpansion = () => {
@@ -4230,99 +4268,72 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                   key={`${ex.id}-${gs ? `${gs.grade}-${gs.section || ''}` : 'none'}`}
                   className="glass-panel"
                   style={{
-                    padding: '24px',
+                    padding: '0',
                     borderRadius: '16px',
+                    overflow: 'hidden',
                     display: 'flex',
                     flexDirection: 'column',
-                    justifyContent: 'space-between',
-                    border: '1px solid var(--border-glass)',
-                    transition: 'all 0.3s ease',
-                    position: 'relative'
+                    minWidth: 0
                   }}
                 >
-                  <div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
-                      <span style={{
-                        padding: '4px 10px',
-                        borderRadius: '20px',
-                        fontSize: '0.75rem',
-                        fontWeight: 700,
-                        backgroundColor: sc.bg,
-                        color: sc.color,
-                        border: sc.border,
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '4px'
-                      }}>
-                        <CheckCircle size={12} /> Published
-                      </span>
-                      <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                        Session: {ex.academicSession || '2026-2027'}
-                      </span>
-                    </div>
-
-                    <h4 style={{ fontSize: '1.15rem', fontWeight: 800, margin: '0 0 6px 0', color: 'var(--text-main)' }}>
-                      {ex.examName || ex.name}
-                    </h4>
-
-                    {gs && (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
-                        <span style={{
-                          padding: '3px 8px',
-                          borderRadius: '6px',
-                          fontSize: '0.75rem',
-                          fontWeight: 700,
-                          background: 'rgba(59, 130, 246, 0.1)',
-                          color: '#3b82f6',
-                          border: '1px solid rgba(59, 130, 246, 0.2)'
-                        }}>
-                          Grade {gs.grade} {gs.section ? `- ${gs.section}` : ''}
-                        </span>
-                        {totalSubjects > 0 && (
-                          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                            {totalSubjects} Subjects Scheduled
-                          </span>
-                        )}
+                  {/* Card Header */}
+                  <div style={{ padding: '20px 20px 16px', borderBottom: '1px solid var(--border-glass)', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '10px' }}>
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'hsl(var(--color-primary))', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '4px' }}>
+                        {gs ? (gs.section ? `Grade ${gs.grade} - Section ${gs.section}` : `Grade ${gs.grade}`) : 'All Grades'}
+                        {ex.academicSession && ` • Session ${ex.academicSession}`}
                       </div>
-                    )}
-
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <Calendar size={14} style={{ color: 'hsl(var(--color-primary))' }} />
-                        <span>Date Range: {earliestStart ? `${earliestStart} to ${endDate}` : 'Dates TBD'}</span>
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <Clock size={14} style={{ color: 'hsl(var(--color-primary))' }} />
-                        <span>Duration: {ex.duration || 'Standard Session'}</span>
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <Award size={14} style={{ color: 'hsl(var(--color-primary))' }} />
-                        <span>Passing Marks: {ex.passingMarks || 40} / {ex.totalMarks || 100}</span>
+                      <h3 style={{ fontSize: '1.05rem', fontWeight: 800, margin: 0, color: 'var(--text-main)', wordBreak: 'break-word' }}>{ex.examName}</h3>
+                      <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '6px' }}>
+                        <span style={{ fontSize: '0.72rem', padding: '2px 8px', borderRadius: '10px', background: 'rgba(255, 107, 0, 0.08)', color: 'hsl(var(--color-primary))', border: '1px solid rgba(255, 107, 0, 0.15)', fontWeight: 600 }}>{ex.examType}</span>
+                        <span style={{ fontSize: '0.72rem', padding: '2px 8px', borderRadius: '10px', background: 'rgba(245, 158, 11, 0.08)', color: '#f59e0b', border: '1px solid rgba(245, 158, 11, 0.15)', fontWeight: 600 }}>Total Marks: {ex.totalMarks || 100}</span>
                       </div>
                     </div>
+                    <span style={{ padding: '4px 10px', borderRadius: '20px', fontSize: '0.68rem', fontWeight: 700, flexShrink: 0, ...sc }}>{ex.status}</span>
+                  </div>
 
-                    {/* Subjects Badges */}
-                    {cohortSubjects.length > 0 && (
-                      <div style={{ marginTop: '16px' }}>
-                        <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                          Included Subjects
-                        </span>
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '6px' }}>
-                          {cohortSubjects.map(sub => (
-                            <span key={sub} style={{
-                              fontSize: '0.75rem',
-                              padding: '2px 8px',
-                              borderRadius: '6px',
-                              background: 'rgba(255,255,255,0.03)',
-                              border: '1px solid var(--border-glass)',
-                              color: 'var(--text-main)'
-                            }}>
-                              {sub}
-                            </span>
-                          ))}
-                        </div>
+                  {/* Card Body */}
+                  <div style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: '12px', flex: 1 }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '130px 1fr', gap: '8px', fontSize: '0.8rem' }}>
+                      <div style={{ color: 'var(--text-muted)' }}>Total Subjects</div>
+                      <div style={{ fontWeight: 600, textAlign: 'right' }}>{totalSubjects}</div>
+                      <div style={{ color: 'var(--text-muted)' }}>Start Date</div>
+                      <div style={{ fontWeight: 600, textAlign: 'right' }}>{earliestStart ? formatTimetableDate(earliestStart) : '-'}</div>
+                      <div style={{ color: 'var(--text-muted)' }}>End Date</div>
+                      <div style={{ fontWeight: 600, textAlign: 'right' }}>{endDate ? formatTimetableDate(endDate) : 'Not scheduled'}</div>
+                    </div>
+
+                    <div style={{ marginTop: '4px', paddingTop: '10px', borderTop: '1px dashed var(--border-glass)' }}>
+                      <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Subjects & Marks</div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                        {(() => {
+                          const list = [];
+                          if (gs) {
+                            const gradeSubs = subjects.filter(sub => sub.grade === gs.grade).map(sub => sub.subjectName);
+                            const uniqueGradeSubs = [...new Set(gradeSubs)];
+                            uniqueGradeSubs.forEach(sub => {
+                              const subKey = `${gs.grade}-${sub}`;
+                              const isIncluded = ex.subjectIncluded ? ex.subjectIncluded[subKey] !== false : true;
+                              if (isIncluded) {
+                                const marks = ex.subjectMarks && ex.subjectMarks[subKey] !== undefined ? ex.subjectMarks[subKey] : (ex.totalMarks || 100);
+                                list.push({ grade: gs.grade, section: gs.section, subject: sub, marks });
+                              }
+                            });
+                          }
+                          if (list.length === 0) {
+                            return <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>No subjects added</div>;
+                          }
+                          return list.map((item, idx) => (
+                            <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', alignItems: 'center', padding: '4px 0' }}>
+                              <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>
+                                {item.subject}
+                              </span>
+                              <span style={{ fontWeight: 700, color: '#f59e0b', fontSize: '0.78rem' }}>{item.marks} Marks</span>
+                            </div>
+                          ));
+                        })()}
                       </div>
-                    )}
+                    </div>
 
                     {/* Collapsible Published Timetable Section */}
                     {gs && ex.timetablePublished && cohortSchedules.length > 0 && (
@@ -4402,11 +4413,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
         ) : (
           <div className="glass-panel" style={{ padding: '60px 40px', textAlign: 'center', color: 'var(--text-muted)' }}>
             <BookOpen size={40} style={{ opacity: 0.3 }} />
-            <p style={{ fontWeight: 600, marginTop: '12px' }}>
-              {isTeacher
-                ? `No published exams found for Grade ${teacherGradeName}${teacherSectionName ? ` - Section ${teacherSectionName}` : ''}.`
-                : 'No published exams found matching search criteria.'}
-            </p>
+            <p style={{ fontWeight: 600, marginTop: '12px' }}>No published exams found matching search criteria.</p>
           </div>
         )}
       </div>
@@ -4422,15 +4429,12 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
     const daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
     const showClassTimetables = publishedData && publishedData.classTimetables ? publishedData.classTimetables : [];
-    const isClassFiltered = isTeacher ? Boolean(teacherGradeName) : (pubTtSearch.trim() !== '' || pubTtGrade !== 'All' || pubTtSection !== 'All');
+    const isClassFiltered = pubTtSearch.trim() !== '' || pubTtGrade !== 'All' || pubTtSection !== 'All';
     const filteredClassTimetables = isClassFiltered
       ? showClassTimetables.filter(pub => {
           const query = pubTtSearch.toLowerCase().trim();
           const matchesSearch = query === '' || pub.cohort.toLowerCase().startsWith(query);
           const [g, s] = pub.cohort.split('-');
-          if (isTeacher) {
-            return matchesSearch && g === teacherGradeName && (!teacherSectionName || s === teacherSectionName);
-          }
           const matchesGrade = pubTtGrade === 'All' || g === pubTtGrade;
           const matchesSection = pubTtSection === 'All' || s === pubTtSection;
           return matchesSearch && matchesGrade && matchesSection;
@@ -4438,14 +4442,9 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
       : [];
 
     const showTeacherTimetables = publishedData && publishedData.teacherTimetables ? publishedData.teacherTimetables : [];
-    const isTeacherFiltered = isTeacher ? Boolean(teacherFullName) : (pubTtSearch.trim() !== '' || pubTtTeacher !== '');
+    const isTeacherFiltered = pubTtSearch.trim() !== '' || pubTtTeacher !== '';
     const filteredTeacherTimetables = isTeacherFiltered
       ? showTeacherTimetables.filter(pub => {
-          if (isTeacher) {
-            const pubName = (pub.teacher || '').toLowerCase().trim();
-            const myName = (teacherFullName || '').toLowerCase().trim();
-            return pubName === myName || pubName.includes(myName) || myName.includes(pubName);
-          }
           const query = pubTtSearch.toLowerCase().trim();
           const matchesSearch = query === '' || pub.teacher.toLowerCase().startsWith(query);
           const matchesSelect = pubTtTeacher === '' || pub.teacher.toLowerCase() === pubTtTeacher.toLowerCase();
@@ -4498,130 +4497,87 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
             <h4 style={{ fontSize: '0.9rem', fontWeight: 800, margin: 0, color: 'var(--text-main)' }}>Search & Filter Published</h4>
           </div>
           {publishedSubTab === 'class' ? (
-            isTeacher ? (
-              <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
-                <div style={{
-                  padding: '6px 14px',
-                  borderRadius: '8px',
-                  fontSize: '0.82rem',
-                  fontWeight: 700,
-                  background: 'rgba(255, 107, 0, 0.12)',
-                  color: 'rgb(255, 107, 0)',
-                  border: '1px solid rgba(255, 107, 0, 0.3)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px'
-                }}>
-                  <Clock size={14} />
-                  {teacherGradeName ? `Class: Grade ${teacherGradeName}${teacherSectionName ? ` - Section ${teacherSectionName}` : ''}` : 'No Assigned Class'}
-                </div>
-              </div>
-            ) : (
-              <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
-                <input
-                  type="text"
-                  className="form-control"
-                  placeholder="Search cohort (e.g. IX-A)..."
-                  value={pubTtSearch}
-                  onChange={(e) => setPubTtSearch(e.target.value.replace(/[^A-Za-z0-9\-\s]/g, ''))}
-                  style={{ width: '220px', padding: '6px 12px', borderRadius: '8px', fontSize: '0.82rem', background: 'var(--bg-glass-active)', border: '1px solid var(--border-glass)', color: 'var(--text-main)' }}
-                />
+            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
+              <input
+                type="text"
+                className="form-control"
+                placeholder="Search cohort (e.g. IX-A)..."
+                value={pubTtSearch}
+                onChange={(e) => setPubTtSearch(e.target.value.replace(/[^A-Za-z0-9\-\s]/g, ''))}
+                style={{ width: '220px', padding: '6px 12px', borderRadius: '8px', fontSize: '0.82rem', background: 'var(--bg-glass-active)', border: '1px solid var(--border-glass)', color: 'var(--text-main)' }}
+              />
 
-                <CustomSelect
-                  className="select-custom"
-                  value={pubTtGrade}
-                  onChange={(e) => setPubTtGrade(e.target.value)}
-                  style={{ padding: '6px 12px', borderRadius: '8px', fontSize: '0.82rem', background: 'var(--bg-glass-active)', border: '1px solid var(--border-glass)', color: 'var(--text-main)' }}
+              <CustomSelect                className="select-custom"
+                value={pubTtGrade}
+                onChange={(e) => setPubTtGrade(e.target.value)}
+                style={{ padding: '6px 12px', borderRadius: '8px', fontSize: '0.82rem', background: 'var(--bg-glass-active)', border: '1px solid var(--border-glass)', color: 'var(--text-main)' }}
+              >
+                <option value="All">All Grades</option>
+                {activeGrades.map(g => (
+                  <option key={g.id} value={g.name}>Grade {g.name}</option>
+                ))}
+              </CustomSelect>
+
+              <CustomSelect                className="select-custom"
+                value={pubTtSection}
+                onChange={(e) => setPubTtSection(e.target.value)}
+                style={{ padding: '6px 12px', borderRadius: '8px', fontSize: '0.82rem', background: 'var(--bg-glass-active)', border: '1px solid var(--border-glass)', color: 'var(--text-main)' }}
+              >
+                <option value="All">All Sections</option>
+                {activeSections.map(s => (
+                  <option key={s.id} value={s.name}>Section {s.name}</option>
+                ))}
+              </CustomSelect>
+
+              {(pubTtSearch || pubTtGrade !== 'All' || pubTtSection !== 'All') && (
+                <button
+                  onClick={() => {
+                    setPubTtSearch('');
+                    setPubTtGrade('All');
+                    setPubTtSection('All');
+                  }}
+                  className="btn-secondary"
+                  style={{ padding: '6px 12px', fontSize: '0.8rem', borderRadius: '8px', border: '1px solid #ef4444', color: '#ef4444' }}
                 >
-                  <option value="All">All Grades</option>
-                  {activeGrades.map(g => (
-                    <option key={g.id} value={g.name}>Grade {g.name}</option>
-                  ))}
-                </CustomSelect>
-
-                <CustomSelect
-                  className="select-custom"
-                  value={pubTtSection}
-                  onChange={(e) => setPubTtSection(e.target.value)}
-                  style={{ padding: '6px 12px', borderRadius: '8px', fontSize: '0.82rem', background: 'var(--bg-glass-active)', border: '1px solid var(--border-glass)', color: 'var(--text-main)' }}
-                >
-                  <option value="All">All Sections</option>
-                  {activeSections.map(s => (
-                    <option key={s.id} value={s.name}>Section {s.name}</option>
-                  ))}
-                </CustomSelect>
-
-                {(pubTtSearch || pubTtGrade !== 'All' || pubTtSection !== 'All') && (
-                  <button
-                    onClick={() => {
-                      setPubTtSearch('');
-                      setPubTtGrade('All');
-                      setPubTtSection('All');
-                    }}
-                    className="btn-secondary"
-                    style={{ padding: '6px 12px', fontSize: '0.8rem', borderRadius: '8px', border: '1px solid #ef4444', color: '#ef4444' }}
-                  >
-                    Clear Filters
-                  </button>
-                )}
-              </div>
-            )
+                  Clear Filters
+                </button>
+              )}
+            </div>
           ) : (
-            isTeacher ? (
-              <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
-                <div style={{
-                  padding: '6px 14px',
-                  borderRadius: '8px',
-                  fontSize: '0.82rem',
-                  fontWeight: 700,
-                  background: 'rgba(59, 130, 246, 0.12)',
-                  color: '#3b82f6',
-                  border: '1px solid rgba(59, 130, 246, 0.3)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px'
-                }}>
-                  <UserCheck size={14} />
-                  {teacherFullName ? `Teacher: ${teacherFullName}` : 'Teacher Schedule'}
-                </div>
-              </div>
-            ) : (
-              <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
-                <input
-                  type="text"
-                  className="form-control"
-                  placeholder="Search teacher name..."
-                  value={pubTtSearch}
-                  onChange={(e) => setPubTtSearch(e.target.value.replace(/[^A-Za-z\s]/g, ''))}
-                  style={{ width: '220px', padding: '6px 12px', borderRadius: '8px', fontSize: '0.82rem', background: 'var(--bg-glass-active)', border: '1px solid var(--border-glass)', color: 'var(--text-main)' }}
-                />
+            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
+              <input
+                type="text"
+                className="form-control"
+                placeholder="Search teacher name..."
+                value={pubTtSearch}
+                onChange={(e) => setPubTtSearch(e.target.value.replace(/[^A-Za-z\s]/g, ''))}
+                style={{ width: '220px', padding: '6px 12px', borderRadius: '8px', fontSize: '0.82rem', background: 'var(--bg-glass-active)', border: '1px solid var(--border-glass)', color: 'var(--text-main)' }}
+              />
 
-                <CustomSelect
-                  className="select-custom"
-                  value={pubTtTeacher}
-                  onChange={(e) => setPubTtTeacher(e.target.value)}
-                  style={{ padding: '6px 12px', borderRadius: '8px', fontSize: '0.82rem', background: 'var(--bg-glass-active)', border: '1px solid var(--border-glass)', color: 'var(--text-main)' }}
+              <CustomSelect                className="select-custom"
+                value={pubTtTeacher}
+                onChange={(e) => setPubTtTeacher(e.target.value)}
+                style={{ padding: '6px 12px', borderRadius: '8px', fontSize: '0.82rem', background: 'var(--bg-glass-active)', border: '1px solid var(--border-glass)', color: 'var(--text-main)' }}
+              >
+                <option value="">All Teachers</option>
+                {teachers.map((t, idx) => (
+                  <option key={idx} value={t.name}>{t.fullName || t.name}</option>
+                ))}
+              </CustomSelect>
+
+              {(pubTtSearch || pubTtTeacher) && (
+                <button
+                  onClick={() => {
+                    setPubTtSearch('');
+                    setPubTtTeacher('');
+                  }}
+                  className="btn-secondary"
+                  style={{ padding: '6px 12px', fontSize: '0.8rem', borderRadius: '8px', border: '1px solid #ef4444', color: '#ef4444' }}
                 >
-                  <option value="">All Teachers</option>
-                  {teachers.map((t, idx) => (
-                    <option key={idx} value={t.name}>{t.fullName || t.name}</option>
-                  ))}
-                </CustomSelect>
-
-                {(pubTtSearch || pubTtTeacher) && (
-                  <button
-                    onClick={() => {
-                      setPubTtSearch('');
-                      setPubTtTeacher('');
-                    }}
-                    className="btn-secondary"
-                    style={{ padding: '6px 12px', fontSize: '0.8rem', borderRadius: '8px', border: '1px solid #ef4444', color: '#ef4444' }}
-                  >
-                    Clear Filters
-                  </button>
-                )}
-              </div>
-            )
+                  Clear Filters
+                </button>
+              )}
+            </div>
           )}
         </div>
 
@@ -4631,11 +4587,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
             {!isClassFiltered ? (
               <div className="glass-panel" style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>
                 <Search size={32} style={{ opacity: 0.3, marginBottom: '12px' }} />
-                <p style={{ fontWeight: 600 }}>
-                  {isTeacher
-                    ? 'No assigned class found for your teacher profile. Please contact the administrator.'
-                    : 'Please select a filter or enter a search query to load published class timetables.'}
-                </p>
+                <p style={{ fontWeight: 600 }}>Please select a filter or enter a search query to load published class timetables.</p>
               </div>
             ) : filteredClassTimetables.length > 0 ? (
               filteredClassTimetables.map(pub => (
@@ -4728,11 +4680,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
             ) : (
               <div className="glass-panel" style={{ padding: '60px 40px', textAlign: 'center', color: 'var(--text-muted)' }}>
                 <Clock size={40} style={{ opacity: 0.3 }} />
-                <p style={{ fontWeight: 600, marginTop: '12px' }}>
-                  {isTeacher
-                    ? `No published class timetables found for Grade ${teacherGradeName}${teacherSectionName ? ` - Section ${teacherSectionName}` : ''}.`
-                    : 'No published class timetables found matching search criteria.'}
-                </p>
+                <p style={{ fontWeight: 600, marginTop: '12px' }}>No published class timetables found matching search criteria.</p>
               </div>
             )}
           </div>
@@ -4741,11 +4689,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
             {!isTeacherFiltered ? (
               <div className="glass-panel" style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>
                 <Search size={32} style={{ opacity: 0.3, marginBottom: '12px' }} />
-                <p style={{ fontWeight: 600 }}>
-                  {isTeacher
-                    ? 'No teacher profile found. Please contact the administrator.'
-                    : 'Please select a filter or enter a search query to load published teacher timetables.'}
-                </p>
+                <p style={{ fontWeight: 600 }}>Please select a filter or enter a search query to load published teacher timetables.</p>
               </div>
             ) : filteredTeacherTimetables.length > 0 ? (
               filteredTeacherTimetables.map(pub => (
@@ -4835,11 +4779,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
             ) : (
               <div className="glass-panel" style={{ padding: '60px 40px', textAlign: 'center', color: 'var(--text-muted)' }}>
                 <UserCheck size={40} style={{ opacity: 0.3 }} />
-                <p style={{ fontWeight: 600, marginTop: '12px' }}>
-                  {isTeacher
-                    ? `No published teacher timetable found for ${teacherFullName || 'your account'}.`
-                    : 'No published teacher timetables found matching search criteria.'}
-                </p>
+                <p style={{ fontWeight: 600, marginTop: '12px' }}>No published teacher timetables found matching search criteria.</p>
               </div>
             )}
           </div>
@@ -5041,8 +4981,8 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                     borderTop: '1px solid var(--border-glass)', paddingTop: '10px', color: 'var(--text-muted)'
                   }}>
                     <span>📅 Date: <strong>{new Date(evt.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</strong></span>
-                    <span>â° Time: {evt.startTime || evt.time || ''}{evt.endTime ? ` - ${evt.endTime}` : ''}</span>
-                    <span>ðŸ“ Venue: {evt.venue}</span>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Clock size={13} style={{ color: 'hsl(var(--color-primary))', flexShrink: 0 }} /> Time: {evt.startTime || evt.time || 'N/A'}{evt.endTime ? ` - ${evt.endTime}` : ''}</span>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><MapPin size={13} style={{ color: 'hsl(var(--color-primary))', flexShrink: 0 }} /> Venue: {evt.venue || 'Campus Main Ground'}</span>
                     <span>👥 Target: {evt.participants}</span>
                   </div>
                   <div style={{
@@ -5122,8 +5062,8 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                     borderTop: '1px solid var(--border-glass)', paddingTop: '10px', color: 'var(--text-muted)'
                   }}>
                     <span>📅 Date: <strong>{new Date(evt.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</strong></span>
-                    <span>â° Time: {evt.startTime || evt.time || ''}{evt.endTime ? ` - ${evt.endTime}` : ''}</span>
-                    <span>ðŸ“ Venue: {evt.venue}</span>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Clock size={13} style={{ color: 'hsl(var(--color-primary))', flexShrink: 0 }} /> Time: {evt.startTime || evt.time || 'N/A'}{evt.endTime ? ` - ${evt.endTime}` : ''}</span>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><MapPin size={13} style={{ color: 'hsl(var(--color-primary))', flexShrink: 0 }} /> Venue: {evt.venue || 'Campus Main Ground'}</span>
                     <span>👥 Target: {evt.participants}</span>
                   </div>
                 </div>
@@ -5324,7 +5264,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                     borderTop: '1px solid var(--border-glass)', paddingTop: '10px', color: 'var(--text-muted)'
                   }}>
                     <span>📅 Publish Date: <strong>{new Date(nt.publishDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</strong></span>
-                    {nt.expiryDate && <span>â³ Expiry Date: <strong>{new Date(nt.expiryDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</strong></span>}
+                    {nt.expiryDate && <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Clock size={13} style={{ color: 'hsl(var(--color-primary))', flexShrink: 0 }} /> Expiry Date: <strong style={{ color: 'var(--text-main)' }}>{new Date(nt.expiryDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</strong></span>}
 
                   </div>
 
@@ -5406,7 +5346,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                     borderTop: '1px solid var(--border-glass)', paddingTop: '10px', color: 'var(--text-muted)'
                   }}>
                     <span>📅 Publish Date: <strong>{new Date(nt.publishDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</strong></span>
-                    {nt.expiryDate && <span>â³ Expiry Date: <strong>{new Date(nt.expiryDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</strong></span>}
+                    {nt.expiryDate && <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Clock size={13} style={{ color: 'hsl(var(--color-primary))', flexShrink: 0 }} /> Expiry Date: <strong style={{ color: 'var(--text-main)' }}>{new Date(nt.expiryDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</strong></span>}
 
                   </div>
                 </div>
@@ -5741,7 +5681,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
       title: evt.title || 'Event',
       eventType: evt.type || 'Sports Event',
       eventDate: evt.date,
-      description: evt.description || `Venue: ${evt.venue}`,
+      description: evt.description || (evt.venue ? `Venue: ${evt.venue}` : ''),
       applicableClasses: evt.audience || 'All',
       startTime: evt.time || '',
       endTime: '',
@@ -7076,7 +7016,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                                     <span>👤 Audience: <strong>{e.audience === 'Teachers' ? 'Staff' : (e.audience || 'All')}</strong></span>
                                     <span>📚 Classes: <strong>{e.applicableClasses || 'All'}</strong></span>
                                     {e.recurring && e.recurring !== 'None' && (
-                                      <span>ðŸ” Recurrence: <strong>{e.recurring}</strong></span>
+                                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><Repeat size={13} style={{ color: 'hsl(var(--color-primary))' }} /> Recurrence: <strong>{e.recurring}</strong></span>
                                     )}
                                     {e.attachments && (
                                       <span>📎 Attachment: <a href={e.attachments} target="_blank" rel="noopener noreferrer" style={{ color: 'hsl(var(--color-primary))', fontWeight: 600, textDecoration: 'underline' }}>{e.attachments.split('/').pop()}</a></span>
@@ -7972,66 +7912,46 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
       case 'academic-events':
         return (
           <form onSubmit={handleEventSubmit}>
-            <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '14px', paddingBottom: '200px' }}>
-              <div className="form-group">
+            <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div className="form-group" style={{ marginBottom: 0 }}>
                 <label>Event Title</label>
-                <input type="text" className="form-control" placeholder="e.g. Sports Carnival" value={eventForm.title} onChange={(e) => setEventForm({ ...eventForm, title: e.target.value })} required />
+                <input
+                  type="text"
+                  className="form-control"
+                  placeholder="e.g. Annual Sports Carnival"
+                  value={eventForm.title}
+                  onChange={(e) => setEventForm({ ...eventForm, title: e.target.value })}
+                  required
+                />
               </div>
-              <div className="form-group">
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                  <label style={{ margin: 0 }}>Event Type</label>
-                  <button
-                    type="button"
-                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowManageEventTypesModal(true); }}
-                    style={{ background: 'none', border: 'none', color: 'hsl(var(--color-primary))', fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', padding: 0 }}
-                  >
-                    <Plus size={13} /> Manage Types
-                  </button>
-                </div>
-                <div className="form-control" ref={eventTypeRef} style={{ position: 'relative', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', userSelect: 'none' }} onClick={() => setEventTypeOpen(!eventTypeOpen)}>
-                  <span>{eventForm.type || 'Select Event Type...'}</span>
-                  <ChevronDown size={16} style={{ transform: eventTypeOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
-                  {eventTypeOpen && (
-                    <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 1000, background: 'var(--bg-dropdown)', border: '1px solid var(--border-glass)', borderRadius: '8px', maxHeight: '250px', overflowY: 'auto', boxShadow: '0 8px 30px rgba(0,0,0,0.3)' }}>
-                      {eventTypes.length > 0 ? (
-                        eventTypes.map(type => (
-                          <div key={type} style={{ padding: '8px 12px', cursor: 'pointer', background: eventForm.type === type ? 'rgba(255, 107, 0,0.15)' : 'transparent', color: eventForm.type === type ? 'hsl(var(--color-primary))' : 'inherit' }} onClick={() => { setEventForm({ ...eventForm, type }); setEventTypeOpen(false); }} onMouseEnter={e => e.target.style.background = 'rgba(255, 107, 0,0.08)'} onMouseLeave={e => e.target.style.background = eventForm.type === type ? 'rgba(255, 107, 0,0.15)' : 'transparent'}>
-                            {type}
-                          </div>
-                        ))
-                      ) : (
-                        <div style={{ padding: '12px', fontSize: '0.85rem', color: 'var(--text-muted)', textAlign: 'center', fontStyle: 'italic' }}>
-                          No event types created yet.
-                        </div>
-                      )}
-                      <div
-                        style={{ padding: '8px 12px', cursor: 'pointer', borderTop: '1px solid var(--border-glass)', color: 'hsl(var(--color-primary))', fontWeight: 700, fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: '6px', background: 'var(--bg-glass-active)' }}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setEventTypeOpen(false);
-                          setShowManageEventTypesModal(true);
-                        }}
-                      >
-                        <Plus size={14} /> + Add / Manage Event Types
-                      </div>
-                    </div>
-                  )}
-                </div>
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label>Event Type</label>
+                <CustomSelect
+                  className="form-control"
+                  value={eventForm.type}
+                  onChange={(e) => setEventForm({ ...eventForm, type: e.target.value })}
+                  required
+                >
+                  <option value="">Select Event Type...</option>
+                  {(eventTypes && eventTypes.length > 0 ? eventTypes : ['Sports', 'Cultural', 'Academic', 'Annual Function', 'Exhibition', 'Competition', 'Workshop', 'Holiday', 'Other']).map(type => (
+                    <option key={type} value={type}>{type}</option>
+                  ))}
+                </CustomSelect>
               </div>
-              <div style={{ display: 'flex', gap: '12px' }}>
-                <div className="form-group" style={{ flex: 1 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '12px' }}>
+                <div className="form-group" style={{ marginBottom: 0 }}>
                   <label>Start Date</label>
                   <input
                     type="date"
                     className="form-control"
                     value={eventForm.startDate || eventForm.date || ''}
-                    min={(() => {
+                    min={!editingId ? (() => {
                       const today = new Date();
                       const yyyy = today.getFullYear();
                       const mm = String(today.getMonth() + 1).padStart(2, '0');
                       const dd = String(today.getDate()).padStart(2, '0');
                       return `${yyyy}-${mm}-${dd}`;
-                    })()}
+                    })() : undefined}
                     onChange={(e) => {
                       const val = e.target.value;
                       if (!val || val.split('-')[0].length <= 4) {
@@ -8046,19 +7966,19 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                     required
                   />
                 </div>
-                <div className="form-group" style={{ flex: 1 }}>
+                <div className="form-group" style={{ marginBottom: 0 }}>
                   <label>End Date</label>
                   <input
                     type="date"
                     className="form-control"
                     value={eventForm.endDate || eventForm.startDate || eventForm.date || ''}
-                    min={eventForm.startDate || eventForm.date || (() => {
+                    min={eventForm.startDate || eventForm.date || (!editingId ? (() => {
                       const today = new Date();
                       const yyyy = today.getFullYear();
                       const mm = String(today.getMonth() + 1).padStart(2, '0');
                       const dd = String(today.getDate()).padStart(2, '0');
                       return `${yyyy}-${mm}-${dd}`;
-                    })()}
+                    })() : undefined)}
                     onChange={(e) => {
                       const val = e.target.value;
                       if (!val || val.split('-')[0].length <= 4) {
@@ -8069,23 +7989,50 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                   />
                 </div>
               </div>
-              <div style={{ display: 'flex', gap: '12px' }}>
-                <div className="form-group" style={{ flex: 1 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '12px' }}>
+                <div className="form-group" style={{ marginBottom: 0 }}>
                   <label>Start Time</label>
-                  <input type="text" className="form-control" placeholder="e.g. 10:00 AM" value={eventForm.startTime || ''} onChange={(e) => setEventForm({ ...eventForm, startTime: e.target.value })} required />
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="e.g. 10:00 AM"
+                    value={eventForm.startTime || ''}
+                    onChange={(e) => setEventForm({ ...eventForm, startTime: e.target.value })}
+                    required
+                  />
                 </div>
-                <div className="form-group" style={{ flex: 1 }}>
+                <div className="form-group" style={{ marginBottom: 0 }}>
                   <label>End Time</label>
-                  <input type="text" className="form-control" placeholder="e.g. 11:30 AM" value={eventForm.endTime || ''} onChange={(e) => setEventForm({ ...eventForm, endTime: e.target.value })} />
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="e.g. 11:30 AM"
+                    value={eventForm.endTime || ''}
+                    onChange={(e) => setEventForm({ ...eventForm, endTime: e.target.value })}
+                  />
                 </div>
               </div>
-              <div className="form-group">
+              <div className="form-group" style={{ marginBottom: 0 }}>
                 <label>Venue</label>
-                <input type="text" className="form-control" placeholder="e.g. School Playground" value={eventForm.venue} onChange={(e) => setEventForm({ ...eventForm, venue: e.target.value })} required />
+                <input
+                  type="text"
+                  className="form-control"
+                  placeholder="e.g. School Playground / Main Auditorium"
+                  value={eventForm.venue}
+                  onChange={(e) => setEventForm({ ...eventForm, venue: e.target.value })}
+                  required
+                />
               </div>
-              <div className="form-group">
+              <div className="form-group" style={{ marginBottom: 0 }}>
                 <label>Description Details</label>
-                <textarea className="form-control" placeholder="..." value={eventForm.description} onChange={(e) => setEventForm({ ...eventForm, description: e.target.value })} />
+                <textarea
+                  className="form-control"
+                  rows={3}
+                  placeholder="Enter event details, schedule notes, or instructions..."
+                  value={eventForm.description}
+                  onChange={(e) => setEventForm({ ...eventForm, description: e.target.value })}
+                  style={{ minHeight: '80px', resize: 'vertical' }}
+                />
               </div>
             </div>
             <div className="modal-footer">
@@ -8098,71 +8045,44 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
       case 'academic-notices':
         return (
           <form onSubmit={handleNoticeSubmit}>
-            <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '14px', paddingBottom: '200px' }}>
-              <div className="form-group">
+            <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div className="form-group" style={{ marginBottom: 0 }}>
                 <label>Notice Headline</label>
                 <input type="text" className="form-control" placeholder="e.g. Exam Schedule Alterations" value={noticeForm.title} onChange={(e) => setNoticeForm({ ...noticeForm, title: e.target.value })} required />
               </div>
-              <div className="form-group">
+              <div className="form-group" style={{ marginBottom: 0 }}>
                 <label>Announcement Content</label>
-                <textarea className="form-control" placeholder="Enter instructions details..." value={noticeForm.content} onChange={(e) => setNoticeForm({ ...noticeForm, content: e.target.value })} required />
+                <textarea className="form-control" rows={3} placeholder="Enter instructions details..." value={noticeForm.content} onChange={(e) => setNoticeForm({ ...noticeForm, content: e.target.value })} required style={{ minHeight: '80px', resize: 'vertical' }} />
               </div>
-              <div className="form-group">
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                  <label style={{ margin: 0 }}>Category</label>
-                  <button
-                    type="button"
-                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowManageNoticeCategoriesModal(true); }}
-                    style={{ background: 'none', border: 'none', color: 'hsl(var(--color-primary))', fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', padding: 0 }}
-                  >
-                    <Plus size={13} /> Manage Categories
-                  </button>
-                </div>
-                <div className="form-control" ref={noticeCategoryRef} style={{ position: 'relative', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', userSelect: 'none' }} onClick={() => setNoticeCategoryOpen(!noticeCategoryOpen)}>
-                  <span>{noticeForm.category || 'Select Category...'}</span>
-                  <ChevronDown size={16} style={{ transform: noticeCategoryOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
-                  {noticeCategoryOpen && (
-                    <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 1000, background: 'var(--bg-dropdown)', border: '1px solid var(--border-glass)', borderRadius: '8px', maxHeight: '200px', overflowY: 'auto', boxShadow: '0 8px 30px rgba(0,0,0,0.3)' }}>
-                      {noticeCategories.length > 0 ? (
-                        noticeCategories.map(cat => (
-                          <div key={cat} style={{ padding: '8px 12px', cursor: 'pointer', background: noticeForm.category === cat ? 'rgba(255, 107, 0,0.15)' : 'transparent', color: noticeForm.category === cat ? 'hsl(var(--color-primary))' : 'inherit' }} onClick={() => { setNoticeForm({ ...noticeForm, category: cat }); setNoticeCategoryOpen(false); }} onMouseEnter={e => e.target.style.background = 'rgba(255, 107, 0,0.08)'} onMouseLeave={e => e.target.style.background = noticeForm.category === cat ? 'rgba(255, 107, 0,0.15)' : 'transparent'}>
-                            {cat}
-                          </div>
-                        ))
-                      ) : (
-                        <div style={{ padding: '12px', fontSize: '0.85rem', color: 'var(--text-muted)', textAlign: 'center', fontStyle: 'italic' }}>
-                          No notice categories created yet.
-                        </div>
-                      )}
-                      <div
-                        style={{ padding: '8px 12px', cursor: 'pointer', borderTop: '1px solid var(--border-glass)', color: 'hsl(var(--color-primary))', fontWeight: 700, fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: '6px', background: 'var(--bg-glass-active)' }}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setNoticeCategoryOpen(false);
-                          setShowManageNoticeCategoriesModal(true);
-                        }}
-                      >
-                        <Plus size={14} /> + Add / Manage Notice Categories
-                      </div>
-                    </div>
-                  )}
-                </div>
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label>Category</label>
+                <CustomSelect
+                  className="form-control"
+                  value={noticeForm.category}
+                  onChange={(e) => setNoticeForm({ ...noticeForm, category: e.target.value })}
+                  required
+                >
+                  <option value="">Select Category...</option>
+                  {(noticeCategories && noticeCategories.length > 0 ? noticeCategories : ['General', 'Examination', 'Holiday', 'Urgent', 'Academic', 'Fee Notice']).map(cat => (
+                    <option key={cat} value={cat}>{cat}</option>
+                  ))}
+                </CustomSelect>
               </div>
 
-              <div style={{ display: 'flex', gap: '12px' }}>
-                <div className="form-group" style={{ flex: 1 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '12px' }}>
+                <div className="form-group" style={{ marginBottom: 0 }}>
                   <label>Publish Date</label>
                   <input
                     type="date"
                     className="form-control"
                     value={noticeForm.publishDate}
-                    min={(() => {
+                    min={!editingId ? (() => {
                       const today = new Date();
                       const yyyy = today.getFullYear();
                       const mm = String(today.getMonth() + 1).padStart(2, '0');
                       const dd = String(today.getDate()).padStart(2, '0');
                       return `${yyyy}-${mm}-${dd}`;
-                    })()}
+                    })() : undefined}
                     onChange={(e) => {
                       const val = e.target.value;
                       if (!val || val.split('-')[0].length <= 4) {
@@ -8173,24 +8093,24 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                     required
                   />
                 </div>
-                <div className="form-group" style={{ flex: 1 }}>
+                <div className="form-group" style={{ marginBottom: 0 }}>
                   <label>Expiry Date</label>
                   <input
                     type="date"
                     className="form-control"
                     value={noticeForm.expiryDate || ''}
-                    min={noticeForm.publishDate || (() => {
+                    min={noticeForm.publishDate || (!editingId ? (() => {
                       const today = new Date();
                       const yyyy = today.getFullYear();
                       const mm = String(today.getMonth() + 1).padStart(2, '0');
                       const dd = String(today.getDate()).padStart(2, '0');
                       return `${yyyy}-${mm}-${dd}`;
-                    })()}
+                    })() : undefined)}
                     onChange={(e) => { const val = e.target.value; if (!val || val.split('-')[0].length <= 4) setNoticeForm({ ...noticeForm, expiryDate: val }); }}
                   />
                 </div>
               </div>
-              <div className="form-group">
+              <div className="form-group" style={{ marginBottom: 0 }}>
                 <label>Target Audience Visibility</label>
                 <CustomSelect className="form-control" value={noticeForm.visibility} onChange={(e) => setNoticeForm({ ...noticeForm, visibility: e.target.value })}>
                   <option value="All">All School</option>
@@ -8211,93 +8131,68 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
       case 'academic-holidays':
         return (
           <form onSubmit={handleHolidaySubmit}>
-            <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '14px', paddingBottom: '200px' }}>
-              <div className="form-group">
+            <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div className="form-group" style={{ marginBottom: 0 }}>
                 <label>Holiday Name</label>
                 <input type="text" className="form-control" placeholder="e.g. Diwali Break" value={holidayForm.name} onChange={(e) => setHolidayForm({ ...holidayForm, name: e.target.value })} required />
               </div>
-              <div className="form-group">
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                  <label style={{ margin: 0 }}>Classification Type</label>
-                  <button
-                    type="button"
-                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowManageHolidayClassificationsModal(true); }}
-                    style={{ background: 'none', border: 'none', color: 'hsl(var(--color-primary))', fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', padding: 0 }}
-                  >
-                    <Plus size={13} /> Manage Classifications
-                  </button>
-                </div>
-                <div className="form-control" ref={holidayClassificationRef} style={{ position: 'relative', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', userSelect: 'none' }} onClick={() => setHolidayClassificationOpen(!holidayClassificationOpen)}>
-                  <span>{holidayForm.type || 'Select Classification...'}</span>
-                  <ChevronDown size={16} style={{ transform: holidayClassificationOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
-                  {holidayClassificationOpen && (
-                    <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 1000, background: 'var(--bg-dropdown)', border: '1px solid var(--border-glass)', borderRadius: '8px', maxHeight: '200px', overflowY: 'auto', boxShadow: '0 8px 30px rgba(0,0,0,0.3)' }}>
-                      {holidayClassifications.length > 0 ? (
-                        holidayClassifications.map(cls => (
-                          <div key={cls} style={{ padding: '8px 12px', cursor: 'pointer', background: holidayForm.type === cls ? 'rgba(255, 107, 0,0.15)' : 'transparent', color: holidayForm.type === cls ? 'hsl(var(--color-primary))' : 'inherit' }} onClick={() => { setHolidayForm({ ...holidayForm, type: cls }); setHolidayClassificationOpen(false); }} onMouseEnter={e => e.target.style.background = 'rgba(255, 107, 0,0.08)'} onMouseLeave={e => e.target.style.background = holidayForm.type === cls ? 'rgba(255, 107, 0,0.15)' : 'transparent'}>
-                            {cls}
-                          </div>
-                        ))
-                      ) : (
-                        <div style={{ padding: '12px', fontSize: '0.85rem', color: 'var(--text-muted)', textAlign: 'center', fontStyle: 'italic' }}>
-                          No classifications created yet.
-                        </div>
-                      )}
-                      <div
-                        style={{ padding: '8px 12px', cursor: 'pointer', borderTop: '1px solid var(--border-glass)', color: 'hsl(var(--color-primary))', fontWeight: 700, fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: '6px', background: 'var(--bg-glass-active)' }}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setHolidayClassificationOpen(false);
-                          setShowManageHolidayClassificationsModal(true);
-                        }}
-                      >
-                        <Plus size={14} /> + Add / Manage Classifications
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-              <div className="form-group">
-                <label>Start Date</label>
-                <input
-                  type="date"
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label>Classification Type</label>
+                <CustomSelect
                   className="form-control"
-                  value={holidayForm.startDate}
-                  min={(() => {
-                    const today = new Date();
-                    const yyyy = today.getFullYear();
-                    const mm = String(today.getMonth() + 1).padStart(2, '0');
-                    const dd = String(today.getDate()).padStart(2, '0');
-                    return `${yyyy}-${mm}-${dd}`;
-                  })()}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    if (!val || val.split('-')[0].length <= 4) {
-                      const nextEnd = (holidayForm.endDate && val > holidayForm.endDate) ? val : holidayForm.endDate;
-                      setHolidayForm({ ...holidayForm, startDate: val, endDate: nextEnd });
-                    }
-                  }}
+                  value={holidayForm.type}
+                  onChange={(e) => setHolidayForm({ ...holidayForm, type: e.target.value })}
                   required
-                />
+                >
+                  <option value="">Select Classification...</option>
+                  {(holidayClassifications && holidayClassifications.length > 0 ? holidayClassifications : ['National Holiday', 'Festival', 'Vacation', 'Emergency Closure', 'Observance']).map(cls => (
+                    <option key={cls} value={cls}>{cls}</option>
+                  ))}
+                </CustomSelect>
               </div>
-              <div className="form-group">
-                <label>End Date</label>
-                <input
-                  type="date"
-                  className="form-control"
-                  value={holidayForm.endDate}
-                  min={holidayForm.startDate || (() => {
-                    const today = new Date();
-                    const yyyy = today.getFullYear();
-                    const mm = String(today.getMonth() + 1).padStart(2, '0');
-                    const dd = String(today.getDate()).padStart(2, '0');
-                    return `${yyyy}-${mm}-${dd}`;
-                  })()}
-                  onChange={(e) => { const val = e.target.value; if (!val || val.split('-')[0].length <= 4) setHolidayForm({ ...holidayForm, endDate: val }); }}
-                  required
-                />
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '12px' }}>
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label>Start Date</label>
+                  <input
+                    type="date"
+                    className="form-control"
+                    value={holidayForm.startDate}
+                    min={!editingId ? (() => {
+                      const today = new Date();
+                      const yyyy = today.getFullYear();
+                      const mm = String(today.getMonth() + 1).padStart(2, '0');
+                      const dd = String(today.getDate()).padStart(2, '0');
+                      return `${yyyy}-${mm}-${dd}`;
+                    })() : undefined}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (!val || val.split('-')[0].length <= 4) {
+                        const nextEnd = (holidayForm.endDate && val > holidayForm.endDate) ? val : holidayForm.endDate;
+                        setHolidayForm({ ...holidayForm, startDate: val, endDate: nextEnd });
+                      }
+                    }}
+                    required
+                  />
+                </div>
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label>End Date</label>
+                  <input
+                    type="date"
+                    className="form-control"
+                    value={holidayForm.endDate}
+                    min={holidayForm.startDate || (!editingId ? (() => {
+                      const today = new Date();
+                      const yyyy = today.getFullYear();
+                      const mm = String(today.getMonth() + 1).padStart(2, '0');
+                      const dd = String(today.getDate()).padStart(2, '0');
+                      return `${yyyy}-${mm}-${dd}`;
+                    })() : undefined)}
+                    onChange={(e) => { const val = e.target.value; if (!val || val.split('-')[0].length <= 4) setHolidayForm({ ...holidayForm, endDate: val }); }}
+                    required
+                  />
+                </div>
               </div>
-              <div className="form-group">
+              <div className="form-group" style={{ marginBottom: 0 }}>
                 <label>Remarks / Notes</label>
                 <input type="text" className="form-control" placeholder="Optional notes" value={holidayForm.description} onChange={(e) => setHolidayForm({ ...holidayForm, description: e.target.value })} />
               </div>
@@ -8364,27 +8259,18 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
   return (
     <div className="animate-slide-up" style={{ display: 'flex', flexDirection: 'column', gap: '24px', paddingBottom: '40px' }}>
 
-      {/* Toast notifications */}
-      {notification && (
-        <div style={{
-          position: 'fixed',
-          top: '20px',
-          right: '20px',
-          padding: '16px 24px',
-          borderRadius: '12px',
-          background: notification.type === 'success' ? '#10b981' : '#ef4444',
-          color: '#ffffff',
-          boxShadow: '0 10px 25px -5px rgba(0,0,0,0.3)',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '10px',
-          zIndex: 999999,
-          fontWeight: 600,
-          animation: 'slideInRight 0.3s ease forwards'
-        }}>
+      {/* Toast notifications (Portaled to document.body with max z-index) */}
+      {notification && createPortal(
+        <div
+          className="academic-toast-notification"
+          style={{
+            background: notification.type === 'success' ? '#10b981' : '#ef4444'
+          }}
+        >
           {notification.type === 'success' ? <CheckCircle size={20} /> : <AlertCircle size={20} />}
           <span>{notification.message}</span>
-        </div>
+        </div>,
+        document.body
       )}
 
 
@@ -8506,13 +8392,15 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
 
       {/* Dynamic Modal Renderer */}
       {showAddModal && createPortal(
-        <div className="modal-overlay">
-          <div className="modal-content glass-panel" style={{ maxWidth: '550px', maxHeight: '90vh', overflowY: 'auto', borderRadius: '16px', padding: '24px', alignSelf: 'flex-start', marginTop: '5vh' }}>
+        <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) setShowAddModal(false); }}>
+          <div className="modal-content glass-panel" style={{ maxWidth: '550px' }}>
             <div className="modal-header">
               <h2 style={{ fontSize: '1.25rem', textTransform: 'capitalize' }}>
                 {editingId ? 'Edit' : 'Add'} {['academic-activities', 'academic-events'].includes(subView) ? 'Event' : subView.replace('academic-', '').replace('-', ' ')}
               </h2>
-              <button className="modal-close" onClick={() => setShowAddModal(false)}>{"\u00d7"}</button>
+              <button className="modal-close" onClick={() => setShowAddModal(false)} aria-label="Close modal">
+                <X size={20} />
+              </button>
             </div>
             {renderModalForm()}
           </div>
@@ -8554,6 +8442,26 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
               ))}
             </div>
 
+            {/* In-Modal Validation Error Banner */}
+            {wizardError && (
+              <div style={{
+                background: 'rgba(239, 68, 68, 0.12)',
+                border: '1px solid rgba(239, 68, 68, 0.35)',
+                color: '#ef4444',
+                padding: '12px 16px',
+                borderRadius: '12px',
+                fontSize: '0.86rem',
+                fontWeight: 600,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+                animation: 'shake 0.3s ease-in-out'
+              }}>
+                <AlertCircle size={18} style={{ flexShrink: 0 }} />
+                <span>{wizardError}</span>
+              </div>
+            )}
+
             {/* Step 1: Basic Information */}
             {examWizardStep === 1 && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
@@ -8568,24 +8476,51 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                   </CustomSelect>
                 </div>
                 <div className="form-group">
-                  <label>Exam Type *</label>
-                  <CustomSelect className="form-control" value={wizardForm.examType} onChange={e => setWizardForm({ ...wizardForm, examType: e.target.value })} style={{ marginTop: '4px' }}>
+                  <label style={{ color: (!wizardForm.examType && wizardError) ? '#ef4444' : undefined }}>Exam Type *</label>
+                  <CustomSelect
+                    className="form-control"
+                    value={wizardForm.examType}
+                    onChange={e => {
+                      setWizardForm({ ...wizardForm, examType: e.target.value });
+                      if (wizardError) setWizardError('');
+                    }}
+                    style={{
+                      marginTop: '4px',
+                      borderColor: (!wizardForm.examType && wizardError) ? '#ef4444' : undefined
+                    }}
+                  >
                     <option value="">Select Exam Type</option>
                     {examTypes.map(t => <option key={t} value={t}>{t}</option>)}
                   </CustomSelect>
+                  {(!wizardForm.examType && wizardError) && (
+                    <span style={{ fontSize: '0.75rem', color: '#ef4444', fontWeight: 600, marginTop: '4px', display: 'block' }}>
+                      Please select an exam type to continue.
+                    </span>
+                  )}
                 </div>
                 {wizardForm.examType === 'Custom Exam' && (
                   <div className="form-group animate-slide-down">
-                    <label>Name of Custom Exam *</label>
+                    <label style={{ color: (!(wizardForm.customExamName || '').trim() && wizardError) ? '#ef4444' : undefined }}>Name of Custom Exam *</label>
                     <input
                       type="text"
                       className="form-control"
                       placeholder="e.g. Monthly Test October"
                       value={wizardForm.customExamName || ''}
-                      onChange={e => setWizardForm({ ...wizardForm, customExamName: e.target.value })}
-                      style={{ marginTop: '4px' }}
+                      onChange={e => {
+                        setWizardForm({ ...wizardForm, customExamName: e.target.value });
+                        if (wizardError) setWizardError('');
+                      }}
+                      style={{
+                        marginTop: '4px',
+                        borderColor: (!(wizardForm.customExamName || '').trim() && wizardError) ? '#ef4444' : undefined
+                      }}
                       required
                     />
+                    {(!(wizardForm.customExamName || '').trim() && wizardError) && (
+                      <span style={{ fontSize: '0.75rem', color: '#ef4444', fontWeight: 600, marginTop: '4px', display: 'block' }}>
+                        Please enter the custom exam name.
+                      </span>
+                    )}
                   </div>
                 )}
                 <div className="form-group">
@@ -8842,9 +8777,22 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                 </button>
                 {examWizardStep < 4 ? (
                   <button className="btn-primary" onClick={() => {
-                    if (examWizardStep === 1 && !wizardForm.examType) { showToast('Please select exam type.', 'error'); return; }
-                    if (examWizardStep === 1 && wizardForm.examType === 'Custom Exam' && !(wizardForm.customExamName || '').trim()) { showToast('Please enter the custom exam name.', 'error'); return; }
-                    if (examWizardStep === 2 && wizardForm.selectedGrades.length === 0) { showToast('Please select at least one grade-section.', 'error'); return; }
+                    if (examWizardStep === 1 && !wizardForm.examType) {
+                      setWizardError('Please select an exam type to proceed.');
+                      showToast('Please select exam type.', 'error');
+                      return;
+                    }
+                    if (examWizardStep === 1 && wizardForm.examType === 'Custom Exam' && !(wizardForm.customExamName || '').trim()) {
+                      setWizardError('Please enter the custom exam name.');
+                      showToast('Please enter the custom exam name.', 'error');
+                      return;
+                    }
+                    if (examWizardStep === 2 && wizardForm.selectedGrades.length === 0) {
+                      setWizardError('Please select at least one grade-section.');
+                      showToast('Please select at least one grade-section.', 'error');
+                      return;
+                    }
+                    setWizardError('');
                     setExamWizardStep(examWizardStep + 1);
                   }} style={{ padding: '10px 20px', borderRadius: '8px', fontWeight: 700 }}>
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
@@ -8865,6 +8813,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                         return !wizardForm.startDates[key] || !wizardForm.endDates[key];
                       });
                       if (missingDates.length > 0) {
+                        setWizardError('Please set start and end dates for all grade-sections.');
                         showToast('Please set start and end dates for all grade-sections.', 'error');
                         return;
                       }
@@ -8875,9 +8824,11 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                         return new Date(wizardForm.startDates[key]) > new Date(wizardForm.endDates[key]);
                       });
                       if (invalidDates.length > 0) {
+                        setWizardError('End date cannot be earlier than start date.');
                         showToast('End date cannot be earlier than start date.', 'error');
                         return;
                       }
+                      setWizardError('');
 
                       const gradeSections = wizardForm.selectedGrades.map(gs => ({
                         grade: gs.grade,
@@ -8945,7 +8896,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
               <div>
                 <h3 style={{ fontSize: '1.15rem', fontWeight: 800, margin: 0 }}>{viewScheduleExam.examName}</h3>
                 <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: '2px 0 0 0' }}>
-                  {viewScheduleExam.examType} Â· {viewScheduleExam.academicSession || 'N/A'}
+                  {viewScheduleExam.examType} • {viewScheduleExam.academicSession || 'N/A'}
                 </p>
               </div>
               <button onClick={() => setViewScheduleExam(null)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '1.8rem', lineHeight: 1, padding: '4px' }}>{"\u00d7"}</button>
@@ -9013,70 +8964,130 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
       )}
 
       {showTimeslotsModal && createPortal(
-        <div className="modal-overlay" style={{ zIndex: 20000000 }}>
-          <div className="animate-scale-up" style={{
-            width: '100%', maxWidth: '520px', padding: '28px', borderRadius: '16px',
-            background: 'var(--bg-card)', border: '1px solid var(--border-glass)',
-            boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)', display: 'flex', flexDirection: 'column', gap: '20px'
-          }}>
+        <div className="modal-overlay" style={{ zIndex: 20000000, padding: '16px' }}>
+          <div className="timeslot-modal-card animate-scale-up">
+            {/* Modal Header */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-glass)', paddingBottom: '12px' }}>
-              <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-main)', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Clock size={18} /> Manage Time Slots
-              </h3>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{
+                  width: '36px', height: '36px', borderRadius: '10px',
+                  background: 'rgba(255, 140, 66, 0.12)', color: 'hsl(var(--color-primary))',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center'
+                }}>
+                  <Clock size={19} />
+                </div>
+                <div>
+                  <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-main)', margin: 0 }}>
+                    Manage Time Slots
+                  </h3>
+                  <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', margin: 0 }}>
+                    Configure period schedules & break intervals
+                  </p>
+                </div>
+              </div>
               <button
                 type="button"
                 onClick={() => setShowTimeslotsModal(false)}
-                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '1.5rem', lineHeight: 1 }}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--text-muted)',
+                  cursor: 'pointer',
+                  padding: '6px',
+                  borderRadius: '8px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  transition: 'background 0.15s ease'
+                }}
+                aria-label="Close modal"
               >
-                {"\u00d7"}
+                <X size={20} />
               </button>
             </div>
 
+            {/* List of Time Slots Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                Active Slots ({timeslots.length})
+              </span>
+              <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                Drag ☰ to reorder
+              </span>
+            </div>
+
             {/* List of Time Slots */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '200px', overflowY: 'auto', paddingRight: '4px' }}>
+            <div className="timeslot-list-container">
               {timeslots.length > 0 ? (
-                timeslots.map((slot, idx) => (
-                  <div
-                    key={idx}
-                    draggable
-                    onDragStart={() => setDraggedTimeslotIndex(idx)}
-                    onDragOver={(e) => e.preventDefault()}
-                    onDrop={() => handleTimeslotDrop(idx)}
-                    style={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                      padding: '8px 12px',
-                      background: 'var(--bg-glass-active)',
-                      border: '1px solid var(--border-glass)',
-                      borderRadius: '8px',
-                      cursor: 'grab',
-                      transition: 'transform 0.15s ease'
-                    }}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <span style={{ color: 'var(--text-muted)', fontSize: '0.9rem', cursor: 'grab', userSelect: 'none' }}>☰</span>
-                      <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-main)' }}>{slot}</span>
-                    </div>
-                    <button
-                      onClick={() => handleDeleteTimeslot(slot)}
-                      style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: '4px' }}
+                timeslots.map((slot, idx) => {
+                  const tagMatch = slot.match(/\[(.*?)\]/);
+                  const tagText = tagMatch ? tagMatch[1] : '';
+                  const displayTime = slot.replace(/\s*\[.*?\]/, '');
+
+                  return (
+                    <div
+                      key={idx}
+                      draggable
+                      onDragStart={() => setDraggedTimeslotIndex(idx)}
+                      onDragOver={(e) => e.preventDefault()}
+                      onDrop={() => handleTimeslotDrop(idx)}
+                      className="timeslot-item"
                     >
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
-                ))
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
+                        <GripVertical size={16} style={{ color: 'var(--text-muted)', cursor: 'grab', flexShrink: 0 }} />
+                        <span style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--text-main)', whiteSpace: 'nowrap' }}>
+                          {displayTime}
+                        </span>
+                        {tagText && (
+                          <span style={{
+                            fontSize: '0.68rem',
+                            fontWeight: 700,
+                            padding: '2px 8px',
+                            borderRadius: '6px',
+                            background: tagText.toLowerCase().includes('lunch')
+                              ? 'rgba(249, 115, 22, 0.15)'
+                              : 'rgba(59, 130, 246, 0.15)',
+                            color: tagText.toLowerCase().includes('lunch')
+                              ? '#f97316'
+                              : '#3b82f6',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.03em'
+                          }}>
+                            {tagText}
+                          </span>
+                        )}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteTimeslot(slot)}
+                        className="timeslot-item-delete"
+                        title={`Delete slot: ${slot}`}
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    </div>
+                  );
+                })
               ) : (
-                <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontStyle: 'italic', textAlign: 'center', padding: '10px 0' }}>No time slots found</span>
+                <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', fontStyle: 'italic', textAlign: 'center', padding: '16px 0' }}>
+                  No time slots configured yet.
+                </div>
               )}
             </div>
 
             {/* Add New Time Slot form */}
             <form onSubmit={handleAddTimeslot} style={{ display: 'flex', flexDirection: 'column', gap: '14px', borderTop: '1px solid var(--border-glass)', paddingTop: '16px' }}>
-              <span style={{ fontSize: '0.75rem', fontWeight: 800, color: 'hsl(var(--color-primary))', textTransform: 'uppercase' }}>Add New Period Slot</span>              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                <div className="form-group">
-                  <label style={{ fontSize: '0.75rem' }}>Start Time *</label>
-                  <div style={{ display: 'flex', gap: '4px', marginTop: '4px' }}>
+              <span style={{ fontSize: '0.78rem', fontWeight: 800, color: 'hsl(var(--color-primary))', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                Add New Period Slot
+              </span>
+
+              <div className="timeslot-time-grid">
+                {/* Start Time Field */}
+                <div className="form-group" style={{ margin: 0 }}>
+                  <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-main)', marginBottom: '6px', display: 'block' }}>
+                    Start Time *
+                  </label>
+                  <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
                     <input
                       type="text"
                       placeholder="09:00"
@@ -9084,21 +9095,34 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                       value={startTimeInput}
                       onChange={e => setStartTimeInput(e.target.value)}
                       required
-                      style={{ flex: 1 }}
+                      maxLength={5}
+                      style={{ flex: 1, minWidth: 0, padding: '9px 12px', fontSize: '0.88rem', borderRadius: '10px' }}
                     />
-                    <CustomSelect                      className="select-custom"
-                      value={startAmPm}
-                      onChange={e => setStartAmPm(e.target.value)}
-                      style={{ width: '85px', flexShrink: 0, padding: '6px 8px', fontSize: '0.8rem', borderRadius: '8px' }}
-                    >
-                      <option value="AM">AM</option>
-                      <option value="PM">PM</option>
-                    </CustomSelect>
+                    <div className="ampm-segmented-control">
+                      <button
+                        type="button"
+                        className={startAmPm === 'AM' ? 'active' : ''}
+                        onClick={() => setStartAmPm('AM')}
+                      >
+                        AM
+                      </button>
+                      <button
+                        type="button"
+                        className={startAmPm === 'PM' ? 'active' : ''}
+                        onClick={() => setStartAmPm('PM')}
+                      >
+                        PM
+                      </button>
+                    </div>
                   </div>
                 </div>
-                <div className="form-group">
-                  <label style={{ fontSize: '0.75rem' }}>End Time *</label>
-                  <div style={{ display: 'flex', gap: '4px', marginTop: '4px' }}>
+
+                {/* End Time Field */}
+                <div className="form-group" style={{ margin: 0 }}>
+                  <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-main)', marginBottom: '6px', display: 'block' }}>
+                    End Time *
+                  </label>
+                  <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
                     <input
                       type="text"
                       placeholder="10:00"
@@ -9106,25 +9130,39 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                       value={endTimeInput}
                       onChange={e => setEndTimeInput(e.target.value)}
                       required
-                      style={{ flex: 1 }}
+                      maxLength={5}
+                      style={{ flex: 1, minWidth: 0, padding: '9px 12px', fontSize: '0.88rem', borderRadius: '10px' }}
                     />
-                    <CustomSelect                      className="select-custom"
-                      value={endAmPm}
-                      onChange={e => setEndAmPm(e.target.value)}
-                      style={{ width: '85px', flexShrink: 0, padding: '6px 8px', fontSize: '0.8rem', borderRadius: '8px' }}
-                    >
-                      <option value="AM">AM</option>
-                      <option value="PM">PM</option>
-                    </CustomSelect>
+                    <div className="ampm-segmented-control">
+                      <button
+                        type="button"
+                        className={endAmPm === 'AM' ? 'active' : ''}
+                        onClick={() => setEndAmPm('AM')}
+                      >
+                        AM
+                      </button>
+                      <button
+                        type="button"
+                        className={endAmPm === 'PM' ? 'active' : ''}
+                        onClick={() => setEndAmPm('PM')}
+                      >
+                        PM
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
+
+              {/* Slot Type */}
               <div className="form-group" style={{ margin: 0 }}>
-                <label style={{ fontSize: '0.75rem' }}>Slot Type</label>
-                <CustomSelect                  className="form-control"
+                <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-main)', marginBottom: '6px', display: 'block' }}>
+                  Slot Type
+                </label>
+                <CustomSelect
+                  className="form-control"
                   value={timeslotType}
                   onChange={e => setTimeslotType(e.target.value)}
-                  style={{ marginTop: '4px' }}
+                  style={{ width: '100%', minWidth: '100%' }}
                 >
                   <option value="Regular">Regular Period</option>
                   <option value="Lunch Break">Lunch Break</option>
@@ -9132,7 +9170,19 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                 </CustomSelect>
               </div>
 
-              <button type="submit" className="btn-primary" style={{ borderRadius: '8px', padding: '10px', fontSize: '0.85rem' }}>
+              <button
+                type="submit"
+                className="btn-primary"
+                style={{
+                  borderRadius: '10px',
+                  padding: '12px',
+                  fontSize: '0.88rem',
+                  fontWeight: 700,
+                  width: '100%',
+                  justifyContent: 'center',
+                  marginTop: '4px'
+                }}
+              >
                 Register Time Slot
               </button>
             </form>
@@ -9319,7 +9369,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                                 color: '#d97706',
                                 fontSize: '0.8rem'
                               }}>
-                                {breakType === 'Lunch Break' ? 'ðŸ± ' : breakType === 'Short Break' ? '☕ ' : breakType === 'Recess' ? 'ðŸƒ ' : breakType === 'Assembly' ? '📢 ' : '⚡ '}{breakType}
+                                {breakType === 'Lunch Break' ? '🍱 ' : breakType === 'Short Break' ? '☕ ' : breakType === 'Recess' ? '🏃 ' : breakType === 'Assembly' ? '📢 ' : '⚡ '}{breakType}
                               </td>
                             );
                           }
@@ -9489,7 +9539,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                                   color: '#d97706',
                                   fontSize: '0.8rem'
                                 }}>
-                                  {breakType === 'Lunch Break' ? 'ðŸ± ' : breakType === 'Short Break' ? '☕ ' : breakType === 'Recess' ? 'ðŸƒ ' : breakType === 'Assembly' ? '📢 ' : '⚡ '}{breakType}
+                                  {breakType === 'Lunch Break' ? '🍱 ' : breakType === 'Short Break' ? '☕ ' : breakType === 'Recess' ? '🏃 ' : breakType === 'Assembly' ? '📢 ' : '⚡ '}{breakType}
                                 </td>
                               );
                             }
@@ -9787,7 +9837,10 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
               </h3>
               <button
                 type="button"
-                onClick={() => setShowManageEventTypesModal(false)}
+                onClick={() => {
+                  fetchAllData();
+                  setShowManageEventTypesModal(false);
+                }}
                 style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '1.5rem', lineHeight: 1 }}
               >
                 {"\u00d7"}
@@ -9805,7 +9858,6 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                       onClick={() => {
                         const updated = eventTypes.filter((_, i) => i !== idx);
                         setEventTypes(updated);
-                        saveEventTypesToServer(updated);
                       }}
                       style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: '4px' }}
                       title="Delete Event Type"
@@ -9838,13 +9890,11 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                       e.preventDefault();
                       const val = e.target.value.trim();
                       if (!val) return;
-                      if (eventTypes.some(t => t.toLowerCase() === val.toLowerCase())) {
+                      if (eventTypes.includes(val)) {
                         showToast('Event type already exists.', 'error');
                         return;
                       }
-                      const updated = [...eventTypes, val];
-                      setEventTypes(updated);
-                      saveEventTypesToServer(updated);
+                      setEventTypes([...eventTypes, val]);
                       e.target.value = '';
                     }
                   }}
@@ -9860,13 +9910,11 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                       showToast('Please enter an event type.', 'error');
                       return;
                     }
-                    if (eventTypes.some(t => t.toLowerCase() === val.toLowerCase())) {
+                    if (eventTypes.includes(val)) {
                       showToast('Event type already exists.', 'error');
                       return;
                     }
-                    const updated = [...eventTypes, val];
-                    setEventTypes(updated);
-                    saveEventTypesToServer(updated);
+                    setEventTypes([...eventTypes, val]);
                     if (input) input.value = '';
                   }}
                 >
@@ -9879,24 +9927,34 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
             <div style={{ display: 'flex', gap: '12px', width: '100%', borderTop: '1px solid var(--border-glass)', paddingTop: '16px' }}>
               <button
                 type="button"
-                onClick={() => setShowManageEventTypesModal(false)}
+                onClick={() => {
+                  fetchAllData();
+                  setShowManageEventTypesModal(false);
+                }}
                 className="btn-secondary"
                 style={{ flex: 1, borderRadius: '8px', padding: '10px 18px', fontWeight: 600, justifyContent: 'center' }}
               >
-                Close
+                Cancel
               </button>
               <button
                 type="button"
                 onClick={async () => {
-                  const input = document.getElementById('new-event-type-input');
-                  const val = input ? input.value.trim() : '';
-                  let updated = [...eventTypes];
-                  if (val && !updated.some(t => t.toLowerCase() === val.toLowerCase())) {
-                    updated.push(val);
-                    if (input) input.value = '';
+                  try {
+                    const res = await fetch('/api/academics/event-types', {
+                      method: 'PUT',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ eventTypes })
+                    });
+                    if (res.ok) {
+                      showToast('Event types saved successfully.', 'success');
+                      setShowManageEventTypesModal(false);
+                      fetchAllData();
+                    } else {
+                      showToast('Failed to save event types.', 'error');
+                    }
+                  } catch (e) {
+                    showToast('Failed to save event types.', 'error');
                   }
-                  await saveEventTypesToServer(updated);
-                  setShowManageEventTypesModal(false);
                 }}
                 className="btn-primary"
                 style={{ flex: 1, borderRadius: '8px', padding: '10px 18px', fontWeight: 700, justifyContent: 'center' }}
@@ -9922,7 +9980,10 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
               </h3>
               <button
                 type="button"
-                onClick={() => setShowManageNoticeCategoriesModal(false)}
+                onClick={() => {
+                  fetchAllData();
+                  setShowManageNoticeCategoriesModal(false);
+                }}
                 style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '1.5rem', lineHeight: 1 }}
               >
                 {"\u00d7"}
@@ -9940,7 +10001,6 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                       onClick={() => {
                         const updated = noticeCategories.filter((_, i) => i !== idx);
                         setNoticeCategories(updated);
-                        saveNoticeCategoriesToServer(updated);
                       }}
                       style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: '4px' }}
                       title="Delete Notice Category"
@@ -9973,13 +10033,11 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                       e.preventDefault();
                       const val = e.target.value.trim();
                       if (!val) return;
-                      if (noticeCategories.some(c => c.toLowerCase() === val.toLowerCase())) {
+                      if (noticeCategories.includes(val)) {
                         showToast('Category already exists.', 'error');
                         return;
                       }
-                      const updated = [...noticeCategories, val];
-                      setNoticeCategories(updated);
-                      saveNoticeCategoriesToServer(updated);
+                      setNoticeCategories([...noticeCategories, val]);
                       e.target.value = '';
                     }
                   }}
@@ -9995,13 +10053,11 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                       showToast('Please enter a notice category.', 'error');
                       return;
                     }
-                    if (noticeCategories.some(c => c.toLowerCase() === val.toLowerCase())) {
+                    if (noticeCategories.includes(val)) {
                       showToast('Category already exists.', 'error');
                       return;
                     }
-                    const updated = [...noticeCategories, val];
-                    setNoticeCategories(updated);
-                    saveNoticeCategoriesToServer(updated);
+                    setNoticeCategories([...noticeCategories, val]);
                     if (input) input.value = '';
                   }}
                 >
@@ -10014,24 +10070,34 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
             <div style={{ display: 'flex', gap: '12px', width: '100%', borderTop: '1px solid var(--border-glass)', paddingTop: '16px' }}>
               <button
                 type="button"
-                onClick={() => setShowManageNoticeCategoriesModal(false)}
+                onClick={() => {
+                  fetchAllData();
+                  setShowManageNoticeCategoriesModal(false);
+                }}
                 className="btn-secondary"
                 style={{ flex: 1, borderRadius: '8px', padding: '10px 18px', fontWeight: 600, justifyContent: 'center' }}
               >
-                Close
+                Cancel
               </button>
               <button
                 type="button"
                 onClick={async () => {
-                  const input = document.getElementById('new-notice-category-input');
-                  const val = input ? input.value.trim() : '';
-                  let updated = [...noticeCategories];
-                  if (val && !updated.some(c => c.toLowerCase() === val.toLowerCase())) {
-                    updated.push(val);
-                    if (input) input.value = '';
+                  try {
+                    const res = await fetch('/api/academics/notice-categories', {
+                      method: 'PUT',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ noticeCategories })
+                    });
+                    if (res.ok) {
+                      showToast('Notice categories saved successfully.', 'success');
+                      setShowManageNoticeCategoriesModal(false);
+                      fetchAllData();
+                    } else {
+                      showToast('Failed to save notice categories.', 'error');
+                    }
+                  } catch (e) {
+                    showToast('Failed to save notice categories.', 'error');
                   }
-                  await saveNoticeCategoriesToServer(updated);
-                  setShowManageNoticeCategoriesModal(false);
                 }}
                 className="btn-primary"
                 style={{ flex: 1, borderRadius: '8px', padding: '10px 18px', fontWeight: 700, justifyContent: 'center' }}
@@ -10057,7 +10123,10 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
               </h3>
               <button
                 type="button"
-                onClick={() => setShowManageHolidayClassificationsModal(false)}
+                onClick={() => {
+                  fetchAllData();
+                  setShowManageHolidayClassificationsModal(false);
+                }}
                 style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '1.5rem', lineHeight: 1 }}
               >
                 {"\u00d7"}
@@ -10075,7 +10144,6 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                       onClick={() => {
                         const updated = holidayClassifications.filter((_, i) => i !== idx);
                         setHolidayClassifications(updated);
-                        saveHolidayClassificationsToServer(updated);
                       }}
                       style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: '4px' }}
                       title="Delete Holiday Classification"
@@ -10108,13 +10176,11 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                       e.preventDefault();
                       const val = e.target.value.trim();
                       if (!val) return;
-                      if (holidayClassifications.some(c => c.toLowerCase() === val.toLowerCase())) {
+                      if (holidayClassifications.includes(val)) {
                         showToast('Classification already exists.', 'error');
                         return;
                       }
-                      const updated = [...holidayClassifications, val];
-                      setHolidayClassifications(updated);
-                      saveHolidayClassificationsToServer(updated);
+                      setHolidayClassifications([...holidayClassifications, val]);
                       e.target.value = '';
                     }
                   }}
@@ -10130,13 +10196,11 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
                       showToast('Please enter a classification.', 'error');
                       return;
                     }
-                    if (holidayClassifications.some(c => c.toLowerCase() === val.toLowerCase())) {
+                    if (holidayClassifications.includes(val)) {
                       showToast('Classification already exists.', 'error');
                       return;
                     }
-                    const updated = [...holidayClassifications, val];
-                    setHolidayClassifications(updated);
-                    saveHolidayClassificationsToServer(updated);
+                    setHolidayClassifications([...holidayClassifications, val]);
                     if (input) input.value = '';
                   }}
                 >
@@ -10149,30 +10213,417 @@ export default function AcademicPanel({ subView, setAdminView, userProfile }) {
             <div style={{ display: 'flex', gap: '12px', width: '100%', borderTop: '1px solid var(--border-glass)', paddingTop: '16px' }}>
               <button
                 type="button"
-                onClick={() => setShowManageHolidayClassificationsModal(false)}
+                onClick={() => {
+                  fetchAllData();
+                  setShowManageHolidayClassificationsModal(false);
+                }}
                 className="btn-secondary"
                 style={{ flex: 1, borderRadius: '8px', padding: '10px 18px', fontWeight: 600, justifyContent: 'center' }}
               >
-                Close
+                Cancel
               </button>
               <button
                 type="button"
                 onClick={async () => {
-                  const input = document.getElementById('new-holiday-classification-input');
-                  const val = input ? input.value.trim() : '';
-                  let updated = [...holidayClassifications];
-                  if (val && !updated.some(c => c.toLowerCase() === val.toLowerCase())) {
-                    updated.push(val);
-                    if (input) input.value = '';
+                  try {
+                    const res = await fetch('/api/academics/holiday-classifications', {
+                      method: 'PUT',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ holidayClassifications })
+                    });
+                    if (res.ok) {
+                      showToast('Holiday classifications saved successfully.', 'success');
+                      setShowManageHolidayClassificationsModal(false);
+                      fetchAllData();
+                    } else {
+                      showToast('Failed to save holiday classifications.', 'error');
+                    }
+                  } catch (e) {
+                    showToast('Failed to save holiday classifications.', 'error');
                   }
-                  await saveHolidayClassificationsToServer(updated);
-                  setShowManageHolidayClassificationsModal(false);
                 }}
                 className="btn-primary"
                 style={{ flex: 1, borderRadius: '8px', padding: '10px 18px', fontWeight: 700, justifyContent: 'center' }}
               >
                 Save Changes
               </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Document Export & PDF Preview Modal */}
+      {exportPreviewDoc && createPortal(
+        <div
+          className="modal-overlay"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setExportPreviewDoc(null);
+          }}
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            zIndex: 999999,
+            background: 'rgba(15, 23, 42, 0.7)',
+            backdropFilter: 'blur(8px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '16px'
+          }}
+        >
+          <div
+            className="glass-panel"
+            style={{
+              background: 'var(--bg-card, #ffffff)',
+              borderRadius: '16px',
+              border: '1px solid var(--border-glass)',
+              boxShadow: '0 25px 60px -15px rgba(0,0,0,0.3)',
+              width: '100%',
+              maxWidth: '640px',
+              maxHeight: '90vh',
+              display: 'flex',
+              flexDirection: 'column',
+              overflow: 'hidden'
+            }}
+          >
+            {/* Modal Header */}
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '16px 20px',
+                borderBottom: '1px solid var(--border-glass)',
+                background: 'var(--bg-glass-active, rgba(0,0,0,0.02))'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div
+                  style={{
+                    width: '36px',
+                    height: '36px',
+                    borderRadius: '10px',
+                    background: 'rgba(255, 107, 0, 0.1)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: 'hsl(var(--color-primary))'
+                  }}
+                >
+                  <FileText size={20} />
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 800, color: 'var(--text-main)' }}>
+                    Export Document
+                  </h3>
+                  <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                    {exportPreviewDoc.badgeText || 'Academic Record'} • PDF Format
+                  </span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setExportPreviewDoc(null)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  padding: '6px',
+                  borderRadius: '8px',
+                  color: 'var(--text-muted)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Modal Scrollable Document Paper */}
+            <div
+              style={{
+                padding: '20px',
+                overflowY: 'auto',
+                flex: 1,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '16px'
+              }}
+            >
+              {/* Document Paper Preview */}
+              <div
+                style={{
+                  background: 'var(--bg-card, #ffffff)',
+                  border: '1px solid var(--border-glass)',
+                  borderRadius: '12px',
+                  padding: '20px',
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '14px'
+                }}
+              >
+                {/* School Header Ribbon */}
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    borderBottom: '2px solid hsl(var(--color-primary))',
+                    paddingBottom: '10px'
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <School size={18} style={{ color: 'hsl(var(--color-primary))' }} />
+                    <span style={{ fontWeight: 800, fontSize: '0.88rem', letterSpacing: '0.5px', textTransform: 'uppercase', color: 'var(--text-main)' }}>
+                      {activeSchoolDetails?.name || 'Green Valley Academy'}
+                    </span>
+                  </div>
+                  <span
+                    style={{
+                      fontSize: '0.68rem',
+                      fontWeight: 700,
+                      padding: '3px 8px',
+                      borderRadius: '6px',
+                      background: 'rgba(255, 107, 0, 0.1)',
+                      color: 'hsl(var(--color-primary))',
+                      textTransform: 'uppercase'
+                    }}
+                  >
+                    {exportPreviewDoc.type || 'Official'}
+                  </span>
+                </div>
+
+                {/* Title */}
+                <h2 style={{ fontSize: '1.25rem', fontWeight: 800, margin: '4px 0 0 0', color: 'var(--text-main)' }}>
+                  {exportPreviewDoc.title}
+                </h2>
+
+                {/* Description */}
+                {exportPreviewDoc.description && (
+                  <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-muted)', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>
+                    {exportPreviewDoc.description}
+                  </p>
+                )}
+
+                {/* Details Grid */}
+                {exportPreviewDoc.fields && exportPreviewDoc.fields.length > 0 && (
+                  <div
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+                      gap: '10px',
+                      background: 'var(--bg-glass-active, rgba(0,0,0,0.02))',
+                      padding: '12px 14px',
+                      borderRadius: '8px',
+                      border: '1px solid var(--border-glass)'
+                    }}
+                  >
+                    {exportPreviewDoc.fields.map((f, idx) => (
+                      <div key={idx} style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                        <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>
+                          {f.label}
+                        </span>
+                        <strong style={{ fontSize: '0.85rem', color: 'var(--text-main)' }}>
+                          {f.value || 'N/A'}
+                        </strong>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Timetable Table (if present) */}
+                {exportPreviewDoc.tableHeaders && exportPreviewDoc.tableRows && (
+                  <div style={{ overflowX: 'auto', marginTop: '6px' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.78rem' }}>
+                      <thead>
+                        <tr style={{ background: 'var(--bg-glass-active, rgba(0,0,0,0.03))' }}>
+                          {exportPreviewDoc.tableHeaders.map((th, i) => (
+                            <th key={i} style={{ padding: '8px 10px', textAlign: 'left', borderBottom: '1px solid var(--border-glass)', color: 'var(--text-muted)', fontWeight: 700 }}>
+                              {th}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {exportPreviewDoc.tableRows.map((row, rIdx) => (
+                          <tr key={rIdx} style={{ borderBottom: '1px solid var(--border-glass)' }}>
+                            {row.map((cell, cIdx) => (
+                              <td key={cIdx} style={{ padding: '8px 10px', color: 'var(--text-main)' }}>
+                                {cell}
+                              </td>
+                            ))}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+
+                {/* Verification Seal */}
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    fontSize: '0.72rem',
+                    color: '#10b981',
+                    fontWeight: 600,
+                    borderTop: '1px dashed var(--border-glass)',
+                    paddingTop: '10px',
+                    marginTop: '6px'
+                  }}
+                >
+                  <CheckCircle size={14} />
+                  <span>Verified Electronic Record • {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Actions Footer */}
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '14px 20px',
+                borderTop: '1px solid var(--border-glass)',
+                background: 'var(--bg-glass-active, rgba(0,0,0,0.02))',
+                flexWrap: 'wrap',
+                gap: '10px'
+              }}
+            >
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard.writeText(exportPreviewDoc.summaryText || exportPreviewDoc.title);
+                    setCopiedField(true);
+                    showToast('Summary details copied to clipboard!', 'success');
+                    setTimeout(() => setCopiedField(false), 2000);
+                  }}
+                  className="btn-secondary"
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '8px 14px',
+                    borderRadius: '8px',
+                    fontSize: '0.8rem',
+                    cursor: 'pointer'
+                  }}
+                >
+                  {copiedField ? <Check size={14} style={{ color: '#10b981' }} /> : <FileText size={14} />}
+                  {copiedField ? 'Copied!' : 'Copy Text'}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (typeof window !== 'undefined' && window.ReactNativeWebView) {
+                      window.ReactNativeWebView.postMessage(JSON.stringify({
+                        type: 'SHARE_DOCUMENT',
+                        title: exportPreviewDoc.title,
+                        content: exportPreviewDoc.summaryText
+                      }));
+                    } else if (navigator.share) {
+                      try {
+                        await navigator.share({
+                          title: exportPreviewDoc.title,
+                          text: exportPreviewDoc.summaryText
+                        });
+                      } catch (e) {}
+                    } else {
+                      navigator.clipboard.writeText(exportPreviewDoc.summaryText || exportPreviewDoc.title);
+                      setCopiedField(true);
+                      showToast('Document details copied to clipboard!', 'success');
+                      setTimeout(() => setCopiedField(false), 2000);
+                    }
+                  }}
+                  className="btn-secondary"
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '8px 14px',
+                    borderRadius: '8px',
+                    fontSize: '0.8rem',
+                    cursor: 'pointer'
+                  }}
+                >
+                  <Share2 size={14} /> Share
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    printHtmlViaIframe(exportPreviewDoc.title, exportPreviewDoc.htmlBody);
+                    if (typeof window !== 'undefined' && window.ReactNativeWebView) {
+                      handleDownloadPdfAction(exportPreviewDoc);
+                    }
+                  }}
+                  className="btn-secondary"
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '8px 14px',
+                    borderRadius: '8px',
+                    fontSize: '0.8rem',
+                    cursor: 'pointer'
+                  }}
+                >
+                  <Printer size={14} /> Print
+                </button>
+              </div>
+
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button
+                  type="button"
+                  onClick={() => setExportPreviewDoc(null)}
+                  className="btn-secondary"
+                  style={{
+                    padding: '8px 14px',
+                    borderRadius: '8px',
+                    fontSize: '0.8rem',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Close
+                </button>
+                <button
+                  type="button"
+                  disabled={downloadingPdf}
+                  onClick={() => handleDownloadPdfAction(exportPreviewDoc)}
+                  className="btn-primary"
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '8px 16px',
+                    borderRadius: '8px',
+                    fontSize: '0.82rem',
+                    fontWeight: 700,
+                    cursor: downloadingPdf ? 'not-allowed' : 'pointer',
+                    opacity: downloadingPdf ? 0.75 : 1
+                  }}
+                >
+                  {downloadingPdf ? (
+                    <>
+                      <Loader2 size={14} className="spin" /> Downloading...
+                    </>
+                  ) : (
+                    <>
+                      <Download size={14} /> Download PDF
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
           </div>
         </div>,

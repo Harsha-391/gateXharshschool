@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import './ParentDashboard.css';
+import '../components/Header.css';
 import { 
   LayoutDashboard, 
   Users, 
@@ -23,16 +24,17 @@ import {
   ChevronRight,
   ChevronDown,
   BookMarked,
-  Sun,
-  Moon,
   Shield,
   Camera,
   Phone,
-  Globe
+  Globe,
+  Menu,
+  X
 } from 'lucide-react';
 
-export default function ParentDashboard({ onLogout, theme, setTheme }) {
+export default function ParentDashboard({ onLogout }) {
   const [activeTab, setActiveTab] = useState('children');
+  const [mobileOpen, setMobileOpen] = useState(false);
   const [attendanceSubTab, setAttendanceSubTab] = useState('history');
   const [attendanceDateFilter, setAttendanceDateFilter] = useState('');
   const [children, setChildren] = useState([]);
@@ -66,6 +68,21 @@ export default function ParentDashboard({ onLogout, theme, setTheme }) {
     return parentName.substring(0, 2).toUpperCase();
   };
 
+  const getParentFirstName = () => {
+    const parentName = localStorage.getItem('name') || activeChild?.fatherName || activeChild?.motherName || 'Parent';
+    return parentName.split(' ')[0] || 'Parent';
+  };
+
+  const getGradeText = (child) => {
+    if (!child) return '—';
+    const cls = child.studentClass || child.grade || child.class || '';
+    const sec = child.section ? ` - ${child.section}` : '';
+    if (!cls) return 'Class I - A';
+    return cls.toLowerCase().startsWith('class') || cls.toLowerCase().startsWith('grade')
+      ? `${cls}${sec}`
+      : `Class ${cls}${sec}`;
+  };
+
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (notificationRef.current && !notificationRef.current.contains(event.target)) {
@@ -80,12 +97,7 @@ export default function ParentDashboard({ onLogout, theme, setTheme }) {
 
   const [parentNotifications, setParentNotifications] = useState([]);
 
-  const toggleTheme = () => {
-    const nextTheme = theme === 'dark' ? 'light' : 'dark';
-    setTheme(nextTheme);
-    localStorage.setItem('theme', nextTheme);
-    document.documentElement.setAttribute('data-theme', nextTheme);
-  };
+
 
   // Data states for active child
   const [attendance, setAttendance] = useState({});
@@ -908,20 +920,37 @@ export default function ParentDashboard({ onLogout, theme, setTheme }) {
   return (
     <div className="parent-dashboard-container">
       
+      {/* Mobile Drawer Overlay Backdrop */}
+      <div 
+        className={`parent-mobile-overlay ${mobileOpen ? 'active' : ''}`}
+        onClick={() => setMobileOpen(false)}
+      />
+
       {/* Sidebar Navigation */}
-      <aside className="parent-sidebar">
-        <div className="sidebar-header" style={{ padding: '20px 24px', display: 'flex', alignItems: 'center', gap: '12px', borderBottom: '1px solid var(--border-glass, rgba(255, 255, 255, 0.08))' }}>
-          {schoolInfo?.logo ? (
-            <img src={schoolInfo.logo} alt="School Logo" style={{ width: '36px', height: '36px', objectFit: 'contain', borderRadius: '6px' }} />
-          ) : (
-            <BookMarked size={28} style={{ color: '#FF8C42' }} />
-          )}
-          <div>
-            <h2 style={{ fontSize: '1.1rem', fontWeight: 800, color: '#FF8C42', margin: 0 }}>Parent Portal</h2>
-            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted, #94a3b8)' }}>
-              {schoolInfo?.name || 'Academy ERP'}
+      <aside className={`parent-sidebar ${mobileOpen ? 'mobile-open' : ''}`}>
+        <div className="sidebar-header" style={{ padding: '20px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border-glass, rgba(255, 255, 255, 0.08))' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            {schoolInfo?.logo ? (
+              <img src={schoolInfo.logo} alt="School Logo" style={{ width: '36px', height: '36px', objectFit: 'contain', borderRadius: '6px' }} />
+            ) : (
+              <BookMarked size={28} style={{ color: '#FF8C42' }} />
+            )}
+            <div>
+              <h2 style={{ fontSize: '1.1rem', fontWeight: 800, color: '#FF8C42', margin: 0 }}>Parent Portal</h2>
+              <div style={{ fontSize: '0.72rem', color: 'var(--text-muted, #94a3b8)' }}>
+                {schoolInfo?.name || 'Academy ERP'}
+              </div>
             </div>
           </div>
+
+          <button 
+            type="button"
+            onClick={() => setMobileOpen(false)} 
+            className="sidebar-close-btn"
+            title="Close menu"
+          >
+            <X size={20} />
+          </button>
         </div>
 
         <div className="sidebar-menu">
@@ -930,7 +959,10 @@ export default function ParentDashboard({ onLogout, theme, setTheme }) {
             return (
               <button
                 key={link.id}
-                onClick={() => setActiveTab(link.id)}
+                onClick={() => {
+                  setActiveTab(link.id);
+                  setMobileOpen(false);
+                }}
                 className={`menu-item ${activeTab === link.id ? 'active' : ''}`}
               >
                 <Icon size={18} />
@@ -940,24 +972,27 @@ export default function ParentDashboard({ onLogout, theme, setTheme }) {
           })}
         </div>
 
-        {/* Profile Card at the bottom of Sidebar */}
-        <div style={{ marginTop: 'auto' }}>
+        {/* Profile Card & Logout at the bottom of Sidebar */}
+        <div className="sidebar-footer" style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: '8px' }}>
           
           {/* Profile Card Trigger */}
           <div 
-            onClick={() => setActiveTab(prev => prev === 'settings' ? 'children' : 'settings')}
+            onClick={() => {
+              setActiveTab(prev => prev === 'settings' ? 'children' : 'settings');
+              setMobileOpen(false);
+            }}
             style={{ 
               display: 'flex', 
               alignItems: 'center', 
               gap: '12px', 
-              padding: '16px 24px', 
-              borderTop: '1px solid var(--border-glass, rgba(255, 255, 255, 0.08))', 
+              padding: '12px', 
+              borderRadius: '12px',
               cursor: 'pointer',
               background: activeTab === 'settings' ? 'var(--bg-glass-active)' : 'transparent',
               transition: 'background 0.2s'
             }}
           >
-            <div className="child-avatar" style={{ width: '40px', height: '40px', fontSize: '1rem', background: '#FF8C42', border: 'none' }}>
+            <div className="child-avatar" style={{ width: '38px', height: '38px', fontSize: '0.9rem', background: '#FF8C42', border: 'none', flexShrink: 0 }}>
               {photo ? (
                 <img src={photo} alt="Parent Profile" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
               ) : (
@@ -973,9 +1008,21 @@ export default function ParentDashboard({ onLogout, theme, setTheme }) {
                   Parent
                 </span>
               </div>
-              <ChevronDown size={14} style={{ color: 'var(--text-muted)', marginLeft: '8px' }} />
+              <ChevronRight size={14} style={{ color: 'var(--text-muted)', marginLeft: '6px' }} />
             </div>
           </div>
+
+          {onLogout && (
+            <button 
+              type="button"
+              onClick={onLogout}
+              className="logout-btn"
+              style={{ fontSize: '0.85rem', padding: '10px 14px' }}
+            >
+              <LogOut size={16} />
+              <span>Log Out</span>
+            </button>
+          )}
 
         </div>
       </aside>
@@ -983,23 +1030,49 @@ export default function ParentDashboard({ onLogout, theme, setTheme }) {
       {/* Main Content Workspace */}
       <div className="parent-main-content">
         
-        {/* Top Navbar */}
-        <header className="parent-navbar">
-          <div className="navbar-left">
-            <h3 style={{ margin: 0, fontWeight: 700, fontSize: '1.15rem' }}>
-              Welcome back, Parent
-            </h3>
+        {/* Top Header - Aligned with School Dashboard (.app-header) */}
+        <header className="app-header parent-app-header">
+          <div className="header-left">
+            <button 
+              type="button"
+              onClick={() => setMobileOpen(true)}
+              className="sidebar-toggle-btn"
+              aria-label="Toggle navigation drawer"
+              title="Open Navigation Menu"
+            >
+              <Menu size={20} />
+            </button>
+
+            <div className="header-title">
+              <h1>
+                Parent <span style={{ color: '#FF8C42' }}>Portal</span>
+              </h1>
+              {schoolInfo?.name && (
+                <p>{schoolInfo.name} • Parent & Student Portal</p>
+              )}
+            </div>
           </div>
 
-          <div className="navbar-right" style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-            {/* Theme Toggle Button */}
-            <button 
-              onClick={toggleTheme} 
-              className="action-btn" 
-              title="Toggle color scheme" 
-            >
-              {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
-            </button>
+          <div className="header-right">
+            {/* Child Selector: shown when multiple children */}
+            {children.length > 1 && (
+              <div className="child-select-container">
+                <Users size={16} style={{ color: '#FF8C42', flexShrink: 0 }} />
+                <select 
+                  value={activeChild?.id || ''} 
+                  onChange={handleChildChange}
+                  className="child-select"
+                >
+                  {children.map(c => (
+                    <option key={c.id} value={c.id}>
+                      {c.name} ({getGradeText(c)})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+
 
             {/* Notifications Indicator & Popover */}
             <div ref={notificationRef} style={{ position: 'relative' }}>
@@ -1008,14 +1081,14 @@ export default function ParentDashboard({ onLogout, theme, setTheme }) {
                 className="action-btn" 
                 title="Notifications" 
               >
-                <Bell size={18} />
+                <Bell size={20} />
                 {parentNotifications.some(n => !n.read) && (
                   <span className="badge-dot" />
                 )}
               </button>
 
               {showNotifications && (
-                <div style={{ 
+                <div className="notifications-dropdown" style={{ 
                   position: 'absolute', 
                   top: '52px', 
                   right: 0, 
@@ -1093,23 +1166,6 @@ export default function ParentDashboard({ onLogout, theme, setTheme }) {
                 </div>
               )}
             </div>
-
-            {children.length > 0 && (
-              <div className="child-select-container">
-                <Users size={16} style={{ color: '#FF8C42' }} />
-                <select 
-                  value={activeChild?.id || ''} 
-                  onChange={handleChildChange}
-                  className="child-select"
-                >
-                  {children.map(c => (
-                    <option key={c.id} value={c.id}>
-                      {c.name} ({c.grade})
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
           </div>
         </header>
 
@@ -1118,27 +1174,48 @@ export default function ParentDashboard({ onLogout, theme, setTheme }) {
           
           {/* TAB 2: MY CHILDREN (WITH SELECTED CHILD OVERVIEW) */}
           {activeTab === 'children' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              
+              {/* Welcome Greeting Banner */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                <div>
+                  <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-main)' }}>
+                    Welcome back, {getParentFirstName()} 👋
+                  </h2>
+                  <p style={{ margin: '3px 0 0 0', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+                    {schoolInfo?.academicSession ? `Academic Session ${schoolInfo.academicSession}` : 'Monitor your child\'s academic journey'}
+                  </p>
+                </div>
+              </div>
+
               {activeChild && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
                   <div className="parent-grid-3">
                     
                     {/* Child Summary Card */}
                     <div className="parent-card" style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
-                      <div className="child-avatar" style={{ background: activeChild.photoBg }}>
+                      <div className="child-avatar" style={{ 
+                        background: activeChild.photoBg || 'linear-gradient(135deg, #FF8C42 0%, #E05300 100%)',
+                        color: '#ffffff',
+                        fontSize: '1.25rem',
+                        fontWeight: 800,
+                        border: '2px solid rgba(255, 140, 66, 0.4)',
+                        boxShadow: '0 4px 12px rgba(255, 140, 66, 0.25)',
+                        flexShrink: 0
+                      }}>
                         {activeChild.photo ? (
                           <img src={activeChild.photo} alt={activeChild.name} style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
                         ) : (
-                          activeChild.name.substring(0, 2).toUpperCase()
+                          activeChild.name ? activeChild.name.substring(0, 2).toUpperCase() : 'ST'
                         )}
                       </div>
-                      <div>
-                        <h3 style={{ margin: 0, fontSize: '1.2rem' }}>{activeChild.name}</h3>
+                      <div style={{ minWidth: 0, flex: 1 }}>
+                        <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 800 }}>{activeChild.name}</h3>
                         <p style={{ margin: '4px 0', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                          Admission: <strong>{activeChild.admissionNumber}</strong>
+                          Admission: <strong style={{ color: 'var(--text-main)' }}>{activeChild.admissionNumber || activeChild.id}</strong>
                         </p>
                         <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                          Grade & Section: <strong>{activeChild.grade}</strong>
+                          Grade & Section: <strong style={{ color: 'var(--text-main)' }}>{getGradeText(activeChild)}</strong>
                         </p>
                       </div>
                     </div>
@@ -1963,7 +2040,7 @@ export default function ParentDashboard({ onLogout, theme, setTheme }) {
                       </div>
                     ) : (
                       <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
-                        No published class timetables found for Grade {activeChild.grade}.
+                        No published class timetables found for {getGradeText(activeChild)}.
                       </div>
                     )}
                   </div>

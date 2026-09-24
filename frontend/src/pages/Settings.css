@@ -1,2 +1,144 @@
-﻿/* Styling for Settings */
+/* Styling for Settings */
 
+/* Modal Backdrop / Overlay */
+.settings-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 999999;
+  padding: 20px;
+  backdrop-filter: blur(4px);
+  box-sizing: border-box;
+}
+
+/* Modal Dialog Box */
+.settings-modal-dialog {
+  background: #ffffff;
+  border-radius: 20px;
+  border: 1px solid #cbd5e1;
+  width: 100%;
+  max-width: 580px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  animation: scaleUp 0.15s ease-out;
+  padding: 28px;
+  color: #000000;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2);
+  box-sizing: border-box;
+  max-height: 90vh;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/* Form Grid */
+.settings-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.settings-form-grid > div {
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+/* Time Picker Component */
+.timepicker-container {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.timepicker-select {
+  flex: 1;
+  min-width: 0;
+  padding: 10px 6px;
+  border-radius: 8px;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #0f172a;
+  font-size: 0.9rem;
+  font-weight: 600;
+  outline: none;
+  box-sizing: border-box;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+
+.timepicker-select:focus {
+  border-color: #3b82f6;
+}
+
+.timepicker-separator {
+  align-self: center;
+  font-weight: 700;
+  color: #475569;
+  flex-shrink: 0;
+}
+
+.timepicker-period {
+  width: 68px;
+  flex: 0 0 68px;
+}
+
+/* Modal Actions Footer */
+.settings-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  border-top: 1px solid #e2e8f0;
+  padding-top: 16px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+
+/* Mobile responsive rules */
+@media (max-width: 640px) {
+  .settings-modal-overlay {
+    padding: 12px;
+  }
+
+  .settings-modal-dialog {
+    padding: 20px 16px;
+    border-radius: 16px;
+    gap: 16px;
+    max-height: 92vh;
+  }
+
+  .settings-form-grid {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+
+  .timepicker-select {
+    padding: 10px 8px;
+    font-size: 0.95rem;
+  }
+
+  .timepicker-period {
+    width: 74px;
+    flex: 0 0 74px;
+  }
+
+  .settings-modal-actions {
+    flex-direction: row;
+  }
+
+  .settings-modal-actions button {
+    flex: 1;
+    justify-content: center;
+    text-align: center;
+  }
+}

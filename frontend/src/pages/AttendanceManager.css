@@ -1,15 +1,4 @@
-﻿/* Attendance Manager Page Styling Overrides for SaaS Visuals */
-
-/* Overwrite hardcoded white backgrounds in modals and result card boxes for Dark Theme compatibility */
-[data-theme='dark'] div[style*="background: '#ffffff'"],
-[data-theme='dark'] div[style*='background: "#ffffff"'],
-[data-theme='dark'] div[style*="background: rgb(255, 255, 255)"],
-[data-theme='dark'] div[style*="background-color: rgb(255, 255, 255)"] {
-  background: var(--bg-elevated) !important;
-  color: var(--text-main) !important;
-  border-color: var(--border-glass) !important;
-  box-shadow: var(--shadow-lg) !important;
-}
+/* Attendance Manager Page Styling Overrides for SaaS Visuals */
 
 @keyframes scannerLine {
   0% { top: 0%; opacity: 0.8; }
@@ -31,5 +20,126 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
+}
+
+/* Header card container: ensure it respects viewport & never lets children overflow */
+.attendance-header-panel {
+  padding: 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+@media (max-width: 768px) {
+  .attendance-header-panel {
+    padding: 16px 14px;
+    gap: 14px;
+  }
+}
+
+.attendance-header-title {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.attendance-header-title-text {
+  min-width: 0;
+  flex: 1;
+}
+
+.attendance-header-title-text h2 {
+  font-size: 1.35rem;
+  font-weight: 800;
+  margin: 0;
+  word-break: break-word;
+}
+
+@media (max-width: 768px) {
+  .attendance-header-title-text h2 {
+    font-size: 1.15rem;
+  }
+}
+
+.attendance-header-actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+  max-width: 100%;
+  min-width: 0;
+}
+
+@media (max-width: 768px) {
+  .attendance-header-actions {
+    width: 100%;
+    gap: 10px;
+  }
+}
+
+/* Main Navigation Tabs Container - horizontally scrollable on small screens */
+.attendance-main-tabs-container {
+  display: flex;
+  gap: 6px;
+  background: rgba(0, 0, 0, 0.03);
+  padding: 5px;
+  border-radius: 10px;
+  border: 1px solid var(--border-glass);
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  box-sizing: border-box;
+  min-width: 0;
+  flex-shrink: 1;
+}
+
+.attendance-main-tabs-container::-webkit-scrollbar {
+  display: none;
+}
+
+.attendance-main-tab-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.82rem;
+  transition: all 0.2s;
+  white-space: nowrap;
+  flex-shrink: 0;
+  background: transparent;
+  color: var(--text-muted);
+}
+
+.attendance-main-tab-btn.active {
+  background: hsl(var(--color-primary));
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(255, 107, 0, 0.25);
+}
+
+.attendance-manual-punch-button {
+  padding: 10px 18px;
+  border-radius: 10px;
+  font-weight: 700;
+  font-size: 0.82rem;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: linear-gradient(135deg, hsl(var(--color-primary)) 0%, #e07830 100%);
+  border: none;
+  box-shadow: 0 4px 12px rgba(255, 107, 0, 0.25);
+  flex-shrink: 0;
 }
 

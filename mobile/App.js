@@ -7,11 +7,13 @@ import {
   BackHandler,
   Platform,
   TouchableOpacity,
-  StatusBar as RNStatusBar,
   RefreshControl,
   ScrollView,
   TextInput,
-  Modal
+  Modal,
+  Image,
+  Share,
+  Linking
 } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
@@ -27,7 +29,7 @@ const getDetectedLanIp = () => {
       return ip;
     }
   }
-  return '192.168.1.35';
+  return '192.168.1.28';
 };
 
 const detectedIp = getDetectedLanIp();
@@ -42,7 +44,7 @@ const getInitialServerUrl = () => {
   if (Constants.expoConfig?.extra?.localServerUrl) {
     return Constants.expoConfig.extra.localServerUrl;
   }
-  return 'http://192.168.1.35:5173';
+  return 'http://192.168.1.28:5173';
 };
 
 const getInitialCloudUrl = () => {
@@ -56,11 +58,11 @@ const EMULATOR_URL = 'http://10.0.2.2:5173';
 export default function App() {
   const webViewRef = useRef(null);
 
+  const initialUrl = getInitialServerUrl();
   const [canGoBack, setCanGoBack] = useState(false);
-  const [loading, setLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
-  const [serverUrl, setServerUrl] = useState(DEFAULT_LOCAL_URL);
-  const [customUrlInput, setCustomUrlInput] = useState(DEFAULT_LOCAL_URL);
+  const [serverUrl, setServerUrl] = useState(initialUrl);
+  const [customUrlInput, setCustomUrlInput] = useState(initialUrl);
   const [showSettings, setShowSettings] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [testStatus, setTestStatus] = useState(null); // null | 'testing' | 'success' | 'failed'
@@ -68,8 +70,8 @@ export default function App() {
 
   // Automatically ensure Expo Go connects to the local machine rather than stale cloud
   useEffect(() => {
-    if (serverUrl.includes('acadmay.in')) {
-      console.log('[Dev] Resetting to local development server:', DEFAULT_LOCAL_URL);
+    if (Constants.appOwnership === 'expo' && serverUrl.includes('acadmay.in')) {
+      console.log('[Dev] Resetting to local development server in Expo Go:', DEFAULT_LOCAL_URL);
       setServerUrl(DEFAULT_LOCAL_URL);
       setCustomUrlInput(DEFAULT_LOCAL_URL);
     }
@@ -94,11 +96,12 @@ export default function App() {
   const handleRefresh = () => {
     setRefreshing(true);
     setHasError(false);
-    setLoading(true);
     if (webViewRef.current) {
       webViewRef.current.reload();
     }
-    setTimeout(() => setRefreshing(false), 1200);
+    setTimeout(() => {
+      setRefreshing(false);
+    }, 1500);
   };
 
   const handleSwitchToLocal = () => {
@@ -106,7 +109,6 @@ export default function App() {
     setCustomUrlInput(localUrl);
     setServerUrl(localUrl);
     setHasError(false);
-    setLoading(true);
     if (webViewRef.current) {
       webViewRef.current.reload();
     }
@@ -116,7 +118,6 @@ export default function App() {
     setCustomUrlInput(CLOUD_PROD_URL);
     setServerUrl(CLOUD_PROD_URL);
     setHasError(false);
-    setLoading(true);
   };
 
   const handleSaveUrl = () => {
@@ -128,7 +129,6 @@ export default function App() {
     setServerUrl(url);
     setShowSettings(false);
     setHasError(false);
-    setLoading(true);
     setTestStatus(null);
   };
 
@@ -167,39 +167,8 @@ export default function App() {
 
   return (
     <SafeAreaProvider>
-      <SafeAreaView style={styles.container}>
-        <StatusBar style="light" backgroundColor="#0f172a" />
-
-        {/* Top Connection Banner */}
-        <View style={{
-          flexDirection: 'row',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          paddingHorizontal: 12,
-          paddingVertical: 6,
-          backgroundColor: serverUrl.includes('acadmay.in') ? '#7c2d12' : '#1e293b',
-          borderBottomWidth: 1,
-          borderBottomColor: '#334155'
-        }}>
-          <Text style={{ fontSize: 11, color: '#cbd5e1', flex: 1 }} numberOfLines={1}>
-            Target: <Text style={{ color: serverUrl.includes('acadmay.in') ? '#fca5a5' : '#38bdf8', fontWeight: 'bold' }}>{serverUrl}</Text>
-          </Text>
-          {serverUrl.includes('acadmay.in') ? (
-            <TouchableOpacity 
-              onPress={handleSwitchToLocal}
-              style={{ backgroundColor: '#0284c7', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, marginLeft: 8 }}
-            >
-              <Text style={{ color: '#fff', fontSize: 11, fontWeight: 'bold' }}>🏠 Switch to Local ({detectedIp})</Text>
-            </TouchableOpacity>
-          ) : (
-            <TouchableOpacity 
-              onPress={handleRefresh}
-              style={{ backgroundColor: '#334155', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, marginLeft: 8 }}
-            >
-              <Text style={{ color: '#f8fafc', fontSize: 11, fontWeight: '600' }}>🔄 Reload</Text>
-            </TouchableOpacity>
-          )}
-        </View>
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <StatusBar style="dark" backgroundColor="#ffffff" />
 
         {/* Main WebView */}
         {!hasError ? (
@@ -208,6 +177,12 @@ export default function App() {
               ref={webViewRef}
               source={{ uri: serverUrl }}
               style={styles.webView}
+              startInLoadingState={true}
+              renderLoading={() => (
+                <View style={styles.loadingContainer}>
+                  <ActivityIndicator size="large" color="#f97316" />
+                </View>
+              )}
               javaScriptEnabled={true}
               domStorageEnabled={true}
               allowsInlineMediaPlayback={true}
@@ -492,8 +467,6 @@ export default function App() {
               onNavigationStateChange={(navState) => {
                 setCanGoBack(navState.canGoBack);
               }}
-              onLoadStart={() => setLoading(true)}
-              onLoadEnd={() => setLoading(false)}
               onError={(syntheticEvent) => {
                 const { nativeEvent } = syntheticEvent;
                 console.warn('WebView error:', nativeEvent);
@@ -504,7 +477,6 @@ export default function App() {
                 ) {
                   return;
                 }
-                setLoading(false);
                 setHasError(true);
               }}
               onHttpError={(syntheticEvent) => {
@@ -514,23 +486,41 @@ export default function App() {
                   setHasError(true);
                 }
               }}
+              onMessage={(event) => {
+                try {
+                  const data = JSON.parse(event.nativeEvent.data);
+                  if (data.type === 'DOWNLOAD_PDF' || data.type === 'DOWNLOAD_FILE_URL') {
+                    if (data.url) {
+                      Linking.openURL(data.url).catch(err => {
+                        console.warn('Linking.openURL failed for download:', err);
+                        // Fallback to native share sheet if browser cannot open link
+                        Share.share({
+                          title: data.title || 'Official Academic Document',
+                          message: `${data.title || 'Academic Document'}\n\n${data.content || ''}\n\nDownload Link: ${data.url}`
+                        });
+                      });
+                    } else if (data.content) {
+                      Share.share({
+                        title: data.title || 'Official Academic Document',
+                        message: `${data.title || 'Official Document'}\n\n${data.content || ''}`
+                      });
+                    }
+                  } else if (data.type === 'EXPORT_DOCUMENT' || data.type === 'SHARE_DOCUMENT') {
+                    Share.share({
+                      title: data.title || 'Official Academic Document',
+                      message: `${data.title || 'Official Document'}\n\n${data.content || ''}${data.url ? `\n\nDownload: ${data.url}` : ''}`
+                    });
+                  }
+                } catch (e) {}
+              }}
             />
-
-            {/* Loading Overlay */}
-            {loading && (
-              <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color="#38bdf8" />
-                <Text style={styles.loadingText}>Connecting to School ERP...</Text>
-                <Text style={styles.loadingSubtext}>{serverUrl}</Text>
-              </View>
-            )}
           </View>
         ) : (
           /* Error & Offline Fallback View */
           <ScrollView
             contentContainerStyle={styles.errorContainer}
             refreshControl={
-              <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#38bdf8" />
+              <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#f97316" />
             }
           >
             <View style={styles.errorIconBadge}>
@@ -538,47 +528,23 @@ export default function App() {
             </View>
             <Text style={styles.errorTitle}>Connection Failed</Text>
             <Text style={styles.errorDescription}>
-              Unable to reach the School ERP server at:
+              Unable to reach the Acadmay School ERP server. Please verify your internet or Wi-Fi connection and tap below to retry.
             </Text>
-            <Text style={styles.errorUrl}>{serverUrl}</Text>
-            
-            <View style={styles.errorHint}>
-              <Text style={styles.hintTitle}>Select a Connection Option:</Text>
-              <Text style={styles.hintText}>
-                • <Text style={{ fontWeight: '700', color: '#38bdf8' }}>Local Wi-Fi</Text>: Fast local development ({detectedIp}:5173){"\n"}
-                • <Text style={{ fontWeight: '700', color: '#a855f7' }}>Cloud Server</Text>: Connect to acadmay.in live cloud{"\n"}
-                • <Text style={{ fontWeight: '700', color: '#f59e0b' }}>Custom Tunnel</Text>: Enter active Cloudflare / Ngrok URL
-              </Text>
-            </View>
 
             <View style={styles.buttonRow}>
-              <TouchableOpacity style={styles.primaryButton} onPress={handleSwitchToLocal}>
-                <Text style={styles.primaryButtonText}>🏠 Switch to Local Wi-Fi ({detectedIp})</Text>
+              <TouchableOpacity style={styles.primaryButton} onPress={handleRefresh}>
+                <Text style={styles.primaryButtonText}>🔄 Try Again</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity style={styles.cloudButton} onPress={handleSwitchToCloud}>
-                <Text style={styles.cloudButtonText}>☁️ Switch to Cloud Server (acadmay.in)</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity style={styles.secondaryButton} onPress={handleRefresh}>
-                <Text style={styles.secondaryButtonText}>🔄 Retry Connection</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity style={styles.outlineButton} onPress={() => { setTestStatus(null); setShowSettings(true); }}>
-                <Text style={styles.outlineButtonText}>⚙️ Enter Custom Tunnel / Server URL</Text>
+              <TouchableOpacity 
+                style={styles.ghostButton} 
+                onPress={() => { setTestStatus(null); setShowSettings(true); }}
+              >
+                <Text style={styles.ghostButtonText}>⚙️ Server Settings</Text>
               </TouchableOpacity>
             </View>
           </ScrollView>
         )}
-
-        {/* Persistent Floating Settings Button */}
-        <TouchableOpacity
-          style={styles.floatingSettingsBtn}
-          onPress={() => { setTestStatus(null); setShowSettings(true); }}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.floatingSettingsText}>⚙️</Text>
-        </TouchableOpacity>
 
         {/* Server URL Config Modal */}
         <Modal visible={showSettings} transparent={true} animationType="slide">
@@ -614,7 +580,7 @@ export default function App() {
                 
                 <View style={styles.presetRow}>
                   <TouchableOpacity
-                    style={[styles.presetBtn, (customUrlInput === DEFAULT_LOCAL_URL || customUrlInput === `http://${detectedIp}:5173`) && styles.presetBtnActive]}
+                    style={[styles.presetBtn, customUrlInput === DEFAULT_LOCAL_URL && styles.presetBtnActive]}
                     onPress={() => { 
                       const localUrl = DEFAULT_LOCAL_URL;
                       setCustomUrlInput(localUrl); 
@@ -667,7 +633,7 @@ export default function App() {
                 style={styles.input}
                 value={customUrlInput}
                 onChangeText={(text) => { setCustomUrlInput(text); setTestStatus(null); }}
-                placeholder={`e.g. http://${detectedIp}:5173 or https://acadmay.in`}
+                placeholder="e.g. http://192.168.1.28:5173 or https://acadmay.in"
                 placeholderTextColor="#64748b"
                 autoCapitalize="none"
                 autoCorrect={false}
@@ -721,41 +687,32 @@ export default function App() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0f172a',
-    paddingTop: Platform.OS === 'android' ? RNStatusBar.currentHeight : 0,
+    backgroundColor: '#ffffff',
   },
   webViewContainer: {
     flex: 1,
-    backgroundColor: '#0f172a',
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#ffffff',
   },
   webView: {
     flex: 1,
-    backgroundColor: '#0f172a',
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#ffffff',
   },
   loadingContainer: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: '#0f172a',
+    backgroundColor: '#ffffff',
     justifyContent: 'center',
     alignItems: 'center',
-    zIndex: 10,
-  },
-  loadingText: {
-    marginTop: 14,
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#f8fafc',
-  },
-  loadingSubtext: {
-    marginTop: 6,
-    fontSize: 12,
-    color: '#94a3b8',
   },
   errorContainer: {
     flexGrow: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 24,
-    backgroundColor: '#0f172a',
+    padding: 28,
+    backgroundColor: '#ffffff',
   },
   errorIconBadge: {
     width: 68,
@@ -779,43 +736,18 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#94a3b8',
     textAlign: 'center',
-  },
-  errorUrl: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#38bdf8',
-    marginTop: 4,
-    marginBottom: 16,
-    textAlign: 'center',
-  },
-  errorHint: {
-    backgroundColor: '#1e293b',
-    padding: 16,
-    borderRadius: 12,
-    width: '100%',
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: '#334155',
-  },
-  hintTitle: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#f8fafc',
-    marginBottom: 8,
-  },
-  hintText: {
-    fontSize: 13,
-    color: '#94a3b8',
     lineHeight: 20,
+    marginBottom: 24,
   },
   buttonRow: {
     width: '100%',
-    gap: 10,
+    maxWidth: 320,
+    gap: 12,
   },
   primaryButton: {
-    backgroundColor: '#0284c7',
+    backgroundColor: '#f97316',
     paddingVertical: 14,
-    borderRadius: 10,
+    borderRadius: 12,
     alignItems: 'center',
   },
   primaryButtonText: {
@@ -823,62 +755,15 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
   },
-  cloudButton: {
-    backgroundColor: '#7c3aed',
-    paddingVertical: 13,
-    borderRadius: 10,
-    alignItems: 'center',
-  },
-  cloudButtonText: {
-    color: '#ffffff',
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  secondaryButton: {
-    backgroundColor: '#1e293b',
-    paddingVertical: 12,
-    borderRadius: 10,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#334155',
-  },
-  secondaryButtonText: {
-    color: '#f8fafc',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  outlineButton: {
+  ghostButton: {
     backgroundColor: 'transparent',
     paddingVertical: 10,
-    borderRadius: 10,
     alignItems: 'center',
   },
-  outlineButtonText: {
-    color: '#38bdf8',
+  ghostButtonText: {
+    color: '#64748b',
     fontSize: 13,
     fontWeight: '600',
-  },
-  floatingSettingsBtn: {
-    position: 'absolute',
-    bottom: 16,
-    right: 16,
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(30, 41, 59, 0.95)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(56, 189, 248, 0.4)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 5,
-    zIndex: 9999,
-  },
-  floatingSettingsText: {
-    fontSize: 20,
   },
   modalBackdrop: {
     flex: 1,

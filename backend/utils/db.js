@@ -93,7 +93,7 @@ export const isSubdomainRegistered = (subdomain) => {
 
 // Middleware to restore tenant context lost during async processing
 export const restoreTenantContext = (req, res, next) => {
-  let tenantId = req.admin?.tenantId || req.headers['x-tenant-id'] || req.query.tenantId;
+  let tenantId = req.headers['x-tenant-id'] || req.query.tenantId;
   if (!tenantId && req.headers.host) {
     const host = req.headers.host.split(':')[0].toLowerCase(); // Remove port
     const isIp = /^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$/.test(host);
@@ -108,11 +108,8 @@ export const restoreTenantContext = (req, res, next) => {
     }
   }
   
-  if (tenantId && !req.admin?.tenantId && !isSubdomainRegistered(tenantId)) {
-    const host = (req.headers.host || '').split(':')[0].toLowerCase();
-    if (!host.endsWith('acadmay.in') && !host.includes('.')) {
-      tenantId = null;
-    }
+  if (tenantId && !isSubdomainRegistered(tenantId)) {
+    tenantId = null;
   }
   
   if (tenantId) {
@@ -423,17 +420,7 @@ const createTablesFromSchema = async () => {
       "ALTER TABLE notices ADD COLUMN isDeleted TINYINT(1) DEFAULT 0",
       "ALTER TABLE holidays ADD COLUMN status VARCHAR(50) DEFAULT 'Published'",
       "ALTER TABLE holidays ADD COLUMN isDeleted TINYINT(1) DEFAULT 0",
-      "ALTER TABLE holidays ADD COLUMN name VARCHAR(255)",
-      "ALTER TABLE employees MODIFY COLUMN email VARCHAR(255) NULL",
-      "ALTER TABLE employees MODIFY COLUMN role VARCHAR(255) NULL",
-      "ALTER TABLE employees MODIFY COLUMN department VARCHAR(255) NULL",
-      "ALTER TABLE employees MODIFY COLUMN qualification TEXT NULL",
-      "ALTER TABLE employees MODIFY COLUMN experience TEXT NULL",
-      "ALTER TABLE employees ADD COLUMN designation VARCHAR(100) NULL",
-      "ALTER TABLE employees ADD COLUMN designationLevel VARCHAR(100) NULL",
-      "ALTER TABLE employees ADD COLUMN employmentType VARCHAR(100) NULL",
-      "ALTER TABLE employees ADD COLUMN qrCodePath TEXT NULL",
-      "ALTER TABLE employees ADD COLUMN joiningDate VARCHAR(50) NULL"
+      "ALTER TABLE holidays ADD COLUMN name VARCHAR(255)"
     ];
 
     for (const sql of extraSchemaAlters) {
@@ -1609,39 +1596,7 @@ export const initializeOnboardedSchoolDatabase = async (subdomain) => {
   }
 };
 
-
-// Ensure employee table has all required columns and nullable constraints
-export const ensureEmployeeTableReady = async (targetTenant) => {
-  if (!isSqlActive()) return;
-  const tId = targetTenant && targetTenant !== 'platform' && targetTenant !== 'localhost' ? slugify(targetTenant) : null;
-  if (!tId) return;
-  try {
-    const pool = sqlDb.getPoolForTenant(tId);
-    if (!pool) return;
-    const alters = [
-      "ALTER TABLE employees MODIFY COLUMN email VARCHAR(255) NULL",
-      "ALTER TABLE employees MODIFY COLUMN role VARCHAR(255) NULL",
-      "ALTER TABLE employees MODIFY COLUMN department VARCHAR(255) NULL",
-      "ALTER TABLE employees MODIFY COLUMN qualification TEXT NULL",
-      "ALTER TABLE employees MODIFY COLUMN experience TEXT NULL",
-      "ALTER TABLE employees ADD COLUMN designation VARCHAR(100) NULL",
-      "ALTER TABLE employees ADD COLUMN designationLevel VARCHAR(100) NULL",
-      "ALTER TABLE employees ADD COLUMN employmentType VARCHAR(100) NULL",
-      "ALTER TABLE employees ADD COLUMN qrCodePath TEXT NULL",
-      "ALTER TABLE employees ADD COLUMN fullName VARCHAR(255) NULL",
-      "ALTER TABLE employees ADD COLUMN joiningDate VARCHAR(50) NULL"
-    ];
-    for (const sql of alters) {
-      try {
-        await pool.query(sql);
-      } catch (err) {
-        // Ignore ER_DUP_FIELDNAME (1060) or already modified
-      }
-    }
-  } catch (err) {
-    console.error(`[ensureEmployeeTableReady ERROR for ${tId}]`, err.message);
-  }
-};
+// Auto-seeder removed: Green Valley seed data has been purged.
 
 // Initial database check called on server boot
 export const initSqlDb = async () => {
@@ -1675,8 +1630,10 @@ export const initSqlDb = async () => {
     // Load subdomain-to-dbName mappings
     await sqlDb.loadDbMappings();
 
+    // Auto-seeder removed: no default school seeding on boot.
+
     // Fetch all registered schools and register their mappings
-    const schools = await sqlDb.query("SELECT * FROM schools", [], 'platform');
+    const schools = await sqlDb.query("SELECT id, subdomain, dbName FROM schools", [], 'platform');
     for (const school of (schools || [])) {
       const dbName = school.dbName || `school_${slugify(school.subdomain)}`;
       if (!school.dbName) {
@@ -1688,21 +1645,6 @@ export const initSqlDb = async () => {
       }
       sqlDb.registerDbMapping(school.subdomain, dbName);
     }
-
-    // Ensure platform memory cache & db.json reflect the persisted schools from SQL
-    if (!dbCache['platform']) {
-      dbCache['platform'] = readDb();
-    }
-    dbCache['platform'].schools = (schools || []).map(s => ({
-      ...s,
-      examTypes: typeof s.examTypes === 'string' ? JSON.parse(s.examTypes || '[]') : (s.examTypes || []),
-      eventTypes: typeof s.eventTypes === 'string' ? JSON.parse(s.eventTypes || '[]') : (s.eventTypes || []),
-      noticeCategories: typeof s.noticeCategories === 'string' ? JSON.parse(s.noticeCategories || '[]') : (s.noticeCategories || []),
-      holidayClassifications: typeof s.holidayClassifications === 'string' ? JSON.parse(s.holidayClassifications || '[]') : (s.holidayClassifications || [])
-    }));
-    try {
-      fs.writeFileSync(GLOBAL_DB_FILE, JSON.stringify(dbCache['platform'], null, 2), 'utf8');
-    } catch (e) {}
 
     isSqlInitialized = true;
     console.log('[SQL Init] MySQL Database-Per-School Multi-Tenant Adapter is active and running.');
@@ -1736,8 +1678,15 @@ export const startSqlDbInit = () => {
 startSqlDbInit();
 
 export const ensureOverviewPermissions = (roles) => {
-  // Respect permission matrix strictly. Do not forcefully inject overview permissions.
-  return;
+  if (!roles || !Array.isArray(roles)) return;
+  const actionsList = ['view', 'create', 'edit', 'delete', 'approve', 'publish', 'export', 'import', 'manage-settings'];
+  roles.forEach(r => {
+    if (!r.permissions) r.permissions = {};
+    if (!r.permissions.overview) r.permissions.overview = {};
+    actionsList.forEach(act => {
+      r.permissions.overview[act] = true;
+    });
+  });
 };
 
 // Default roles and permissions seeder data
@@ -1798,6 +1747,18 @@ export const getDefaultRoles = () => {
     return matrix;
   };
 
+  const createRoleMatrix = (allowedModules = []) => {
+    const matrix = {};
+    modules.forEach(m => {
+      matrix[m] = {};
+      const isAllowed = allowedModules.includes(m);
+      actions.forEach(a => {
+        matrix[m][a] = isAllowed;
+      });
+    });
+    return matrix;
+  };
+
   const defaultRoles = [
     // ===== STAFF ROLES =====
     {
@@ -1806,7 +1767,12 @@ export const getDefaultRoles = () => {
       description: 'Coordinates academic programs, timetables, exam schedules, and curriculum planning.',
       active: true,
       isSystem: true,
-      permissions: createEmptyMatrix()
+      permissions: createRoleMatrix([
+        'overview', 'academic-manager', 'published-timetable', 'published-exam', 
+        'academic-activities', 'academic-calendar', 'results-manager', 'results-marks-entry', 
+        'results-history', 'grade-management', 'attendance', 'attendance-history', 
+        'student-directory', 'teacher-directory', 'settings'
+      ])
     },
     {
       id: 'role-teacher',
@@ -1814,7 +1780,11 @@ export const getDefaultRoles = () => {
       description: 'Teacher. Records attendance, enters marks, manages academic activities, and views student profiles.',
       active: true,
       isSystem: true,
-      permissions: createEmptyMatrix()
+      permissions: createRoleMatrix([
+        'overview', 'student-directory', 'attendance', 'attendance-history', 
+        'results-marks-entry', 'results-manager', 'results-history', 
+        'academic-activities', 'academic-calendar', 'published-timetable', 'published-exam'
+      ])
     },
     {
       id: 'role-receptionist',
@@ -1822,7 +1792,10 @@ export const getDefaultRoles = () => {
       description: 'Front-office receptionist. Manages admissions, visitor records, and inquiry handling.',
       active: true,
       isSystem: true,
-      permissions: createEmptyMatrix()
+      permissions: createRoleMatrix([
+        'overview', 'student-directory', 'teacher-directory', 'staff-directory', 
+        'employee-directory', 'register-student', 'academic-activities', 'academic-calendar', 'attendance'
+      ])
     },
     {
       id: 'role-accountant',
@@ -1830,7 +1803,12 @@ export const getDefaultRoles = () => {
       description: 'Accounts administrator. Manages fee structures, collections, invoices, salaries, and financial reports.',
       active: true,
       isSystem: true,
-      permissions: createEmptyMatrix()
+      permissions: createRoleMatrix([
+        'overview', 'finance', 'staff-payroll', 'staff-pay-structure', 'teacher-payroll', 
+        'teacher-pay-structure', 'employee-payroll', 'employee-pay-structure', 'payroll-history', 
+        'income', 'financial-reports', 'fee-structures', 'fee-periods', 'auxiliary-income', 
+        'expense-dashboard', 'expense-all-expenses', 'expense-history', 'expense-tracker', 'student-directory'
+      ])
     },
     {
       id: 'role-expense-manager',
@@ -1838,33 +1816,13 @@ export const getDefaultRoles = () => {
       description: 'Expense manager. Oversees school expenses, financial reporting, and budgeting.',
       active: true,
       isSystem: true,
-      permissions: createEmptyMatrix()
-    },
-    {
-      id: 'role-principal',
-      name: 'Principal',
-      description: 'School Principal. Academic and administrative head.',
-      active: true,
-      isSystem: true,
-      permissions: createEmptyMatrix()
-    },
-    {
-      id: 'role-vice-principal',
-      name: 'Vice Principal',
-      description: 'Vice Principal. Oversees operations and academic execution.',
-      active: true,
-      isSystem: true,
-      permissions: createEmptyMatrix()
-    },
-    {
-      id: 'role-staff',
-      name: 'Staff',
-      description: 'General school staff member.',
-      active: true,
-      isSystem: true,
-      permissions: createEmptyMatrix()
+      permissions: createRoleMatrix([
+        'overview', 'expense-dashboard', 'expense-all-expenses', 'expense-history', 
+        'expense-tracker', 'financial-reports', 'income'
+      ])
     }
   ];
+  ensureOverviewPermissions(defaultRoles);
   return defaultRoles;
 };
 
@@ -2175,30 +2133,8 @@ export const loadTenantSqlIntoMemory = async (tenantId) => {
     if (data.publishedTeacherTimetables === undefined) data.publishedTeacherTimetables = [];
 
     data.schools = globalSchools.map(s => {
-      let parsedEventTypes = [];
-      let parsedExamTypes = [];
       let parsedNoticeCategories = [];
       let parsedHolidayClassifications = [];
-      try {
-        if (s.eventTypes) {
-          parsedEventTypes = typeof s.eventTypes === 'string' ? JSON.parse(s.eventTypes) : s.eventTypes;
-          if (typeof parsedEventTypes === 'string') {
-            parsedEventTypes = JSON.parse(parsedEventTypes);
-          }
-        }
-      } catch (e) {
-        console.error('Failed to parse eventTypes for school', s.subdomain, e);
-      }
-      try {
-        if (s.examTypes) {
-          parsedExamTypes = typeof s.examTypes === 'string' ? JSON.parse(s.examTypes) : s.examTypes;
-          if (typeof parsedExamTypes === 'string') {
-            parsedExamTypes = JSON.parse(parsedExamTypes);
-          }
-        }
-      } catch (e) {
-        console.error('Failed to parse examTypes for school', s.subdomain, e);
-      }
       try {
         if (s.noticeCategories) {
           parsedNoticeCategories = typeof s.noticeCategories === 'string' ? JSON.parse(s.noticeCategories) : s.noticeCategories;
@@ -2221,8 +2157,6 @@ export const loadTenantSqlIntoMemory = async (tenantId) => {
       }
       return {
         ...s,
-        eventTypes: Array.isArray(parsedEventTypes) ? parsedEventTypes : [],
-        examTypes: Array.isArray(parsedExamTypes) ? parsedExamTypes : [],
         noticeCategories: Array.isArray(parsedNoticeCategories) ? parsedNoticeCategories : [],
         holidayClassifications: Array.isArray(parsedHolidayClassifications) ? parsedHolidayClassifications : []
       };
@@ -2265,10 +2199,10 @@ export const loadTenantSqlIntoMemory = async (tenantId) => {
           adminUsername: matchedSchool.adminUsername || '',
           adminPassword: matchedSchool.adminPassword || '',
           principal: matchedSchool.principalName || '',
-          examTypes: Array.isArray(matchedSchool.examTypes) ? matchedSchool.examTypes : (matchedSchool.examTypes ? (typeof matchedSchool.examTypes === 'string' ? JSON.parse(matchedSchool.examTypes) : matchedSchool.examTypes) : []),
-          eventTypes: Array.isArray(matchedSchool.eventTypes) ? matchedSchool.eventTypes : (matchedSchool.eventTypes ? (typeof matchedSchool.eventTypes === 'string' ? JSON.parse(matchedSchool.eventTypes) : matchedSchool.eventTypes) : []),
-          noticeCategories: Array.isArray(matchedSchool.noticeCategories) ? matchedSchool.noticeCategories : (matchedSchool.noticeCategories ? (typeof matchedSchool.noticeCategories === 'string' ? JSON.parse(matchedSchool.noticeCategories) : matchedSchool.noticeCategories) : []),
-          holidayClassifications: Array.isArray(matchedSchool.holidayClassifications) ? matchedSchool.holidayClassifications : (matchedSchool.holidayClassifications ? (typeof matchedSchool.holidayClassifications === 'string' ? JSON.parse(matchedSchool.holidayClassifications) : matchedSchool.holidayClassifications) : [])
+          examTypes: matchedSchool.examTypes ? (typeof matchedSchool.examTypes === 'string' ? JSON.parse(matchedSchool.examTypes) : matchedSchool.examTypes) : [],
+          eventTypes: matchedSchool.eventTypes ? (typeof matchedSchool.eventTypes === 'string' ? JSON.parse(matchedSchool.eventTypes) : matchedSchool.eventTypes) : [],
+          noticeCategories: matchedSchool.noticeCategories || [],
+          holidayClassifications: matchedSchool.holidayClassifications || []
         };
       }
     }
@@ -2308,26 +2242,7 @@ export const loadTenantSqlIntoMemory = async (tenantId) => {
       };
     });
 
-    data.employees = (dbEmployees || []).map(e => {
-      let qual = e.qualification;
-      if (qual && typeof qual === 'string' && (qual.startsWith('[') || qual.startsWith('{'))) {
-        try { qual = JSON.parse(qual); } catch (err) {}
-      }
-      let exp = e.experience;
-      if (exp && typeof exp === 'string' && (exp.startsWith('[') || exp.startsWith('{'))) {
-        try { exp = JSON.parse(exp); } catch (err) {}
-      }
-      return {
-        ...e,
-        name: e.fullName || e.name || '',
-        fullName: e.fullName || e.name || '',
-        mobile: e.mobile || e.phone || '',
-        phone: e.phone || e.mobile || '',
-        qualification: qual,
-        experiences: Array.isArray(exp) ? exp : (e.experiences || []),
-        status: e.status || 'Active'
-      };
-    });
+    data.employees = dbEmployees;
     data.invoices = dbInvoices;
     
     data.fees = rawFees.map(f => ({
@@ -2706,7 +2621,9 @@ export const loadTenantSqlIntoMemory = async (tenantId) => {
         r.description = 'Teacher. Records attendance, enters marks, manages academic activities, and views student profiles.';
       }
     });
-    // Ensure permissions matrix is respected as configured in database
+
+    ensureOverviewPermissions(data.roles);
+
     data.userAccess = dbUserAccess.map(ua => ({
       ...ua,
       overrides: typeof ua.overrides === 'string' ? JSON.parse(ua.overrides) : (ua.overrides || {})
@@ -2962,7 +2879,6 @@ export const ensureTenantSqlLoaded = async (req, res, next) => {
                   data._updatedAt = dbUpdatedAt;
                   dbCache[activeTenant] = data;
                 }
-                await ensureEmployeeTableReady(activeTenant);
               } catch (loadErr) {
                 console.warn(`[SQL Cache] Tenant database '${activeTenant}' failed to load (probably missing or uninitialized). Provisioning database on the fly... Error: ${loadErr.message}`);
                 try {
@@ -2972,7 +2888,6 @@ export const ensureTenantSqlLoaded = async (req, res, next) => {
                     data._updatedAt = dbUpdatedAt;
                     dbCache[activeTenant] = data;
                   }
-                  await ensureEmployeeTableReady(activeTenant);
                 } catch (provErr) {
                   console.error(`[SQL Cache] On-the-fly provisioning failed for tenant '${activeTenant}':`, provErr.message);
                   throw provErr;
@@ -3054,34 +2969,61 @@ export const saveMemoryDbToSql = async (tenantId, db, changedKeys, newUpdatedAt)
       const tasks = [];
       const dependentTasks = [];
 
-      // 1. Sync global platforms (insert/update only - deletions handled explicitly in delete endpoint)
+      // 1. Sync global platforms
       if (tId === 'platform' && db.schools && Array.isArray(db.schools) && hasTableChanged('schools')) {
         tasks.push((async () => {
-          if (db.schools.length === 0) return;
+          const activeSchoolIds = db.schools.map(s => s.id).filter(Boolean);
+          let deletedSubdomains = [];
+          if (activeSchoolIds.length > 0) {
+            const rows = await sqlDb.query(`SELECT subdomain FROM schools WHERE id NOT IN (${activeSchoolIds.map(() => '?').join(',')})`, activeSchoolIds);
+            deletedSubdomains = (rows || []).map(r => r.subdomain);
+            await sqlDb.query(`DELETE FROM schools WHERE id NOT IN (${activeSchoolIds.map(() => '?').join(',')})`, activeSchoolIds);
+          } else {
+            const rows = await sqlDb.query(`SELECT subdomain FROM schools`);
+            deletedSubdomains = (rows || []).map(r => r.subdomain);
+            await sqlDb.query('DELETE FROM schools');
+          }
+
+          if (deletedSubdomains.length > 0) {
+            const tenantTables = [
+              'employees', 'staff', 'students', 'invoices', 'fees', 'expenses', 'payroll',
+              'staff_payments', 'activities', 'exams', 'exam_timetables', 'notices',
+              'holidays', 'events', 'results', 'overall_results', 'subjects', 'timeslots',
+              'fee_structures', 'salary_structures', 'staff_salary_structures', 'income',
+              'attendance', 'roles', 'user_access', 'audit_logs', 'employee_qr_codes',
+              'attendance_records', 'attendance_logs', 'attendance_reports', 'designations'
+            ];
+            await Promise.all(deletedSubdomains.flatMap(sub => 
+              tenantTables.map(tbl => 
+                sqlDb.query(`DELETE FROM \`${tbl}\` WHERE tenantId = ?`, [sub]).catch(() => {})
+              )
+            ));
+            deletedSubdomains.forEach(sub => {
+              delete dbCache[sub];
+            });
+          }
 
           const columns = [
             'id', 'name', 'code', 'subdomain', 'logo', 'principalName', 'email', 'phone', 'address', 'city', 'state', 'country', 
             'academicSession', 'subscriptionPlan', 'url', 'status', 'adminName', 'adminEmail', 'adminUsername', 'adminPassword', 
-            'examTypes', 'eventTypes', 'noticeCategories', 'holidayClassifications', 'createdAt', 'updatedAt', 'dbName'
+            'noticeCategories', 'holidayClassifications', 'createdAt', 'updatedAt', 'dbName'
           ];
           const updateColumns = [
             'name', 'logo', 'principalName', 'email', 'phone', 'address', 'city', 'state',
             'academicSession', 'subscriptionPlan', 'status', 'adminName', 'adminEmail',
-            'adminUsername', 'adminPassword', 'examTypes', 'eventTypes', 'noticeCategories', 'holidayClassifications', 'updatedAt', 'dbName'
+            'adminUsername', 'adminPassword', 'noticeCategories', 'holidayClassifications', 'updatedAt', 'dbName'
           ];
           const valueRows = db.schools.map(s => [
             s.id, s.name, s.code, s.subdomain, s.logo, s.principalName || s.principal || '', s.email, 
             s.phone, s.address, s.city, s.state, s.country || 'India', s.academicSession || '2026-2027', 
             s.subscriptionPlan || 'Starter', s.url, s.status || 'Active', s.adminName || '', s.adminEmail || '', 
             s.adminUsername || '', s.adminPassword || '', 
-            s.examTypes ? (typeof s.examTypes === 'string' ? s.examTypes : JSON.stringify(s.examTypes)) : null,
-            s.eventTypes ? (typeof s.eventTypes === 'string' ? s.eventTypes : JSON.stringify(s.eventTypes)) : null,
-            s.noticeCategories ? (typeof s.noticeCategories === 'string' ? s.noticeCategories : JSON.stringify(s.noticeCategories)) : null,
-            s.holidayClassifications ? (typeof s.holidayClassifications === 'string' ? s.holidayClassifications : JSON.stringify(s.holidayClassifications)) : null,
-            s.createdAt, s.updatedAt || s.createdAt || new Date().toISOString(),
-            s.dbName || `school_${slugify(s.subdomain)}`
-          ]);
-          await bulkInsertOrUpdate('schools', columns, valueRows, updateColumns);
+             s.noticeCategories ? (typeof s.noticeCategories === 'string' ? s.noticeCategories : JSON.stringify(s.noticeCategories)) : null,
+             s.holidayClassifications ? (typeof s.holidayClassifications === 'string' ? s.holidayClassifications : JSON.stringify(s.holidayClassifications)) : null,
+             s.createdAt, s.updatedAt || s.createdAt || new Date().toISOString(),
+             s.dbName || `school_${slugify(s.subdomain)}`
+           ]);
+           await bulkInsertOrUpdate('schools', columns, valueRows, updateColumns);
          })());
        }
 
@@ -3236,40 +3178,13 @@ export const saveMemoryDbToSql = async (tenantId, db, changedKeys, newUpdatedAt)
             await sqlDb.query('DELETE FROM employees WHERE tenantId = ?', [tId]);
           }
 
-          if (activeEmployeeIds.length === 0) return;
-
           const columns = ['id', 'name', 'fullName', 'role', 'department', 'email', 'phone', 'gender', 'qualification', 'experience', 'dateOfJoining', 'salaryGrade', 'reportingTo', 'address', 'city', 'state', 'pincode', 'emergencyContact', 'emergencyPhone', 'photo', 'aadharFile', 'certificateFile', 'status', 'avatarBg', 'password', 'tenantId', 'designation', 'designationLevel', 'employmentType'];
-          const updateColumns = ['name', 'fullName', 'role', 'department', 'email', 'phone', 'gender', 'qualification', 'experience', 'dateOfJoining', 'salaryGrade', 'reportingTo', 'address', 'city', 'state', 'pincode', 'emergencyContact', 'emergencyPhone', 'photo', 'aadharFile', 'certificateFile', 'status', 'avatarBg', 'password', 'designation', 'designationLevel', 'employmentType'];
+          const updateColumns = ['name', 'role', 'department', 'email', 'phone', 'status', 'password', 'designation', 'designationLevel', 'employmentType', 'photo'];
           const valueRows = db.employees.filter(e => e.id).map(e => [
-            e.id,
-            e.name || e.fullName || 'Employee',
-            e.fullName || e.name || 'Employee',
-            e.role || e.designation || 'Employee',
-            e.department || 'General',
-            e.email || '',
-            e.phone || e.mobile || '',
-            e.gender || '',
-            typeof e.qualification === 'object' ? JSON.stringify(e.qualification) : (e.qualification || ''),
-            typeof e.experiences === 'object' ? JSON.stringify(e.experiences) : (typeof e.experience === 'object' ? JSON.stringify(e.experience) : (e.experience || '')),
-            e.dateOfJoining || e.joiningDate || '',
-            e.salaryGrade || '',
-            e.reportingTo || '',
-            e.address || e.currentAddress || '',
-            e.city || e.currentCity || '',
-            e.state || e.currentState || '',
-            e.pincode || e.currentPostalCode || '',
-            e.emergencyContact || '',
-            e.emergencyPhone || e.emergencyContactNumber || '',
-            e.photo || '',
-            e.aadharFile || e.aadhaarFile || '',
-            e.certificateFile || '',
-            e.status || 'Active',
-            e.avatarBg || '',
-            e.password || '',
-            tId,
-            e.designation || '',
-            e.designationLevel || '',
-            e.employmentType || ''
+            e.id, e.name, e.fullName, e.role, e.department, e.email, e.phone, e.gender, e.qualification, 
+            e.experience, e.dateOfJoining, e.salaryGrade, e.reportingTo, e.address, e.city, e.state, e.pincode, 
+            e.emergencyContact, e.emergencyPhone, e.photo, e.aadharFile, e.certificateFile, e.status || 'Active', 
+            e.avatarBg, e.password, tId, e.designation || '', e.designationLevel || '', e.employmentType || ''
           ].map(v => v === undefined ? null : v));
           await bulkInsertOrUpdate('employees', columns, valueRows, updateColumns);
         })());
@@ -4585,6 +4500,9 @@ export const readDb = () => {
 
 // Central Database Writer (Preserves synchronous signature)
 export const writeDb = (data) => {
+  if (data && data.roles) {
+    ensureOverviewPermissions(data.roles);
+  }
   const tenantId = tenantStorage.getStore();
   let activeTenant = tenantId ? slugify(tenantId) : 'platform';
   if (activeTenant === 'default') {
@@ -4604,7 +4522,7 @@ export const writeDb = (data) => {
     // a 1-3 second synchronous block into a < 1ms operation.
     const changedKeys = new Set();
     const trackKeys = [
-      'schools', 'school', 'plans', 'teachers', 'staff', 'employees', 'students', 'timetables',
+      'schools', 'school', 'plans', 'teachers', 'staff', 'students', 'timetables',
       'teacherTimetables',
       'invoices', 'fees', 'expenses', 'payroll', 'staffPayments', 'activities',
       'exams', 'examTimetables', 'results', 'overallResults', 'notices',
@@ -4623,26 +4541,6 @@ export const writeDb = (data) => {
       for (const key of trackKeys) {
         const oldVal = oldCache[key];
         const newVal = data[key];
-        if (key === 'school' && data.school !== undefined) {
-          changedKeys.add('school');
-          continue;
-        }
-        if (key === 'schools' && data.schools !== undefined) {
-          changedKeys.add('schools');
-          continue;
-        }
-        if (key === 'roles' && data.roles !== undefined) {
-          changedKeys.add('roles');
-          continue;
-        }
-        if (key === 'userAccess' && data.userAccess !== undefined) {
-          changedKeys.add('userAccess');
-          continue;
-        }
-        if (key === 'employees' && data.employees !== undefined) {
-          changedKeys.add('employees');
-          continue;
-        }
         if (oldVal === newVal) continue;
         if (!oldVal || !newVal) { changedKeys.add(key); continue; }
         if (Array.isArray(newVal)) {
@@ -4683,17 +4581,8 @@ export const writeDb = (data) => {
     }
   }
 
-  // Write to disk file to guarantee permanent lifetime persistence across restarts
-  try {
-    const dbFilePath = getDbPath();
-    const dir = path.dirname(dbFilePath);
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
-    }
-    fs.writeFileSync(dbFilePath, JSON.stringify(data, null, 2), 'utf8');
-  } catch (err) {
-    console.error(`[writeDb] Error writing database to ${getDbPath()}:`, err.message);
-  }
+  // db.json backup removed — system is fully SQL-driven.
+  // All writes (platform + tenant) are persisted exclusively via saveMemoryDbToSql().
 };
 
 // Helper to log system activities

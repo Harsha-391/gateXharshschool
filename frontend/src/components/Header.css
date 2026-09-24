@@ -99,21 +99,6 @@
   background: var(--bg-elevated);
 }
 
-[data-theme='dark'] .search-bar-input {
-  background: var(--bg-form);
-  border: 1.5px solid var(--border-glass);
-}
-
-[data-theme='dark'] .search-bar-input::placeholder {
-  color: var(--text-muted);
-  opacity: 0.55;
-}
-
-[data-theme='dark'] .search-bar-input:focus {
-  background: var(--bg-elevated);
-  box-shadow: 0 0 0 4px rgba(hsl(var(--color-primary)), 0.16);
-}
-
 .search-bar-icon {
   position: absolute;
   left: 14px;

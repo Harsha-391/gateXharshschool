@@ -9,8 +9,7 @@ import {
 // Common utility to get headers with token
 const getAuthHeaders = () => {
   const token = localStorage.getItem('token');
-  const hostTenant = typeof window !== 'undefined' ? window.location.hostname.split('.')[0] : null;
-  const tenant = localStorage.getItem('tenant_subdomain') || localStorage.getItem('tenant') || (hostTenant && !['localhost', 'platform', 'www', 'admin'].includes(hostTenant.toLowerCase()) ? hostTenant : '');
+  const tenant = localStorage.getItem('tenant') || '';
   return {
     'Content-Type': 'application/json',
     'Authorization': token ? `Bearer ${token}` : '',
@@ -167,28 +166,18 @@ export function PayrollHubRedesign({ type, showToast }) {
   };
 
   return (
-    <div className="payroll-redesign-container" style={{ 
-      padding: '28px', 
-      display: 'flex', 
-      flexDirection: 'column', 
-      gap: '28px',
-      background: '#ffffff',
-      color: '#0f172a',
-      borderRadius: '16px',
-      border: '1px solid #e2e8f0',
-      boxShadow: '0 4px 20px rgba(0,0,0,0.04)'
-    }}>
+    <div className="payroll-redesign-container">
       
       {/* Page Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
         <div>
-          <h1 style={{ margin: 0, fontSize: '1.8rem', fontWeight: 800, color: '#0f172a' }}>{type} Payroll Management</h1>
-          <p style={{ margin: '6px 0 0 0', fontSize: '0.9rem', color: '#475569' }}>Configure individual salary packages and execute secure, audited payrolls.</p>
+          <h1 style={{ margin: 0, fontSize: '1.6rem', fontWeight: 800, color: '#0f172a' }}>{type} Payroll Management</h1>
+          <p style={{ margin: '6px 0 0 0', fontSize: '0.88rem', color: '#475569' }}>Configure individual salary packages and execute secure, audited payrolls.</p>
         </div>
       </div>
 
       {/* Navigation Tabs */}
-      <div style={{ display: 'flex', borderBottom: '2px solid #e2e8f0', gap: '32px', flexWrap: 'wrap' }}>
+      <div className="payroll-nav-tabs-wrapper">
         {[
           { id: 'dashboard', label: 'Dashboard', icon: UserCog },
           { id: 'configuration', label: 'Salary Configuration', icon: Settings },
@@ -200,20 +189,11 @@ export function PayrollHubRedesign({ type, showToast }) {
             <button
               key={t.id}
               onClick={() => setActiveTab(t.id)}
+              className="payroll-nav-tab-btn"
               style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                padding: '14px 4px',
-                background: 'none',
-                border: 'none',
                 borderBottom: active ? '3px solid hsl(var(--color-primary))' : '3px solid transparent',
                 color: active ? 'hsl(var(--color-primary))' : '#475569',
                 fontWeight: active ? 700 : 500,
-                cursor: 'pointer',
-                fontSize: '0.96rem',
-                transition: 'all 0.2s',
-                marginBottom: '-2px'
               }}
             >
               <Icon size={18} />
@@ -270,48 +250,41 @@ export function PayrollHubRedesign({ type, showToast }) {
 // 2. SALARY CONFIGURATION TAB SUB-COMPONENT
 // ==========================================
 function SalaryConfigurationTab({ directoryData, loading, searchQuery, setSearchQuery, onConfigureSalary, type, allDesignations = [] }) {
-  const [selectedRole, setSelectedRole] = useState('All');
+  const [selectedRole, setSelectedRole] = useState('');
 
   const uniqueDesignations = Array.from(new Set([
     ...allDesignations,
     ...directoryData.map(e => e.role || e.designation).filter(Boolean)
-  ])).filter(d => d !== 'All');
-  const rolesList = ['All', ...uniqueDesignations];
+  ]));
+  const rolesList = uniqueDesignations;
 
-  const activeRole = selectedRole || 'All';
+  const activeRole = selectedRole === '' || selectedRole === 'All' || !uniqueDesignations.includes(selectedRole) ? (uniqueDesignations[0] || '') : selectedRole;
 
   // Filter query
   const filtered = directoryData.filter(e => {
     const roleOrDesig = (e.role || e.designation || '').toLowerCase();
-    const query = (searchQuery || '').trim().toLowerCase();
-    const matchesSearch = !query ||
-                          (e.name || '').toLowerCase().includes(query) ||
-                          (e.id || '').toLowerCase().includes(query) ||
-                          (e.department || '').toLowerCase().includes(query) ||
-                          roleOrDesig.includes(query);
+    const matchesSearch = e.name.toLowerCase().startsWith(searchQuery.toLowerCase()) ||
+                          e.id.toLowerCase().startsWith(searchQuery.toLowerCase()) ||
+                          (e.department || '').toLowerCase().startsWith(searchQuery.toLowerCase()) ||
+                          roleOrDesig.startsWith(searchQuery.toLowerCase());
     if (!matchesSearch) return false;
 
-    if ((type === 'Staff' || type === 'Employee') && activeRole !== 'All') {
-      const targetRole = activeRole.trim().toLowerCase();
-      const userRole = (e.role || '').trim().toLowerCase();
-      const userDesig = (e.designation || '').trim().toLowerCase();
-      return userRole === targetRole || userDesig === targetRole ||
-             (userDesig && (targetRole.includes(userDesig) || userDesig.includes(targetRole))) ||
-             (userRole && (targetRole.includes(userRole) || userRole.includes(targetRole)));
+    if ((type === 'Staff' || type === 'Employee') && activeRole !== '') {
+      return (e.role || e.designation) === activeRole;
     }
     return true;
   });
 
   const renderTableHeader = () => (
     <tr style={{ background: '#f8fafc', borderBottom: '2px solid #cbd5e1' }}>
-      <th style={{ padding: '12px 14px', color: '#0f172a', fontWeight: 700, width: '56px' }}>Photo</th>
-      <th style={{ padding: '12px 14px', color: '#0f172a', fontWeight: 700, whiteSpace: 'nowrap' }}>ID</th>
-      <th style={{ padding: '12px 14px', color: '#0f172a', fontWeight: 700, whiteSpace: 'nowrap' }}>Name</th>
-      <th style={{ padding: '12px 14px', color: '#0f172a', fontWeight: 700, whiteSpace: 'nowrap' }}>Department</th>
-      <th style={{ padding: '12px 14px', color: '#0f172a', fontWeight: 700, whiteSpace: 'nowrap' }}>{type === 'Staff' ? 'Role' : 'Designation'}</th>
-      <th style={{ padding: '12px 14px', color: '#0f172a', fontWeight: 700, whiteSpace: 'nowrap' }}>Salary Status</th>
-      <th style={{ padding: '12px 14px', color: '#0f172a', fontWeight: 700, whiteSpace: 'nowrap' }}>Current Package</th>
-      <th style={{ padding: '12px 16px', textAlign: 'center', color: '#0f172a', fontWeight: 700, whiteSpace: 'nowrap' }}>Actions</th>
+      <th style={{ padding: '16px', color: '#0f172a', fontWeight: 700 }}>Photo</th>
+      <th style={{ padding: '16px', color: '#0f172a', fontWeight: 700 }}>ID</th>
+      <th style={{ padding: '16px', color: '#0f172a', fontWeight: 700 }}>Name</th>
+      <th style={{ padding: '16px', color: '#0f172a', fontWeight: 700 }}>Department</th>
+      <th style={{ padding: '16px', color: '#0f172a', fontWeight: 700 }}>{type === 'Staff' ? 'Role' : 'Designation'}</th>
+      <th style={{ padding: '16px', color: '#0f172a', fontWeight: 700 }}>Salary Status</th>
+      <th style={{ padding: '16px', color: '#0f172a', fontWeight: 700 }}>Current Package</th>
+      <th style={{ padding: '16px', textAlign: 'center', color: '#0f172a', fontWeight: 700 }}>Actions</th>
     </tr>
   );
 
@@ -321,66 +294,61 @@ function SalaryConfigurationTab({ directoryData, loading, searchQuery, setSearch
       background: index % 2 === 0 ? '#ffffff' : '#f8fafc',
       transition: 'all 0.15s'
     }}>
-      <td style={{ padding: '10px 14px', width: '56px' }}>
+      <td style={{ padding: '14px 16px' }}>
         {emp.photo ? (
-          <img src={emp.photo} alt={emp.name} style={{ width: '36px', height: '36px', borderRadius: '50%', objectFit: 'cover', border: '1px solid #cbd5e1' }} />
+          <img src={emp.photo} alt={emp.name} style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover', border: '1px solid #cbd5e1' }} />
         ) : (
-          <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: '#e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, color: '#475569', fontSize: '0.8rem' }}>
+          <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: '#e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, color: '#475569', fontSize: '0.85rem' }}>
             {emp.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()}
           </div>
         )}
       </td>
-      <td style={{ padding: '10px 14px', fontWeight: 600, color: '#1e293b', whiteSpace: 'nowrap' }}>{emp.id}</td>
-      <td style={{ padding: '10px 14px', fontWeight: 700, color: '#0f172a', whiteSpace: 'nowrap' }}>{emp.name}</td>
-      <td style={{ padding: '10px 14px', color: '#334155', whiteSpace: 'nowrap' }}>{emp.department}</td>
-      <td style={{ padding: '10px 14px', color: '#334155', whiteSpace: 'nowrap' }}>
+      <td style={{ padding: '14px 16px', fontWeight: 600, color: '#1e293b' }}>{emp.id}</td>
+      <td style={{ padding: '14px 16px', fontWeight: 700, color: '#0f172a' }}>{emp.name}</td>
+      <td style={{ padding: '14px 16px', color: '#334155' }}>{emp.department}</td>
+      <td style={{ padding: '14px 16px', color: '#334155' }}>
         <span style={{
           padding: '4px 10px',
           borderRadius: '12px',
           fontSize: '0.78rem',
           fontWeight: 700,
           background: type === 'Staff' ? '#ede9fe' : '#e0f2fe',
-          color: type === 'Staff' ? '#5b21b6' : '#0369a1',
-          whiteSpace: 'nowrap',
-          display: 'inline-block'
+          color: type === 'Staff' ? '#5b21b6' : '#0369a1'
         }}>
           {emp.role || emp.designation}
         </span>
       </td>
-      <td style={{ padding: '10px 14px', whiteSpace: 'nowrap' }}>
+      <td style={{ padding: '14px 16px' }}>
         <span style={{
-          padding: '5px 10px',
+          padding: '6px 12px',
           borderRadius: '20px',
-          fontSize: '0.78rem',
+          fontSize: '0.8rem',
           fontWeight: 700,
           background: emp.salaryStatus === 'Configured' ? '#d1fae5' : '#fef3c7',
-          color: emp.salaryStatus === 'Configured' ? '#065f46' : '#92400e',
-          whiteSpace: 'nowrap',
-          display: 'inline-block'
+          color: emp.salaryStatus === 'Configured' ? '#065f46' : '#92400e'
         }}>
           {emp.salaryStatus}
         </span>
       </td>
-      <td style={{ padding: '10px 14px', fontWeight: 700, color: '#0f172a', whiteSpace: 'nowrap' }}>
+      <td style={{ padding: '14px 16px', fontWeight: 700, color: '#0f172a' }}>
         {emp.salaryStatus === 'Configured' ? formatCurrency(emp.currentSalary) : '—'}
       </td>
-      <td style={{ padding: '10px 16px', textAlign: 'center', whiteSpace: 'nowrap' }}>
+      <td style={{ padding: '14px 16px', textAlign: 'center' }}>
         <button
           onClick={() => onConfigureSalary(emp)}
           style={{
-            padding: '7px 14px',
+            padding: '8px 18px',
             borderRadius: '8px',
             background: 'rgba(255, 107, 0, 0.1)',
             border: 'none',
             color: 'hsl(var(--color-primary))',
             cursor: 'pointer',
             fontWeight: 700,
-            fontSize: '0.82rem',
+            fontSize: '0.85rem',
             display: 'inline-flex',
             alignItems: 'center',
             gap: '6px',
-            transition: 'all 0.15s',
-            whiteSpace: 'nowrap'
+            transition: 'all 0.15s'
           }}
         >
           <Settings size={14} />
@@ -454,8 +422,8 @@ function SalaryConfigurationTab({ directoryData, loading, searchQuery, setSearch
         </div>
       ) : (
         // RENDER SINGLE TABLE
-        <div className="payroll-table-wrapper" style={{ border: '1px solid #cbd5e1', borderRadius: '12px', boxShadow: '0 2px 10px rgba(0,0,0,0.02)' }}>
-          <table style={{ width: '100%', minWidth: '820px', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.9rem', background: '#ffffff' }}>
+        <div className="payroll-table-container">
+          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.92rem', background: '#ffffff' }}>
             <thead>
               {renderTableHeader()}
             </thead>
@@ -481,7 +449,7 @@ function PaymentsTab({ directoryData, loading, onPaySalary, showToast, type, all
   const [paymentsList, setPaymentsList] = useState([]);
   const [loadingPayHistory, setLoadingPayHistory] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedRole, setSelectedRole] = useState('All');
+  const [selectedRole, setSelectedRole] = useState('');
 
   // Generate years list dynamically from 2024 up to current year
   const dynamicYears = [];
@@ -527,29 +495,22 @@ function PaymentsTab({ directoryData, loading, onPaySalary, showToast, type, all
   const uniqueDesignations = Array.from(new Set([
     ...allDesignations,
     ...directoryData.map(e => e.role || e.designation).filter(Boolean)
-  ])).filter(d => d !== 'All');
-  const rolesList = ['All', ...uniqueDesignations];
+  ]));
+  const rolesList = uniqueDesignations;
 
-  const activeRole = selectedRole || 'All';
+  const activeRole = selectedRole === '' || selectedRole === 'All' || !uniqueDesignations.includes(selectedRole) ? (uniqueDesignations[0] || '') : selectedRole;
 
   // Filter list to show all matching workers
   const filtered = directoryData.filter(e => {
     const roleOrDesig = (e.role || e.designation || '').toLowerCase();
-    const query = (searchQuery || '').trim().toLowerCase();
-    const isMatched = !query ||
-                      (e.name || '').toLowerCase().includes(query) ||
-                      (e.id || '').toLowerCase().includes(query) ||
-                      (e.department || '').toLowerCase().includes(query) ||
-                      roleOrDesig.includes(query);
+    const isMatched = e.name.toLowerCase().startsWith(searchQuery.toLowerCase()) ||
+                      e.id.toLowerCase().startsWith(searchQuery.toLowerCase()) ||
+                      (e.department || '').toLowerCase().startsWith(searchQuery.toLowerCase()) ||
+                      roleOrDesig.startsWith(searchQuery.toLowerCase());
     if (!isMatched) return false;
 
-    if ((type === 'Staff' || type === 'Employee') && activeRole !== 'All') {
-      const targetRole = activeRole.trim().toLowerCase();
-      const userRole = (e.role || '').trim().toLowerCase();
-      const userDesig = (e.designation || '').trim().toLowerCase();
-      return userRole === targetRole || userDesig === targetRole ||
-             (userDesig && (targetRole.includes(userDesig) || userDesig.includes(targetRole))) ||
-             (userRole && (targetRole.includes(userRole) || userRole.includes(targetRole)));
+    if ((type === 'Staff' || type === 'Employee') && activeRole !== '') {
+      return (e.role || e.designation) === activeRole;
     }
     return true;
   });
@@ -558,14 +519,14 @@ function PaymentsTab({ directoryData, loading, onPaySalary, showToast, type, all
 
   const renderTableHeader = () => (
     <tr style={{ background: '#f8fafc', borderBottom: '2px solid #cbd5e1' }}>
-      <th style={{ padding: '12px 14px', color: '#0f172a', fontWeight: 700, width: '56px' }}>Photo</th>
-      <th style={{ padding: '12px 14px', color: '#0f172a', fontWeight: 700, whiteSpace: 'nowrap' }}>ID</th>
-      <th style={{ padding: '12px 14px', color: '#0f172a', fontWeight: 700, whiteSpace: 'nowrap' }}>Name</th>
-      <th style={{ padding: '12px 14px', color: '#0f172a', fontWeight: 700, whiteSpace: 'nowrap' }}>Department</th>
-      <th style={{ padding: '12px 14px', color: '#0f172a', fontWeight: 700, whiteSpace: 'nowrap' }}>{type === 'Staff' ? 'Role' : 'Designation'}</th>
-      <th style={{ padding: '12px 14px', color: '#0f172a', fontWeight: 700, whiteSpace: 'nowrap' }}>Net Package Salary</th>
-      <th style={{ padding: '12px 14px', color: '#0f172a', fontWeight: 700, whiteSpace: 'nowrap' }}>Period Status</th>
-      <th style={{ padding: '12px 16px', textAlign: 'center', color: '#0f172a', fontWeight: 700, whiteSpace: 'nowrap' }}>Action</th>
+      <th style={{ padding: '16px', color: '#0f172a', fontWeight: 700 }}>Photo</th>
+      <th style={{ padding: '16px', color: '#0f172a', fontWeight: 700 }}>ID</th>
+      <th style={{ padding: '16px', color: '#0f172a', fontWeight: 700 }}>Name</th>
+      <th style={{ padding: '16px', color: '#0f172a', fontWeight: 700 }}>Department</th>
+      <th style={{ padding: '16px', color: '#0f172a', fontWeight: 700 }}>{type === 'Staff' ? 'Role' : 'Designation'}</th>
+      <th style={{ padding: '16px', color: '#0f172a', fontWeight: 700 }}>Net Package Salary</th>
+      <th style={{ padding: '16px', color: '#0f172a', fontWeight: 700 }}>Period Status</th>
+      <th style={{ padding: '16px', textAlign: 'center', color: '#0f172a', fontWeight: 700 }}>Action</th>
     </tr>
   );
 
@@ -577,65 +538,60 @@ function PaymentsTab({ directoryData, loading, onPaySalary, showToast, type, all
         background: index % 2 === 0 ? '#ffffff' : '#f8fafc',
         transition: 'all 0.15s'
       }}>
-        <td style={{ padding: '10px 14px', width: '56px' }}>
+        <td style={{ padding: '14px 16px' }}>
           {emp.photo ? (
-            <img src={emp.photo} alt={emp.name} style={{ width: '36px', height: '36px', borderRadius: '50%', objectFit: 'cover', border: '1px solid #cbd5e1' }} />
+            <img src={emp.photo} alt={emp.name} style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover', border: '1px solid #cbd5e1' }} />
           ) : (
-            <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: '#e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, color: '#475569', fontSize: '0.8rem' }}>
+            <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: '#e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, color: '#475569', fontSize: '0.85rem' }}>
               {emp.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()}
             </div>
           )}
         </td>
-        <td style={{ padding: '10px 14px', fontWeight: 600, color: '#1e293b', whiteSpace: 'nowrap' }}>{emp.id}</td>
-        <td style={{ padding: '10px 14px', fontWeight: 700, color: '#0f172a', whiteSpace: 'nowrap' }}>{emp.name}</td>
-        <td style={{ padding: '10px 14px', color: '#334155', whiteSpace: 'nowrap' }}>{emp.department}</td>
-        <td style={{ padding: '10px 14px', color: '#334155', whiteSpace: 'nowrap' }}>
+        <td style={{ padding: '14px 16px', fontWeight: 600, color: '#1e293b' }}>{emp.id}</td>
+        <td style={{ padding: '14px 16px', fontWeight: 700, color: '#0f172a' }}>{emp.name}</td>
+        <td style={{ padding: '14px 16px', color: '#334155' }}>{emp.department}</td>
+        <td style={{ padding: '14px 16px', color: '#334155' }}>
           <span style={{
             padding: '4px 10px',
             borderRadius: '12px',
             fontSize: '0.78rem',
             fontWeight: 700,
             background: type === 'Staff' ? '#ede9fe' : '#e0f2fe',
-            color: type === 'Staff' ? '#5b21b6' : '#0369a1',
-            whiteSpace: 'nowrap',
-            display: 'inline-block'
+            color: type === 'Staff' ? '#5b21b6' : '#0369a1'
           }}>
             {emp.role || emp.designation}
           </span>
         </td>
-        <td style={{ padding: '10px 14px', fontWeight: 700, color: '#0f172a', whiteSpace: 'nowrap' }}>{formatCurrency(emp.currentSalary)}</td>
-        <td style={{ padding: '10px 14px', whiteSpace: 'nowrap' }}>
+        <td style={{ padding: '14px 16px', fontWeight: 700, color: '#0f172a' }}>{formatCurrency(emp.currentSalary)}</td>
+        <td style={{ padding: '14px 16px' }}>
           <span style={{
-            padding: '5px 10px',
+            padding: '6px 12px',
             borderRadius: '20px',
-            fontSize: '0.78rem',
+            fontSize: '0.8rem',
             fontWeight: 700,
             background: payStatus === 'Paid' ? '#d1fae5' : '#fee2e2',
-            color: payStatus === 'Paid' ? '#065f46' : '#991b1b',
-            whiteSpace: 'nowrap',
-            display: 'inline-block'
+            color: payStatus === 'Paid' ? '#065f46' : '#991b1b'
           }}>
             {payStatus}
           </span>
         </td>
-        <td style={{ padding: '10px 16px', textAlign: 'center', whiteSpace: 'nowrap' }}>
+        <td style={{ padding: '14px 16px', textAlign: 'center' }}>
           <button
             onClick={() => onPaySalary(emp, selectedMonth, selectedYear)}
             disabled={payStatus === 'Paid'}
             style={{
-              padding: '7px 14px',
+              padding: '8px 18px',
               borderRadius: '8px',
               background: payStatus === 'Paid' ? '#f1f5f9' : '#10b981',
               border: 'none',
               color: payStatus === 'Paid' ? '#94a3b8' : '#ffffff',
               cursor: payStatus === 'Paid' ? 'not-allowed' : 'pointer',
               fontWeight: 700,
-              fontSize: '0.82rem',
+              fontSize: '0.85rem',
               display: 'inline-flex',
               alignItems: 'center',
               gap: '6px',
-              transition: 'all 0.15s',
-              whiteSpace: 'nowrap'
+              transition: 'all 0.15s'
             }}
           >
             <CreditCard size={14} />
@@ -754,8 +710,8 @@ function PaymentsTab({ directoryData, loading, onPaySalary, showToast, type, all
         </div>
       ) : (
         // RENDER SINGLE TABLE
-        <div className="payroll-table-wrapper" style={{ border: '1px solid #cbd5e1', borderRadius: '12px', boxShadow: '0 2px 10px rgba(0,0,0,0.02)' }}>
-          <table style={{ width: '100%', minWidth: '860px', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.9rem', background: '#ffffff' }}>
+        <div className="payroll-table-container">
+          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.92rem', background: '#ffffff' }}>
             <thead>
               {renderTableHeader()}
             </thead>
@@ -1051,18 +1007,12 @@ function PayrollDashboardRedesign({ type, showToast }) {
         })
         .catch(() => setAvailableRoles([]));
     } else if (type === 'Employee') {
-      fetch('/api/designations', { headers: getAuthHeaders() })
+      fetch('/api/employees?limit=1000', { headers: getAuthHeaders() })
         .then(res => res.json())
         .then(data => {
-          const list = (Array.isArray(data) ? data : []).filter(d => d.status === 'Active' || !d.status).map(d => typeof d === 'string' ? d : d.name).filter(Boolean);
-          fetch('/api/employees?limit=1000', { headers: getAuthHeaders() })
-            .then(res => res.json())
-            .then(empData => {
-              const items = empData.employees || empData.data || empData || [];
-              const desigs = [...new Set([...list, ...items.map(e => e.designation || e.role).filter(Boolean)])].sort();
-              setAvailableRoles(desigs);
-            })
-            .catch(() => setAvailableRoles([...new Set(list)].sort()));
+          const items = data.employees || data.data || data || [];
+          const desigs = [...new Set(items.map(e => e.designation).filter(Boolean))].sort();
+          setAvailableRoles(desigs);
         })
         .catch(() => setAvailableRoles([]));
     } else if (type === 'Teacher') {
@@ -1134,34 +1084,25 @@ function PayrollDashboardRedesign({ type, showToast }) {
   const { summary, charts } = stats;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '28px', background: '#ffffff', color: '#0f172a' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', background: '#ffffff', color: '#0f172a', maxWidth: '100%', boxSizing: 'border-box', minWidth: 0 }}>
 
       {/* Current Month Banner */}
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        background: 'linear-gradient(135deg, hsl(var(--color-primary)) 0%, hsl(var(--color-secondary)) 100%)',
-        padding: '14px 22px',
-        borderRadius: '14px',
-        color: '#fff',
-        boxShadow: '0 4px 16px rgba(255, 107, 0, 0.25)'
-      }}>
+      <div className="payroll-banner">
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <Calendar size={20} style={{ opacity: 0.9 }} />
-          <span style={{ fontWeight: 700, fontSize: '1rem' }}>
+          <Calendar size={20} style={{ opacity: 0.9, flexShrink: 0 }} />
+          <span style={{ fontWeight: 700, fontSize: '1rem', wordBreak: 'break-word' }}>
             {type || 'Overall'} Payroll — {selectedMonth} {selectedYear}
           </span>
         </div>
-        <div style={{ fontSize: '0.8rem', opacity: 0.85, fontWeight: 600 }}>
+        <div style={{ fontSize: '0.8rem', opacity: 0.85, fontWeight: 600, whiteSpace: 'nowrap' }}>
           Live Real-time Data
         </div>
       </div>
 
       {/* Role / Designation Filter Tabs (only for Staff and Employee) */}
       {(type === 'Staff' || type === 'Employee') && availableRoles.length > 0 && (
-        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
-          <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+        <div className="payroll-role-filters">
+          <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>
             {type === 'Staff' ? 'Filter by Role:' : 'Filter by Designation:'}
           </span>
           {['All', ...availableRoles].map(r => (
@@ -1169,7 +1110,7 @@ function PayrollDashboardRedesign({ type, showToast }) {
               key={r}
               onClick={() => setSelectedRole(r)}
               style={{
-                padding: '7px 18px',
+                padding: '6px 16px',
                 borderRadius: '20px',
                 fontWeight: 700,
                 fontSize: '0.82rem',
@@ -1181,7 +1122,7 @@ function PayrollDashboardRedesign({ type, showToast }) {
                 color: selectedRole === r ? '#fff' : '#475569',
                 boxShadow: selectedRole === r ? '0 4px 12px rgba(224, 94, 0,0.3)' : 'none',
                 transition: 'all 0.2s ease',
-                transform: selectedRole === r ? 'translateY(-1px)' : 'none'
+                whiteSpace: 'nowrap'
               }}
             >
               {r}
@@ -1191,7 +1132,7 @@ function PayrollDashboardRedesign({ type, showToast }) {
       )}
 
       {/* Metrics Summary Row */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '20px' }}>
+      <div className="payroll-metrics-grid">
         {(() => {
           const cards = [];
           if (type === 'Teacher') {
@@ -1215,23 +1156,14 @@ function PayrollDashboardRedesign({ type, showToast }) {
             return (
               <div
                 key={i}
-                style={{
-                  background: '#ffffff',
-                  border: '1px solid #cbd5e1',
-                  borderRadius: '14px',
-                  padding: '20px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  boxShadow: '0 4px 6px -1px rgba(0,0,0,0.03), 0 2px 4px -1px rgba(0,0,0,0.02)'
-                }}
+                className="payroll-metric-card"
               >
                 <div>
-                  <div style={{ fontSize: '0.85rem', color: '#475569', fontWeight: 600 }}>{c.label}</div>
-                  <div style={{ fontSize: '1.45rem', fontWeight: 800, marginTop: '6px', color: '#0f172a' }}>{c.val}</div>
+                  <div style={{ fontSize: '0.82rem', color: '#475569', fontWeight: 600 }}>{c.label}</div>
+                  <div style={{ fontSize: '1.35rem', fontWeight: 800, marginTop: '4px', color: '#0f172a' }}>{c.val}</div>
                 </div>
-                <div style={{ width: '46px', height: '46px', borderRadius: '10px', background: c.color, display: 'flex', alignItems: 'center', justifyContent: 'center', color: c.iconColor }}>
-                  <Icon size={22} />
+                <div style={{ width: '42px', height: '42px', borderRadius: '10px', background: c.color, display: 'flex', alignItems: 'center', justifyContent: 'center', color: c.iconColor, flexShrink: 0 }}>
+                  <Icon size={20} />
                 </div>
               </div>
             );
@@ -1240,24 +1172,24 @@ function PayrollDashboardRedesign({ type, showToast }) {
       </div>
 
       {/* SVG Dashboard Charts */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '24px' }}>
+      <div className="payroll-charts-grid">
         
         {/* 1. Monthly Payroll Cost Trend */}
-        <div style={{ background: '#ffffff', border: '1px solid #cbd5e1', borderRadius: '14px', padding: '24px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.02)' }}>
-          <h3 style={{ margin: '0 0 20px 0', fontSize: '1.05rem', fontWeight: 700, color: '#0f172a' }}>Monthly Payroll Trend (Past 6 Months)</h3>
+        <div className="payroll-chart-card">
+          <h3 style={{ margin: '0 0 16px 0', fontSize: '1.02rem', fontWeight: 700, color: '#0f172a' }}>Monthly Payroll Trend (Past 6 Months)</h3>
           {charts.trend.length === 0 ? (
-            <div style={{ height: '220px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b', fontSize: '0.9rem' }}>No payment trends logged yet.</div>
+            <div style={{ height: '200px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b', fontSize: '0.9rem' }}>No payment trends logged yet.</div>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              <div style={{ height: '200px', display: 'flex', alignItems: 'flex-end', justifyContent: 'space-around', gap: '12px', paddingBottom: '12px', borderBottom: '2px solid #e2e8f0' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', maxWidth: '100%', overflowX: 'auto', WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none' }}>
+              <div style={{ height: '200px', display: 'flex', alignItems: 'flex-end', justifyContent: 'space-around', gap: '12px', paddingBottom: '12px', borderBottom: '2px solid #e2e8f0', minWidth: '280px' }}>
                 {charts.trend.map((t, idx) => {
                   const maxCost = Math.max(...charts.trend.map(x => parseFloat(x.totalPaid || 0))) || 1;
                   const pct = Math.round((parseFloat(t.totalPaid || 0) / maxCost) * 100);
                   return (
-                    <div key={idx} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', flex: 1 }}>
-                      <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#0f172a' }}>{formatCurrency(t.totalPaid).split('.')[0]}</span>
-                      <div style={{ width: '100%', maxWidth: '38px', height: `${pct * 1.3}px`, background: 'linear-gradient(to top, hsl(var(--color-primary)), hsl(var(--color-secondary)))', borderRadius: '6px 6px 0 0', minHeight: '8px' }}></div>
-                      <span style={{ fontSize: '0.78rem', color: '#475569', fontWeight: 600 }}>{t.month.substring(0,3)} {t.year}</span>
+                    <div key={idx} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', flex: 1, minWidth: '45px' }}>
+                      <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#0f172a', whiteSpace: 'nowrap' }}>{formatCurrency(t.totalPaid).split('.')[0]}</span>
+                      <div style={{ width: '100%', maxWidth: '36px', height: `${pct * 1.3}px`, background: 'linear-gradient(to top, hsl(var(--color-primary)), hsl(var(--color-secondary)))', borderRadius: '6px 6px 0 0', minHeight: '8px' }}></div>
+                      <span style={{ fontSize: '0.75rem', color: '#475569', fontWeight: 600, whiteSpace: 'nowrap' }}>{t.month.substring(0,3)} {t.year}</span>
                     </div>
                   );
                 })}
@@ -1267,10 +1199,10 @@ function PayrollDashboardRedesign({ type, showToast }) {
         </div>
 
         {/* 2. Department-wise Payroll */}
-        <div style={{ background: '#ffffff', border: '1px solid #cbd5e1', borderRadius: '14px', padding: '24px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.02)' }}>
-          <h3 style={{ margin: '0 0 20px 0', fontSize: '1.05rem', fontWeight: 700, color: '#0f172a' }}>Department-wise Costs</h3>
+        <div className="payroll-chart-card">
+          <h3 style={{ margin: '0 0 16px 0', fontSize: '1.02rem', fontWeight: 700, color: '#0f172a' }}>Department-wise Costs</h3>
           {charts.departmentWise.length === 0 ? (
-            <div style={{ height: '220px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b', fontSize: '0.9rem' }}>No configurations mapped to departments.</div>
+            <div style={{ height: '200px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b', fontSize: '0.9rem' }}>No configurations mapped to departments.</div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               {charts.departmentWise.map((d, idx) => {
@@ -1278,7 +1210,7 @@ function PayrollDashboardRedesign({ type, showToast }) {
                 const pct = Math.round((parseFloat(d.totalCost || 0) / maxCost) * 100);
                 return (
                   <div key={idx} style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.84rem', gap: '8px', flexWrap: 'wrap' }}>
                       <span style={{ fontWeight: 700, color: '#0f172a' }}>{d.dept}</span>
                       <span style={{ fontWeight: 800, color: '#0f172a' }}>{formatCurrency(d.totalCost)}</span>
                     </div>
@@ -1293,41 +1225,45 @@ function PayrollDashboardRedesign({ type, showToast }) {
         </div>
 
         {/* 3. Salary Distribution Category */}
-        <div style={{ background: '#ffffff', border: '1px solid #cbd5e1', borderRadius: '14px', padding: '24px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.02)' }}>
-          <h3 style={{ margin: '0 0 20px 0', fontSize: '1.05rem', fontWeight: 700, color: '#0f172a' }}>Salary Distribution (Packages)</h3>
-          <div style={{ display: 'flex', gap: '32px', alignItems: 'center', height: '200px' }}>
-            <svg width="130" height="130" viewBox="0 0 36 36" style={{ transform: 'rotate(-90deg)' }}>
-              <circle cx="18" cy="18" r="15.915" fill="none" stroke="#f1f5f9" strokeWidth="4" />
-              {(() => {
-                const low = parseInt(charts.distribution.low || 0);
-                const med = parseInt(charts.distribution.medium || 0);
-                const high = parseInt(charts.distribution.high || 0);
-                const total = low + med + high || 1;
-                
-                const lowPct = (low / total) * 100;
-                const medPct = (med / total) * 100;
-                const highPct = (high / total) * 100;
-                
-                return (
-                  <>
-                    <circle cx="18" cy="18" r="15.915" fill="none" stroke="#ef4444" strokeWidth="4.2" strokeDasharray={`${lowPct} ${100 - lowPct}`} strokeDashoffset="0" />
-                    <circle cx="18" cy="18" r="15.915" fill="none" stroke="#f59e0b" strokeWidth="4.2" strokeDasharray={`${medPct} ${100 - medPct}`} strokeDashoffset={-lowPct} />
-                    <circle cx="18" cy="18" r="15.915" fill="none" stroke="#10b981" strokeWidth="4.2" strokeDasharray={`${highPct} ${100 - highPct}`} strokeDashoffset={-(lowPct + medPct)} />
-                  </>
-                );
-              })()}
-            </svg>
+        <div className="payroll-chart-card">
+          <h3 style={{ margin: '0 0 16px 0', fontSize: '1.02rem', fontWeight: 700, color: '#0f172a' }}>Salary Distribution (Packages)</h3>
+          <div className="payroll-distribution-container">
+            <div style={{ display: 'flex', justifyContent: 'center', flexShrink: 0 }}>
+              <svg width="120" height="120" viewBox="0 0 36 36" style={{ transform: 'rotate(-90deg)' }}>
+                <circle cx="18" cy="18" r="15.915" fill="none" stroke="#f1f5f9" strokeWidth="4" />
+                {(() => {
+                  const low = parseInt(charts.distribution.low || 0);
+                  const med = parseInt(charts.distribution.medium || 0);
+                  const high = parseInt(charts.distribution.high || 0);
+                  const total = low + med + high || 1;
+                  
+                  const lowPct = (low / total) * 100;
+                  const medPct = (med / total) * 100;
+                  const highPct = (high / total) * 100;
+                  
+                  return (
+                    <>
+                      <circle cx="18" cy="18" r="15.915" fill="none" stroke="#ef4444" strokeWidth="4.2" strokeDasharray={`${lowPct} ${100 - lowPct}`} strokeDashoffset="0" />
+                      <circle cx="18" cy="18" r="15.915" fill="none" stroke="#f59e0b" strokeWidth="4.2" strokeDasharray={`${medPct} ${100 - medPct}`} strokeDashoffset={-lowPct} />
+                      <circle cx="18" cy="18" r="15.915" fill="none" stroke="#10b981" strokeWidth="4.2" strokeDasharray={`${highPct} ${100 - highPct}`} strokeDashoffset={-(lowPct + medPct)} />
+                    </>
+                  );
+                })()}
+              </svg>
+            </div>
             
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            <div style={{ flex: 1, minWidth: '180px', display: 'flex', flexDirection: 'column', gap: '10px', width: '100%' }}>
               {[
                 { label: 'Low (< 20K)', color: '#ef4444', val: charts.distribution.low || 0 },
                 { label: 'Medium (20K - 50K)', color: '#f59e0b', val: charts.distribution.medium || 0 },
                 { label: 'High (>= 50K)', color: '#10b981', val: charts.distribution.high || 0 }
               ].map((c, i) => (
-                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.9rem' }}>
-                  <div style={{ width: '14px', height: '14px', borderRadius: '4px', background: c.color }}></div>
-                  <span style={{ color: '#475569', fontWeight: 600 }}>{c.label}:</span>
-                  <span style={{ fontWeight: 700, color: '#0f172a' }}>{c.val} employees</span>
+                <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', fontSize: '0.84rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div style={{ width: '12px', height: '12px', borderRadius: '3px', background: c.color, flexShrink: 0 }}></div>
+                    <span style={{ color: '#475569', fontWeight: 600 }}>{c.label}</span>
+                  </div>
+                  <span style={{ fontWeight: 700, color: '#0f172a', whiteSpace: 'nowrap' }}>{c.val} employees</span>
                 </div>
               ))}
             </div>
@@ -1335,10 +1271,10 @@ function PayrollDashboardRedesign({ type, showToast }) {
         </div>
 
         {/* 4. Payment Settlement Ratios */}
-        <div style={{ background: '#ffffff', border: '1px solid #cbd5e1', borderRadius: '14px', padding: '24px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.02)' }}>
-          <h3 style={{ margin: '0 0 20px 0', fontSize: '1.05rem', fontWeight: 700, color: '#0f172a' }}>Current Month Payment Status</h3>
-          <div style={{ display: 'flex', gap: '20px', alignItems: 'center', height: '200px' }}>
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '18px' }}>
+        <div className="payroll-chart-card">
+          <h3 style={{ margin: '0 0 16px 0', fontSize: '1.02rem', fontWeight: 700, color: '#0f172a' }}>Current Month Payment Status</h3>
+          <div style={{ display: 'flex', gap: '20px', alignItems: 'center', minHeight: '180px', width: '100%' }}>
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '18px', width: '100%' }}>
               {[
                 { label: 'Paid Ratios', val: summary.paidEmployees, color: '#10b981' },
                 { label: 'Pending Ratios', val: summary.pendingEmployees, color: '#f59e0b' }
@@ -1347,7 +1283,7 @@ function PayrollDashboardRedesign({ type, showToast }) {
                 const pct = Math.round((s.val / total) * 100);
                 return (
                   <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.84rem', gap: '8px' }}>
                       <span style={{ color: '#475569', fontWeight: 600 }}>{s.label}</span>
                       <span style={{ fontWeight: 800, color: '#0f172a' }}>{s.val} ({pct}%)</span>
                     </div>
@@ -1537,22 +1473,12 @@ export function PayrollHistoryViewRedesign({ showToast }) {
   };
 
   return (
-    <div className="payroll-history-container" style={{ 
-      padding: '28px', 
-      display: 'flex', 
-      flexDirection: 'column', 
-      gap: '28px',
-      background: '#ffffff',
-      color: '#0f172a',
-      borderRadius: '16px',
-      border: '1px solid #e2e8f0',
-      boxShadow: '0 4px 20px rgba(0,0,0,0.04)'
-    }}>
+    <div className="payroll-history-container">
       
       {/* Header */}
       <div>
-        <h1 style={{ margin: 0, fontSize: '1.8rem', fontWeight: 800, color: '#0f172a' }}>Payroll Payment History</h1>
-        <p style={{ margin: '6px 0 0 0', fontSize: '0.9rem', color: '#475569' }}>Audit and query historic salary slip disbursements and settlement vouchers.</p>
+        <h1 style={{ margin: 0, fontSize: '1.6rem', fontWeight: 800, color: '#0f172a' }}>Payroll Payment History</h1>
+        <p style={{ margin: '6px 0 0 0', fontSize: '0.88rem', color: '#475569' }}>Audit and query historic salary slip disbursements and settlement vouchers.</p>
       </div>
 
       {/* Filter Toolbar */}
@@ -1685,25 +1611,25 @@ export function PayrollHistoryViewRedesign({ showToast }) {
       </div>
 
       {/* History Table */}
-      <div className="payroll-table-wrapper" style={{ border: '1px solid #cbd5e1', borderRadius: '12px', boxShadow: '0 2px 10px rgba(0,0,0,0.02)' }}>
-        <table style={{ width: '100%', minWidth: '1100px', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.9rem', background: '#ffffff' }}>
+      <div className="payroll-table-container">
+        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.92rem', background: '#ffffff' }}>
           <thead>
             <tr style={{ background: '#f8fafc', borderBottom: '2px solid #cbd5e1' }}>
-              <th style={{ padding: '12px 14px', color: '#0f172a', fontWeight: 700, whiteSpace: 'nowrap' }}>Receipt No</th>
-              <th style={{ padding: '12px 14px', color: '#0f172a', fontWeight: 700, whiteSpace: 'nowrap' }}>Employee ID</th>
-              <th style={{ padding: '12px 14px', color: '#0f172a', fontWeight: 700, whiteSpace: 'nowrap' }}>Name</th>
-              <th style={{ padding: '12px 14px', color: '#0f172a', fontWeight: 700, whiteSpace: 'nowrap' }}>Category</th>
-              <th style={{ padding: '12px 14px', color: filterCategory === 'Staff' ? '#5b21b6' : filterCategory === 'Employee' ? '#0369a1' : '#0f172a', fontWeight: 700, whiteSpace: 'nowrap' }}>
+              <th style={{ padding: '16px', color: '#0f172a', fontWeight: 700 }}>Receipt No</th>
+              <th style={{ padding: '16px', color: '#0f172a', fontWeight: 700 }}>Employee ID</th>
+              <th style={{ padding: '16px', color: '#0f172a', fontWeight: 700 }}>Name</th>
+              <th style={{ padding: '16px', color: '#0f172a', fontWeight: 700 }}>Category</th>
+              <th style={{ padding: '16px', color: filterCategory === 'Staff' ? '#5b21b6' : filterCategory === 'Employee' ? '#0369a1' : '#0f172a', fontWeight: 700 }}>
                 {colConfig.label}
               </th>
-              <th style={{ padding: '12px 14px', color: '#0f172a', fontWeight: 700, whiteSpace: 'nowrap' }}>Period</th>
-              <th style={{ padding: '12px 14px', color: '#0f172a', fontWeight: 700, whiteSpace: 'nowrap' }}>Payable Amount</th>
-              <th style={{ padding: '12px 14px', color: '#0f172a', fontWeight: 700, whiteSpace: 'nowrap' }}>Paid Amount</th>
-              <th style={{ padding: '12px 14px', color: '#0f172a', fontWeight: 700, whiteSpace: 'nowrap' }}>Balance</th>
-              <th style={{ padding: '12px 14px', color: '#0f172a', fontWeight: 700, whiteSpace: 'nowrap' }}>Method</th>
-              <th style={{ padding: '12px 14px', color: '#0f172a', fontWeight: 700, whiteSpace: 'nowrap' }}>Payment Date</th>
-              <th style={{ padding: '12px 14px', color: '#0f172a', fontWeight: 700, whiteSpace: 'nowrap' }}>Status</th>
-              <th style={{ padding: '12px 16px', textAlign: 'center', color: '#0f172a', fontWeight: 700, whiteSpace: 'nowrap' }}>Action</th>
+              <th style={{ padding: '16px', color: '#0f172a', fontWeight: 700 }}>Period</th>
+              <th style={{ padding: '16px', color: '#0f172a', fontWeight: 700 }}>Payable Amount</th>
+              <th style={{ padding: '16px', color: '#0f172a', fontWeight: 700 }}>Paid Amount</th>
+              <th style={{ padding: '16px', color: '#0f172a', fontWeight: 700 }}>Balance</th>
+              <th style={{ padding: '16px', color: '#0f172a', fontWeight: 700 }}>Method</th>
+              <th style={{ padding: '16px', color: '#0f172a', fontWeight: 700 }}>Payment Date</th>
+              <th style={{ padding: '16px', color: '#0f172a', fontWeight: 700 }}>Status</th>
+              <th style={{ padding: '16px', textAlign: 'center', color: '#0f172a', fontWeight: 700 }}>Action</th>
             </tr>
           </thead>
           <tbody>
@@ -1731,49 +1657,45 @@ export function PayrollHistoryViewRedesign({ showToast }) {
                     background: index % 2 === 0 ? '#ffffff' : '#f8fafc',
                     transition: 'all 0.15s'
                   }}>
-                    <td style={{ padding: '10px 14px', fontWeight: 800, color: 'hsl(var(--color-primary))', whiteSpace: 'nowrap' }}>{p.receiptNo}</td>
-                    <td style={{ padding: '10px 14px', color: '#1e293b', whiteSpace: 'nowrap' }}>{p.employeeId}</td>
-                    <td style={{ padding: '10px 14px', fontWeight: 700, color: '#0f172a', whiteSpace: 'nowrap' }}>{p.employeeName}</td>
-                    <td style={{ padding: '10px 14px', color: '#334155', whiteSpace: 'nowrap' }}>{p.employeeType}</td>
-                    <td style={{ padding: '10px 14px', whiteSpace: 'nowrap' }}>
+                    <td style={{ padding: '14px 16px', fontWeight: 800, color: 'hsl(var(--color-primary))' }}>{p.receiptNo}</td>
+                    <td style={{ padding: '14px 16px', color: '#1e293b' }}>{p.employeeId}</td>
+                    <td style={{ padding: '14px 16px', fontWeight: 700, color: '#0f172a' }}>{p.employeeName}</td>
+                    <td style={{ padding: '14px 16px', color: '#334155' }}>{p.employeeType}</td>
+                    <td style={{ padding: '14px 16px' }}>
                       <span style={{
                         padding: '4px 10px',
                         borderRadius: '12px',
                         fontSize: '0.78rem',
                         fontWeight: 700,
-                        whiteSpace: 'nowrap',
-                        display: 'inline-block',
                         ...badgeStyle
                       }}>
                         {secondaryVal}
                       </span>
                     </td>
-                    <td style={{ padding: '10px 14px', fontWeight: 700, color: '#0f172a', whiteSpace: 'nowrap' }}>{p.month} {p.year}</td>
-                    <td style={{ padding: '10px 14px', color: '#0f172a', whiteSpace: 'nowrap' }}>{formatCurrency(p.finalPayable)}</td>
-                    <td style={{ padding: '10px 14px', fontWeight: 700, color: '#10b981', whiteSpace: 'nowrap' }}>{formatCurrency(p.paidAmount)}</td>
-                    <td style={{ padding: '10px 14px', color: p.balance > 0 ? '#b45309' : '#0f172a', fontWeight: p.balance > 0 ? 700 : 500, whiteSpace: 'nowrap' }}>{formatCurrency(p.balance)}</td>
-                    <td style={{ padding: '10px 14px', color: '#334155', whiteSpace: 'nowrap' }}>{p.paymentMethod}</td>
-                    <td style={{ padding: '10px 14px', color: '#334155', whiteSpace: 'nowrap' }}>{p.paymentDate}</td>
-                    <td style={{ padding: '10px 14px', whiteSpace: 'nowrap' }}>
+                    <td style={{ padding: '14px 16px', fontWeight: 700, color: '#0f172a' }}>{p.month} {p.year}</td>
+                    <td style={{ padding: '14px 16px', color: '#0f172a' }}>{formatCurrency(p.finalPayable)}</td>
+                    <td style={{ padding: '14px 16px', fontWeight: 700, color: '#10b981' }}>{formatCurrency(p.paidAmount)}</td>
+                    <td style={{ padding: '14px 16px', color: p.balance > 0 ? '#b45309' : '#0f172a', fontWeight: p.balance > 0 ? 700 : 500 }}>{formatCurrency(p.balance)}</td>
+                    <td style={{ padding: '14px 16px', color: '#334155' }}>{p.paymentMethod}</td>
+                    <td style={{ padding: '14px 16px', color: '#334155' }}>{p.paymentDate}</td>
+                    <td style={{ padding: '14px 16px' }}>
                       <span style={{
-                        padding: '5px 10px',
+                        padding: '6px 12px',
                         borderRadius: '20px',
-                        fontSize: '0.78rem',
+                        fontSize: '0.8rem',
                         fontWeight: 700,
                         background: p.status === 'Paid' ? '#d1fae5' : p.status === 'Partial' ? '#fef3c7' : '#fee2e2',
-                        color: p.status === 'Paid' ? '#065f46' : p.status === 'Partial' ? '#b45309' : '#991b1b',
-                        whiteSpace: 'nowrap',
-                        display: 'inline-block'
+                        color: p.status === 'Paid' ? '#065f46' : p.status === 'Partial' ? '#b45309' : '#991b1b'
                       }}>
                         {p.status}
                       </span>
                     </td>
-                    <td style={{ padding: '10px 16px', textAlign: 'center', whiteSpace: 'nowrap' }}>
+                    <td style={{ padding: '14px 16px', textAlign: 'center' }}>
                       <button
                         onClick={() => setActiveReceipt(p)}
                         title="View Slip / Receipt"
                         style={{
-                          padding: '7px 10px',
+                          padding: '8px',
                           borderRadius: '8px',
                           background: '#f1f5f9',
                           border: '1px solid #cbd5e1',

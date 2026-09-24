@@ -221,7 +221,7 @@ export default function SchoolLogin({ tenantSubdomain, onLoginSuccess }) {
         {/* â”€â”€ Footer â”€â”€ */}
         <div className="sl-footer">
           <Shield size={12} />
-          AES Encrypted Â· Secure Connection
+          AES Encrypted • Secure Connection
         </div>
 
       </div>

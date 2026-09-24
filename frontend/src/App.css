@@ -111,18 +111,6 @@
   box-shadow: 0 0 0 3px rgba(hsl(var(--color-primary)), 0.12);
 }
 
-[data-theme='dark'] .select-custom {
-  background: var(--bg-form);
-  border: 1.5px solid var(--border-glass);
-  color: var(--text-main);
-}
-
-[data-theme='dark'] .select-custom:focus {
-  border-color: hsl(var(--color-primary));
-  background: var(--bg-elevated);
-  box-shadow: 0 0 0 4px rgba(hsl(var(--color-primary)), 0.16);
-}
-
 /* Modal Overlay & Card Drawer */
 .modal-overlay {
   position: fixed;
@@ -238,6 +226,30 @@
   gap: 12px;
   flex-shrink: 0;
   background: rgba(hsl(var(--color-primary)), 0.01);
+}
+
+.modal-body .form-group {
+  margin-bottom: 0;
+}
+
+@media (max-width: 640px) {
+  .modal-overlay {
+    padding: 16px 12px;
+    align-items: center;
+  }
+  .modal-content {
+    max-height: calc(100dvh - 32px);
+    border-radius: 20px;
+  }
+  .modal-header {
+    padding: 16px 20px;
+  }
+  .modal-body {
+    padding: 20px 16px;
+  }
+  .modal-footer {
+    padding: 14px 20px;
+  }
 }
 
 /* Drawer Detail Panel */
@@ -367,16 +379,25 @@
     flex-shrink: 0;
   }
   .search-bar-container {
-    display: none;
+    display: flex;
+    width: 100% !important;
+    max-width: 100% !important;
   }
   .directory-actions {
     flex-direction: column;
     align-items: stretch;
-    padding: 12px;
+    padding: 14px;
+    gap: 12px;
   }
   .filter-group {
-    flex-direction: column;
-    align-items: stretch;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+  }
+  .filter-group .select-custom {
+    flex: 1 1 calc(50% - 8px);
+    min-width: 120px;
   }
   .app-content {
     padding: 12px 10px;

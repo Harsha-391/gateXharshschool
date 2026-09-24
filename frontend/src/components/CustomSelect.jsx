@@ -105,7 +105,7 @@ export default function CustomSelect({ value, onChange, children, className = ''
     position: 'relative',
     display: style.display || 'inline-block',
     width: style.width || 'auto',
-    minWidth: style.minWidth || '140px',
+    minWidth: style.minWidth !== undefined ? style.minWidth : (style.width ? 'auto' : '140px'),
     flex: style.flex || undefined,
     margin: style.margin || undefined,
     marginTop: style.marginTop || undefined,

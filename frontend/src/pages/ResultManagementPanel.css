@@ -1,21 +1,4 @@
-﻿/* Result Management Panel Overrides for SaaS Visuals */
-
-/* Overwrite hardcoded white backgrounds in modals and result card boxes for Dark Theme compatibility */
-[data-theme='dark'] div[style*="background: '#ffffff'"],
-[data-theme='dark'] div[style*='background: "#ffffff"'],
-[data-theme='dark'] div[style*="background: rgb(255, 255, 255)"],
-[data-theme='dark'] div[style*="background-color: rgb(255, 255, 255)"] {
-  background: var(--bg-elevated) !important;
-  color: var(--text-main) !important;
-  border-color: var(--border-glass) !important;
-  box-shadow: var(--shadow-lg) !important;
-}
-
-/* Translucent border overrides for Dark Mode */
-[data-theme='dark'] th[style*="border-bottom: '1px solid rgba(0,0,0,0.04)'"],
-[data-theme='dark'] td[style*="border-bottom: '1px solid rgba(0,0,0,0.03)'"] {
-  border-color: var(--border-glass) !important;
-}
+/* Result Management Panel Overrides for SaaS Visuals */
 
 /* Tab button selector customization */
 .tab-btn-custom {
@@ -51,6 +34,21 @@
   }
   .print-page-break {
     page-break-after: always;
+  }
+}
+
+/* Mobile responsive fixes for marks entry & roster tables */
+@media (max-width: 768px) {
+  .roster-glass-panel {
+    padding: 14px !important;
+  }
+  .roster-header-container {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 12px !important;
+  }
+  .roster-header-container input {
+    max-width: 100% !important;
   }
 }
 

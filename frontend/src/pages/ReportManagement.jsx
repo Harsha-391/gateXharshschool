@@ -1,4 +1,4 @@
-﻿import './ReportManagement.css';
+import './ReportManagement.css';
 import React, { useState, useEffect } from 'react';
 import {
   FileText, ClipboardList, Users, Calendar,
@@ -132,18 +132,18 @@ export default function ReportManagement({ showToast }) {
       </div>
 
       {/* KPI Cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }}>
+      <div className="report-kpi-grid">
         {[
           { label: 'TOTAL SUBMITTED', value: totalCount, icon: <FileText size={22} />, color: '#FF8C42' },
           { label: 'FILED TODAY', value: todayCount, icon: <Activity size={22} />, color: '#2563eb' },
           { label: "THIS MONTH'S FILINGS", value: thisMonthCount, icon: <Calendar size={22} />, color: '#3b82f6' }
         ].map((card, i) => (
-          <div key={i} style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '22px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div key={i} className="report-kpi-card">
             <div>
-              <div style={{ fontSize: '0.68rem', fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>{card.label}</div>
-              <div style={{ fontSize: '1.8rem', fontWeight: 800, color: card.color, lineHeight: 1.2 }}>{card.value}</div>
+              <div className="report-kpi-label">{card.label}</div>
+              <div className="report-kpi-value" style={{ color: card.color }}>{card.value}</div>
             </div>
-            <div style={{ width: '46px', height: '46px', borderRadius: '12px', background: `${card.color}12`, color: card.color, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div className="report-kpi-icon" style={{ background: `${card.color}12`, color: card.color }}>
               {card.icon}
             </div>
           </div>
@@ -151,7 +151,7 @@ export default function ReportManagement({ showToast }) {
       </div>
 
       {/* Filters */}
-      <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '20px' }}>
+      <div className="report-filter-panel">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.9rem', fontWeight: 700, color: '#0f172a' }}>
             <SlidersHorizontal size={16} /> Search & Filters
@@ -161,18 +161,18 @@ export default function ReportManagement({ showToast }) {
             Clear Filters
           </button>
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '16px', alignItems: 'end' }}>
+        <div className="report-filter-grid">
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
             <label style={{ fontSize: '0.75rem', fontWeight: 700, color: '#475569', textTransform: 'uppercase' }}>Search Teacher</label>
             <div style={{ position: 'relative' }}>
               <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#64748b' }} />
               <input type="text" placeholder="Search teacher name starting with..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
-                style={{ width: '100%', padding: '10px 12px 10px 38px', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#f8fafc', fontSize: '0.86rem', color: '#000000' }} />
+                style={{ width: '100%', padding: '10px 12px 10px 38px', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#f8fafc', fontSize: '0.86rem', color: '#000000', boxSizing: 'border-box' }} />
             </div>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
             <label style={{ fontSize: '0.75rem', fontWeight: 700, color: '#475569', textTransform: 'uppercase' }}>Date Range</label>
-            <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+            <div className="report-date-range-container">
               <input type="date" value={fromDate} onChange={e => {
                 const val = e.target.value;
                 setFromDate(val);
@@ -180,10 +180,10 @@ export default function ReportManagement({ showToast }) {
                   setToDate(val);
                 }
               }} max={todayStr}
-                style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#f8fafc', fontSize: '0.8rem', color: '#000000' }} />
-              <span style={{ fontSize: '0.8rem', color: '#64748b' }}>to</span>
+                style={{ padding: '8px 10px', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#f8fafc', fontSize: '0.8rem', color: '#000000' }} />
+              <span style={{ fontSize: '0.8rem', color: '#64748b', flexShrink: 0 }}>to</span>
               <input type="date" value={toDate} onChange={e => setToDate(e.target.value)} max={todayStr} min={fromDate}
-                style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#f8fafc', fontSize: '0.8rem', color: '#000000' }} />
+                style={{ padding: '8px 10px', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#f8fafc', fontSize: '0.8rem', color: '#000000' }} />
             </div>
           </div>
         </div>
@@ -308,10 +308,10 @@ export default function ReportManagement({ showToast }) {
       })()}
 
       {/* Tabbed Table Card */}
-      <div style={{ background: '#ffffff', border: '1px solid #cbd5e1', borderRadius: '16px', padding: '24px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #e2e8f0', paddingBottom: '12px', flexWrap: 'wrap', gap: '12px' }}>
+      <div className="report-table-card">
+        <div className="report-tabs-bar">
           {/* Tabs Navigation */}
-          <div style={{ display: 'flex', gap: '8px' }}>
+          <div className="report-tabs-group">
             <button
               onClick={() => setActiveTab('today')}
               style={{
@@ -371,14 +371,14 @@ export default function ReportManagement({ showToast }) {
 
         return (
           <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(15, 23, 42, 0.4)', backdropFilter: 'blur(8px)' }} onClick={() => setShowDetailModal(null)}>
-            <div onClick={e => e.stopPropagation()} style={{ background: '#ffffff', borderRadius: '24px', width: '95%', maxWidth: isMultiClass ? '750px' : '600px', maxHeight: '85vh', overflowY: 'auto', padding: '32px', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)' }}>
+            <div onClick={e => e.stopPropagation()} className="report-detail-modal-box" style={{ maxWidth: isMultiClass ? '750px' : '600px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
                 <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 800, color: '#0f172a' }}>Report Details</h3>
                 <button onClick={() => setShowDetailModal(null)} style={{ background: '#f1f5f9', border: 'none', cursor: 'pointer', color: '#64748b', padding: '6px', borderRadius: '50%' }}><X size={18} /></button>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                 {/* Meta Info Header */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px', background: '#f8fafc', padding: '20px', borderRadius: '14px', border: '1px solid #e2e8f0' }}>
+                <div className="report-modal-meta-grid">
                   <div>
                     <span style={{ fontSize: '0.68rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', display: 'block', marginBottom: '4px', letterSpacing: '0.05em' }}>Submitted By</span>
                     <span style={{ fontSize: '0.92rem', fontWeight: 750, color: '#0f172a' }}>{showDetailModal.teacherName || 'Unknown'}</span>

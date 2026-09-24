@@ -76,6 +76,71 @@ import {
 
 const router = express.Router();
 
+// PDF Token Export and Direct Binary Download (Supports Mobile WebViews & DownloadManager)
+// Placed BEFORE auth middleware so external browsers & Android DownloadManager can fetch the file
+const tempExportPdfs = new Map();
+
+router.post('/export-pdf-token', (req, res) => {
+  try {
+    const { title, pdfContent, filename = 'document.pdf' } = req.body;
+    if (!pdfContent) {
+      return res.status(400).json({ error: 'pdfContent is required' });
+    }
+    const token = 'pdf_' + Date.now() + '_' + Math.random().toString(36).substring(2, 9);
+    const cleanFilename = (filename || 'document.pdf').endsWith('.pdf') ? filename : `${filename}.pdf`;
+
+    tempExportPdfs.set(token, {
+      pdfContent,
+      filename: cleanFilename,
+      createdAt: Date.now()
+    });
+
+    // Auto-clean up after 15 minutes
+    setTimeout(() => {
+      tempExportPdfs.delete(token);
+    }, 15 * 60 * 1000);
+
+    res.json({
+      token,
+      filename: cleanFilename,
+      downloadPath: `/api/academics/download-pdf/${token}`
+    });
+  } catch (err) {
+    console.error('Error generating PDF download token:', err);
+    res.status(500).json({ error: 'Failed to generate PDF download token' });
+  }
+});
+
+router.get('/download-pdf/:token', (req, res) => {
+  try {
+    const { token } = req.params;
+    const item = tempExportPdfs.get(token);
+    if (!item) {
+      return res.status(404).send(`
+        <!DOCTYPE html>
+        <html>
+          <head><title>Download Link Expired</title><meta name="viewport" content="width=device-width, initial-scale=1.0" /></head>
+          <body style="font-family: sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 90vh; text-align: center; padding: 20px;">
+            <h2>PDF Download Expired</h2>
+            <p>This document download link has expired. Please open the document in the portal and tap "Download PDF" again.</p>
+          </body>
+        </html>
+      `);
+    }
+
+    const pdfBuffer = Buffer.from(item.pdfContent, 'binary');
+    const safeFilename = encodeURIComponent(item.filename);
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${item.filename.replace(/"/g, '')}"; filename*=UTF-8''${safeFilename}`);
+    res.setHeader('Content-Length', pdfBuffer.length);
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.send(pdfBuffer);
+  } catch (err) {
+    console.error('Error serving PDF download:', err);
+    res.status(500).send('Error generating PDF download');
+  }
+});
+
 // Apply auth and tenant context restore to all endpoints
 router.use(auth);
 router.use(restoreTenantContext);
@@ -239,4 +304,4 @@ router.delete('/results/student/:studentId/exam/:examId', deleteStudentExamResul
 router.post('/results/submit-cohort', submitCohortResults);
 
 export default router;
-// Trigger nodemon restart
+

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import './EmployeeDirectory.css';
 import { createPortal } from 'react-dom';
 import { 
@@ -20,7 +20,8 @@ import {
   FileText,
   CheckCircle,
   Download,
-  ArrowUpDown
+  ArrowUpDown,
+  Filter
 } from 'lucide-react';
 import { hasPermission } from '../utils/permissions';
 
@@ -83,10 +84,10 @@ const DESIGNATION_DETAILS = {
 
 export default function EmployeeDirectory({ readOnly = true, onAddClick, onEditClick }) {
   const getQrImageUrl = (qrCodePath, employeeId, employeeType) => {
-    if (qrCodePath && (qrCodePath.startsWith('data:') || qrCodePath.startsWith('http://') || qrCodePath.startsWith('https://') || qrCodePath.startsWith('/'))) {
+    if (qrCodePath && qrCodePath.startsWith('data:')) {
       return qrCodePath;
     }
-    const payload = JSON.stringify({ employeeId, employeeType: employeeType || 'Employee' });
+    const payload = JSON.stringify({ employeeId, employeeType });
     return `https://api.qrserver.com/v1/create-qr-code/?size=300x300&color=1e1b4b&data=${encodeURIComponent(payload)}`;
   };
 
@@ -104,18 +105,6 @@ export default function EmployeeDirectory({ readOnly = true, onAddClick, onEditC
   const [designations, setDesignations] = useState([]);
   const [sortBy, setSortBy] = useState('name');
   const [sortOrder, setSortOrder] = useState('asc');
-
-  const allDesignationOptions = useMemo(() => {
-    const set = new Set(designations.map(d => (typeof d === 'string' ? d.trim() : d?.name?.trim())).filter(Boolean));
-    (staffList || []).forEach(s => {
-      if (s.designation) set.add(s.designation.trim());
-      if (s.role) set.add(s.role.trim());
-      if (s.staffCategory) set.add(s.staffCategory.trim());
-    });
-    return Array.from(set).filter(Boolean).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
-  }, [designations, staffList]);
-
-  const isSearchOrFilterActive = searchQuery.trim() !== '' || designationFilter !== 'All' || statusFilter !== 'All';
 
   const handleRegenerateQR = async (empId) => {
     try {
@@ -362,24 +351,12 @@ export default function EmployeeDirectory({ readOnly = true, onAddClick, onEditC
     printWindow.document.close();
   };
 
-  const getRequestHeaders = (contentType = null) => {
-    const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-    const hostTenant = typeof window !== 'undefined' ? window.location.hostname.split('.')[0] : null;
-    const tenantId = localStorage.getItem('tenant_subdomain') || (hostTenant && !['localhost', 'platform', 'www', 'admin'].includes(hostTenant.toLowerCase()) ? hostTenant : null);
-    const headers = {};
-    if (token) headers['Authorization'] = `Bearer ${token}`;
-    if (tenantId) headers['x-tenant-id'] = tenantId;
-    if (contentType) headers['Content-Type'] = contentType;
-    return headers;
-  };
-
   const fetchStaff = async () => {
     try {
-      const headers = getRequestHeaders();
-      const res = await fetch('/api/employees', { headers });
+      const res = await fetch('/api/employees');
       if (res.ok) {
         const data = await res.json();
-        setStaffList(Array.isArray(data) ? data : []);
+        setStaffList(data);
       }
     } catch (err) {
       console.error('Error loading staff roster:', err);
@@ -390,16 +367,12 @@ export default function EmployeeDirectory({ readOnly = true, onAddClick, onEditC
 
   useEffect(() => {
     fetchStaff();
-    const headers = getRequestHeaders();
-    fetch('/api/designations?type=employee', { headers })
-      .then(r => r.ok ? r.json() : [])
-      .then(empDesigs => {
-        const list = (Array.isArray(empDesigs) ? empDesigs : [])
-          .filter(d => d.status === 'Active' || !d.status)
-          .map(d => (typeof d === 'string' ? d : d.name));
-        setDesignations(Array.from(new Set(list)).filter(Boolean));
+    fetch('/api/designations')
+      .then(res => res.json())
+      .then(data => {
+        setDesignations(data.map(d => d.name));
       })
-      .catch(err => console.error('Error fetching employee designations in EmployeeDirectory:', err));
+      .catch(err => console.error('Error fetching designations in StaffDirectory:', err));
   }, []);
 
   const handleDeleteStaff = async (staffId) => {
@@ -413,14 +386,11 @@ export default function EmployeeDirectory({ readOnly = true, onAddClick, onEditC
       }
 
       try {
-        const headers = getRequestHeaders();
-        const res = await fetch(`/api/employees/${staffId}`, { method: 'DELETE', headers });
+        const res = await fetch(`/api/employees/${staffId}`, { method: 'DELETE' });
         if (!res.ok) {
           // Rollback on server failure
           setStaffList(originalStaffList);
-          alert('Failed to delete employee from database.');
-        } else {
-          fetchStaff();
+          alert('Failed to delete staff member.');
         }
       } catch (err) {
         console.error('Error removing staff:', err);
@@ -457,10 +427,9 @@ export default function EmployeeDirectory({ readOnly = true, onAddClick, onEditC
   const handleEditSave = async () => {
     setEditLoading(true);
     try {
-      const headers = getRequestHeaders('application/json');
       const res = await fetch(`/api/employees/${editStaff.id}`, {
         method: 'PUT',
-        headers,
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(editData)
       });
       if (res.ok) {
@@ -470,7 +439,7 @@ export default function EmployeeDirectory({ readOnly = true, onAddClick, onEditC
         setEditSuccess(true);
         setTimeout(() => { setEditStaff(null); setEditSuccess(false); }, 1200);
       } else {
-        alert('Failed to update employee in database.');
+        alert('Failed to update staff.');
       }
     } catch (err) {
       console.error('Error updating staff:', err);
@@ -490,15 +459,10 @@ export default function EmployeeDirectory({ readOnly = true, onAddClick, onEditC
       const cleanQ = q.replace(/^(emp-?|staff-?)/i, '');
       const cleanId = id.replace(/^(emp-?|staff-?)/i, '');
       const idMatch = cleanQ !== '' && cleanId.includes(cleanQ);
-      matchesSearch = name.includes(q) || id.includes(q) || idMatch;
+      matchesSearch = name.includes(q) || idMatch || id.includes(q);
     }
-    const sDesig = (s.designation || s.role || s.staffCategory || s.position || '').trim().toLowerCase();
-    const filterDesig = (designationFilter || '').trim().toLowerCase();
-    const matchesDesignation = designationFilter === 'All' || 
-      sDesig === filterDesig || 
-      (filterDesig && sDesig.includes(filterDesig)) || 
-      (sDesig && filterDesig.includes(sDesig));
-    const matchesStatus = statusFilter === 'All' || (s.status || 'Active').toLowerCase() === statusFilter.toLowerCase();
+    const matchesDesignation = designationFilter === 'All' || (s.designation || '') === designationFilter;
+    const matchesStatus = statusFilter === 'All' || s.status === statusFilter;
     return matchesSearch && matchesDesignation && matchesStatus;
   });
 
@@ -510,8 +474,8 @@ export default function EmployeeDirectory({ readOnly = true, onAddClick, onEditC
       valA = (a.fullName || a.name || '').toLowerCase();
       valB = (b.fullName || b.name || '').toLowerCase();
     } else if (sortBy === 'id') {
-      valA = (a.id || '').toLowerCase();
-      valB = (b.id || '').toLowerCase();
+      valA = (a.id || a.employeeId || '').toLowerCase();
+      valB = (b.id || b.employeeId || '').toLowerCase();
     }
     
     if (sortOrder === 'asc') {
@@ -763,51 +727,86 @@ export default function EmployeeDirectory({ readOnly = true, onAddClick, onEditC
   return (
     <div className="animate-slide-up" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
 
-      {/* Search & Filter Bar */}
-      <div className="glass-panel directory-actions" style={{ padding: '16px 24px', display: 'flex', flexWrap: 'wrap', gap: '12px', alignItems: 'center' }}>
-        <div className="search-bar-container" style={{ width: '100%', maxWidth: '360px' }}>
-          <Search size={18} className="search-bar-icon" />
-          <input 
-            type="text" 
-            placeholder="Search by employee name..."
-            className="search-bar-input"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value.replace(/[^A-Za-z\s]/g, ''))}
-            style={{ width: '100%' }}
-          />
+      {/* Search & Filter Control Bar */}
+      <div className="glass-panel" style={{ padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+        
+        {/* Row 1: Search & Filters */}
+        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div className="search-bar-container" style={{ width: '100%', maxWidth: '380px', flex: '1 1 260px' }}>
+            <Search size={18} className="search-bar-icon" />
+            <input 
+              type="text" 
+              placeholder="Search by employee name or ID..."
+              className="search-bar-input"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              style={{ width: '100%' }}
+            />
+          </div>
+
+          <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+            <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <Filter size={14} /> Filters:
+            </span>
+
+            <select 
+              className="select-custom" 
+              value={designationFilter} 
+              onChange={(e) => setDesignationFilter(e.target.value)}
+              style={{ padding: '8px 12px', borderRadius: '8px', fontSize: '0.85rem' }}
+            >
+              <option value="All">All Designations</option>
+              {designations.map(d => <option key={d} value={d}>{d}</option>)}
+            </select>
+
+            <select 
+              className="select-custom" 
+              value={statusFilter} 
+              onChange={(e) => setStatusFilter(e.target.value)}
+              style={{ padding: '8px 12px', borderRadius: '8px', fontSize: '0.85rem' }}
+            >
+              <option value="All">All Status</option>
+              <option value="Active">Active</option>
+              <option value="Inactive">Inactive</option>
+              <option value="On Leave">On Leave</option>
+            </select>
+          </div>
         </div>
 
-        <div className="filter-group" style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
-          <select className="select-custom" value={designationFilter} onChange={(e) => setDesignationFilter(e.target.value)}>
-            <option value="All">All Designations</option>
-            {allDesignationOptions.map(d => <option key={d} value={d}>{d}</option>)}
-          </select>
-          <select className="select-custom" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
-            <option value="All">All Status</option>
-            <option value="Active">Active</option>
-            <option value="Inactive">Inactive</option>
-          </select>
+        {/* Row 2: Sort controls & Total Count */}
+        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', borderTop: '1px solid var(--border-glass)', paddingTop: '12px' }}>
+          <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+            <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 600 }}>Sort By:</span>
+            
+            <select 
+              className="select-custom" 
+              value={sortBy} 
+              onChange={(e) => setSortBy(e.target.value)}
+              style={{ padding: '6px 12px', borderRadius: '8px', fontSize: '0.8rem' }}
+            >
+              <option value="name">Employee Name</option>
+              <option value="id">Employee ID</option>
+            </select>
 
-          <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 600, marginLeft: '8px' }}>Sort By:</span>
-          <select className="select-custom" value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
-            <option value="name">Employee Name</option>
-            <option value="id">Employee ID</option>
-          </select>
+            <button 
+              type="button" 
+              onClick={() => setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc')} 
+              className="btn-secondary" 
+              style={{ padding: '6px 12px', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.8rem', cursor: 'pointer' }}
+            >
+              <ArrowUpDown size={14} /> {sortOrder.toUpperCase()}
+            </button>
+          </div>
 
-          <button 
-            type="button" 
-            onClick={() => setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc')} 
-            className="btn-secondary" 
-            style={{ padding: '8px 12px', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.8rem', cursor: 'pointer' }}
-          >
-            <ArrowUpDown size={14} /> {sortOrder.toUpperCase()}
-          </button>
+          <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 500 }}>
+            Total Employees: <strong style={{ color: 'var(--text-main)' }}>{displayStaff.length}</strong>
+          </span>
         </div>
       </div>
 
       {/* Directory Table */}
-      <div className="glass-panel" style={{ padding: '24px' }}>
-        <div className="custom-table-container">
+      <div className="glass-panel" style={{ padding: '20px', position: 'relative' }}>
+        <div className="custom-table-container" style={{ width: '100%', overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
             <table className="custom-table">
               <thead>
                 <tr>
@@ -881,7 +880,7 @@ export default function EmployeeDirectory({ readOnly = true, onAddClick, onEditC
                 ) : (
                   <tr>
                     <td colSpan="8" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
-                      {loading ? 'Loading employee directory...' : searchQuery ? `No employees found matching '${searchQuery}'.` : 'No employees registered yet.'}
+                      {loading ? 'Loading employee records...' : 'No employees match your search criteria.'}
                     </td>
                   </tr>
                 )}

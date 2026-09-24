@@ -37,29 +37,29 @@ const TimePickerSelect = ({ value, onChange }) => {
   const minutes = Array.from({ length: 12 }, (_, i) => String(i * 5).padStart(2, '0'));
 
   return (
-    <div style={{ display: 'flex', gap: '6px' }}>
+    <div className="timepicker-container">
       <select
         value={hour}
         onChange={(e) => handleSelectChange(e.target.value, minute, period)}
-        style={{ flex: 1, padding: '10px 8px', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#ffffff', color: '#0f172a', fontSize: '0.9rem', fontWeight: 600, outline: 'none' }}
+        className="timepicker-select"
       >
-        {hours.map(h => <option key={h} value={h} style={{ color: '#0f172a' }}>{h}</option>)}
+        {hours.map(h => <option key={h} value={h} style={{ color: '#0f172a', background: '#ffffff' }}>{h}</option>)}
       </select>
-      <span style={{ alignSelf: 'center', fontWeight: 700, color: '#475569' }}>:</span>
+      <span className="timepicker-separator">:</span>
       <select
         value={minute}
         onChange={(e) => handleSelectChange(hour, e.target.value, period)}
-        style={{ flex: 1, padding: '10px 8px', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#ffffff', color: '#0f172a', fontSize: '0.9rem', fontWeight: 600, outline: 'none' }}
+        className="timepicker-select"
       >
-        {minutes.map(m => <option key={m} value={m} style={{ color: '#0f172a' }}>{m}</option>)}
+        {minutes.map(m => <option key={m} value={m} style={{ color: '#0f172a', background: '#ffffff' }}>{m}</option>)}
       </select>
       <select
         value={period}
         onChange={(e) => handleSelectChange(hour, minute, e.target.value)}
-        style={{ padding: '10px 8px', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#ffffff', color: '#0f172a', fontSize: '0.9rem', fontWeight: 600, outline: 'none' }}
+        className="timepicker-select timepicker-period"
       >
-        <option value="AM" style={{ color: '#0f172a' }}>AM</option>
-        <option value="PM" style={{ color: '#0f172a' }}>PM</option>
+        <option value="AM" style={{ color: '#0f172a', background: '#ffffff' }}>AM</option>
+        <option value="PM" style={{ color: '#0f172a', background: '#ffffff' }}>PM</option>
       </select>
     </div>
   );
@@ -350,7 +350,7 @@ export default function Settings({ showToast }) {
       </div>
 
       {/* Tab Selector Buttons */}
-      <div style={{ display: 'flex', gap: '12px' }}>
+      <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
         <button 
           onClick={() => setSettingsTab('attendance')}
           style={{
@@ -534,17 +534,8 @@ export default function Settings({ showToast }) {
 
       {/* EDIT ATTENDANCE MODAL DIALOG (Light Mode styled) */}
       {showAttendanceModal && (
-        <div style={{
-          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-          background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center',
-          zIndex: 999999, padding: '20px', backdropFilter: 'blur(4px)'
-        }}>
-          <div style={{
-            background: '#ffffff', borderRadius: '20px', border: '1px solid #cbd5e1',
-            width: '100%', maxWidth: '580px', display: 'flex', flexDirection: 'column', gap: '20px',
-            animation: 'scaleUp 0.15s ease-out', padding: '28px', color: '#000000',
-            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.2)'
-          }}>
+        <div className="settings-modal-overlay">
+          <div className="settings-modal-dialog">
             
             {/* Modal Header */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #e2e8f0', paddingBottom: '12px' }}>
@@ -553,8 +544,9 @@ export default function Settings({ showToast }) {
                 Configure Shift Rules
               </h3>
               <button
+                type="button"
                 onClick={() => setShowAttendanceModal(false)}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#475569' }}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#475569', padding: '4px' }}
               >
                 <X size={20} />
               </button>
@@ -564,7 +556,7 @@ export default function Settings({ showToast }) {
             <form onSubmit={handleAttendanceSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
               
               {/* Timing Fields Grid */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px' }}>
+              <div className="settings-form-grid">
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                   <label style={{ fontSize: '0.78rem', fontWeight: 700, color: '#475569', textTransform: 'uppercase' }}>Check-In Start</label>
                   <TimePickerSelect
@@ -630,7 +622,7 @@ export default function Settings({ showToast }) {
               </div>
 
               {/* Modal Footer / Actions */}
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', borderTop: '1px solid #e2e8f0', paddingTop: '16px', marginTop: '8px' }}>
+              <div className="settings-modal-actions">
                 <button
                   type="button"
                   onClick={() => setShowAttendanceModal(false)}
@@ -656,17 +648,8 @@ export default function Settings({ showToast }) {
 
       {/* CONFIGURE LEAVE POLICY MODAL (Light Mode styled) */}
       {showLeaveModal && (
-        <div style={{
-          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-          background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center',
-          zIndex: 999999, padding: '20px', backdropFilter: 'blur(4px)'
-        }}>
-          <div style={{
-            background: '#ffffff', borderRadius: '20px', border: '1px solid #cbd5e1',
-            width: '100%', maxWidth: '520px', display: 'flex', flexDirection: 'column', gap: '20px',
-            animation: 'scaleUp 0.15s ease-out', padding: '28px', color: '#000000',
-            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.2)'
-          }}>
+        <div className="settings-modal-overlay">
+          <div className="settings-modal-dialog" style={{ maxWidth: '520px' }}>
             
             {/* Modal Header */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #e2e8f0', paddingBottom: '12px' }}>
@@ -674,8 +657,9 @@ export default function Settings({ showToast }) {
                 {selectedPolicy ? 'Edit Leave Policy' : 'Add New Leave Policy'}
               </h3>
               <button
+                type="button"
                 onClick={() => setShowLeaveModal(false)}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#475569' }}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#475569', padding: '4px' }}
               >
                 <X size={20} />
               </button>
@@ -685,7 +669,7 @@ export default function Settings({ showToast }) {
             <form onSubmit={handleLeaveSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               
               {/* Code & Name Grid */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px' }}>
+              <div className="settings-form-grid">
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                   <label style={{ fontSize: '0.78rem', fontWeight: 700, color: '#475569', textTransform: 'uppercase' }}>Leave Code *</label>
                   <input
@@ -694,7 +678,7 @@ export default function Settings({ showToast }) {
                     placeholder="e.g., CL, SL, PL"
                     value={leaveForm.leaveCode}
                     onChange={e => setLeaveForm({ ...leaveForm, leaveCode: e.target.value })}
-                    style={{ padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#f8fafc', color: '#000000', fontSize: '0.88rem' }}
+                    style={{ padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#f8fafc', color: '#000000', fontSize: '0.88rem', width: '100%', boxSizing: 'border-box' }}
                   />
                 </div>
 
@@ -707,13 +691,13 @@ export default function Settings({ showToast }) {
                     placeholder="e.g., Casual Leave"
                     value={leaveForm.leaveType}
                     onChange={e => setLeaveForm({ ...leaveForm, leaveType: e.target.value })}
-                    style={{ padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', background: selectedPolicy ? '#e2e8f0' : '#f8fafc', color: '#000000', fontSize: '0.88rem', cursor: selectedPolicy ? 'not-allowed' : 'text' }}
+                    style={{ padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', background: selectedPolicy ? '#e2e8f0' : '#f8fafc', color: '#000000', fontSize: '0.88rem', cursor: selectedPolicy ? 'not-allowed' : 'text', width: '100%', boxSizing: 'border-box' }}
                   />
                 </div>
               </div>
 
               {/* Days & Carry Forward Grid */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px' }}>
+              <div className="settings-form-grid">
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                   <label style={{ fontSize: '0.78rem', fontWeight: 700, color: '#475569', textTransform: 'uppercase' }}>Default Days (Annual)</label>
                   <input
@@ -724,7 +708,7 @@ export default function Settings({ showToast }) {
                     required
                     value={leaveForm.maxDays}
                     onChange={e => setLeaveForm({ ...leaveForm, maxDays: Number(e.target.value) })}
-                    style={{ padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#f8fafc', color: '#000000', fontSize: '0.88rem' }}
+                    style={{ padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#f8fafc', color: '#000000', fontSize: '0.88rem', width: '100%', boxSizing: 'border-box' }}
                   />
                 </div>
 
@@ -738,19 +722,19 @@ export default function Settings({ showToast }) {
                     required
                     value={leaveForm.maxCarryForward}
                     onChange={e => setLeaveForm({ ...leaveForm, maxCarryForward: Number(e.target.value) })}
-                    style={{ padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#f8fafc', color: '#000000', fontSize: '0.88rem' }}
+                    style={{ padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#f8fafc', color: '#000000', fontSize: '0.88rem', width: '100%', boxSizing: 'border-box' }}
                   />
                 </div>
               </div>
 
               {/* Paid Status & Policy Status Grid */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px' }}>
+              <div className="settings-form-grid">
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                   <label style={{ fontSize: '0.78rem', fontWeight: 700, color: '#475569', textTransform: 'uppercase' }}>Leave Classification</label>
                   <select
                     value={leaveForm.isPaid ? 'Paid' : 'Unpaid'}
                     onChange={e => setLeaveForm({ ...leaveForm, isPaid: e.target.value === 'Paid' })}
-                    style={{ padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#f8fafc', color: '#000000', fontSize: '0.88rem', fontWeight: 600 }}
+                    style={{ padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#f8fafc', color: '#000000', fontSize: '0.88rem', fontWeight: 600, width: '100%', boxSizing: 'border-box' }}
                   >
                     <option value="Paid">Paid Policy</option>
                     <option value="Unpaid">Unpaid Policy</option>
@@ -762,7 +746,7 @@ export default function Settings({ showToast }) {
                   <select
                     value={leaveForm.status}
                     onChange={e => setLeaveForm({ ...leaveForm, status: e.target.value })}
-                    style={{ padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#f8fafc', color: '#000000', fontSize: '0.88rem', fontWeight: 600 }}
+                    style={{ padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#f8fafc', color: '#000000', fontSize: '0.88rem', fontWeight: 600, width: '100%', boxSizing: 'border-box' }}
                   >
                     <option value="Active">Active</option>
                     <option value="Inactive">Inactive</option>
@@ -778,12 +762,12 @@ export default function Settings({ showToast }) {
                   placeholder="Describe when and how this leave type can be used..."
                   value={leaveForm.description}
                   onChange={e => setLeaveForm({ ...leaveForm, description: e.target.value })}
-                  style={{ padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#f8fafc', color: '#000000', fontSize: '0.88rem', resize: 'vertical' }}
+                  style={{ padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#f8fafc', color: '#000000', fontSize: '0.88rem', resize: 'vertical', width: '100%', boxSizing: 'border-box' }}
                 />
               </div>
 
               {/* Modal Footer / Actions */}
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', borderTop: '1px solid #e2e8f0', paddingTop: '16px', marginTop: '10px' }}>
+              <div className="settings-modal-actions">
                 <button
                   type="button"
                   onClick={() => setShowLeaveModal(false)}

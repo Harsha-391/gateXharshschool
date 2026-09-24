@@ -42,32 +42,6 @@
   --webkit-glass-blur: blur(20px);
 }
 
-
-[data-theme='dark'] {
-  /* Dark Theme Variables - Cyberpunk Glow / Sci-Fi Space */
-  --bg-app: radial-gradient(circle at 10% 20%, #03010b 0%, #050414 40%, #08061e 80%, #0e0b2e 100%);
-  --bg-sidebar: rgba(8, 7, 24, 0.85);
-  --bg-glass: rgba(13, 11, 35, 0.65);
-  --bg-glass-active: rgba(24, 21, 58, 0.8);
-  --bg-card: rgba(13, 11, 35, 0.7);
-  --bg-card-muted: rgba(22, 19, 52, 0.8);
-  --bg-card-subtle: rgba(255, 255, 255, 0.025);
-  --bg-elevated: rgba(20, 17, 49, 0.95);
-  --bg-dropdown: #141131;
-  --bg-form: rgba(6, 5, 17, 0.65);
-  --border-glass: rgba(255, 255, 255, 0.28);
-  --border-subtle: rgba(255, 255, 255, 0.2);
-  --modal-overlay-bg: rgba(0, 0, 0, 0.65);
-  --text-main: #f8fafc;
-  --text-muted: #94a3b8;
-  --text-inverse: #ffffff;
-  --shadow-sm: 0 4px 12px -2px rgba(0, 0, 0, 0.35);
-  --shadow-md: 0 16px 32px -8px rgba(0, 0, 0, 0.5);
-  --shadow-lg: 0 32px 64px -12px rgba(0, 0, 0, 0.65);
-  --glass-blur: blur(24px);
-  --webkit-glass-blur: blur(24px);
-}
-
 /* Core Reset */
 *, *::before, *::after {
   box-sizing: border-box;
@@ -151,17 +125,6 @@ input[type="checkbox"]:checked::after {
   transform: rotate(45deg);
 }
 
-[data-theme='dark'] input[type="checkbox"] {
-  background: rgba(255, 255, 255, 0.05);
-  border-color: rgba(148, 163, 184, 0.4);
-}
-
-[data-theme='dark'] input[type="checkbox"]:checked {
-  background: rgba(255, 255, 255, 0.05);
-  border-color: #10b981;
-}
-
-/* Dot grid overlay pattern — dark theme only */
 body::before {
   content: '';
   position: fixed;
@@ -170,10 +133,6 @@ body::before {
   background-size: 24px 24px;
   z-index: -1;
   pointer-events: none;
-}
-
-[data-theme='dark'] body::before {
-  background-image: radial-gradient(rgba(255, 255, 255, 0.015) 1.5px, transparent 1.5px);
 }
 
 /* Scrollbar Styling */
@@ -198,7 +157,6 @@ body::before {
   border: 1px solid transparent;
   background-clip: padding-box;
 }
-
 
 /* Base Glassmorphic Layout Styles */
 .glass-panel {
@@ -258,7 +216,6 @@ body::before {
   transform: translateY(-2px);
 }
 
-
 /* Finance subadmin overrides (preserve readability adjustments) */
 .finance-subadmin {
   color: var(--text-main);
@@ -308,44 +265,6 @@ body::before {
   color: var(--text-main) !important;
 }
 
-:root:not([data-theme='dark']) .finance-subadmin .glass-panel,
-:root:not([data-theme='dark']) .finance-subadmin .glass-card,
-:root:not([data-theme='dark']) .finance-subadmin .admin-dash-card,
-:root:not([data-theme='dark']) .finance-subadmin .animate-scale-up {
-  background: #ffffff !important;
-  color: #0f172a !important;
-  border-color: #cbd5e1 !important;
-}
-
-:root:not([data-theme='dark']) .finance-subadmin input,
-:root:not([data-theme='dark']) .finance-subadmin select,
-:root:not([data-theme='dark']) .finance-subadmin textarea {
-  background: #ffffff !important;
-  color: #0f172a !important;
-  border-color: #cbd5e1 !important;
-}
-
-:root:not([data-theme='dark']) .finance-subadmin .animate-scale-up [style*="color: '#fff'"]:not(button),
-:root:not([data-theme='dark']) .finance-subadmin .animate-scale-up [style*='color: "#fff"']:not(button),
-:root:not([data-theme='dark']) .finance-subadmin .animate-scale-up [style*="color: rgb(255, 255, 255)"]:not(button) {
-  color: #0f172a !important;
-}
-
-:root:not([data-theme='dark']) .finance-subadmin button[style*="rgba(255,255,255"],
-:root:not([data-theme='dark']) .finance-subadmin button[style*="rgba(255, 255, 255"] {
-  background: #f8fafc !important;
-  border-color: #cbd5e1 !important;
-  color: #0f172a !important;
-}
-
-:root:not([data-theme='dark']) .finance-subadmin [style*="background: '#131324'"],
-:root:not([data-theme='dark']) .finance-subadmin [style*='background: "#131324"'],
-:root:not([data-theme='dark']) .finance-subadmin [style*="background: rgb(19, 19, 36)"],
-:root:not([data-theme='dark']) .finance-subadmin [style*="background-color: rgb(19, 19, 36)"] {
-  background: #ffffff !important;
-  color: #0f172a !important;
-  border-color: #cbd5e1 !important;
-}
 
 .glass-card {
   background: var(--bg-glass-active);
@@ -375,7 +294,6 @@ p {
   color: var(--text-muted);
   line-height: 1.5;
 }
-
 
 /* Animation Keyframes */
 @keyframes fadeIn {
@@ -621,24 +539,6 @@ table td {
   border-color: #FF8C42;
   box-shadow: 0 0 0 3px rgba(255, 140, 66, 0.15);
   background: #ffffff;
-}
-
-[data-theme='dark'] .form-control {
-  background: var(--bg-form);
-  border: 1.5px solid var(--border-glass);
-  color: var(--text-main);
-}
-
-[data-theme='dark'] .form-control::placeholder {
-  color: var(--text-muted);
-  opacity: 0.55;
-}
-
-[data-theme='dark'] .form-control:focus {
-  outline: none;
-  border-color: #FF8C42;
-  box-shadow: 0 0 0 3px rgba(255, 140, 66, 0.2);
-  background: var(--bg-elevated);
 }
 
 select option {

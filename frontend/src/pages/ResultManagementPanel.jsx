@@ -2050,7 +2050,7 @@ export default function ResultManagementPanel({ activeTab: propActiveTab = 'anal
                               </div>
                               <div>
                                 <span style={{ fontWeight: 700, fontSize: '0.85rem', display: 'block', color: 'var(--text-main)' }}>{p.studentName}</span>
-                                <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>Roll: {p.roll} Â· Class: {p.cohort}</span>
+                                <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>Roll: {p.roll} • Class: {p.cohort}</span>
                               </div>
                             </div>
                             <div style={{ textAlign: 'right' }}>
@@ -2077,8 +2077,8 @@ export default function ResultManagementPanel({ activeTab: propActiveTab = 'anal
                   <span style={{ fontSize: '0.76rem', color: 'var(--text-muted)' }}>Granular breakdown of subject average scores and success pass percentages</span>
                 </div>
                 {subjectBreakdown.length > 0 ? (
-                  <div style={{ overflowX: 'auto' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem' }}>
+                  <div className="custom-table-container" style={{ width: '100%', overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+                    <table className="custom-table" style={{ width: '100%', minWidth: '540px', borderCollapse: 'collapse', fontSize: '0.82rem' }}>
                       <thead>
                         <tr style={{ borderBottom: '1.5px solid var(--border-glass)', textAlign: 'left' }}>
                           <th style={{ padding: '12px 8px', color: 'var(--text-muted)', fontWeight: 600 }}>Subject Name</th>
@@ -2210,44 +2210,60 @@ export default function ResultManagementPanel({ activeTab: propActiveTab = 'anal
  
               {/* Roster & Exam Setup list */}
               {selectedClass && selectedSection ? (
-                <div className="glass-panel" style={{ padding: '24px' }}>
-                  <div style={{ marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-glass)', paddingBottom: '12px', flexWrap: 'wrap', gap: '12px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flex: 1, minWidth: '250px' }}>
-                      <h3 style={{ fontSize: '1rem', fontWeight: 700, margin: 0 }}>
+                <div className="glass-panel roster-glass-panel" style={{ padding: 'clamp(14px, 3vw, 24px)' }}>
+                  <div className="roster-header-container" style={{ marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-glass)', paddingBottom: '14px', flexWrap: 'wrap', gap: '12px' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      <h3 style={{ fontSize: '1.05rem', fontWeight: 700, margin: 0, color: 'var(--text-main)' }}>
                         Student Roster: Grade {selectedClass} - Section {selectedSection}
                       </h3>
-                      <div style={{ position: 'relative', flex: 1, maxWidth: '280px' }}>
-                        <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-                        <input
-                          type="text"
-                          className="form-control"
-                          style={{ paddingLeft: '30px', paddingRight: '10px', paddingTop: '6px', paddingBottom: '6px', fontSize: '0.8rem', borderRadius: '8px', width: '100%' }}
-                          value={rosterSearch}
-                          onChange={e => setRosterSearch(e.target.value)}
-                          placeholder="Search student by name..."
-                        />
-                      </div>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                       <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                        Total Students: <strong>{searchedStudents.length}</strong> {rosterSearch && `(filtered from ${filteredStudents.length})`}
+                        Total Students: <strong style={{ color: 'var(--text-main)' }}>{searchedStudents.length}</strong> {rosterSearch && `(filtered from ${filteredStudents.length})`}
                       </span>
                     </div>
+                    <div style={{ position: 'relative', width: '100%', maxWidth: '280px' }}>
+                      <Search size={14} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                      <input
+                        type="text"
+                        className="form-control"
+                        style={{ paddingLeft: '34px', paddingRight: '12px', paddingTop: '7px', paddingBottom: '7px', fontSize: '0.82rem', borderRadius: '8px', width: '100%' }}
+                        value={rosterSearch}
+                        onChange={e => setRosterSearch(e.target.value)}
+                        placeholder="Search student by name..."
+                      />
+                    </div>
                   </div>
+
+                  {!selectedExam && (
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      padding: '10px 14px',
+                      background: 'rgba(255, 107, 0, 0.08)',
+                      border: '1px solid rgba(255, 107, 0, 0.2)',
+                      borderRadius: '10px',
+                      marginBottom: '16px',
+                      fontSize: '0.82rem',
+                      color: 'hsl(var(--color-primary))'
+                    }}>
+                      <AlertCircle size={16} style={{ flexShrink: 0 }} />
+                      <span>Select an <strong>Exam Set</strong> above to enable entering and updating student marks.</span>
+                    </div>
+                  )}
 
                   {filteredStudents.length > 0 ? (
                     <>
                       {searchedStudents.length > 0 ? (
-                        <div style={{ overflowX: 'auto' }}>
-                          <table className="custom-table" style={{ width: '100%', tableLayout: 'fixed' }}>
+                        <div className="custom-table-container" style={{ width: '100%', overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+                          <table className="custom-table" style={{ width: '100%', minWidth: hasDepartments ? '640px' : '560px' }}>
                             <thead>
                               <tr>
-                                <th style={{ width: '15%', textAlign: 'left' }}>Roll Number</th>
-                                <th style={{ width: hasDepartments ? '25%' : '30%', textAlign: 'left' }}>Student Name</th>
-                                <th style={{ width: hasDepartments ? '15%' : '20%', textAlign: 'left' }}>Grade</th>
-                                <th style={{ width: hasDepartments ? '15%' : '15%', textAlign: 'left' }}>Section</th>
-                                {hasDepartments && <th style={{ width: '15%', textAlign: 'left' }}>Department</th>}
-                                <th style={{ width: hasDepartments ? '15%' : '20%', textAlign: 'center' }}>Actions</th>
+                                <th style={{ minWidth: '95px', textAlign: 'left' }}>Roll Number</th>
+                                <th style={{ minWidth: '160px', textAlign: 'left' }}>Student Name</th>
+                                <th style={{ minWidth: '90px', textAlign: 'left' }}>Grade</th>
+                                <th style={{ minWidth: '80px', textAlign: 'left' }}>Section</th>
+                                {hasDepartments && <th style={{ minWidth: '110px', textAlign: 'left' }}>Department</th>}
+                                <th style={{ minWidth: '130px', textAlign: 'center' }}>Actions</th>
                               </tr>
                             </thead>
                             <tbody>
@@ -2578,7 +2594,7 @@ export default function ResultManagementPanel({ activeTab: propActiveTab = 'anal
                             >
                               <strong style={{ color: 'hsl(var(--color-primary))' }}>{student.name}</strong>
                               <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                                Roll {student.rollNumber || student.roll || '-'} Â· {displayGrade} ({student.section || 'A'})
+                                Roll {student.rollNumber || student.roll || '-'} • {displayGrade} ({student.section || 'A'})
                               </span>
                             </div>
                           );
@@ -2661,9 +2677,9 @@ export default function ResultManagementPanel({ activeTab: propActiveTab = 'anal
                   </div>
 
                   {/* Table Container */}
-                  <div style={{ overflowX: 'auto' }}>
+                  <div className="custom-table-container" style={{ width: '100%', overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
                     {reportFilteredStudents.length > 0 ? (
-                      <table className="table-custom" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem' }}>
+                      <table className="custom-table" style={{ width: '100%', minWidth: '860px', borderCollapse: 'collapse', fontSize: '0.82rem' }}>
                         <thead>
                           <tr style={{ borderBottom: '2px solid var(--border-glass, #cbd5e1)', textAlign: 'left', background: 'rgba(0,0,0,0.02)' }}>
                             <th style={{ padding: '10px 8px', fontWeight: 600 }}>Roll No</th>
@@ -3001,7 +3017,7 @@ export default function ResultManagementPanel({ activeTab: propActiveTab = 'anal
                           {student.studentName}
                         </strong>
                         <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                          Roll No {student.roll} Â· Grade {student.studentClass}-{student.section}
+                          Roll No {student.roll} • Grade {student.studentClass}-{student.section}
                         </span>
                       </div>
 
@@ -3083,7 +3099,7 @@ export default function ResultManagementPanel({ activeTab: propActiveTab = 'anal
                   Add/Edit Result: {activeStudentForModal.name}
                 </h3>
                 <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: '4px 0 0 0' }}>
-                  Roll Number: {activeStudentForModal.rollNumber || activeStudentForModal.roll || '-'} Â· Class {modalClass}-{modalSection}
+                  Roll Number: {activeStudentForModal.rollNumber || activeStudentForModal.roll || '-'} • Class {modalClass}-{modalSection}
                 </p>
               </div>
               <button className="modal-close" onClick={() => { setActiveStudentForModal(null); setActiveExamForModal(null); setStudentHistoryExams([]); setHistorySelectedExam(null); }} style={{ fontSize: '1.5rem', lineHeight: 1 }}>{"\u00d7"}</button>

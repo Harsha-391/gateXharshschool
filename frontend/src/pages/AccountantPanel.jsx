@@ -92,7 +92,7 @@ export default function AccountantPanel({ setActiveView, onLogout, accountantVie
   };
 
   return (
-    <div className="finance-subadmin animate-slide-up" style={{ display: 'flex', flexDirection: 'column', gap: '24px', paddingBottom: '40px' }}>
+    <div className="finance-subadmin animate-slide-up" style={{ display: 'flex', flexDirection: 'column', gap: '24px', paddingBottom: '40px', maxWidth: '100%', boxSizing: 'border-box', minWidth: 0, overflowX: 'hidden' }}>
       {notification && (
         <div style={{
           position: 'fixed', top: '20px', right: '20px', padding: '16px 24px', borderRadius: '12px',
@@ -6343,7 +6343,7 @@ export function ReportsView({ showToast, setAccountantView }) {
   );
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '28px', maxWidth: '100%', boxSizing: 'border-box', minWidth: 0, overflowX: 'hidden' }}>
 
       {/* 0. Period Summary Cards — Today / This Month / This Year */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -6609,7 +6609,7 @@ export function ReportsView({ showToast, setAccountantView }) {
       </div>
 
       {/* 3. Professional SaaS Financial Analytics Cockpit */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: '24px' }}>
+      <div className="reports-analytics-grid">
 
         {/* Card 1: Fee Collection Analytics (Tuition & Transport Fees Real-Time) */}
         <div className="glass-panel animate-scale-up" style={{ padding: '24px', borderRadius: '16px', display: 'flex', flexDirection: 'column', gap: '16px', background: 'var(--bg-glass)', border: '1px solid var(--border-glass)' }}>
@@ -6922,7 +6922,7 @@ export function ReportsView({ showToast, setAccountantView }) {
       </div>
 
       {/* 4. Real-Time Analytics Bar Charts */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '24px' }}>
+      <div className="reports-analytics-grid">
 
         {/* Chart 1: Monthly Fee Collection – grouped vertical bars per month */}
         <div className="glass-panel animate-scale-up" style={{ padding: '24px', borderRadius: '16px', background: 'var(--bg-glass)', border: '1px solid var(--border-glass)' }}>
@@ -7019,7 +7019,7 @@ export function ReportsView({ showToast, setAccountantView }) {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
             <div>
               <h4 style={{ fontSize: '0.88rem', fontWeight: 800, color: 'var(--text-main)', margin: 0 }}>Payroll Breakdown</h4>
-              <span style={{ fontSize: '0.66rem', color: 'var(--text-muted)' }}>Basic Â· Allowances Â· Deductions</span>
+              <span style={{ fontSize: '0.66rem', color: 'var(--text-muted)' }}>Basic • Allowances • Deductions</span>
             </div>
             <div style={{ display: 'flex', gap: '8px', fontSize: '0.62rem', fontWeight: 600, color: 'var(--text-muted)' }}>
               <span style={{ display: 'flex', alignItems: 'center', gap: '3px' }}><span style={{ width: 7, height: 7, borderRadius: 1, background: '#FF8C42', display: 'inline-block' }} />Basic</span>
@@ -7137,14 +7137,14 @@ export function ReportsView({ showToast, setAccountantView }) {
         fees.forEach(f => { const t = f.feeType || 'Other'; feeTypes[t] = (feeTypes[t]||0) + (f.paidAmount||0); });
 
         return (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', maxWidth: '100%', boxSizing: 'border-box', minWidth: 0 }}>
 
             {/* Row A: two wide wave charts side-by-side */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
+            <div className="reports-dual-grid-equal">
 
               {/* Wave Chart 1: Monthly Income vs Expense Trend */}
-              <div className="glass-panel animate-scale-up" style={{ padding: '24px', borderRadius: '16px', background: 'var(--bg-glass)', border: '1px solid var(--border-glass)' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
+              <div className="glass-panel reports-chart-card animate-scale-up">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px', flexWrap: 'wrap', gap: '8px' }}>
                   <div>
                     <h4 style={{ fontSize: '0.88rem', fontWeight: 800, color: 'var(--text-main)', margin: 0 }}>Income vs Expense Trend</h4>
                     <span style={{ fontSize: '0.64rem', color: 'var(--text-muted)' }}>Monthly wave — full year {year}</span>
@@ -7154,7 +7154,7 @@ export function ReportsView({ showToast, setAccountantView }) {
                     <span style={{ color: '#ef4444', display: 'flex', alignItems: 'center', gap: '4px' }}><span style={{ width: 20, height: 2, background: '#ef4444', display: 'inline-block', borderRadius: 1 }} />Expense</span>
                   </div>
                 </div>
-                <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: '110px', overflow: 'visible' }} preserveAspectRatio="none">
+                <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: '110px', overflow: 'hidden' }} preserveAspectRatio="none">
                   <defs>
                     <linearGradient id="wv-inc" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#10b981" stopOpacity="0.3"/><stop offset="100%" stopColor="#10b981" stopOpacity="0.02"/></linearGradient>
                     <linearGradient id="wv-exp" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#ef4444" stopOpacity="0.25"/><stop offset="100%" stopColor="#ef4444" stopOpacity="0.02"/></linearGradient>
@@ -7185,8 +7185,8 @@ export function ReportsView({ showToast, setAccountantView }) {
               </div>
 
               {/* Wave Chart 2: Net Revenue Wave */}
-              <div className="glass-panel animate-scale-up" style={{ padding: '24px', borderRadius: '16px', background: 'var(--bg-glass)', border: '1px solid var(--border-glass)' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
+              <div className="glass-panel reports-chart-card animate-scale-up">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px', flexWrap: 'wrap', gap: '8px' }}>
                   <div>
                     <h4 style={{ fontSize: '0.88rem', fontWeight: 800, color: 'var(--text-main)', margin: 0 }}>Net Revenue Wave</h4>
                     <span style={{ fontSize: '0.64rem', color: 'var(--text-muted)' }}>Monthly net profit sinusoidal trend</span>
@@ -7208,7 +7208,7 @@ export function ReportsView({ showToast, setAccountantView }) {
                     line += ` C ${cpx1} ${cpy1}, ${cpx2} ${cpy2}, ${xs[i]} ${ys[i]}`;
                   }
                   return (
-                    <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: '110px', overflow: 'visible' }} preserveAspectRatio="none">
+                    <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: '110px', overflow: 'hidden' }} preserveAspectRatio="none">
                       <defs>
                         <linearGradient id="net-pos" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#FF8C42" stopOpacity="0.3"/><stop offset="100%" stopColor="#FF8C42" stopOpacity="0"/></linearGradient>
                       </defs>
@@ -7234,11 +7234,11 @@ export function ReportsView({ showToast, setAccountantView }) {
             </div>
 
             {/* Row B: full-width daily fee pulse + narrow payroll trend */}
-            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '24px' }}>
+            <div className="reports-dual-grid-split">
 
               {/* Wave Chart 3: Daily 30-day Fee vs Expense Pulse */}
-              <div className="glass-panel animate-scale-up" style={{ padding: '24px', borderRadius: '16px', background: 'var(--bg-glass)', border: '1px solid var(--border-glass)' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
+              <div className="glass-panel reports-chart-card animate-scale-up">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px', flexWrap: 'wrap', gap: '8px' }}>
                   <div>
                     <h4 style={{ fontSize: '0.88rem', fontWeight: 800, color: 'var(--text-main)', margin: 0 }}>30-Day Fee & Expense Pulse</h4>
                     <span style={{ fontSize: '0.64rem', color: 'var(--text-muted)' }}>Daily real-time sinusoidal wave — last 30 days</span>
@@ -7258,7 +7258,7 @@ export function ReportsView({ showToast, setAccountantView }) {
                   // vertical bars behind
                   const barXs = dailyFee30.map((_,i) => PAD + (i/(dailyFee30.length-1))*(PW-PAD*2));
                   return (
-                    <svg viewBox={`0 0 ${PW} ${PH}`} style={{ width: '100%', height: '130px', overflow: 'visible' }} preserveAspectRatio="none">
+                    <svg viewBox={`0 0 ${PW} ${PH}`} style={{ width: '100%', height: '130px', overflow: 'hidden' }} preserveAspectRatio="none">
                       <defs>
                         <linearGradient id="fee-grad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#3b82f6" stopOpacity="0.25"/><stop offset="100%" stopColor="#3b82f6" stopOpacity="0"/></linearGradient>
                         <linearGradient id="exp-grad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#f59e0b" stopOpacity="0.2"/><stop offset="100%" stopColor="#f59e0b" stopOpacity="0"/></linearGradient>
@@ -7296,7 +7296,7 @@ export function ReportsView({ showToast, setAccountantView }) {
               </div>
 
               {/* Wave Chart 4: Fee-Type Composition – stacked area */}
-              <div className="glass-panel animate-scale-up" style={{ padding: '24px', borderRadius: '16px', background: 'var(--bg-glass)', border: '1px solid var(--border-glass)' }}>
+              <div className="glass-panel reports-chart-card animate-scale-up">
                 <div style={{ marginBottom: '16px' }}>
                   <h4 style={{ fontSize: '0.88rem', fontWeight: 800, color: 'var(--text-main)', margin: 0 }}>Fee Type Split</h4>
                   <span style={{ fontSize: '0.64rem', color: 'var(--text-muted)' }}>Collected per category</span>

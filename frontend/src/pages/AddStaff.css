@@ -1,15 +1,4 @@
-﻿/* Add Staff Form Page Styling Overrides */
-
-/* Overwrite hardcoded white backgrounds in modals and result card boxes for Dark Theme compatibility */
-[data-theme='dark'] div[style*="background: '#ffffff'"],
-[data-theme='dark'] div[style*='background: "#ffffff"'],
-[data-theme='dark'] div[style*="background: rgb(255, 255, 255)"],
-[data-theme='dark'] div[style*="background-color: rgb(255, 255, 255)"] {
-  background: var(--bg-elevated) !important;
-  color: var(--text-main) !important;
-  border-color: var(--border-glass) !important;
-  box-shadow: var(--shadow-lg) !important;
-}
+/* Add Staff Form Page Styling Overrides */
 
 /* Form container visuals */
 .add-staff-container {

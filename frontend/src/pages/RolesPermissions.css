@@ -1,16 +1,5 @@
 /* Roles & Permissions Styling Overrides for SaaS Visuals */
 
-/* Overwrite hardcoded white backgrounds in modals and result card boxes for Dark Theme compatibility */
-[data-theme='dark'] div[style*="background: '#ffffff'"],
-[data-theme='dark'] div[style*='background: "#ffffff"'],
-[data-theme='dark'] div[style*="background: rgb(255, 255, 255)"],
-[data-theme='dark'] div[style*="background-color: rgb(255, 255, 255)"] {
-  background: var(--bg-elevated) !important;
-  color: var(--text-main) !important;
-  border-color: var(--border-glass) !important;
-  box-shadow: var(--shadow-lg) !important;
-}
-
 /* Custom Role Matrix toggle grids */
 .permission-matrix-row {
   display: grid;
@@ -35,43 +24,248 @@
 .audit-trail-row:hover {
   background: var(--bg-card-subtle);
 }
-/* Orange custom checkboxes for permission matrix */
+
+/* Modern Accessible Checkboxes for permission matrix */
 .perm-cb {
   appearance: none !important;
   -webkit-appearance: none !important;
-  width: 16px !important;
-  height: 16px !important;
-  border: 2px solid #334155 !important;
-  border-radius: 4px !important;
-  background: #ffffff !important;
+  width: 18px !important;
+  height: 18px !important;
+  border: 2px solid var(--border-glass, #94a3b8) !important;
+  border-radius: 5px !important;
+  background: var(--bg-card, #ffffff) !important;
   cursor: pointer !important;
   vertical-align: middle !important;
   position: relative !important;
-  transition: border-color 0.15s ease !important;
+  transition: all 0.15s ease !important;
   flex-shrink: 0 !important;
   box-shadow: none !important;
 }
 
 .perm-cb:checked {
-  background: #ffffff !important;
-  border-color: #f97316 !important;
-  box-shadow: none !important;
+  background: hsl(var(--color-primary, 24 100% 55%)) !important;
+  border-color: hsl(var(--color-primary, 24 100% 55%)) !important;
+  box-shadow: 0 2px 6px rgba(255, 107, 0, 0.35) !important;
 }
 
 .perm-cb:checked::after {
   content: '' !important;
   position: absolute !important;
-  left: 3px !important;
-  top: 0px !important;
-  width: 5px !important;
+  left: 5px !important;
+  top: 1px !important;
+  width: 4px !important;
   height: 9px !important;
-  border: 2px solid #f97316 !important;
+  border: 2px solid #ffffff !important;
   border-top: none !important;
   border-left: none !important;
   transform: rotate(45deg) !important;
 }
 
 .perm-cb:hover {
-  border-color: #64748b !important;
-  box-shadow: none !important;
+  border-color: hsl(var(--color-primary, 24 100% 55%)) !important;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   RESPONSIVE MATRIX & ROLE MANAGEMENT LAYOUT
+   ═══════════════════════════════════════════════════════════ */
+
+.roles-matrix-layout {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: 24px;
+  align-items: start;
+  min-width: 0;
+  width: 100%;
+}
+
+.role-profiles-card {
+  padding: 20px;
+  border-radius: 16px;
+  border: 1px solid var(--border-glass);
+  background: var(--bg-card);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  height: fit-content;
+  min-width: 0;
+}
+
+.role-profiles-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.role-select-item {
+  text-align: left;
+  padding: 12px 14px;
+  border-radius: 10px;
+  font-size: 0.88rem;
+  cursor: pointer;
+  outline: none;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.permissions-grid-card {
+  padding: 24px;
+  border-radius: 16px;
+  border: 1px solid var(--border-glass);
+  background: var(--bg-card);
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  min-width: 0;
+  overflow: hidden;
+  width: 100%;
+}
+
+.matrix-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.matrix-header-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.matrix-table-container {
+  width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border: 1px solid var(--border-glass);
+  border-radius: 16px;
+  background: var(--bg-card);
+  box-shadow: var(--shadow-sm, 0 4px 6px -1px rgba(0, 0, 0, 0.05));
+  scrollbar-width: thin;
+}
+
+.matrix-table {
+  width: 100%;
+  min-width: 700px;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 0.82rem;
+  text-align: left;
+}
+
+.matrix-table th {
+  padding: 12px 14px;
+  font-weight: 800;
+  color: var(--text-main);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  background: var(--bg-secondary, rgba(0, 0, 0, 0.02));
+  border-bottom: 1px solid var(--border-glass);
+}
+
+.matrix-table td {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border-glass);
+  color: var(--text-main);
+}
+
+.matrix-table tr:last-child td {
+  border-bottom: none;
+}
+
+.matrix-row-hover:hover td {
+  background: var(--bg-glass-active, rgba(255, 107, 0, 0.04)) !important;
+}
+
+/* Sticky First Column for easy scanning on tablet & mobile */
+.matrix-table th:first-child,
+.matrix-table td:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  background: var(--bg-card, #ffffff);
+  border-right: 1px solid var(--border-glass);
+  width: 220px;
+  min-width: 200px;
+  max-width: 250px;
+  box-shadow: 2px 0 6px rgba(0, 0, 0, 0.04);
+}
+
+.matrix-table th:first-child {
+  z-index: 3;
+  background: var(--bg-secondary, #f8fafc);
+}
+
+/* Tablet & Mobile Breakpoints */
+@media (max-width: 900px) {
+  .roles-matrix-layout {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .role-profiles-card {
+    padding: 16px;
+    gap: 12px;
+  }
+
+  .role-profiles-list {
+    flex-direction: row;
+    overflow-x: auto;
+    padding-bottom: 6px;
+    gap: 8px;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+  }
+
+  .role-select-item {
+    flex-shrink: 0;
+    padding: 8px 14px;
+    font-size: 0.82rem;
+    gap: 8px;
+  }
+
+  .permissions-grid-card {
+    padding: 16px;
+    gap: 16px;
+  }
+
+  .matrix-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .matrix-header-actions {
+    width: 100%;
+    justify-content: flex-start;
+    gap: 8px;
+  }
+
+  .matrix-header-actions button {
+    flex: 1 1 auto;
+    justify-content: center;
+    padding: 8px 12px;
+    font-size: 0.78rem;
+  }
+
+  .matrix-table {
+    min-width: 620px;
+  }
+
+  .matrix-table th:first-child,
+  .matrix-table td:first-child {
+    width: 170px;
+    min-width: 160px;
+    max-width: 180px;
+    padding: 8px 12px;
+  }
 }

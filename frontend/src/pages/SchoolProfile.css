@@ -1,16 +1,5 @@
 /* School Profile (Platform Admin) Page SaaS Styling */
 
-/* Overwrite hardcoded white backgrounds in modals and result card boxes for Dark Theme compatibility */
-[data-theme='dark'] div[style*="background: '#ffffff'"],
-[data-theme='dark'] div[style*='background: "#ffffff"'],
-[data-theme='dark'] div[style*="background: rgb(255, 255, 255)"],
-[data-theme='dark'] div[style*="background-color: rgb(255, 255, 255)"] {
-  background: var(--bg-elevated) !important;
-  color: var(--text-main) !important;
-  border-color: var(--border-glass) !important;
-  box-shadow: var(--shadow-lg) !important;
-}
-
 /* School Cards grid */
 .school-grid-layout {
   display: grid;
@@ -168,5 +157,4 @@
     padding: 14px 12px !important;
   }
 }
-
 

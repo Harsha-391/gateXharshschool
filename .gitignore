@@ -39,3 +39,13 @@ Thumbs.db
 backend/scratch/
 backend/backups/
 
+# Expo
+.expo
+.expo/
+**/.expo
+**/.expo/**
+.eas
+.eas/
+**/.eas
+**/.eas/**
+

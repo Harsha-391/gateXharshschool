@@ -1,5 +1,5 @@
 {
-  "name": "aether-school-erp-mobile",
+  "name": "acadmay-school-erp-mobile",
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
@@ -12,10 +12,11 @@
     "build:apk": "eas build -p android --profile preview"
   },
   "dependencies": {
-    "aether-academy-erp": "file:..",
-    "expo": "^57.0.21",
-    "expo-asset": "^57.0.16",
-    "expo-constants": "~57.0.17",
+    "expo": "~57.0.24",
+    "expo-asset": "~57.0.18",
+    "expo-build-properties": "~57.0.21",
+    "expo-constants": "~57.0.19",
+    "expo-splash-screen": "~57.0.9",
     "expo-status-bar": "~57.0.1",
     "react": "19.2.3",
     "react-native": "0.86.3",
@@ -23,8 +24,7 @@
     "react-native-webview": "13.16.1"
   },
   "devDependencies": {
-    "@babel/core": "^7.25.2",
-    "eas-cli": "^24.0.0"
+    "@babel/core": "^7.25.2"
   },
   "private": true
 }

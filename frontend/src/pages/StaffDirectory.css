@@ -1,20 +1,4 @@
-﻿/* Staff Directory Styling Overrides for SaaS Visuals */
-
-/* Overwrite hardcoded white backgrounds in modals and result card boxes for Dark Theme compatibility */
-[data-theme='dark'] div[style*="background: '#ffffff'"],
-[data-theme='dark'] div[style*='background: "#ffffff"'],
-[data-theme='dark'] div[style*="background: rgb(255, 255, 255)"],
-[data-theme='dark'] div[style*="background-color: rgb(255, 255, 255)"] {
-  background: var(--bg-elevated) !important;
-  color: var(--text-main) !important;
-  border-color: var(--border-glass) !important;
-  box-shadow: var(--shadow-lg) !important;
-}
-
-/* Translucent border rules for dark mode lists */
-[data-theme='dark'] td[style*="border-bottom: '1px solid rgba(0,0,0,0.04)'"] {
-  border-color: var(--border-glass) !important;
-}
+/* Staff Directory Styling Overrides for SaaS Visuals */
 
 /* Custom interactive staff card styling details */
 .staff-profile-card {

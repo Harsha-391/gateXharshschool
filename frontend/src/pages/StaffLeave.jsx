@@ -1,4 +1,4 @@
-﻿import './StaffLeave.css';
+import './StaffLeave.css';
 import React, { useState, useEffect } from 'react';
 import { 
   Calendar, 
@@ -703,46 +703,72 @@ export default function StaffLeave({ showToast, userProfile }) {
 
       {/* 6. APPLY/EDIT MODAL */}
       {showApplyModal && (
-        <div style={{
-          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-          background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center',
-          zIndex: 999999, padding: '20px', backdropFilter: 'blur(4px)'
-        }}>
+        <div 
+          onClick={(e) => { if (e.target === e.currentTarget) setShowApplyModal(false); }}
+          style={{
+            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+            background: 'var(--modal-overlay-bg, rgba(15, 23, 42, 0.6))',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            zIndex: 999999, padding: 'clamp(10px, 3vw, 20px)', backdropFilter: 'blur(6px)',
+            WebkitBackdropFilter: 'blur(6px)', overflowY: 'auto', boxSizing: 'border-box'
+          }}
+        >
           <div style={{
-            background: '#ffffff', borderRadius: '20px', border: '1px solid #cbd5e1',
-            width: '100%', maxWidth: '580px', display: 'flex', flexDirection: 'column', gap: '20px',
-            animation: 'scaleUp 0.2s ease-out', padding: '28px', color: '#000000',
+            background: 'var(--bg-elevated, #ffffff)',
+            borderRadius: '20px',
+            border: '1px solid var(--border-glass, #cbd5e1)',
+            width: '100%',
+            maxWidth: '560px',
+            maxHeight: 'calc(100dvh - 32px)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '18px',
+            animation: 'scaleUp 0.2s ease-out',
+            padding: 'clamp(16px, 4vw, 24px)',
+            color: 'var(--text-main, #0f172a)',
+            overflowY: 'auto',
+            overflowX: 'hidden',
+            boxSizing: 'border-box',
             boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.2), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
           }}>
             
             {/* Modal Title */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #e2e8f0', paddingBottom: '12px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-glass, #e2e8f0)', paddingBottom: '12px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Calendar size={18} style={{ color: 'hsl(var(--color-primary))' }} />
-                <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 800, color: '#000000' }}>
+                <Calendar size={20} style={{ color: 'hsl(var(--color-primary))' }} />
+                <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 800, color: 'var(--text-main, #000000)' }}>
                   {editingLeave ? 'Update Leave Request' : 'Apply for Leave'}
                 </h3>
               </div>
               <button 
+                type="button"
                 onClick={() => setShowApplyModal(false)}
-                style={{ background: 'none', border: 'none', color: '#475569', cursor: 'pointer', display: 'grid', placeItems: 'center' }}
+                style={{
+                  background: 'none', border: 'none', color: 'var(--text-muted, #475569)',
+                  cursor: 'pointer', display: 'grid', placeItems: 'center', padding: '6px',
+                  borderRadius: '8px', transition: 'background 0.2s'
+                }}
               >
                 <X size={20} />
               </button>
             </div>
 
             {/* Modal Form */}
-            <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '14px', width: '100%', boxSizing: 'border-box' }}>
               
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '14px', width: '100%', boxSizing: 'border-box' }}>
                 
                 {/* Leave Type */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                  <label style={{ fontSize: '0.75rem', fontWeight: 700, color: '#475569', textTransform: 'uppercase' }}>Leave Type</label>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', minWidth: 0 }}>
+                  <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted, #475569)', textTransform: 'uppercase' }}>Leave Type</label>
                   <select
                     value={form.leaveType}
                     onChange={e => setForm({ ...form, leaveType: e.target.value })}
-                    style={{ padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#f8fafc', color: '#000000', cursor: 'pointer', fontSize: '0.86rem' }}
+                    style={{
+                      padding: '10px 12px', borderRadius: '10px', border: '1px solid var(--border-glass, #cbd5e1)',
+                      background: 'var(--bg-form, #f8fafc)', color: 'var(--text-main, #000000)', cursor: 'pointer',
+                      fontSize: '0.86rem', width: '100%', boxSizing: 'border-box'
+                    }}
                   >
                     <option value="">None</option>
                     {activePolicies.map(p => (
@@ -754,25 +780,29 @@ export default function StaffLeave({ showToast, userProfile }) {
                 </div>
 
                 {/* Title */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                  <label style={{ fontSize: '0.75rem', fontWeight: 700, color: '#475569', textTransform: 'uppercase' }}>Leave Title</label>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', minWidth: 0 }}>
+                  <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted, #475569)', textTransform: 'uppercase' }}>Leave Title</label>
                   <input
                     type="text"
                     required
                     placeholder="e.g. Medical Consultation"
                     value={form.title}
                     onChange={e => setForm({ ...form, title: e.target.value })}
-                    style={{ padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#f8fafc', color: '#000000', fontSize: '0.86rem' }}
+                    style={{
+                      padding: '10px 12px', borderRadius: '10px', border: '1px solid var(--border-glass, #cbd5e1)',
+                      background: 'var(--bg-form, #f8fafc)', color: 'var(--text-main, #000000)', fontSize: '0.86rem',
+                      width: '100%', boxSizing: 'border-box', minWidth: 0
+                    }}
                   />
                 </div>
 
               </div>
 
               {/* Dates */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '14px', width: '100%', boxSizing: 'border-box' }}>
                 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                  <label style={{ fontSize: '0.75rem', fontWeight: 700, color: '#475569', textTransform: 'uppercase' }}>From Date</label>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', minWidth: 0 }}>
+                  <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted, #475569)', textTransform: 'uppercase' }}>From Date</label>
                   <input
                     type="date"
                     required
@@ -782,12 +812,16 @@ export default function StaffLeave({ showToast, userProfile }) {
                       const nextToDate = (form.toDate && val > form.toDate) ? val : form.toDate;
                       setForm({ ...form, fromDate: val, toDate: nextToDate });
                     }}
-                    style={{ padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#f8fafc', color: '#000000', fontSize: '0.86rem' }}
+                    style={{
+                      padding: '10px 12px', borderRadius: '10px', border: '1px solid var(--border-glass, #cbd5e1)',
+                      background: 'var(--bg-form, #f8fafc)', color: 'var(--text-main, #000000)', fontSize: '0.86rem',
+                      width: '100%', boxSizing: 'border-box', minWidth: 0
+                    }}
                   />
                 </div>
 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                  <label style={{ fontSize: '0.75rem', fontWeight: 700, color: '#475569', textTransform: 'uppercase' }}>To Date</label>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', minWidth: 0 }}>
+                  <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted, #475569)', textTransform: 'uppercase' }}>To Date</label>
                   <input
                     type="date"
                     required
@@ -795,16 +829,25 @@ export default function StaffLeave({ showToast, userProfile }) {
                     value={form.halfDay ? form.fromDate : form.toDate}
                     min={form.fromDate}
                     onChange={e => setForm({ ...form, toDate: e.target.value })}
-                    style={{ padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', background: form.halfDay ? '#e2e8f0' : '#f8fafc', color: '#000000', fontSize: '0.86rem' }}
+                    style={{
+                      padding: '10px 12px', borderRadius: '10px', border: '1px solid var(--border-glass, #cbd5e1)',
+                      background: form.halfDay ? 'var(--bg-card-subtle, #e2e8f0)' : 'var(--bg-form, #f8fafc)',
+                      color: 'var(--text-main, #000000)', fontSize: '0.86rem', width: '100%', boxSizing: 'border-box', minWidth: 0
+                    }}
                   />
                 </div>
 
               </div>
 
               {/* Checkboxes & Total calculated days badge */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', background: '#f8fafc', padding: '12px 16px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
-                <div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.82rem', cursor: 'pointer', color: '#334155', fontWeight: 600 }}>
+              <div style={{
+                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                flexWrap: 'wrap', gap: '10px', background: 'var(--bg-card-subtle, #f8fafc)',
+                padding: '12px 16px', borderRadius: '12px', border: '1px solid var(--border-glass, #e2e8f0)',
+                width: '100%', boxSizing: 'border-box'
+              }}>
+                <div style={{ display: 'flex', gap: '18px', alignItems: 'center', flexWrap: 'wrap' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.82rem', cursor: 'pointer', color: 'var(--text-main, #334155)', fontWeight: 600 }}>
                     <input
                       type="checkbox"
                       checked={form.halfDay}
@@ -812,26 +855,26 @@ export default function StaffLeave({ showToast, userProfile }) {
                         const val = e.target.checked;
                         setForm(prev => ({ ...prev, halfDay: val, toDate: val ? prev.fromDate : prev.toDate }));
                       }}
-                      style={{ accentColor: 'hsl(var(--color-primary))', width: '15px', height: '15px' }}
+                      style={{ accentColor: 'hsl(var(--color-primary))', width: '16px', height: '16px' }}
                     />
                     Half Day
                   </label>
 
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.82rem', cursor: 'pointer', color: '#334155', fontWeight: 600 }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.82rem', cursor: 'pointer', color: 'var(--text-main, #334155)', fontWeight: 600 }}>
                     <input
                       type="checkbox"
                       checked={form.emergency}
                       onChange={e => setForm({ ...form, emergency: e.target.checked })}
-                      style={{ accentColor: 'hsl(var(--color-primary))', width: '15px', height: '15px' }}
+                      style={{ accentColor: 'hsl(var(--color-primary))', width: '16px', height: '16px' }}
                     />
                     Emergency Leave
                   </label>
                 </div>
                 
-                <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#1e293b' }}>
+                <div style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-main, #1e293b)' }}>
                   Total Selected: <span style={{ color: 'hsl(var(--color-primary))', fontSize: '0.95rem' }}>{formDaysSelected}</span> days
                   {formSelectedPolicy && (
-                    <span style={{ fontSize: '0.72rem', color: '#64748b', marginLeft: '6px', fontWeight: 500 }}>
+                    <span style={{ fontSize: '0.72rem', color: 'var(--text-muted, #64748b)', marginLeft: '6px', fontWeight: 500 }}>
                       (Remaining: {formSelectedPolicyRemaining} days)
                     </span>
                   )}
@@ -840,45 +883,54 @@ export default function StaffLeave({ showToast, userProfile }) {
 
               {/* Overlap Holiday Alerts */}
               {form.fromDate && (isSunday(form.fromDate) || isSchoolHoliday(form.fromDate)) && (
-                <div style={{ background: 'rgba(245,158,11,0.08)', color: '#b45309', border: '1px solid rgba(245,158,11,0.2)', padding: '10px 14px', borderRadius: '8px', fontSize: '0.76rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <AlertTriangle size={14} />
+                <div style={{ background: 'rgba(245,158,11,0.08)', color: '#b45309', border: '1px solid rgba(245,158,11,0.2)', padding: '10px 14px', borderRadius: '10px', fontSize: '0.76rem', display: 'flex', alignItems: 'center', gap: '6px', width: '100%', boxSizing: 'border-box' }}>
+                  <AlertTriangle size={14} style={{ flexShrink: 0 }} />
                   <span>Notice: Selected dates overlap with a weekend or school calendar holiday.</span>
                 </div>
               )}
 
               {/* Contact & Attachment */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '14px', width: '100%', boxSizing: 'border-box' }}>
                 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem', fontWeight: 700, color: '#475569', textTransform: 'uppercase' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', minWidth: 0 }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted, #475569)', textTransform: 'uppercase' }}>
                     <Phone size={12} /> Contact Number
                   </label>
                   <input
-                    type="text"
+                    type="tel"
                     required
                     placeholder="10 digit mobile"
                     value={form.contactNumber}
                     onChange={e => setForm({ ...form, contactNumber: e.target.value })}
-                    style={{ padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#f8fafc', color: '#000000', fontSize: '0.86rem' }}
+                    style={{
+                      padding: '10px 12px', borderRadius: '10px', border: '1px solid var(--border-glass, #cbd5e1)',
+                      background: 'var(--bg-form, #f8fafc)', color: 'var(--text-main, #000000)', fontSize: '0.86rem',
+                      width: '100%', boxSizing: 'border-box', minWidth: 0
+                    }}
                   />
                 </div>
 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem', fontWeight: 700, color: '#475569', textTransform: 'uppercase' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', minWidth: 0 }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted, #475569)', textTransform: 'uppercase' }}>
                     <Paperclip size={12} /> Supporting Document
                   </label>
-                  <div style={{ position: 'relative', display: 'flex', gap: '8px' }}>
+                  <div style={{ position: 'relative', display: 'flex', gap: '8px', width: '100%', boxSizing: 'border-box' }}>
                     <input
                       type="text"
                       readOnly
                       placeholder="Upload file..."
                       value={form.attachment}
-                      style={{ flex: 1, padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#f1f5f9', color: '#000000', fontSize: '0.86rem' }}
+                      style={{
+                        flex: 1, minWidth: 0, padding: '10px 12px', borderRadius: '10px',
+                        border: '1px solid var(--border-glass, #cbd5e1)', background: 'var(--bg-card-subtle, #f1f5f9)',
+                        color: 'var(--text-main, #000000)', fontSize: '0.86rem', boxSizing: 'border-box'
+                      }}
                     />
                     <label style={{
-                      padding: '10px 14px', background: 'hsl(var(--color-primary))', color: '#ffffff',
-                      borderRadius: '8px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 700,
-                      display: 'flex', alignItems: 'center', justifyContent: 'center'
+                      padding: '10px 16px', background: 'hsl(var(--color-primary))', color: '#ffffff',
+                      borderRadius: '10px', cursor: 'pointer', fontSize: '0.82rem', fontWeight: 700,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                      whiteSpace: 'nowrap', userSelect: 'none'
                     }}>
                       Browse
                       <input 
@@ -894,15 +946,19 @@ export default function StaffLeave({ showToast, userProfile }) {
               </div>
 
               {/* Reason */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                <label style={{ fontSize: '0.75rem', fontWeight: 700, color: '#475569', textTransform: 'uppercase' }}>Reason Description</label>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', width: '100%', boxSizing: 'border-box', minWidth: 0 }}>
+                <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted, #475569)', textTransform: 'uppercase' }}>Reason Description</label>
                 <textarea
                   required
-                  rows={2}
+                  rows={3}
                   placeholder="Explain why you are requesting leave..."
                   value={form.reason}
                   onChange={e => setForm({ ...form, reason: e.target.value })}
-                  style={{ padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#f8fafc', color: '#000000', resize: 'none', fontSize: '0.86rem' }}
+                  style={{
+                    padding: '10px 12px', borderRadius: '10px', border: '1px solid var(--border-glass, #cbd5e1)',
+                    background: 'var(--bg-form, #f8fafc)', color: 'var(--text-main, #000000)', resize: 'vertical',
+                    fontSize: '0.86rem', width: '100%', boxSizing: 'border-box', minWidth: 0, minHeight: '60px'
+                  }}
                 />
               </div>
 
@@ -912,8 +968,10 @@ export default function StaffLeave({ showToast, userProfile }) {
                 disabled={submitting}
                 className="btn-primary"
                 style={{
-                  padding: '12px', borderRadius: '10px', fontWeight: 700, border: 'none', cursor: 'pointer',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', marginTop: '10px'
+                  padding: '13px', borderRadius: '12px', fontWeight: 700, border: 'none',
+                  cursor: submitting ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center',
+                  justifyContent: 'center', gap: '8px', marginTop: '6px', width: '100%',
+                  boxSizing: 'border-box', fontSize: '0.92rem', opacity: submitting ? 0.7 : 1
                 }}
               >
                 {submitting ? 'Submitting...' : (editingLeave ? 'Update Request' : 'Submit Leave Request')}

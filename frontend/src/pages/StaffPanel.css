@@ -1,4 +1,4 @@
-﻿/* StaffPanel Page Styling Overrides & Custom Components */
+/* StaffPanel Page Styling Overrides & Custom Components */
 
 /* Roster Table Modernization */
 .student-table {
@@ -70,14 +70,5 @@
   transform: translateY(-4px);
   box-shadow: var(--shadow-md);
   border-color: rgba(hsl(var(--color-primary)), 0.3);
-}
-
-/* Dark theme specific inline style overrides */
-[data-theme='dark'] div[style*="background: '#ffffff'"],
-[data-theme='dark'] div[style*="background: rgb(255, 255, 255)"],
-[data-theme='dark'] div[style*="background-color: rgb(255, 255, 255)"] {
-  background: var(--bg-elevated) !important;
-  color: var(--text-main) !important;
-  border-color: var(--border-glass) !important;
 }
 

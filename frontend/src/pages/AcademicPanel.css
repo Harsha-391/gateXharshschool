@@ -1,15 +1,4 @@
-﻿/* Academic Panel Styling Overrides for SaaS Visuals */
-
-/* Overwrite hardcoded white backgrounds in modals and form wrappers for Dark Theme compatibility */
-[data-theme='dark'] div[style*="background: '#ffffff'"],
-[data-theme='dark'] div[style*='background: "#ffffff"'],
-[data-theme='dark'] div[style*="background: rgb(255, 255, 255)"],
-[data-theme='dark'] div[style*="background-color: rgb(255, 255, 255)"] {
-  background: var(--bg-elevated) !important;
-  color: var(--text-main) !important;
-  border-color: var(--border-glass) !important;
-  box-shadow: var(--shadow-lg) !important;
-}
+/* Academic Panel Styling Overrides for SaaS Visuals */
 
 /* Academic dashboard info blocks */
 .academic-notice-card {
@@ -66,5 +55,247 @@
   .no-print {
     display: none !important;
   }
+}
+
+/* Manage Time Slots Modal Styling */
+.timeslot-modal-card {
+  width: 100%;
+  max-width: 480px;
+  padding: 24px;
+  border-radius: 20px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-glass);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.35);
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  box-sizing: border-box;
+}
+
+@media (max-width: 520px) {
+  .timeslot-modal-card {
+    padding: 20px 16px;
+    border-radius: 16px;
+    gap: 16px;
+  }
+}
+
+.timeslot-list-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 220px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.timeslot-list-container::-webkit-scrollbar {
+  width: 5px;
+}
+
+.timeslot-list-container::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.timeslot-list-container::-webkit-scrollbar-thumb {
+  background: var(--border-glass);
+  border-radius: 4px;
+}
+
+.timeslot-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 14px;
+  background: var(--bg-glass-active, rgba(255, 255, 255, 0.04));
+  border: 1px solid var(--border-glass);
+  border-radius: 10px;
+  cursor: grab;
+  transition: all 0.2s ease;
+}
+
+.timeslot-item:hover {
+  background: var(--bg-card-subtle);
+  border-color: rgba(255, 140, 66, 0.3);
+  transform: translateY(-1px);
+}
+
+.timeslot-item-delete {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px;
+  border-radius: 6px;
+  transition: all 0.15s ease;
+}
+
+.timeslot-item-delete:hover {
+  background: rgba(239, 68, 68, 0.12);
+  color: #ef4444;
+}
+
+.timeslot-time-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+@media (max-width: 480px) {
+  .timeslot-time-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+}
+
+.ampm-segmented-control {
+  display: inline-flex;
+  background: var(--bg-glass-active, rgba(0, 0, 0, 0.04));
+  border: 1px solid var(--border-glass);
+  border-radius: 10px;
+  padding: 3px;
+  flex-shrink: 0;
+  gap: 2px;
+}
+
+.ampm-segmented-control button {
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-weight: 700;
+  font-size: 0.8rem;
+  padding: 7px 12px;
+  border-radius: 7px;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  font-family: inherit;
+  line-height: 1;
+}
+
+.ampm-segmented-control button:hover:not(.active) {
+  color: var(--text-main);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.ampm-segmented-control button.active {
+  background: hsl(var(--color-primary, 24 100% 55%));
+  color: #ffffff;
+  box-shadow: 0 2px 6px rgba(255, 140, 66, 0.35);
+}
+
+/* Custom Exam Timetable Editor */
+.timetable-editor-slot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 18px;
+  background: var(--bg-glass-active);
+  border: 1px solid var(--border-glass);
+  border-radius: 14px;
+  transition: all 0.2s ease;
+  box-shadow: var(--shadow-glass);
+}
+
+.timetable-editor-slot-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+}
+
+.timetable-editor-slot-fields {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.timetable-editor-time-range {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+@media (max-width: 680px) {
+  .timetable-editor-slot {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+    padding: 14px;
+  }
+  
+  .timetable-editor-slot-header {
+    width: 100%;
+  }
+  
+  .timetable-editor-slot-fields {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    width: 100%;
+  }
+
+  .timetable-editor-date-wrap {
+    width: 100% !important;
+  }
+
+  .timetable-editor-date-wrap input {
+    width: 100% !important;
+  }
+
+  .timetable-editor-time-range {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+  }
+
+  .timetable-editor-time-range input {
+    width: 100% !important;
+  }
+}
+
+/* Toast Notification Portal */
+.academic-toast-notification {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  padding: 14px 22px;
+  border-radius: 12px;
+  color: #ffffff;
+  box-shadow: 0 12px 30px -5px rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  z-index: 999999999 !important;
+  font-weight: 600;
+  font-size: 0.9rem;
+  animation: slideInRight 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  box-sizing: border-box;
+  max-width: calc(100vw - 32px);
+}
+
+@media (max-width: 640px) {
+  .academic-toast-notification {
+    top: 16px;
+    left: 16px;
+    right: 16px;
+    justify-content: center;
+    text-align: center;
+    font-size: 0.85rem;
+    padding: 12px 16px;
+  }
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20%, 60% { transform: translateX(-4px); }
+  40%, 80% { transform: translateX(4px); }
 }
 

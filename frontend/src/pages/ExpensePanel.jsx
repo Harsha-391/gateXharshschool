@@ -125,7 +125,7 @@ export default function ExpensePanel({ setActiveView, onLogout, expenseView, set
 
 
   return (
-    <div className="animate-slide-up" style={{ display: 'flex', flexDirection: 'column', gap: '24px', paddingBottom: '40px' }}>
+    <div className="animate-slide-up" style={{ display: 'flex', flexDirection: 'column', gap: '24px', paddingBottom: '40px', maxWidth: '100%', boxSizing: 'border-box', minWidth: 0, overflowX: 'hidden' }}>
       {/* Toast Notification */}
       {notification && (
         <div style={{
@@ -738,6 +738,8 @@ function AddExpenseView({ showToast, setExpenseView, onClose, onSuccess, isModal
   };
   const inputStyle = {
     width: '100%', 
+    maxWidth: '100%',
+    minWidth: 0,
     padding: '11px 14px', 
     background: isModal ? '#ffffff' : 'var(--bg-form)',
     border: isModal ? '1px solid #cbd5e1' : '1px solid var(--border-glass)', 
@@ -758,13 +760,13 @@ function AddExpenseView({ showToast, setExpenseView, onClose, onSuccess, isModal
   };
 
   return (
-    <div className={isModal ? "" : "glass-panel"} style={isModal ? { padding: 0 } : { padding: '32px', borderRadius: '16px' }}>
+    <div className={isModal ? "" : "glass-panel expense-form-container"} style={isModal ? { padding: 0 } : undefined}>
       <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
         
         {/* Basic Information */}
         <div>
           <h4 style={sectionTitleStyle}>Basic Information</h4>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '20px' }}>
+          <div className="expense-form-grid">
             <div>
               <label style={fieldLabelStyle}>Expense Title</label>
               <input 
@@ -820,7 +822,7 @@ function AddExpenseView({ showToast, setExpenseView, onClose, onSuccess, isModal
                 style={inputStyle}
               />
             </div>
-            <div style={{ gridColumn: 'span 2' }}>
+            <div className="expense-form-grid-full">
               <label style={fieldLabelStyle}>Description / Statement of Purpose</label>
               <input 
                 type="text" placeholder="Annual renewal of high-speed office fiber line (500Mbps)" 
@@ -836,7 +838,7 @@ function AddExpenseView({ showToast, setExpenseView, onClose, onSuccess, isModal
         {/* Vendor Information */}
         <div>
           <h4 style={sectionTitleStyle}>Vendor / Supplier Details</h4>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '20px' }}>
+          <div className="expense-form-grid">
             <div>
               <label style={fieldLabelStyle}>Vendor Name</label>
               <input 
@@ -881,7 +883,7 @@ function AddExpenseView({ showToast, setExpenseView, onClose, onSuccess, isModal
         {/* Payment details */}
         <div>
           <h4 style={sectionTitleStyle}>Payment Details</h4>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '20px' }}>
+          <div className="expense-form-grid">
             <div>
               <label style={fieldLabelStyle}>Payment Method</label>
               <select 
@@ -923,7 +925,7 @@ function AddExpenseView({ showToast, setExpenseView, onClose, onSuccess, isModal
         </div>
 
         {/* Action Buttons */}
-        <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', borderTop: isModal ? '1px solid #e2e8f0' : '1px solid rgba(255,255,255,0.05)', paddingTop: '20px' }}>
+        <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', flexWrap: 'wrap', borderTop: isModal ? '1px solid #e2e8f0' : '1px solid rgba(255,255,255,0.05)', paddingTop: '20px' }}>
           <button 
             type="button" 
             onClick={onClose || (() => setExpenseView('tracker'))}
@@ -1235,12 +1237,8 @@ function AllExpensesView({ expenses, showToast, fetchExpenses, autoOpenAddForm =
 
       {/* Details Modal */}
       {selectedExpense && (
-        <div className="modal-overlay" onClick={() => setSelectedExpense(null)} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.65)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 99999 }}>
-          <div className="modal-content" onClick={e => e.stopPropagation()} style={{
-            maxWidth: '500px', width: '90%', background: '#ffffff', borderRadius: '20px',
-            border: '1px solid #e2e8f0', padding: '28px', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)',
-            display: 'flex', flexDirection: 'column', gap: '16px'
-          }}>
+        <div className="expense-modal-overlay" onClick={() => setSelectedExpense(null)}>
+          <div className="expense-voucher-dialog" onClick={e => e.stopPropagation()}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
               <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: '#0f172a', margin: 0 }}>Expense Voucher Details</h3>
               <button onClick={() => setSelectedExpense(null)} style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer' }}><X size={18} /></button>
@@ -1280,12 +1278,8 @@ function AllExpensesView({ expenses, showToast, fetchExpenses, autoOpenAddForm =
 
       {/* Record Expense Modal */}
       {showAddForm && (
-        <div className="modal-overlay" onClick={handleCloseForm} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.65)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 99999, backdropFilter: 'blur(4px)' }}>
-          <div className="modal-content" onClick={e => e.stopPropagation()} style={{
-            maxWidth: '850px', width: '95%', maxHeight: '90vh', background: '#ffffff', borderRadius: '20px',
-            border: '1px solid #e2e8f0', padding: '32px', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)',
-            display: 'flex', flexDirection: 'column', gap: '20px', overflowY: 'auto', color: '#0f172a'
-          }}>
+        <div className="expense-modal-overlay" onClick={handleCloseForm}>
+          <div className="expense-modal-dialog" onClick={e => e.stopPropagation()}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #e2e8f0', paddingBottom: '16px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 {editingExpense ? <Edit2 size={22} style={{ color: '#f59e0b' }} /> : <Plus size={22} style={{ color: '#ef4444' }} />}
@@ -1620,10 +1614,10 @@ function TrackerView({ expenses, income, fetchExpenses, showToast, budgetLimit, 
   const activeDonutSlice = hoveredDonutIdx !== null ? calculatedSlices[hoveredDonutIdx] : null;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', minWidth: 0, maxWidth: '100%', boxSizing: 'border-box' }}>
 
       {/* 2. SIX PREMIUM KPI CARDS */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 200px), 1fr))', gap: '16px', minWidth: 0, maxWidth: '100%', boxSizing: 'border-box' }}>
         
         {/* Total Spend */}
         <div className="glass-panel" style={{ 
@@ -1748,22 +1742,22 @@ function TrackerView({ expenses, income, fetchExpenses, showToast, budgetLimit, 
       </div>
 
       {/* 3. DUAL GRID: CHARTS PANEL & DYNAMIC INSIGHTS */}
-      <div style={{ display: 'grid', gridTemplateColumns: '3fr 2fr', gap: '24px', alignItems: 'stretch' }}>
+      <div className="expense-dual-grid">
         
         {/* COLUMN 1: INTERACTIVE SVG CHARTS PANEL */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', minWidth: 0, maxWidth: '100%' }}>
           
           {/* CHART 1: DAILY EXPENSE TREND */}
-          <div className="glass-panel" style={{ padding: '24px', borderRadius: '16px', position: 'relative' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+          <div className="glass-panel expense-chart-panel-card">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '8px' }}>
               <h3 style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
                 <TrendingDown size={18} style={{ color: 'hsl(var(--color-primary))' }} /> Daily Spending Trend (Current Month)
               </h3>
-              <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Peak Day: ₹{maxTrendVal.toLocaleString()}</span>
+              <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>Peak Day: ₹{maxTrendVal.toLocaleString()}</span>
             </div>
             
             {/* SVG Graphic Area */}
-            <div style={{ position: 'relative', width: '100%', height: `${trendH}px`, background: 'rgba(0,0,0,0.1)', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.02)' }}>
+            <div style={{ position: 'relative', width: '100%', height: `${trendH}px`, background: 'rgba(0,0,0,0.1)', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.02)', overflow: 'hidden', maxWidth: '100%', boxSizing: 'border-box' }}>
               
               {/* Tooltip Overlay */}
               {hoveredTrendPoint !== null && trendPoints[hoveredTrendPoint] && (
@@ -1865,12 +1859,12 @@ function TrackerView({ expenses, income, fetchExpenses, showToast, budgetLimit, 
           </div>
 
           {/* CATEGORY ANALYSIS CARD */}
-          <div className="glass-panel" style={{ padding: '24px', borderRadius: '16px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          <div className="glass-panel expense-chart-panel-card" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
             <h3 style={{ fontSize: '0.92rem', fontWeight: 700, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
               <BarChart3 size={17} style={{ color: 'hsl(var(--color-primary))' }} /> Category Analysis
             </h3>
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
+            <div className="expense-table-scroll">
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem', minWidth: '320px' }}>
                 <thead>
                   <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', color: 'var(--text-muted)' }}>
                     <th style={{ padding: '8px', textAlign: 'left', fontWeight: 700 }}>Category</th>
@@ -1917,12 +1911,12 @@ function TrackerView({ expenses, income, fetchExpenses, showToast, budgetLimit, 
           </div>
 
           {/* ADVANCED FINANCIAL INTELLIGENCE CARD */}
-          <div className="glass-panel" style={{ padding: '24px', borderRadius: '16px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          <div className="glass-panel expense-chart-panel-card" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
             <h3 style={{ fontSize: '0.92rem', fontWeight: 700, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
               <TrendingUp size={17} style={{ color: 'hsl(var(--color-danger))' }} /> Advanced Financial Intelligence
             </h3>
             
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px' }}>
+            <div className="expense-intelligence-grid">
               
               {/* Average Voucher Size */}
               <div style={{ padding: '16px', background: 'rgba(255,255,255,0.015)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.04)', display: 'flex', flexDirection: 'column', gap: '6px' }}>
@@ -2046,10 +2040,10 @@ function TrackerView({ expenses, income, fetchExpenses, showToast, budgetLimit, 
         </div>
 
         {/* COLUMN 2: ANALYTICS & RECENT FEED */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', height: '100%' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', height: '100%', minWidth: 0, maxWidth: '100%' }}>
           
           {/* STATS HIGHLIGHTS CARD */}
-          <div className="glass-panel" style={{ padding: '24px', borderRadius: '16px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          <div className="glass-panel expense-chart-panel-card" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
             <h3 style={{ fontSize: '0.92rem', fontWeight: 700, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '6px', margin: 0 }}>
               <TrendingDown size={17} style={{ color: 'hsl(var(--color-danger))' }} /> Financial Insights
             </h3>
@@ -2116,7 +2110,7 @@ function TrackerView({ expenses, income, fetchExpenses, showToast, budgetLimit, 
           </div>
 
           {/* TOP 10 EXPENSES LIST */}
-          <div className="glass-panel" style={{ padding: '24px', borderRadius: '16px' }}>
+          <div className="glass-panel expense-chart-panel-card">
             <h3 style={{ fontSize: '0.92rem', fontWeight: 700, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '6px', margin: 0, marginBottom: '14px' }}>
               <TrendingDown size={17} style={{ color: 'hsl(var(--color-primary))' }} /> Top 10 Major Vouchers
             </h3>
@@ -2153,7 +2147,7 @@ function TrackerView({ expenses, income, fetchExpenses, showToast, budgetLimit, 
           </div>
 
           {/* QUICK ACTIONS CARD */}
-          <div className="glass-panel" style={{ padding: '24px', borderRadius: '16px', display: 'flex', flexDirection: 'column', gap: '16px', flex: 1, justifyContent: 'center' }}>
+          <div className="glass-panel expense-chart-panel-card" style={{ display: 'flex', flexDirection: 'column', gap: '16px', flex: 1, justifyContent: 'center' }}>
             <h3 style={{ fontSize: '0.92rem', fontWeight: 700, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
               <Plus size={17} style={{ color: 'hsl(var(--color-primary))' }} /> Quick Actions
             </h3>
@@ -2265,12 +2259,8 @@ function TrackerView({ expenses, income, fetchExpenses, showToast, budgetLimit, 
 
       {/* 5. VOUCHER AUDIT DETAILS MODAL Overlay */}
       {selectedVoucher && (
-        <div className="modal-overlay" onClick={() => setSelectedVoucher(null)} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.65)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 99999 }}>
-          <div className="modal-content" onClick={e => e.stopPropagation()} style={{
-            maxWidth: '520px', width: '90%', background: '#ffffff', borderRadius: '20px',
-            border: '1px solid #e2e8f0', padding: '24px', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)',
-            display: 'flex', flexDirection: 'column', gap: '16px'
-          }}>
+        <div className="expense-modal-overlay" onClick={() => setSelectedVoucher(null)}>
+          <div className="expense-voucher-dialog" onClick={e => e.stopPropagation()}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #e2e8f0', paddingBottom: '12px' }}>
               <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '6px', margin: 0 }}>
                 <Shield size={18} style={{ color: 'hsl(var(--color-primary))' }} /> Voucher Verification Details
@@ -2307,12 +2297,8 @@ function TrackerView({ expenses, income, fetchExpenses, showToast, budgetLimit, 
 
       {/* Record Expense Modal */}
       {showAddForm && (
-        <div className="modal-overlay" onClick={handleCloseForm} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.65)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 99999, backdropFilter: 'blur(4px)' }}>
-          <div className="modal-content" onClick={e => e.stopPropagation()} style={{
-            maxWidth: '850px', width: '95%', maxHeight: '90vh', background: '#ffffff', borderRadius: '20px',
-            border: '1px solid #e2e8f0', padding: '32px', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)',
-            display: 'flex', flexDirection: 'column', gap: '20px', overflowY: 'auto', color: '#0f172a'
-          }}>
+        <div className="expense-modal-overlay" onClick={handleCloseForm}>
+          <div className="expense-modal-dialog" onClick={e => e.stopPropagation()}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #e2e8f0', paddingBottom: '16px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 {editingExpense ? <Edit2 size={22} style={{ color: '#f59e0b' }} /> : <Plus size={22} style={{ color: '#ef4444' }} />}
@@ -2839,12 +2825,8 @@ function HistoryView({ expenses, expenseHistory, fetchExpenses, showToast, budge
 
       {/* Record Expense Modal */}
       {showAddForm && (
-        <div className="modal-overlay" onClick={handleCloseForm} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.65)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 99999, backdropFilter: 'blur(4px)' }}>
-          <div className="modal-content" onClick={e => e.stopPropagation()} style={{
-            maxWidth: '850px', width: '95%', maxHeight: '90vh', background: '#ffffff', borderRadius: '20px',
-            border: '1px solid #e2e8f0', padding: '32px', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)',
-            display: 'flex', flexDirection: 'column', gap: '20px', overflowY: 'auto', color: '#0f172a'
-          }}>
+        <div className="expense-modal-overlay" onClick={handleCloseForm}>
+          <div className="expense-modal-dialog" onClick={e => e.stopPropagation()}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #e2e8f0', paddingBottom: '16px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 {editingExpense ? <Edit2 size={22} style={{ color: '#f59e0b' }} /> : <Plus size={22} style={{ color: '#ef4444' }} />}
