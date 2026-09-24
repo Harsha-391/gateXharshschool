@@ -896,8 +896,14 @@ function AddExpenseView({ showToast, setExpenseView, onClose, onSuccess, isModal
                 <div>
                   <label style={fieldLabelStyle}>Transaction / Reference ID</label>
                   <input 
-                    type="text" placeholder="TXN-938210398" 
-                    value={form.transactionId} onChange={e => setForm({ ...form, transactionId: e.target.value })}
+                    type="text" 
+                    name="transactionId"
+                    id="expense-transaction-id"
+                    data-type="transaction"
+                    data-bypass="true"
+                    placeholder="TXN-938210398" 
+                    value={form.transactionId} 
+                    onChange={e => setForm({ ...form, transactionId: e.target.value })}
                     style={inputStyle}
                   />
                 </div>

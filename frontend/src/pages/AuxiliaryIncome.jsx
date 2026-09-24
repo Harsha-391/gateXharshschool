@@ -1207,6 +1207,10 @@ export default function AuxiliaryIncome({ showToast }) {
                   <label style={labelStyle}>Ref Number / Txn ID</label>
                   <input 
                     type="text"
+                    name="referenceNumber"
+                    id="aux-ref-number"
+                    data-type="transaction"
+                    data-bypass="true"
                     value={entryForm.referenceNumber}
                     onChange={e => setEntryForm({ ...entryForm, referenceNumber: e.target.value })}
                     placeholder="e.g. UPI ID, Cheque No"

@@ -459,7 +459,7 @@ export default function App() {
       const isTextarea = target.tagName === 'TEXTAREA';
       if (!isInput && !isTextarea) return;
 
-      if (target.getAttribute('data-bypass') === 'true' || target.getAttribute('data-type') === 'bypass') {
+      if (target.getAttribute('data-bypass') === 'true' || target.getAttribute('data-type') === 'bypass' || target.getAttribute('data-type') === 'all' || target.getAttribute('data-type') === 'transaction') {
         return;
       }
 
@@ -518,8 +518,20 @@ export default function App() {
       const isDocFile = type === 'file';
       const isDate = type === 'date' || type === 'datetime-local' || type === 'month' || type === 'time' || type === 'week';
       const isPeriodName = name.includes('period') || id.includes('period') || placeholder.includes('period') || label.includes('period') || name.includes('range') || id.includes('range') || placeholder.includes('range') || label.includes('range');
+      const isTransactionField = name.includes('transaction') || id.includes('transaction') || 
+                                 label.includes('transaction') || placeholder.includes('transaction') || 
+                                 placeholder.includes('txn') || label.includes('txn') || id.includes('txn') || name.includes('txn') ||
+                                 name.includes('reference') || id.includes('reference') || 
+                                 label.includes('reference') || placeholder.includes('reference') ||
+                                 name.includes('utr') || id.includes('utr') || label.includes('utr') ||
+                                 name.includes('voucher') || id.includes('voucher') || label.includes('voucher') ||
+                                 name.includes('invoice') || id.includes('invoice') || label.includes('invoice') ||
+                                 name.includes('cheque') || id.includes('cheque') || label.includes('cheque') ||
+                                 name.includes('receipt') || id.includes('receipt') || label.includes('receipt') ||
+                                 target.getAttribute('data-type') === 'transaction' || 
+                                 target.getAttribute('data-type') === 'all';
 
-      const isBypassedString = isEmail || isPassword || isUsername || isSubdomain || isUrl || isDocFile || isDate || isPeriodName;
+      const isBypassedString = isEmail || isPassword || isUsername || isSubdomain || isUrl || isDocFile || isDate || isPeriodName || isTransactionField;
       const isAlphanumericField = name.includes('type') || id.includes('type') || placeholder.includes('type') || label.includes('type') || 
                                   name.includes('title') || id.includes('title') || label.includes('title') || label.includes('headline') || 
                                   name.includes('venue') || id.includes('venue') || label.includes('venue') || 
