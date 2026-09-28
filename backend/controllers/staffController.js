@@ -1,4 +1,4 @@
-import { readDb, writeDb, addActivity, getDefaultRoles } from '../utils/db.js';
+import { readDb, writeDb, addActivity, getDefaultRoles, isSqlActive, tenantStorage, slugify } from '../utils/db.js';
 import { hashPassword } from '../utils/authHelper.js';
 import { encrypt, decrypt } from '../utils/encryptionHelper.js';
 import { logAudit } from '../utils/logger.js';
@@ -210,10 +210,15 @@ export const registerTeacher = async (req, res) => { // Keep export name registe
       classes: 0,
       hours: 0,
       badge: 'Staff',
-      avatarBg: `linear-gradient(135deg, hsl(${Math.random() * 360}, 75%, 60%) 0%, hsl(${Math.random() * 360}, 85%, 50%) 100%)`
+      avatarBg: `linear-gradient(135deg, hsl(${Math.random() * 360}, 75%, 60%) 0%, hsl(${Math.random() * 360}, 85%, 50%) 100%)`,
+      assignedGradeId: req.body.assignedGradeId || null,
+      assignedSectionId: req.body.assignedSectionId || null,
+      isClassTeacher: (req.body.isClassTeacher === 'Yes' || req.body.isClassTeacher === 'true' || req.body.isClassTeacher === true || req.body.isClassTeacher === 1) ? 1 : 0,
+      attendancePermission: (req.body.attendancePermission === 'Yes' || req.body.attendancePermission === 'true' || req.body.attendancePermission === true || req.body.attendancePermission === 1) ? 1 : 0
     };
 
     db.staff.push(newStaff);
+    db.staff = [...db.staff];
 
     if (!db.employeeQrCodes) db.employeeQrCodes = [];
     db.employeeQrCodes.push({
@@ -239,7 +244,7 @@ export const registerTeacher = async (req, res) => { // Keep export name registe
     }
 
     addActivity(db, 'registration', 'New Staff Registered', `${derivedFullName} joined the school as ${activeRole}.`, 'hsl(var(--color-primary))', 'rgba(hsl(var(--color-primary)), 0.1)');
-    writeDb(db);
+    writeDb(db, ['staff', 'employees']);
     logAudit('Register Staff', `Staff: ${derivedFullName} (ID: ${employeeId})`, `Registered new staff member.`, req);
 
     res.status(201).json({
@@ -478,12 +483,17 @@ export const updateTeacher = async (req, res) => { // Keep updateTeacher naming 
       role: activeRole,
       hasRole: hasRole || 'Yes',
       designation: updateData.designation !== undefined ? updateData.designation : (currentStaff.designation || ''),
+      assignedGradeId: updateData.assignedGradeId !== undefined ? updateData.assignedGradeId : currentStaff.assignedGradeId,
+      assignedSectionId: updateData.assignedSectionId !== undefined ? updateData.assignedSectionId : currentStaff.assignedSectionId,
+      isClassTeacher: updateData.isClassTeacher !== undefined ? ((updateData.isClassTeacher === 'Yes' || updateData.isClassTeacher === 'true' || updateData.isClassTeacher === true || updateData.isClassTeacher === 1) ? 1 : 0) : currentStaff.isClassTeacher,
+      attendancePermission: updateData.attendancePermission !== undefined ? ((updateData.attendancePermission === 'Yes' || updateData.attendancePermission === 'true' || updateData.attendancePermission === true || updateData.attendancePermission === 1) ? 1 : 0) : currentStaff.attendancePermission,
       username: isRoleAccount ? (updateData.username || currentStaff.username || `staff_${currentStaff.employeeId.toLowerCase().replace(/-/g, '_')}`) : null,
       password: isRoleAccount ? newPasswordHash : null,
       updatedAt: new Date().toISOString()
     };
 
     db.staff[staffIndex] = updatedStaff;
+    db.staff = [...db.staff];
 
     if (!db.userAccess) db.userAccess = [];
     const accessIndex = db.userAccess.findIndex(ua => ua.userId === staffId && ua.userType === 'Staff');
@@ -516,7 +526,7 @@ export const updateTeacher = async (req, res) => { // Keep updateTeacher naming 
     }
 
     addActivity(db, 'alert', 'Staff Profile Modified', `${updatedStaff.fullName}'s professional records were updated.`, 'hsl(var(--color-secondary))', 'rgba(hsl(var(--color-secondary)), 0.1)');
-    writeDb(db);
+    writeDb(db, ['staff', 'employees']);
     logAudit('Update Staff', `Staff: ${updatedStaff.fullName} (Emp: ${updatedStaff.employeeId})`, `Updated staff profile professional records`, req);
 
     res.json(updatedStaff);
@@ -530,47 +540,81 @@ export const updateTeacher = async (req, res) => { // Keep updateTeacher naming 
 export const deleteTeacher = async (req, res) => { // Keep deleteTeacher naming for compatibility
   try {
     const db = readDb();
-    const staffId = req.params.id;
-    const staffIndex = db.staff.findIndex(s => s.employeeId === staffId || s.id === staffId);
+    if (!db.staff) db.staff = [];
+    const reqId = String(req.params.id || '').trim();
+    const cleanReqId = reqId.replace(/^(emp|stf|staff)-?/i, '');
+    const staffIndex = db.staff.findIndex(s => {
+      const sEmpId = String(s.employeeId || '').trim();
+      const sId = String(s.id || '').trim();
+      return sEmpId === reqId || sId === reqId ||
+             (cleanReqId && (sEmpId.replace(/^(emp|stf|staff)-?/i, '') === cleanReqId || sId.replace(/^(emp|stf|staff)-?/i, '') === cleanReqId));
+    });
 
     if (staffIndex === -1) {
       return res.status(404).json({ error: 'Staff profile not found.' });
     }
 
     const staff = db.staff[staffIndex];
-    const staffName = staff.name;
+    const staffName = staff.name || staff.fullName || 'Staff';
     const deletedId = staff.id || staff.employeeId;
+    const deletedEmpId = staff.employeeId || staff.id;
 
-    // Delete files from ImageKit
+    // Delete files from ImageKit asynchronously without blocking database deletion
     const filesToDelete = [
       staff.photo, staff.aadhaarFile, staff.panFile, staff.resumeFile,
       staff.qualificationFile, staff.experienceFile, staff.joiningLetterFile, staff.otherFile
     ];
     for (const fileUrl of filesToDelete) {
       if (fileUrl) {
-        await deleteFromImageKit(fileUrl);
+        deleteFromImageKit(fileUrl).catch(e => console.error('[ImageKit Delete Error]', e?.message || e));
+      }
+    }
+
+    // Direct Synchronous SQL Delete to guarantee immediate database persistence
+    if (isSqlActive()) {
+      try {
+        const sqlDb = await import('../utils/sqlDb.js');
+        const tenantId = tenantStorage.getStore();
+        const tId = tenantId ? slugify(tenantId) : 'platform';
+
+        await sqlDb.query('DELETE FROM staff_leaves WHERE staffId = ? AND (tenantId = ? OR tenantId IS NULL OR tenantId = ?)', [deletedId, tId, ''], tId);
+        await sqlDb.query('DELETE FROM staff_reports WHERE staffId = ? AND (tenantId = ? OR tenantId IS NULL OR tenantId = ?)', [deletedId, tId, ''], tId);
+        await sqlDb.query('DELETE FROM employee_qr_codes WHERE (employeeId = ? OR staffId = ? OR employeeId = ? OR staffId = ?) AND (tenantId = ? OR tenantId IS NULL OR tenantId = ?)', [deletedId, deletedId, deletedEmpId, deletedEmpId, tId, ''], tId);
+        await sqlDb.query('DELETE FROM attendance_records WHERE (employeeId = ? OR staffId = ? OR employeeId = ? OR staffId = ?) AND (tenantId = ? OR tenantId IS NULL OR tenantId = ?)', [deletedId, deletedId, deletedEmpId, deletedEmpId, tId, ''], tId);
+        await sqlDb.query('DELETE FROM attendance_logs WHERE (employeeId = ? OR staffId = ? OR employeeId = ? OR staffId = ?) AND (tenantId = ? OR tenantId IS NULL OR tenantId = ?)', [deletedId, deletedId, deletedEmpId, deletedEmpId, tId, ''], tId);
+        await sqlDb.query('DELETE FROM user_access WHERE (userId = ? OR userId = ?) AND (tenantId = ? OR tenantId IS NULL OR tenantId = ?)', [deletedId, deletedEmpId, tId, ''], tId);
+        await sqlDb.query('DELETE FROM staff WHERE (id = ? OR id = ?) AND (tenantId = ? OR tenantId IS NULL OR tenantId = ?)', [deletedId, deletedEmpId, tId, ''], tId);
+        await sqlDb.query('DELETE FROM employees WHERE (id = ? OR id = ?) AND (tenantId = ? OR tenantId IS NULL OR tenantId = ?)', [deletedId, deletedEmpId, tId, ''], tId);
+
+        const syncTs = new Date().toISOString();
+        await sqlDb.query('UPDATE schools SET updatedAt = ? WHERE subdomain = ?', [syncTs, tId]);
+      } catch (sqlErr) {
+        console.error('[SQL Direct Delete Staff Error]', sqlErr);
       }
     }
 
     db.staff.splice(staffIndex, 1);
+    db.staff = [...db.staff];
 
+    // Keep db.employees synchronized
+    if (db.employees && Array.isArray(db.employees)) {
+      db.employees = db.employees.filter(e => e.id !== deletedId && e.id !== deletedEmpId);
+    }
     if (db.employeeQrCodes) {
-      db.employeeQrCodes = db.employeeQrCodes.filter(q => q.employeeId !== deletedId && q.teacherId !== deletedId);
+      db.employeeQrCodes = db.employeeQrCodes.filter(q => q.employeeId !== deletedId && q.staffId !== deletedId && q.employeeId !== deletedEmpId);
     }
     if (db.attendanceRecords) {
-      db.attendanceRecords = db.attendanceRecords.filter(a => a.employeeId !== deletedId && a.teacherId !== deletedId);
+      db.attendanceRecords = db.attendanceRecords.filter(a => a.employeeId !== deletedId && a.staffId !== deletedId && a.employeeId !== deletedEmpId);
     }
     if (db.attendanceLogs) {
-      db.attendanceLogs = db.attendanceLogs.filter(l => l.employeeId !== deletedId && l.teacherId !== deletedId);
+      db.attendanceLogs = db.attendanceLogs.filter(l => l.employeeId !== deletedId && l.staffId !== deletedId && l.employeeId !== deletedEmpId);
     }
-
-    // Remove user access record
     if (db.userAccess) {
-      db.userAccess = db.userAccess.filter(ua => ua.userId !== deletedId);
+      db.userAccess = db.userAccess.filter(ua => ua.userId !== deletedId && ua.userId !== deletedEmpId);
     }
 
     addActivity(db, 'alert', 'Staff Dismissed', `${staffName} was removed from the roster`, 'rgb(var(--color-danger-rgb))', 'rgba(var(--color-danger-rgb), 0.1)');
-    writeDb(db);
+    writeDb(db, ['staff', 'employees']);
     logAudit('Delete Staff', `Staff: ${staffName} (ID: ${deletedId})`, `Dismissed staff roster record`, req);
 
     res.json({ success: true, message: `Successfully dismissed staff member ${staffName}` });

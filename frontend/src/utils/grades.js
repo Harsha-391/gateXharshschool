@@ -109,3 +109,44 @@ export async function fetchActiveSections() {
   }
   return [];
 }
+
+export function normalizeGrade(g) {
+  if (!g) return '';
+  let str = String(g).trim().toUpperCase();
+  str = str.replace(/^GRADE\s+/i, '').trim();
+  const romanToNum = {
+    'I': '1', 'II': '2', 'III': '3', 'IV': '4', 'V': '5',
+    'VI': '6', 'VII': '7', 'VIII': '8', 'IX': '9', 'X': '10',
+    'XI': '11', 'XII': '12'
+  };
+  const base = str.split(/[\s()\-]+/)[0];
+  if (romanToNum[base]) {
+    return romanToNum[base];
+  }
+  return str;
+}
+
+export function areGradesEqual(g1, g2) {
+  if (!g1 || !g2) return false;
+  if (String(g1).trim().toLowerCase() === String(g2).trim().toLowerCase()) return true;
+  return normalizeGrade(g1) === normalizeGrade(g2);
+}
+
+export function normalizeSection(s) {
+  if (!s) return '';
+  return String(s).trim().toUpperCase().replace(/^SECTION\s+/i, '').trim();
+}
+
+export function areSectionsEqual(s1, s2) {
+  if (!s1 || !s2) return false;
+  return normalizeSection(s1) === normalizeSection(s2);
+}
+
+export function formatGradeDisplay(g) {
+  if (!g) return '';
+  const str = String(g).trim();
+  if (str.toUpperCase().startsWith('LKG') || str.toUpperCase().startsWith('UKG') || str.toUpperCase().startsWith('NURSERY') || str.toLowerCase().startsWith('grade')) {
+    return str;
+  }
+  return `Grade ${str}`;
+}

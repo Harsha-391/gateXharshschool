@@ -1,4 +1,4 @@
-﻿import './LeaveManagement.css';
+import './LeaveManagement.css';
 import React, { useState, useEffect } from 'react';
 import { 
   FileSpreadsheet, 
@@ -104,7 +104,8 @@ export default function LeaveManagement({ showToast }) {
     if (parts.length > 2 && parts[0] !== 'www') {
       return parts[0];
     }
-    return '';
+    const urlParams = new URLSearchParams(window.location.search);
+    return urlParams.get('tenant') || localStorage.getItem('tenant_subdomain') || sessionStorage.getItem('tenant_subdomain') || '';
   };
 
   // KPI Calculations

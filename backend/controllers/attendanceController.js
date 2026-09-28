@@ -1,6 +1,38 @@
 import { readDb, writeDb, addActivity } from '../utils/db.js';
 import { logAudit } from '../utils/logger.js';
 
+const normalizeGradeStr = (g) => {
+  if (!g) return '';
+  let str = String(g).trim().toUpperCase();
+  str = str.replace(/^GRADE\s+/i, '').trim();
+  const romanToNum = {
+    'I': '1', 'II': '2', 'III': '3', 'IV': '4', 'V': '5',
+    'VI': '6', 'VII': '7', 'VIII': '8', 'IX': '9', 'X': '10',
+    'XI': '11', 'XII': '12'
+  };
+  const base = str.split(/[\s()\-]+/)[0];
+  if (romanToNum[base]) {
+    return romanToNum[base];
+  }
+  return str;
+};
+
+const areGradesMatch = (g1, g2) => {
+  if (!g1 || !g2) return false;
+  if (String(g1).trim().toLowerCase() === String(g2).trim().toLowerCase()) return true;
+  return normalizeGradeStr(g1) === normalizeGradeStr(g2);
+};
+
+const normalizeSectionStr = (s) => {
+  if (!s) return '';
+  return String(s).trim().toUpperCase().replace(/^SECTION\s+/i, '').trim();
+};
+
+const areSectionsMatch = (s1, s2) => {
+  if (!s1 || !s2) return false;
+  return normalizeSectionStr(s1) === normalizeSectionStr(s2);
+};
+
 // 1. GET ATTENDANCE ROSTER FOR GIVEN DATE, CLASS, SECTION
 export const getAttendanceRoster = (req, res) => {
   try {
@@ -15,8 +47,8 @@ export const getAttendanceRoster = (req, res) => {
     // Filter students by class & section (only Active students)
     let filteredStudents = db.students.filter(stu => {
       if (stu.status !== 'Active') return false;
-      const matchClass = stu.studentClass === studentClass || stu.grade?.split('-')[0] === studentClass;
-      const matchSec = stu.section === section || stu.grade?.split('-')[1] === section;
+      const matchClass = areGradesMatch(stu.studentClass, studentClass) || areGradesMatch(stu.grade?.split('-')[0], studentClass);
+      const matchSec = areSectionsMatch(stu.section, section) || areSectionsMatch(stu.grade?.split('-')[1], section);
       return matchClass && matchSec;
     });
 
@@ -392,7 +424,9 @@ export const getSubmittedAttendanceDates = (req, res) => {
     // Group by date, count submitted records for this class/section
     const dateMap = {};
     attendanceRecords.forEach(att => {
-      if (att.classId === studentClass && att.sectionId === section && att.submitted) {
+      const matchClass = areGradesMatch(att.classId, studentClass) || areGradesMatch(att.studentClass, studentClass);
+      const matchSec = areSectionsMatch(att.sectionId, section) || areSectionsMatch(att.section, section);
+      if (matchClass && matchSec && att.submitted) {
         if (!dateMap[att.attendanceDate]) {
           dateMap[att.attendanceDate] = { date: att.attendanceDate, count: 0 };
         }

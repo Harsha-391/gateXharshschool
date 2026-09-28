@@ -1,4 +1,4 @@
-import { readDb, writeDb, addActivity } from '../utils/db.js';
+import { readDb, writeDb, addActivity, isSqlActive, tenantStorage, slugify } from '../utils/db.js';
 import { hashPassword } from '../utils/authHelper.js';
 import { encrypt, decrypt } from '../utils/encryptionHelper.js';
 import { logAudit } from '../utils/logger.js';
@@ -185,6 +185,7 @@ export const registerTeacher = async (req, res) => {
     };
 
     db.teachers.push(newTeacher);
+    db.teachers = [...db.teachers];
 
     if (!db.employeeQrCodes) db.employeeQrCodes = [];
     db.employeeQrCodes.push({
@@ -208,7 +209,7 @@ export const registerTeacher = async (req, res) => {
     });
 
     addActivity(db, 'registration', 'New Teacher Registered', `${derivedFullName} joined the school as Teacher.`, 'hsl(var(--color-primary))', 'rgba(hsl(var(--color-primary)), 0.1)');
-    writeDb(db);
+    writeDb(db, ['teachers', 'employees']);
     logAudit('Register Teacher', `Teacher: ${derivedFullName} (ID: ${employeeId})`, `Registered new teacher and generated login credentials.`, req);
 
     res.status(201).json({
@@ -393,7 +394,25 @@ export const updateTeacher = async (req, res) => {
       attendancePermission: updateData.attendancePermission !== undefined ? (updateData.attendancePermission === 'Yes' || updateData.attendancePermission === 'true' || updateData.attendancePermission === true || updateData.attendancePermission === 1 ? 1 : 0) : currentTeacher.attendancePermission
     };
 
+    db.teachers = [...db.teachers];
     db.teachers[teacherIndex] = updatedTeacher;
+
+    // Sync matching employee record in db.employees if present
+    if (db.employees && Array.isArray(db.employees)) {
+      const empIdx = db.employees.findIndex(e => e.id === teacherId || e.id === currentTeacher.employeeId);
+      if (empIdx !== -1) {
+        db.employees = [...db.employees];
+        db.employees[empIdx] = {
+          ...db.employees[empIdx],
+          name: updatedTeacher.fullName || updatedTeacher.name,
+          fullName: updatedTeacher.fullName || updatedTeacher.name,
+          email: updatedTeacher.email || db.employees[empIdx].email,
+          phone: updatedTeacher.mobile || updatedTeacher.phone || db.employees[empIdx].phone,
+          status: updatedTeacher.status || db.employees[empIdx].status,
+          photo: updatedTeacher.photo || db.employees[empIdx].photo
+        };
+      }
+    }
 
     if (!db.userAccess) db.userAccess = [];
     const accessIndex = db.userAccess.findIndex(ua => ua.userId === teacherId && ua.userType === 'Teacher');
@@ -418,7 +437,7 @@ export const updateTeacher = async (req, res) => {
     }
 
     addActivity(db, 'alert', 'Teacher Profile Modified', `${updatedTeacher.fullName}'s professional records were updated.`, 'hsl(var(--color-secondary))', 'rgba(hsl(var(--color-secondary)), 0.1)');
-    writeDb(db);
+    writeDb(db, ['teachers', 'employees']);
     logAudit('Update Teacher', `Teacher: ${updatedTeacher.fullName} (Emp: ${updatedTeacher.employeeId})`, `Updated teacher profile professional records`, req);
 
     res.json(updatedTeacher);
@@ -432,47 +451,81 @@ export const updateTeacher = async (req, res) => {
 export const deleteTeacher = async (req, res) => {
   try {
     const db = readDb();
-    const teacherId = req.params.id;
-    const teacherIndex = db.teachers.findIndex(t => t.employeeId === teacherId || t.id === teacherId);
+    if (!db.teachers) db.teachers = [];
+    const reqId = String(req.params.id || '').trim();
+    const cleanReqId = reqId.replace(/^(emp|tea)-?/i, '');
+    const teacherIndex = db.teachers.findIndex(t => {
+      const tEmpId = String(t.employeeId || '').trim();
+      const tId = String(t.id || '').trim();
+      return tEmpId === reqId || tId === reqId ||
+             (cleanReqId && (tEmpId.replace(/^(emp|tea)-?/i, '') === cleanReqId || tId.replace(/^(emp|tea)-?/i, '') === cleanReqId));
+    });
 
     if (teacherIndex === -1) {
       return res.status(404).json({ error: 'Teacher profile not found.' });
     }
 
     const teacher = db.teachers[teacherIndex];
-    const teacherName = teacher.name;
+    const teacherName = teacher.name || teacher.fullName || 'Teacher';
     const deletedId = teacher.id || teacher.employeeId;
+    const deletedEmpId = teacher.employeeId || teacher.id;
 
-    // Delete files from ImageKit
+    // Delete files from ImageKit asynchronously without blocking database deletion
     const filesToDelete = [
       teacher.photo, teacher.aadhaarFile, teacher.panFile, teacher.resumeFile,
       teacher.qualificationFile, teacher.experienceFile, teacher.joiningLetterFile, teacher.otherFile
     ];
     for (const fileUrl of filesToDelete) {
       if (fileUrl) {
-        await deleteFromImageKit(fileUrl);
+        deleteFromImageKit(fileUrl).catch(e => console.error('[ImageKit Delete Error]', e?.message || e));
+      }
+    }
+
+    // Direct Synchronous SQL Delete to guarantee immediate database persistence
+    if (isSqlActive()) {
+      try {
+        const sqlDb = await import('../utils/sqlDb.js');
+        const tenantId = tenantStorage.getStore();
+        const tId = tenantId ? slugify(tenantId) : 'platform';
+
+        await sqlDb.query('DELETE FROM teacher_leaves WHERE teacherId = ? AND (tenantId = ? OR tenantId IS NULL OR tenantId = ?)', [deletedId, tId, ''], tId);
+        await sqlDb.query('DELETE FROM teacher_reports WHERE teacherId = ? AND (tenantId = ? OR tenantId IS NULL OR tenantId = ?)', [deletedId, tId, ''], tId);
+        await sqlDb.query('DELETE FROM employee_qr_codes WHERE (employeeId = ? OR teacherId = ? OR employeeId = ? OR teacherId = ?) AND (tenantId = ? OR tenantId IS NULL OR tenantId = ?)', [deletedId, deletedId, deletedEmpId, deletedEmpId, tId, ''], tId);
+        await sqlDb.query('DELETE FROM attendance_records WHERE (employeeId = ? OR teacherId = ? OR employeeId = ? OR teacherId = ?) AND (tenantId = ? OR tenantId IS NULL OR tenantId = ?)', [deletedId, deletedId, deletedEmpId, deletedEmpId, tId, ''], tId);
+        await sqlDb.query('DELETE FROM attendance_logs WHERE (employeeId = ? OR teacherId = ? OR employeeId = ? OR teacherId = ?) AND (tenantId = ? OR tenantId IS NULL OR tenantId = ?)', [deletedId, deletedId, deletedEmpId, deletedEmpId, tId, ''], tId);
+        await sqlDb.query('DELETE FROM user_access WHERE (userId = ? OR userId = ?) AND (tenantId = ? OR tenantId IS NULL OR tenantId = ?)', [deletedId, deletedEmpId, tId, ''], tId);
+        await sqlDb.query('DELETE FROM teachers WHERE (id = ? OR id = ?) AND (tenantId = ? OR tenantId IS NULL OR tenantId = ?)', [deletedId, deletedEmpId, tId, ''], tId);
+        await sqlDb.query('DELETE FROM employees WHERE (id = ? OR id = ?) AND (tenantId = ? OR tenantId IS NULL OR tenantId = ?)', [deletedId, deletedEmpId, tId, ''], tId);
+
+        const syncTs = new Date().toISOString();
+        await sqlDb.query('UPDATE schools SET updatedAt = ? WHERE subdomain = ?', [syncTs, tId]);
+      } catch (sqlErr) {
+        console.error('[SQL Direct Delete Teacher Error]', sqlErr);
       }
     }
 
     db.teachers.splice(teacherIndex, 1);
+    db.teachers = [...db.teachers];
 
+    // Keep db.employees synchronized
+    if (db.employees && Array.isArray(db.employees)) {
+      db.employees = db.employees.filter(e => e.id !== deletedId && e.id !== deletedEmpId);
+    }
     if (db.employeeQrCodes) {
-      db.employeeQrCodes = db.employeeQrCodes.filter(q => q.employeeId !== deletedId && q.teacherId !== deletedId);
+      db.employeeQrCodes = db.employeeQrCodes.filter(q => q.employeeId !== deletedId && q.teacherId !== deletedId && q.employeeId !== deletedEmpId);
     }
     if (db.attendanceRecords) {
-      db.attendanceRecords = db.attendanceRecords.filter(a => a.employeeId !== deletedId && a.teacherId !== deletedId);
+      db.attendanceRecords = db.attendanceRecords.filter(a => a.employeeId !== deletedId && a.teacherId !== deletedId && a.employeeId !== deletedEmpId);
     }
     if (db.attendanceLogs) {
-      db.attendanceLogs = db.attendanceLogs.filter(l => l.employeeId !== deletedId && l.teacherId !== deletedId);
+      db.attendanceLogs = db.attendanceLogs.filter(l => l.employeeId !== deletedId && l.teacherId !== deletedId && l.employeeId !== deletedEmpId);
     }
-
-    // Remove user access record
     if (db.userAccess) {
-      db.userAccess = db.userAccess.filter(ua => ua.userId !== deletedId);
+      db.userAccess = db.userAccess.filter(ua => ua.userId !== deletedId && ua.userId !== deletedEmpId);
     }
 
     addActivity(db, 'alert', 'Teacher Dismissed', `${teacherName} was removed from the roster`, 'rgb(var(--color-danger-rgb))', 'rgba(var(--color-danger-rgb), 0.1)');
-    writeDb(db);
+    writeDb(db, ['teachers', 'employees']);
     logAudit('Delete Teacher', `Teacher: ${teacherName} (ID: ${deletedId})`, `Dismissed teacher roster record`, req);
 
     res.json({ success: true, message: `Successfully dismissed teacher ${teacherName}` });

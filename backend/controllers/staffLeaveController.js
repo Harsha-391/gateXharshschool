@@ -1,6 +1,10 @@
 import * as sqlDb from '../utils/sqlDb.js';
-import { invalidateTenantCache } from '../utils/db.js';
+import { invalidateTenantCache, tenantStorage } from '../utils/db.js';
 import { logAudit } from '../utils/logger.js';
+
+const getReqTenantId = (req) => {
+  return req.headers['x-tenant-id'] || req.query.tenantId || req.admin?.tenantId || tenantStorage.getStore();
+};
 
 // Helper: Calculate days between dates (inclusive)
 const calculateDays = (fromDate, toDate, halfDay) => {
@@ -28,7 +32,7 @@ export const applyLeave = async (req, res) => {
   try {
     const { leaveType, title, reason, fromDate, toDate, halfDay, emergency, attachment, contactNumber } = req.body;
     const staffId = req.admin.id;
-    const tenantId = req.headers['x-tenant-id'] || req.query.tenantId;
+    const tenantId = getReqTenantId(req);
 
     if (!leaveType || !fromDate || !toDate || !title || !reason) {
       return res.status(400).json({ error: 'All fields (leaveType, title, reason, fromDate, toDate) are required.' });
@@ -85,7 +89,7 @@ export const applyLeave = async (req, res) => {
 export const getMyLeaves = async (req, res) => {
   try {
     const staffId = req.admin.id;
-    const tenantId = req.headers['x-tenant-id'] || req.query.tenantId;
+    const tenantId = getReqTenantId(req);
 
     const leaves = await sqlDb.query(
       'SELECT * FROM staff_leaves WHERE staffId = ? AND tenantId = ? ORDER BY createdAt DESC',
@@ -105,7 +109,7 @@ export const editLeave = async (req, res) => {
     const { id } = req.params;
     const { leaveType, title, reason, fromDate, toDate, halfDay, emergency, attachment, contactNumber } = req.body;
     const staffId = req.admin.id;
-    const tenantId = req.headers['x-tenant-id'] || req.query.tenantId;
+    const tenantId = getReqTenantId(req);
 
     // Check if leave exists and is pending
     const leaves = await sqlDb.query('SELECT * FROM staff_leaves WHERE id = ? AND tenantId = ?', [id, tenantId]);
@@ -157,7 +161,7 @@ export const cancelLeave = async (req, res) => {
   try {
     const { id } = req.params;
     const staffId = req.admin.id;
-    const tenantId = req.headers['x-tenant-id'] || req.query.tenantId;
+    const tenantId = getReqTenantId(req);
 
     const leaves = await sqlDb.query('SELECT * FROM staff_leaves WHERE id = ? AND tenantId = ?', [id, tenantId]);
     if (!leaves || leaves.length === 0) {
@@ -183,16 +187,16 @@ export const cancelLeave = async (req, res) => {
 // 5. ADMIN VIEW ALL LEAVES (with filter/search support)
 export const adminGetLeaves = async (req, res) => {
   try {
-    const tenantId = req.headers['x-tenant-id'] || req.query.tenantId;
+    const tenantId = getReqTenantId(req);
     const { search, status, fromDate, toDate } = req.query;
 
     let queryStr = `
-      SELECT sl.*, s.fullName AS staffName, s.id AS staffEmployeeId, s.photo AS staffPhoto, s.department AS staffDepartment, s.role AS staffDesignation
+      SELECT sl.*, COALESCE(s.fullName, s.name, 'Staff') AS staffName, s.id AS staffEmployeeId, s.photo AS staffPhoto, s.department AS staffDepartment, COALESCE(s.role, s.designation, 'Staff') AS staffDesignation
       FROM staff_leaves sl
-      JOIN staff s ON sl.staffId = s.id
-      WHERE sl.tenantId = ?
+      LEFT JOIN staff s ON sl.staffId = s.id
+      WHERE (sl.tenantId = ? OR sl.tenantId IS NULL OR ? = '' OR sl.tenantId = 'default')
     `;
-    const params = [tenantId];
+    const params = [tenantId || '', tenantId || ''];
 
     if (status && status !== 'All') {
       if (status === 'TodayPending') {
@@ -239,7 +243,7 @@ export const adminApproveLeave = async (req, res) => {
   try {
     const { id } = req.params;
     const { remarks } = req.body;
-    const tenantId = req.headers['x-tenant-id'] || req.query.tenantId;
+    const tenantId = getReqTenantId(req);
     const timestamp = new Date().toISOString();
 
     const leaves = await sqlDb.query(
@@ -325,7 +329,7 @@ export const adminRejectLeave = async (req, res) => {
   try {
     const { id } = req.params;
     const { remarks } = req.body;
-    const tenantId = req.headers['x-tenant-id'] || req.query.tenantId;
+    const tenantId = getReqTenantId(req);
     const timestamp = new Date().toISOString();
 
     const leaves = await sqlDb.query('SELECT * FROM staff_leaves WHERE id = ? AND tenantId = ?', [id, tenantId]);
@@ -378,7 +382,7 @@ export const adminRejectLeave = async (req, res) => {
 export const deleteLeave = async (req, res) => {
   try {
     const { id } = req.params;
-    const tenantId = req.headers['x-tenant-id'] || req.query.tenantId;
+    const tenantId = getReqTenantId(req);
 
     const leaves = await sqlDb.query('SELECT * FROM staff_leaves WHERE id = ? AND tenantId = ?', [id, tenantId]);
     if (!leaves || leaves.length === 0) {

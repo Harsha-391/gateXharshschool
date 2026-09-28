@@ -9,7 +9,7 @@ import {
   Edit3,
   Calendar 
 } from 'lucide-react';
-import { fetchActiveGrades, fetchActiveSections } from '../utils/grades';
+import { fetchActiveGrades, fetchActiveSections, areGradesEqual, areSectionsEqual, formatGradeDisplay, normalizeSection } from '../utils/grades';
 
 const parseGradeName = (fullName) => {
   if (!fullName) return { baseGrade: '', department: '' };
@@ -54,14 +54,15 @@ const getStatusBadge = (status) => {
 // ADMIN VERSION OF ROSTER DAILY MARKING VIEW (Single Submit Button)
 // ============================================================================
 export function MarkAttendanceView({ date, setDate, studentClass, setClass, section, setSection, search, setSearch, showToast, userProfile }) {
-  const isTeacher = userProfile?.role === 'Teacher' || userProfile?.userType === 'Teacher';
-  const assignedClass = isTeacher ? (userProfile?.assignedGradeName || userProfile?.assignedGradeId || '') : '';
-  const assignedSection = isTeacher ? (userProfile?.assignedSectionName || userProfile?.assignedSectionId || '') : '';
+  const isTeacher = userProfile?.role === 'Teacher' || userProfile?.userType === 'Teacher' ||
+    localStorage.getItem('role') === 'Teacher' || localStorage.getItem('userType') === 'Teacher';
+  const assignedClass = isTeacher ? (userProfile?.assignedGradeName || userProfile?.assignedGradeId || localStorage.getItem('assignedGradeName') || localStorage.getItem('assignedGradeId') || '') : '';
+  const assignedSection = isTeacher ? (userProfile?.assignedSectionName || userProfile?.assignedSectionId || localStorage.getItem('assignedSectionName') || localStorage.getItem('assignedSectionId') || '') : '';
 
   useEffect(() => {
     if (isTeacher) {
       if (assignedClass) setClass(assignedClass);
-      if (assignedSection) setSection(assignedSection);
+      if (assignedSection) setSection(normalizeSection(assignedSection) || assignedSection);
     }
   }, [userProfile, assignedClass, assignedSection, isTeacher]);
 
@@ -359,16 +360,22 @@ export function MarkAttendanceView({ date, setDate, studentClass, setClass, sect
               <label style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)' }}>Grade Class</label>
               <select 
                 className="select-custom" 
-                value={baseClass} 
+                value={isTeacher ? (baseClass || assignedClass) : baseClass} 
                 onChange={(e) => handleBaseClassChange(e.target.value)}
                 style={{ height: '38px', borderRadius: '8px' }}
                 disabled={isTeacher}
               >
-                {baseGrades.filter(g => !isTeacher || g === baseClass).map(g => (
-                  <option key={g} value={g}>
-                    {g.startsWith('LKG') || g.startsWith('UKG') || g.startsWith('NURSERY') ? g : `Grade ${g}`}
+                {isTeacher ? (
+                  <option value={baseClass || assignedClass}>
+                    {formatGradeDisplay(baseClass || assignedClass)}
                   </option>
-                ))}
+                ) : (
+                  baseGrades.map(g => (
+                    <option key={g} value={g}>
+                      {formatGradeDisplay(g)}
+                    </option>
+                  ))
+                )}
               </select>
             </div>
 
@@ -383,9 +390,13 @@ export function MarkAttendanceView({ date, setDate, studentClass, setClass, sect
                   style={{ height: '38px', borderRadius: '8px' }}
                   disabled={isTeacher}
                 >
-                  {departmentsForSelectedGrade.filter(d => !isTeacher || d === selectedDept).map(d => (
-                    <option key={d} value={d}>{d}</option>
-                  ))}
+                  {isTeacher ? (
+                    <option value={selectedDept}>{selectedDept}</option>
+                  ) : (
+                    departmentsForSelectedGrade.map(d => (
+                      <option key={d} value={d}>{d}</option>
+                    ))
+                  )}
                 </select>
               </div>
             )}
@@ -395,14 +406,20 @@ export function MarkAttendanceView({ date, setDate, studentClass, setClass, sect
               <label style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)' }}>Section</label>
               <select 
                 className="select-custom" 
-                value={section} 
+                value={isTeacher ? (normalizeSection(section || assignedSection) || section || assignedSection) : section} 
                 onChange={(e) => setSection(e.target.value)}
                 style={{ height: '38px', borderRadius: '8px' }}
                 disabled={isTeacher}
               >
-                {allowedSections.map(secName => (
-                  <option key={secName} value={secName}>Section {secName}</option>
-                ))}
+                {isTeacher ? (
+                  <option value={normalizeSection(section || assignedSection) || section || assignedSection}>
+                    Section {normalizeSection(section || assignedSection) || section || assignedSection}
+                  </option>
+                ) : (
+                  allowedSections.map(secName => (
+                    <option key={secName} value={secName}>Section {normalizeSection(secName) || secName}</option>
+                  ))
+                )}
               </select>
             </div>
 
@@ -789,14 +806,15 @@ export function MarkAttendanceView({ date, setDate, studentClass, setClass, sect
 // ADMIN VERSION OF ATTENDANCE HISTORY LOG VIEW (Read-only + Single Edit Buttons)
 // ============================================================================
 export function AttendanceHistoryView({ date, showToast, userProfile }) {
-  const isTeacher = userProfile?.role === 'Teacher' || userProfile?.userType === 'Teacher';
-  const assignedClass = isTeacher ? (userProfile?.assignedGradeName || userProfile?.assignedGradeId || '') : '';
-  const assignedSection = isTeacher ? (userProfile?.assignedSectionName || userProfile?.assignedSectionId || '') : '';
+  const isTeacher = userProfile?.role === 'Teacher' || userProfile?.userType === 'Teacher' ||
+    localStorage.getItem('role') === 'Teacher' || localStorage.getItem('userType') === 'Teacher';
+  const assignedClass = isTeacher ? (userProfile?.assignedGradeName || userProfile?.assignedGradeId || localStorage.getItem('assignedGradeName') || localStorage.getItem('assignedGradeId') || '') : '';
+  const assignedSection = isTeacher ? (userProfile?.assignedSectionName || userProfile?.assignedSectionId || localStorage.getItem('assignedSectionName') || localStorage.getItem('assignedSectionId') || '') : '';
 
   const todayStr = new Date().toISOString().split('T')[0];
   const [historyDate, setHistoryDate] = useState(date || todayStr);
   const [studentClass, setClass] = useState(assignedClass || '');
-  const [section, setSection] = useState(assignedSection || 'A');
+  const [section, setSection] = useState(normalizeSection(assignedSection) || assignedSection || 'A');
 
   const [roster, setRoster] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -806,7 +824,7 @@ export function AttendanceHistoryView({ date, showToast, userProfile }) {
   useEffect(() => {
     if (isTeacher) {
       if (assignedClass) setClass(assignedClass);
-      if (assignedSection) setSection(assignedSection);
+      if (assignedSection) setSection(normalizeSection(assignedSection) || assignedSection);
     }
   }, [userProfile, assignedClass, assignedSection, isTeacher]);
 
@@ -816,11 +834,12 @@ export function AttendanceHistoryView({ date, showToast, userProfile }) {
   // Compute allowed sections for the selected studentClass
   const allowedSections = React.useMemo(() => {
     if (isTeacher) {
-      return assignedSection ? [assignedSection] : [];
+      const sec = normalizeSection(assignedSection || section) || assignedSection || section;
+      return sec ? [sec] : [];
     }
     const matchedGrade = activeGrades.find(g => g.name === studentClass);
     return matchedGrade ? (matchedGrade.sections || []) : [];
-  }, [studentClass, activeGrades, isTeacher, assignedSection]);
+  }, [studentClass, activeGrades, isTeacher, assignedSection, section]);
 
   // Sync selected section when class selection shifts
   useEffect(() => {
@@ -883,13 +902,15 @@ export function AttendanceHistoryView({ date, showToast, userProfile }) {
   };
 
   const fetchRoster = async () => {
-    if (!studentClass || !section) return;
+    const targetClass = isTeacher ? (studentClass || assignedClass) : studentClass;
+    const targetSection = isTeacher ? (section || assignedSection) : section;
+    if (!targetClass || !targetSection) return;
     try {
       setLoading(true);
       const queryParams = new URLSearchParams({
         date: historyDate,
-        studentClass,
-        section,
+        studentClass: targetClass,
+        section: targetSection,
         submitted: 'true'
       }).toString();
       const res = await fetch(`/api/attendance?${queryParams}`);
@@ -910,17 +931,28 @@ export function AttendanceHistoryView({ date, showToast, userProfile }) {
     const loadGrades = async () => {
       const grades = await fetchActiveGrades();
       setActiveGrades(grades);
-      const isTeacherUser = userProfile?.role === 'Teacher' || userProfile?.userType === 'Teacher';
-      const teacherClass = userProfile?.assignedGradeName || userProfile?.assignedGradeId;
-      if (isTeacherUser && teacherClass) {
-        const found = grades.find(g => g.name === teacherClass || g.id === teacherClass);
-        setClass(found ? found.name : teacherClass);
+      if (isTeacher) {
+        const tClass = assignedClass || userProfile?.assignedGradeName || userProfile?.assignedGradeId || '';
+        const tSec = assignedSection || userProfile?.assignedSectionName || userProfile?.assignedSectionId || '';
+        if (tClass) {
+          const found = grades.find(g => 
+            g.name === tClass || 
+            g.id === tClass || 
+            g.gradeId === tClass ||
+            areGradesEqual(g.name, tClass) || 
+            areGradesEqual(g.gradeName, tClass)
+          );
+          setClass(found ? found.name : tClass);
+        }
+        if (tSec) {
+          setSection(normalizeSection(tSec) || tSec);
+        }
       } else if (grades.length > 0 && !studentClass) {
         setClass(grades[0].name);
       }
     };
     loadGrades();
-  }, [userProfile]);
+  }, [userProfile, isTeacher, assignedClass, assignedSection]);
 
   useEffect(() => {
     fetchRoster();
@@ -981,23 +1013,27 @@ export function AttendanceHistoryView({ date, showToast, userProfile }) {
             </span>
           </div>
 
-
-
           {/* Grade Filter */}
           <div className="form-group" style={{ margin: 0, minWidth: '110px' }}>
             <label style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)' }}>Grade</label>
             <select 
               className="select-custom" 
-              value={baseClass} 
+              value={isTeacher ? (baseClass || assignedClass) : baseClass} 
               onChange={(e) => handleBaseClassChange(e.target.value)}
               style={{ height: '38px', borderRadius: '8px' }}
               disabled={isTeacher}
             >
-              {baseGrades.filter(g => !isTeacher || g === baseClass).map(g => (
-                <option key={g} value={g}>
-                  {g.startsWith('LKG') || g.startsWith('UKG') || g.startsWith('NURSERY') ? g : `Grade ${g}`}
+              {isTeacher ? (
+                <option value={baseClass || assignedClass}>
+                  {formatGradeDisplay(baseClass || assignedClass)}
                 </option>
-              ))}
+              ) : (
+                baseGrades.map(g => (
+                  <option key={g} value={g}>
+                    {formatGradeDisplay(g)}
+                  </option>
+                ))
+              )}
             </select>
           </div>
 
@@ -1012,9 +1048,13 @@ export function AttendanceHistoryView({ date, showToast, userProfile }) {
                 style={{ height: '38px', borderRadius: '8px' }}
                 disabled={isTeacher}
               >
-                {departmentsForSelectedGrade.filter(d => !isTeacher || d === selectedDept).map(d => (
-                  <option key={d} value={d}>{d}</option>
-                ))}
+                {isTeacher ? (
+                  <option value={selectedDept}>{selectedDept}</option>
+                ) : (
+                  departmentsForSelectedGrade.map(d => (
+                    <option key={d} value={d}>{d}</option>
+                  ))
+                )}
               </select>
             </div>
           )}
@@ -1024,14 +1064,20 @@ export function AttendanceHistoryView({ date, showToast, userProfile }) {
             <label style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)' }}>Section</label>
             <select 
               className="select-custom" 
-              value={section} 
+              value={isTeacher ? (normalizeSection(section || assignedSection) || section || assignedSection) : section} 
               onChange={(e) => setSection(e.target.value)}
               style={{ height: '38px', borderRadius: '8px' }}
               disabled={isTeacher}
             >
-              {allowedSections.map(secName => (
-                <option key={secName} value={secName}>Section {secName}</option>
-              ))}
+              {isTeacher ? (
+                <option value={normalizeSection(section || assignedSection) || section || assignedSection}>
+                  Section {normalizeSection(section || assignedSection) || section || assignedSection}
+                </option>
+              ) : (
+                allowedSections.map(secName => (
+                  <option key={secName} value={secName}>Section {normalizeSection(secName) || secName}</option>
+                ))
+              )}
             </select>
           </div>
 

@@ -405,7 +405,11 @@ export default function StaffDirectory({ setActiveView, readOnly = true, onAddCl
       }
 
       try {
-        const res = await fetch(`/api/staff/${teacherId}`, { method: 'DELETE' });
+        const token = localStorage.getItem('token');
+        const res = await fetch(`/api/staff/${teacherId}`, { 
+          method: 'DELETE',
+          headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+        });
         if (!res.ok) {
           // Rollback on server failure
           setTeachers(originalTeachers);

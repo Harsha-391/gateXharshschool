@@ -1,7 +1,7 @@
 import express from 'express';
 import fs from 'fs';
 import path from 'path';
-import { readDb, writeDb, slugify, convertToRoman, tenantStorage, restoreTenantContext, ensureTenantSqlLoaded } from '../utils/db.js';
+import { readDb, writeDb, slugify, convertToRoman, tenantStorage, restoreTenantContext, ensureTenantSqlLoaded, sortSubjectsByGrade } from '../utils/db.js';
 import { auth } from '../middleware/auth.js';
 import { logAudit as fileLogAudit } from '../utils/logger.js';
 
@@ -521,9 +521,9 @@ router.delete('/:id', (req, res) => {
     });
 
     if (db.subjects) {
-      db.subjects = db.subjects.filter(sub => 
+      db.subjects = sortSubjectsByGrade(db.subjects.filter(sub => 
         !sub.grade || !namesToDelete.some(n => sub.grade.toLowerCase() === n.toLowerCase())
-      );
+      ));
     }
 
     // 2. Delete timetables
@@ -809,9 +809,9 @@ router.delete('/mappings/:id', (req, res) => {
 
       // 1. Delete subjects
       if (db.subjects) {
-        db.subjects = db.subjects.filter(sub => 
+        db.subjects = sortSubjectsByGrade(db.subjects.filter(sub => 
           !sub.grade || !namesToDelete.some(n => sub.grade.toLowerCase() === n.toLowerCase())
-        );
+        ));
       }
 
       // 2. Delete timetables

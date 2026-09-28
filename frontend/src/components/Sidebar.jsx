@@ -1129,13 +1129,23 @@ export default function Sidebar({
           ) : (
             (() => {
               const userRole = userProfile?.role || localStorage.getItem('role') || localStorage.getItem('portal_role');
-              const isSchoolAdmin = userRole === 'Main Admin' || userRole === 'Principal';
-              const principalNameFromSchool = schoolDetails?.principal || schoolDetails?.principalName;
-              const name = (isSchoolAdmin && principalNameFromSchool && principalNameFromSchool !== 'Principal')
-                ? principalNameFromSchool
-                : (userProfile?.name && userProfile.name !== 'Principal' ? userProfile.name : (principalNameFromSchool || localStorage.getItem('name') || 'Principal'));
+              const isSchoolAdmin = userRole === 'Main Admin' || userRole === 'Principal' || userRole === 'Admin Dashboard' || userRole === 'School Admin';
+              const principalNameFromSchool = schoolDetails?.principalName || schoolDetails?.principal || schoolDetails?.adminName;
               
-              const parts = name.split(' ');
+              let name = 'Principal';
+              if (userProfile?.name && userProfile.name !== 'User' && userProfile.name !== 'Principal') {
+                name = userProfile.name;
+              } else if (principalNameFromSchool && principalNameFromSchool !== 'Master Admin' && principalNameFromSchool !== 'Principal') {
+                name = principalNameFromSchool;
+              } else if (localStorage.getItem('name') && localStorage.getItem('name') !== 'User' && localStorage.getItem('name') !== 'Principal') {
+                name = localStorage.getItem('name');
+              } else if (principalNameFromSchool) {
+                name = principalNameFromSchool;
+              } else if (userProfile?.name && userProfile.name !== 'User') {
+                name = userProfile.name;
+              }
+              
+              const parts = name.trim().split(/\s+/);
               if (parts.length > 1) {
                 return (parts[0][0] + parts[1][0]).toUpperCase();
               }
@@ -1148,15 +1158,26 @@ export default function Sidebar({
             <span className="profile-name" style={{ fontSize: '0.88rem', fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: 'var(--text-main)' }}>
               {(() => {
                 const userRole = userProfile?.role || localStorage.getItem('role') || localStorage.getItem('portal_role');
-                const isSchoolAdmin = userRole === 'Main Admin' || userRole === 'Principal';
-                const principalNameFromSchool = schoolDetails?.principal || schoolDetails?.principalName;
-                return (isSchoolAdmin && principalNameFromSchool && principalNameFromSchool !== 'Principal')
-                  ? principalNameFromSchool
-                  : (userProfile?.name && userProfile.name !== 'Principal' ? userProfile.name : (principalNameFromSchool || localStorage.getItem('name') || 'Principal'));
+                const isSchoolAdmin = userRole === 'Main Admin' || userRole === 'Principal' || userRole === 'Admin Dashboard' || userRole === 'School Admin';
+                const principalNameFromSchool = schoolDetails?.principalName || schoolDetails?.principal || schoolDetails?.adminName;
+                
+                if (userProfile?.name && userProfile.name !== 'User' && userProfile.name !== 'Principal') {
+                  return userProfile.name;
+                }
+                if (principalNameFromSchool && principalNameFromSchool !== 'Master Admin' && principalNameFromSchool !== 'Principal') {
+                  return principalNameFromSchool;
+                }
+                if (localStorage.getItem('name') && localStorage.getItem('name') !== 'User' && localStorage.getItem('name') !== 'Principal') {
+                  return localStorage.getItem('name');
+                }
+                return principalNameFromSchool || userProfile?.name || localStorage.getItem('name') || 'School Administrator';
               })()}
             </span>
             <span className="profile-role" style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginTop: '2px' }}>
-              {userProfile?.role || localStorage.getItem('portal_role') || localStorage.getItem('role') || 'Super Admin'}
+              {(() => {
+                const r = userProfile?.role || localStorage.getItem('portal_role') || localStorage.getItem('role');
+                return (r && r !== 'Guest') ? r : 'School Admin';
+              })()}
             </span>
           </div>
           <ChevronDown size={16} style={{ color: 'var(--text-muted)', marginLeft: '8px' }} />

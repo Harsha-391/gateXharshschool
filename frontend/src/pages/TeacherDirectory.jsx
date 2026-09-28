@@ -343,7 +343,10 @@ export default function TeacherDirectory({ readOnly = true, onAddClick, onEditCl
     }
     try {
       setLoading(true);
-      const res = await fetch('/api/teachers');
+      const token = localStorage.getItem('token');
+      const res = await fetch('/api/teachers', {
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+      });
       if (res.ok) {
         let list = await res.json();
         if (!Array.isArray(list)) list = list.teachers || [];
@@ -412,7 +415,11 @@ export default function TeacherDirectory({ readOnly = true, onAddClick, onEditCl
       }
 
       try {
-        const res = await fetch(`/api/teachers/${teacherId}`, { method: 'DELETE' });
+        const token = localStorage.getItem('token');
+        const res = await fetch(`/api/teachers/${teacherId}`, { 
+          method: 'DELETE',
+          headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+        });
         if (!res.ok) {
           setTeachers(originalTeachers);
           setTotalCount(originalTotalCount);
@@ -435,9 +442,13 @@ export default function TeacherDirectory({ readOnly = true, onAddClick, onEditCl
   // ==========================================
   const handleStatusChange = async (teacherId, newStatus) => {
     try {
+      const token = localStorage.getItem('token');
       const res = await fetch(`/api/teachers/${teacherId}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        },
         body: JSON.stringify({ status: newStatus })
       });
       if (res.ok) {
@@ -476,9 +487,13 @@ export default function TeacherDirectory({ readOnly = true, onAddClick, onEditCl
     setEditLoading(true);
     try {
       const teacherId = editingTeacher.employeeId || editingTeacher.id;
+      const token = localStorage.getItem('token');
       const res = await fetch(`/api/teachers/${teacherId}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        },
         body: JSON.stringify(editFormData)
       });
       if (res.ok) {

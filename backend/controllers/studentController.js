@@ -1,4 +1,4 @@
-import { readDb, writeDb, addActivity } from '../utils/db.js';
+import { readDb, writeDb, addActivity, isSqlActive, tenantStorage, slugify } from '../utils/db.js';
 import { hashPassword } from '../utils/authHelper.js';
 import { logAudit } from '../utils/logger.js';
 import { encrypt, decrypt } from '../utils/encryptionHelper.js';
@@ -235,7 +235,18 @@ export const registerStudent = async (req, res) => {
       doctorContact: doctorContact || '',
 
       transportRequired: transportRequired || 'No',
+      route: req.body.route || '',
+      pickupPoint: req.body.pickupPoint || '',
+      dropPoint: req.body.dropPoint || '',
+      transportFeePlan: req.body.transportFeePlan || '',
+
       hostelRequired: hostelRequired || 'No',
+      hostelBlock: req.body.hostelBlock || '',
+      roomNumber: req.body.roomNumber || '',
+      bedNumber: req.body.bedNumber || '',
+
+      sameAsPermanent: (req.body.sameAsPermanent === 'true' || req.body.sameAsPermanent === true || req.body.sameAsPermanent === 'Yes' || isSameAddress === 'true' || isSameAddress === true) ? 'Yes' : 'No',
+      createParentLogin: createParent ? 'Yes' : 'No',
 
       feeStructure: feeStructure || '',
       scholarshipDetails: scholarshipDetails || '',
@@ -270,8 +281,9 @@ export const registerStudent = async (req, res) => {
     };
 
     db.students.push(newStudent);
+    db.students = [...db.students];
     addActivity(db, 'registration', 'New Student Admitted', `${calculatedFullName} registered in Grade ${newStudent.grade}`, 'hsl(var(--color-primary))', 'rgba(hsl(var(--color-primary)), 0.1)');
-    writeDb(db);
+    writeDb(db, ['students']);
     logAudit('Create Student', `Student: ${newStudent.name} (Adm: ${newStudent.admissionNumber})`, `Registered student ID: ${newStudent.id}`, req);
 
     res.status(201).json(newStudent);
@@ -484,12 +496,33 @@ export const updateStudent = async (req, res) => {
         : currentStudent.email,
       phone: updateData.guardianContact !== undefined || updateData.fatherMobile !== undefined || updateData.motherMobile !== undefined
         ? encrypt(updateData.guardianContact || updateData.fatherMobile || updateData.motherMobile || decrypt(currentStudent.phone))
-        : currentStudent.phone
+        : currentStudent.phone,
+      transportRequired: updateData.transportRequired !== undefined ? updateData.transportRequired : currentStudent.transportRequired,
+      route: updateData.route !== undefined ? updateData.route : (currentStudent.route || ''),
+      pickupPoint: updateData.pickupPoint !== undefined ? updateData.pickupPoint : (currentStudent.pickupPoint || ''),
+      dropPoint: updateData.dropPoint !== undefined ? updateData.dropPoint : (currentStudent.dropPoint || ''),
+      transportFeePlan: updateData.transportFeePlan !== undefined ? updateData.transportFeePlan : (currentStudent.transportFeePlan || ''),
+      hostelRequired: updateData.hostelRequired !== undefined ? updateData.hostelRequired : currentStudent.hostelRequired,
+      hostelBlock: updateData.hostelBlock !== undefined ? updateData.hostelBlock : (currentStudent.hostelBlock || ''),
+      roomNumber: updateData.roomNumber !== undefined ? updateData.roomNumber : (currentStudent.roomNumber || ''),
+      bedNumber: updateData.bedNumber !== undefined ? updateData.bedNumber : (currentStudent.bedNumber || ''),
+      studentClass: updateData.studentClass !== undefined ? updateData.studentClass : currentStudent.studentClass,
+      section: updateData.section !== undefined ? updateData.section : currentStudent.section,
+      academicYear: updateData.academicYear !== undefined ? updateData.academicYear : currentStudent.academicYear,
+      admissionType: updateData.admissionType !== undefined ? updateData.admissionType : currentStudent.admissionType,
+      previousSchoolName: updateData.previousSchoolName !== undefined ? updateData.previousSchoolName : currentStudent.previousSchoolName,
+      previousSchoolAddress: updateData.previousSchoolAddress !== undefined ? updateData.previousSchoolAddress : currentStudent.previousSchoolAddress,
+      previousClassStudied: updateData.previousClassStudied !== undefined ? updateData.previousClassStudied : currentStudent.previousClassStudied,
+      transferCertificateNumber: updateData.transferCertificateNumber !== undefined ? updateData.transferCertificateNumber : currentStudent.transferCertificateNumber,
+      sameAsPermanent: updateData.sameAsPermanent !== undefined ? updateData.sameAsPermanent : (updateData.isSameAddress !== undefined ? (updateData.isSameAddress ? 'Yes' : 'No') : currentStudent.sameAsPermanent),
+      createParentLogin: updateData.createParentLogin !== undefined ? (updateData.createParentLogin === true || updateData.createParentLogin === 'true' || updateData.createParentLogin === 'Yes' ? 'Yes' : 'No') : currentStudent.createParentLogin,
+      parentUsername: updateData.parentUsername !== undefined ? updateData.parentUsername : currentStudent.parentUsername
     };
 
     db.students[studentIndex] = updatedStudent;
+    db.students = [...db.students];
     addActivity(db, 'alert', 'Student Profile Modified', `${updatedStudent.name}'s registry was modified.`, 'hsl(var(--color-secondary))', 'rgba(hsl(var(--color-secondary)), 0.1)');
-    writeDb(db);
+    writeDb(db, ['students']);
     logAudit('Update Student', `Student: ${updatedStudent.name} (Adm: ${updatedStudent.admissionNumber})`, `Updated student registry details`, req);
 
     res.json(updatedStudent);
@@ -503,30 +536,76 @@ export const updateStudent = async (req, res) => {
 export const deleteStudent = async (req, res) => {
   try {
     const db = readDb();
-    const studentIndex = db.students.findIndex(s => s.id === req.params.id);
+    if (!db.students) db.students = [];
+    const reqId = String(req.params.id || '').trim();
+    const cleanReqId = reqId.replace(/^stu-?/i, '');
+    const studentIndex = db.students.findIndex(s => {
+      const sId = String(s.id || '').trim();
+      const cleanSId = sId.replace(/^stu-?/i, '');
+      return sId === reqId ||
+             (cleanReqId && cleanSId === cleanReqId) ||
+             String(s.admissionNumber || '').trim() === reqId ||
+             String(s.enrollmentId || '').trim() === reqId;
+    });
 
     if (studentIndex === -1) {
       return res.status(404).json({ error: 'Student profile not found.' });
     }
 
     const student = db.students[studentIndex];
-    const studentName = student.name;
+    const studentName = student.name || student.fullName || 'Student';
+    const deletedId = student.id;
 
-    // Delete files from ImageKit
+    // Delete files from ImageKit asynchronously without blocking database deletion
     const filesToDelete = [
       student.photo, student.aadhaarFile, student.birthCertificateFile, student.marksheetFile,
       student.transferCertificateFile, student.addressProofFile, student.medicalCertificateFile, student.additionalFile
     ];
     for (const fileUrl of filesToDelete) {
       if (fileUrl) {
-        await deleteFromImageKit(fileUrl);
+        deleteFromImageKit(fileUrl).catch(e => console.error('[ImageKit Delete Error]', e?.message || e));
+      }
+    }
+
+    // Direct Synchronous SQL Delete to guarantee immediate database persistence
+    if (isSqlActive()) {
+      try {
+        const sqlDb = await import('../utils/sqlDb.js');
+        const tenantId = tenantStorage.getStore();
+        const tId = tenantId ? slugify(tenantId) : 'platform';
+        
+        // Remove from child tables first to prevent any foreign key constraint failures
+        const childTables = [
+          'student_enrollments', 'parents', 'addresses', 'medical_records',
+          'documents', 'fee_assignments', 'student_accounts', 'parent_accounts',
+          'results', 'overall_results', 'attendance', 'fees'
+        ];
+        for (const tbl of childTables) {
+          try {
+            await sqlDb.query(`DELETE FROM \`${tbl}\` WHERE studentId = ? AND (tenantId = ? OR tenantId IS NULL OR tenantId = '')`, [deletedId, tId], tId);
+          } catch (tblErr) {
+            // Ignore if table does not exist or column is absent
+          }
+        }
+        await sqlDb.query('DELETE FROM user_access WHERE userId = ? AND (tenantId = ? OR tenantId IS NULL OR tenantId = ?)', [deletedId, tId, ''], tId);
+        await sqlDb.query('DELETE FROM students WHERE id = ? AND (tenantId = ? OR tenantId IS NULL OR tenantId = ?)', [deletedId, tId, ''], tId);
+
+        const syncTs = new Date().toISOString();
+        await sqlDb.query('UPDATE schools SET updatedAt = ? WHERE subdomain = ?', [syncTs, tId]);
+      } catch (sqlErr) {
+        console.error('[SQL Direct Delete Student Error]', sqlErr);
       }
     }
 
     db.students.splice(studentIndex, 1);
+    db.students = [...db.students];
+    if (db.userAccess) {
+      db.userAccess = db.userAccess.filter(ua => ua.userId !== deletedId);
+    }
+
     addActivity(db, 'alert', 'Student Dismissed', `${studentName} was removed from the registry`, 'rgb(var(--color-danger-rgb))', 'rgba(var(--color-danger-rgb), 0.1)');
-    writeDb(db);
-    logAudit('Delete Student', `Student: ${studentName} (ID: ${req.params.id})`, `Dismissed student record`, req);
+    writeDb(db, ['students']);
+    logAudit('Delete Student', `Student: ${studentName} (ID: ${deletedId})`, `Dismissed student record`, req);
 
     res.json({ success: true, message: `Removed student ${studentName}` });
   } catch (error) {

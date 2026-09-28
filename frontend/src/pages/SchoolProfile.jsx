@@ -694,7 +694,7 @@ export default function SchoolProfile({ schoolDetails, fetchSchoolDetails, isDev
         const resultData = await res.json();
         setShowAddModal(false);
         fetchPlatformData();
-        if (fetchSchoolDetails) fetchSchoolDetails();
+        if (fetchSchoolDetails && !isDeveloperAdmin) fetchSchoolDetails();
         if (modalMode === 'add') {
           const localUrl = getSchoolSubdomainUrl(resultData.subdomain);
           showToast(
@@ -1563,8 +1563,9 @@ export default function SchoolProfile({ schoolDetails, fetchSchoolDetails, isDev
                     <div className="school-url-container">
                       <a 
                         href={getSchoolSubdomainUrl(school.subdomain)}
-                        onClick={(e) => { e.preventDefault(); handleLaunchPortal(school); }}
-                        title="Open Login Portal"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        title="Open School Portal Login"
                         style={{ 
                           fontSize: '0.74rem', color: 'hsl(var(--color-primary))', 
                           display: 'block', 
@@ -1590,6 +1591,15 @@ export default function SchoolProfile({ schoolDetails, fetchSchoolDetails, isDev
                       </button>
                     </div>
                     <div className="school-action-buttons">
+                      <button 
+                        type="button"
+                        onClick={() => handleLaunchPortal(school)} 
+                        className="school-action-badge-btn btn-launch" 
+                        title="Quick Launch & Auto-Login as Admin" 
+                      >
+                        <ExternalLink size={16} />
+                      </button>
+
                       <button 
                         type="button"
                         onClick={() => handleOpenManageCredentialsModal(school)} 

@@ -56,7 +56,9 @@ router.get('/roles', (req, res) => {
       writeDb(db);
       console.log('[RBAC] Seeded default roles and permissions for this tenant.');
     }
-    res.json(db.roles);
+    // Filter out default Expense Manager so it does not show initially for any school
+    const filteredRoles = db.roles.filter(r => r.id !== 'role-expense-manager');
+    res.json(filteredRoles);
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch roles: ' + error.message });
   }
@@ -86,7 +88,7 @@ router.post('/roles', (req, res) => {
       return res.status(400).json({ error: 'A role with this name already exists.' });
     }
 
-    const isSystemName = ['Academic Coordinator', 'Staff', 'Teacher', 'Receptionist', 'Accountant', 'Expense Manager', 'Principal', 'Vice Principal'].includes(name);
+    const isSystemName = ['Academic Coordinator', 'Staff', 'Teacher', 'Receptionist', 'Accountant', 'Principal', 'Vice Principal'].includes(name);
     const newRole = {
       id: `role-${Date.now()}`,
       name,
@@ -148,7 +150,7 @@ router.put('/roles/:id', (req, res) => {
     if (active !== undefined) existingRole.active = active;
     if (permissions !== undefined) existingRole.permissions = permissions;
 
-    const isSystemName = ['Academic Coordinator', 'Staff', 'Teacher', 'Receptionist', 'Accountant', 'Expense Manager', 'Principal', 'Vice Principal'].includes(existingRole.name);
+    const isSystemName = ['Academic Coordinator', 'Staff', 'Teacher', 'Receptionist', 'Accountant', 'Principal', 'Vice Principal'].includes(existingRole.name);
     if (isSystemName) {
       existingRole.isSystem = true;
     }

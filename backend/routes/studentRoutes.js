@@ -25,19 +25,20 @@ const uploadFields = upload.fields([
   { name: 'additionalFile', maxCount: 1 }
 ]);
 
-// Apply auth globally to all student routes
+// Apply tenant context and auth globally to all student routes
+router.use(restoreTenantContext);
 router.use(auth);
 
 // 1. GET ALL STUDENTS (Support Query Search, Filter, Sort, Pagination)
-router.get('/', restoreTenantContext, checkPermission('student-directory', 'view'), getStudents);
+router.get('/', checkPermission('student-directory', 'view'), getStudents);
 
 // 2. REGISTER NEW STUDENT (Multer Files upload + JWT authentication)
-router.post('/', uploadFields, restoreTenantContext, checkPermission('register-student', 'create'), studentValidation, registerStudent);
+router.post('/', uploadFields, checkPermission('register-student', 'create'), studentValidation, registerStudent);
 
 // 3. UPDATE STUDENT PROFILE
-router.put('/:id', uploadFields, restoreTenantContext, checkPermission('student-directory', 'edit'), updateStudent);
+router.put('/:id', uploadFields, checkPermission('student-directory', 'edit'), updateStudent);
 
 // 4. DISMISS / REMOVE STUDENT profile
-router.delete('/:id', restoreTenantContext, checkPermission('student-directory', 'delete'), deleteStudent);
+router.delete('/:id', checkPermission('student-directory', 'delete'), deleteStudent);
 
 export default router;

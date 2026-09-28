@@ -66,6 +66,95 @@ export const convertToRoman = (str) => {
   return str;
 };
 
+// Grade sorting rank helper: gives standard ascending priority (Play/Nursery -> LKG -> UKG -> I -> II -> ... -> XII)
+export const getGradeSortRank = (gradeStr) => {
+  if (!gradeStr) return 9999;
+  const raw = String(gradeStr).trim().toUpperCase();
+  const clean = raw.replace(/^(GRADE|CLASS|STD|STANDARD)\s*/i, '').trim();
+
+  // Early childhood / Pre-primary
+  if (clean.includes('PLAY') || clean.includes('PRE-NURSERY') || clean.includes('PRE NURSERY')) return 10;
+  if (clean.includes('NURSERY') || clean === 'NUR') return 20;
+  if (clean.includes('LKG') || clean.includes('KG-1') || clean.includes('KG 1') || clean.includes('JR') || clean.includes('JUNIOR KG')) return 30;
+  if (clean.includes('UKG') || clean.includes('KG-2') || clean.includes('KG 2') || clean.includes('SR') || clean.includes('SENIOR KG')) return 40;
+
+  // Exact Roman and ordinal / word mapping
+  const lookup = {
+    '1': 100, 'I': 100, '1ST': 100, 'FIRST': 100,
+    '2': 200, 'II': 200, '2ND': 200, 'SECOND': 200,
+    '3': 300, 'III': 300, '3RD': 300, 'THIRD': 300,
+    '4': 400, 'IV': 400, '4TH': 400, 'FOURTH': 400,
+    '5': 500, 'V': 500, '5TH': 500, 'FIFTH': 500,
+    '6': 600, 'VI': 600, '6TH': 600, 'SIXTH': 600,
+    '7': 700, 'VII': 700, '7TH': 700, 'SEVENTH': 700,
+    '8': 800, 'VIII': 800, '8TH': 800, 'EIGHTH': 800,
+    '9': 900, 'IX': 900, '9TH': 900, 'NINTH': 900,
+    '10': 1000, 'X': 1000, '10TH': 1000, 'TENTH': 1000,
+    '11': 1100, 'XI': 1100, '11TH': 1100, 'ELEVENTH': 1100,
+    '12': 1200, 'XII': 1200, '12TH': 1200, 'TWELFTH': 1200
+  };
+
+  if (lookup[clean] !== undefined) return lookup[clean];
+  if (lookup[raw] !== undefined) return lookup[raw];
+
+  // Try matching isolated number
+  const numMatch = clean.match(/\b\d+\b/);
+  if (numMatch) {
+    const num = parseInt(numMatch[0], 10);
+    if (!isNaN(num)) return num * 100;
+  }
+
+  return 5000;
+};
+
+// Compare two grade strings for natural academic ascending sort
+export const compareGrades = (gradeA, gradeB) => {
+  const rankA = getGradeSortRank(gradeA);
+  const rankB = getGradeSortRank(gradeB);
+  if (rankA !== rankB) return rankA - rankB;
+  return String(gradeA || '').localeCompare(String(gradeB || ''), undefined, { numeric: true });
+};
+
+// Generate standard subject ID that enforces grade clustering and ascending sorting in MySQL InnoDB primary key
+export const formatSubjectId = (grade, subjectName, existingId) => {
+  const rank = getGradeSortRank(grade);
+  const rankStr = String(rank).padStart(4, '0');
+  const gradeSlug = convertToRoman(grade || '').replace(/[^A-Za-z0-9]/g, '').toUpperCase() || 'GEN';
+  const nameSlug = (subjectName || '').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 10) || 'sub';
+
+  if (existingId && existingId.startsWith(`SUB-${rankStr}-${gradeSlug}-`)) {
+    return existingId;
+  }
+
+  let suffix = '';
+  if (existingId) {
+    const parts = String(existingId).split('-');
+    const lastPart = parts[parts.length - 1];
+    if (/^\d+$/.test(lastPart)) {
+      suffix = lastPart;
+    }
+  }
+  if (!suffix) {
+    suffix = `${Date.now()}${Math.floor(100 + Math.random() * 900)}`;
+  }
+
+  return `SUB-${rankStr}-${gradeSlug}-${nameSlug}-${suffix}`;
+};
+
+// Sort subjects array by grade ascending, then by subject name ascending
+export const sortSubjectsByGrade = (subjects) => {
+  if (!Array.isArray(subjects)) return [];
+  return [...subjects].sort((a, b) => {
+    const gradeA = a.grade || a.classId || '';
+    const gradeB = b.grade || b.classId || '';
+    const gradeComp = compareGrades(gradeA, gradeB);
+    if (gradeComp !== 0) return gradeComp;
+    const nameA = (a.subjectName || a.name || '').toLowerCase();
+    const nameB = (b.subjectName || b.name || '').toLowerCase();
+    return nameA.localeCompare(nameB);
+  });
+};
+
 export const isGrade11or12 = (name) => {
   if (!name) return false;
   const clean = name.trim().toUpperCase();
@@ -408,6 +497,8 @@ const createTablesFromSchema = async () => {
       "ALTER TABLE events ADD COLUMN participants VARCHAR(100)",
       "ALTER TABLE events ADD COLUMN startTime VARCHAR(50)",
       "ALTER TABLE events ADD COLUMN endTime VARCHAR(50)",
+      "ALTER TABLE events ADD COLUMN startDate VARCHAR(50)",
+      "ALTER TABLE events ADD COLUMN endDate VARCHAR(50)",
       "ALTER TABLE events ADD COLUMN isDeleted TINYINT(1) DEFAULT 0",
       "ALTER TABLE schools ADD COLUMN noticeCategories TEXT NULL",
       "ALTER TABLE schools ADD COLUMN holidayClassifications TEXT NULL",
@@ -1147,14 +1238,102 @@ export const applySchemaUpdates = async (pool, isMaster = false, tenantId = null
       "ALTER TABLE staff ADD COLUMN experiences TEXT",
       
       // Other alters
+      "ALTER TABLE staff ADD COLUMN hasRole VARCHAR(10) DEFAULT 'Yes'",
+      "ALTER TABLE staff ADD COLUMN designation VARCHAR(100)",
       "ALTER TABLE staff ADD COLUMN assignedGradeId VARCHAR(50) DEFAULT NULL",
       "ALTER TABLE staff ADD COLUMN assignedSectionId VARCHAR(50) DEFAULT NULL",
       "ALTER TABLE staff ADD COLUMN isClassTeacher TINYINT(1) DEFAULT 0",
       "ALTER TABLE staff ADD COLUMN attendancePermission TINYINT(1) DEFAULT 0",
+      "ALTER TABLE teachers ADD COLUMN hasRole VARCHAR(10) DEFAULT 'Yes'",
+      "ALTER TABLE teachers ADD COLUMN designation VARCHAR(100)",
       "ALTER TABLE teachers ADD COLUMN assignedGradeId VARCHAR(50) DEFAULT NULL",
       "ALTER TABLE teachers ADD COLUMN assignedSectionId VARCHAR(50) DEFAULT NULL",
       "ALTER TABLE teachers ADD COLUMN isClassTeacher TINYINT(1) DEFAULT 0",
       "ALTER TABLE teachers ADD COLUMN attendancePermission TINYINT(1) DEFAULT 0",
+      "ALTER TABLE employees ADD COLUMN firstName VARCHAR(100)",
+      "ALTER TABLE employees ADD COLUMN middleName VARCHAR(100)",
+      "ALTER TABLE employees ADD COLUMN lastName VARCHAR(100)",
+      "ALTER TABLE employees ADD COLUMN dob VARCHAR(50)",
+      "ALTER TABLE employees ADD COLUMN bloodGroup VARCHAR(20)",
+      "ALTER TABLE employees ADD COLUMN nationality VARCHAR(100) DEFAULT 'Indian'",
+      "ALTER TABLE employees ADD COLUMN maritalStatus VARCHAR(50)",
+      "ALTER TABLE employees ADD COLUMN aadhaarNumber VARCHAR(100)",
+      "ALTER TABLE employees ADD COLUMN panNumber VARCHAR(100)",
+      "ALTER TABLE employees ADD COLUMN panFile LONGTEXT",
+      "ALTER TABLE employees ADD COLUMN resumeFile LONGTEXT",
+      "ALTER TABLE employees ADD COLUMN joiningLetterFile LONGTEXT",
+      "ALTER TABLE employees ADD COLUMN otherFile LONGTEXT",
+      "ALTER TABLE employees ADD COLUMN alternateMobile VARCHAR(50)",
+      "ALTER TABLE employees ADD COLUMN emergencyContactNumber VARCHAR(50)",
+      "ALTER TABLE employees ADD COLUMN currentAddress TEXT",
+      "ALTER TABLE employees ADD COLUMN currentCity VARCHAR(100)",
+      "ALTER TABLE employees ADD COLUMN currentState VARCHAR(100)",
+      "ALTER TABLE employees ADD COLUMN currentCountry VARCHAR(100) DEFAULT 'India'",
+      "ALTER TABLE employees ADD COLUMN currentPostalCode VARCHAR(50)",
+      "ALTER TABLE employees ADD COLUMN permanentAddress TEXT",
+      "ALTER TABLE employees ADD COLUMN permanentCity VARCHAR(100)",
+      "ALTER TABLE employees ADD COLUMN permanentState VARCHAR(100)",
+      "ALTER TABLE employees ADD COLUMN permanentCountry VARCHAR(100) DEFAULT 'India'",
+      "ALTER TABLE employees ADD COLUMN permanentPostalCode VARCHAR(50)",
+      "ALTER TABLE employees ADD COLUMN sameAsPermanent VARCHAR(10) DEFAULT 'No'",
+      "ALTER TABLE employees ADD COLUMN experiences TEXT",
+      "ALTER TABLE employees ADD COLUMN staffCategory VARCHAR(100)",
+      "ALTER TABLE employees ADD COLUMN assignedGradeId VARCHAR(50) DEFAULT NULL",
+      "ALTER TABLE employees ADD COLUMN assignedSectionId VARCHAR(50) DEFAULT NULL",
+      "ALTER TABLE employees ADD COLUMN isClassTeacher TINYINT(1) DEFAULT 0",
+      "ALTER TABLE employees ADD COLUMN attendancePermission TINYINT(1) DEFAULT 0",
+      "ALTER TABLE employees ADD COLUMN primarySubject VARCHAR(100)",
+      "ALTER TABLE employees ADD COLUMN secondarySubject VARCHAR(100)",
+      "ALTER TABLE students ADD COLUMN studentClass VARCHAR(50)",
+      "ALTER TABLE students ADD COLUMN section VARCHAR(50)",
+      "ALTER TABLE students ADD COLUMN rollNumber VARCHAR(50)",
+      "ALTER TABLE students ADD COLUMN academicYear VARCHAR(50) DEFAULT '2026-2027'",
+      "ALTER TABLE students ADD COLUMN admissionType VARCHAR(50) DEFAULT 'New Admission'",
+      "ALTER TABLE students ADD COLUMN previousSchoolName VARCHAR(255)",
+      "ALTER TABLE students ADD COLUMN previousSchoolAddress TEXT",
+      "ALTER TABLE students ADD COLUMN previousClassStudied VARCHAR(50)",
+      "ALTER TABLE students ADD COLUMN transferCertificateNumber VARCHAR(100)",
+      "ALTER TABLE students ADD COLUMN fatherName VARCHAR(255)",
+      "ALTER TABLE students ADD COLUMN fatherOccupation VARCHAR(255)",
+      "ALTER TABLE students ADD COLUMN fatherMobile VARCHAR(255)",
+      "ALTER TABLE students ADD COLUMN fatherEmail VARCHAR(255)",
+      "ALTER TABLE students ADD COLUMN motherName VARCHAR(255)",
+      "ALTER TABLE students ADD COLUMN motherOccupation VARCHAR(255)",
+      "ALTER TABLE students ADD COLUMN motherMobile VARCHAR(255)",
+      "ALTER TABLE students ADD COLUMN motherEmail VARCHAR(255)",
+      "ALTER TABLE students ADD COLUMN guardianName VARCHAR(255)",
+      "ALTER TABLE students ADD COLUMN guardianRelation VARCHAR(100)",
+      "ALTER TABLE students ADD COLUMN guardianContact VARCHAR(255)",
+      "ALTER TABLE students ADD COLUMN createParentLogin VARCHAR(10) DEFAULT 'No'",
+      "ALTER TABLE students ADD COLUMN parentUsername VARCHAR(100)",
+      "ALTER TABLE students ADD COLUMN parentEmail VARCHAR(255)",
+      "ALTER TABLE students ADD COLUMN parentPassword VARCHAR(255)",
+      "ALTER TABLE students ADD COLUMN currentAddress TEXT",
+      "ALTER TABLE students ADD COLUMN permanentAddress TEXT",
+      "ALTER TABLE students ADD COLUMN sameAsPermanent VARCHAR(10) DEFAULT 'No'",
+      "ALTER TABLE students ADD COLUMN city VARCHAR(100)",
+      "ALTER TABLE students ADD COLUMN state VARCHAR(100)",
+      "ALTER TABLE students ADD COLUMN country VARCHAR(100) DEFAULT 'India'",
+      "ALTER TABLE students ADD COLUMN postalCode VARCHAR(50)",
+      "ALTER TABLE students ADD COLUMN emergencyContactNumber VARCHAR(255)",
+      "ALTER TABLE students ADD COLUMN medicalConditions TEXT",
+      "ALTER TABLE students ADD COLUMN allergies TEXT",
+      "ALTER TABLE students ADD COLUMN disabilities TEXT",
+      "ALTER TABLE students ADD COLUMN emergencyNotes TEXT",
+      "ALTER TABLE students ADD COLUMN doctorName VARCHAR(255)",
+      "ALTER TABLE students ADD COLUMN doctorContact VARCHAR(50)",
+      "ALTER TABLE students ADD COLUMN route VARCHAR(255)",
+      "ALTER TABLE students ADD COLUMN pickupPoint VARCHAR(255)",
+      "ALTER TABLE students ADD COLUMN dropPoint VARCHAR(255)",
+      "ALTER TABLE students ADD COLUMN transportFeePlan VARCHAR(100)",
+      "ALTER TABLE students ADD COLUMN hostelBlock VARCHAR(100)",
+      "ALTER TABLE students ADD COLUMN roomNumber VARCHAR(100)",
+      "ALTER TABLE students ADD COLUMN bedNumber VARCHAR(100)",
+      "ALTER TABLE students ADD COLUMN feeStructure VARCHAR(255)",
+      "ALTER TABLE students ADD COLUMN scholarshipDetails TEXT",
+      "ALTER TABLE students ADD COLUMN discountType VARCHAR(100)",
+      "ALTER TABLE students ADD COLUMN discountAmount DECIMAL(10,2) DEFAULT 0.00",
+      "ALTER TABLE students ADD COLUMN initialPaymentStatus VARCHAR(50) DEFAULT 'Pending'",
       "ALTER TABLE students MODIFY COLUMN phone VARCHAR(255)",
       "ALTER TABLE parents MODIFY COLUMN fatherMobile VARCHAR(255)",
       "ALTER TABLE parents MODIFY COLUMN motherMobile VARCHAR(255)",
@@ -1209,6 +1388,8 @@ export const applySchemaUpdates = async (pool, isMaster = false, tenantId = null
       "ALTER TABLE events ADD COLUMN participants VARCHAR(100)",
       "ALTER TABLE events ADD COLUMN startTime VARCHAR(50)",
       "ALTER TABLE events ADD COLUMN endTime VARCHAR(50)",
+      "ALTER TABLE events ADD COLUMN startDate VARCHAR(50)",
+      "ALTER TABLE events ADD COLUMN endDate VARCHAR(50)",
       "ALTER TABLE events ADD COLUMN isDeleted TINYINT(1) DEFAULT 0",
       "ALTER TABLE notices ADD COLUMN category VARCHAR(100)",
       "ALTER TABLE notices ADD COLUMN priority VARCHAR(50) DEFAULT 'Medium'",
@@ -1274,6 +1455,46 @@ export const applySchemaUpdates = async (pool, isMaster = false, tenantId = null
       } catch (err) {
         console.warn(`[SQL Migration WARNING] Failed migrating \`${table}\`.\`${col}\` on database pool:`, err.message);
       }
+    }
+  }
+
+  // Reorganize subjects table in grade ascending order with formatted IDs
+  if (subdomain && subdomain !== 'platform') {
+    try {
+      const [existingSubjects] = await pool.query('SELECT * FROM subjects WHERE tenantId = ? OR tenantId IS NULL OR tenantId = ?', [subdomain, '']);
+      if (existingSubjects && existingSubjects.length > 0) {
+        const hasUnformattedIds = existingSubjects.some(s => !/^SUB-\d{4}-/.test(s.id));
+        if (hasUnformattedIds) {
+          console.log(`[SQL Migration] Reordering and formatting subjects table for tenant: ${subdomain}...`);
+          const sortedSubjects = sortSubjectsByGrade(existingSubjects.map(s => {
+            const grade = s.classId || s.grade || '';
+            const name = s.name || s.subjectName || '';
+            return {
+              ...s,
+              id: formatSubjectId(grade, name, s.id),
+              classId: convertToRoman(grade),
+              grade: convertToRoman(grade),
+              name: name,
+              subjectName: name
+            };
+          }));
+
+          const cols = ['id', 'name', 'code', 'classId', 'teacherId', 'teacherName', 'tenantId'];
+          const valRows = sortedSubjects.map(s => [
+            s.id, s.name || '', s.code || '', s.classId || '', s.teacherId || '', s.teacherName || '', subdomain
+          ]);
+
+          await pool.query('DELETE FROM subjects WHERE tenantId = ? OR tenantId IS NULL OR tenantId = ?', [subdomain, '']);
+          for (let i = 0; i < valRows.length; i += 100) {
+            const chunk = valRows.slice(i, i + 100);
+            const placeholders = chunk.map(() => `(${cols.map(() => '?').join(', ')})`).join(', ');
+            await pool.query(`INSERT INTO subjects (${cols.map(c => `\`${c}\``).join(', ')}) VALUES ${placeholders}`, chunk.flat());
+          }
+          console.log(`[SQL Migration] Subjects table reorganized successfully for tenant: ${subdomain} (${valRows.length} subjects).`);
+        }
+      }
+    } catch (subMigrateErr) {
+      console.warn('[SQL Migration Warning] Subjects reorder warning:', subMigrateErr.message);
     }
   }
 };
@@ -1596,7 +1817,37 @@ export const initializeOnboardedSchoolDatabase = async (subdomain) => {
   }
 };
 
-// Auto-seeder removed: Green Valley seed data has been purged.
+// Ensure employee table has all required columns and nullable constraints
+export const ensureEmployeeTableReady = async (targetTenant) => {
+  if (!isSqlActive()) return;
+  const tId = targetTenant && targetTenant !== 'platform' && targetTenant !== 'localhost' ? slugify(targetTenant) : null;
+  if (!tId) return;
+  try {
+    const pool = sqlDb.getPoolForTenant(tId);
+    if (!pool) return;
+    const alters = [
+      "ALTER TABLE employees MODIFY COLUMN email VARCHAR(255) NULL",
+      "ALTER TABLE employees MODIFY COLUMN role VARCHAR(255) NULL",
+      "ALTER TABLE employees MODIFY COLUMN department VARCHAR(255) NULL",
+      "ALTER TABLE employees MODIFY COLUMN qualification TEXT NULL",
+      "ALTER TABLE employees MODIFY COLUMN experience TEXT NULL",
+      "ALTER TABLE employees ADD COLUMN designation VARCHAR(100) NULL",
+      "ALTER TABLE employees ADD COLUMN designationLevel VARCHAR(100) NULL",
+      "ALTER TABLE employees ADD COLUMN employmentType VARCHAR(100) NULL",
+      "ALTER TABLE employees ADD COLUMN qrCodePath TEXT NULL",
+      "ALTER TABLE employees ADD COLUMN fullName VARCHAR(255) NULL"
+    ];
+    for (const sql of alters) {
+      try {
+        await pool.query(sql);
+      } catch (err) {
+        // Ignore ER_DUP_FIELDNAME (1060) or already modified
+      }
+    }
+  } catch (err) {
+    console.error(`[ensureEmployeeTableReady ERROR for ${tId}]`, err.message);
+  }
+};
 
 // Initial database check called on server boot
 export const initSqlDb = async () => {
@@ -1809,17 +2060,6 @@ export const getDefaultRoles = () => {
         'income', 'financial-reports', 'fee-structures', 'fee-periods', 'auxiliary-income', 
         'expense-dashboard', 'expense-all-expenses', 'expense-history', 'expense-tracker', 'student-directory'
       ])
-    },
-    {
-      id: 'role-expense-manager',
-      name: 'Expense Manager',
-      description: 'Expense manager. Oversees school expenses, financial reporting, and budgeting.',
-      active: true,
-      isSystem: true,
-      permissions: createRoleMatrix([
-        'overview', 'expense-dashboard', 'expense-all-expenses', 'expense-history', 
-        'expense-tracker', 'financial-reports', 'income'
-      ])
     }
   ];
   ensureOverviewPermissions(defaultRoles);
@@ -1895,6 +2135,20 @@ const repairGradesAndMappings = async (tId) => {
   }
 };
 
+
+export const TRACK_KEYS = [
+  'schools', 'school', 'plans', 'teachers', 'staff', 'employees', 'students', 'timetables',
+  'teacherTimetables',
+  'invoices', 'fees', 'expenses', 'payroll', 'staffPayments', 'activities',
+  'exams', 'examTimetables', 'results', 'overallResults', 'notices',
+  'holidays', 'events', 'subjects', 'timeslots', 'feeStructures',
+  'feePeriods', 'salaryStructures', 'staffSalaryStructures', 'income',
+  'attendance', 'roles', 'userAccess', 'auditLogs', 'employeeQrCodes',
+  'attendanceRecords', 'attendanceLogs', 'attendanceReports',
+  'academicCalendarEvents', 'academicCalendarImports',
+  'publishedCalendarEvents', 'grades', 'departments', 'designations', 'staffDesignations', 'gradeDepartments',
+  'sections', 'publishedClassTimetables', 'publishedTeacherTimetables', 'attendanceSettings', 'reportCardTemplates'
+];
 
 // Load dynamic cached tenant details from MySQL database
 export const loadTenantSqlIntoMemory = async (tenantId) => {
@@ -2068,7 +2322,7 @@ export const loadTenantSqlIntoMemory = async (tenantId) => {
       !isGlobal ? sqlDb.query('SELECT * FROM academic_calendar_imports WHERE tenantId = ?', [tId]) : Promise.resolve([]),
       !isGlobal ? sqlDb.query('SELECT eventId FROM published_calendar_events WHERE tenantId = ?', [tId]) : Promise.resolve([]),
       !isGlobal ? sqlDb.query('SELECT * FROM results WHERE tenantId = ?', [tId]) : Promise.resolve([]),
-      !isGlobal ? sqlDb.query('SELECT * FROM subjects WHERE tenantId = ?', [tId]) : Promise.resolve([]),
+      !isGlobal ? sqlDb.query('SELECT * FROM subjects WHERE tenantId = ? ORDER BY id ASC', [tId]) : Promise.resolve([]),
       !isGlobal ? sqlDb.query('SELECT * FROM attendance WHERE tenantId = ?', [tId]) : Promise.resolve([]),
       !isGlobal ? sqlDb.query('SELECT * FROM overall_results WHERE tenantId = ?', [tId]) : Promise.resolve([]),
       !isGlobal ? sqlDb.query('SELECT slotTime FROM timeslots WHERE tenantId = ? ORDER BY id', [tId]) : Promise.resolve([]),
@@ -2370,7 +2624,12 @@ export const loadTenantSqlIntoMemory = async (tenantId) => {
       title: h.title || h.name || '',
       isDeleted: h.isDeleted === 1 || h.isDeleted === true
     }));
-    data.events = dbEvents;
+    data.events = (dbEvents || []).map(ev => ({
+      ...ev,
+      startDate: ev.startDate || ev.date || '',
+      endDate: ev.endDate || ev.startDate || ev.date || '',
+      date: ev.date || ev.startDate || ''
+    }));
     data.academicCalendarEvents = dbCalendarEvents;
     data.academicCalendarImports = dbCalendarImports;
     data.publishedCalendarEvents = rawPublished.map(p => p.eventId);
@@ -2384,7 +2643,18 @@ export const loadTenantSqlIntoMemory = async (tenantId) => {
       status: r.status || 'Draft'
     }));
 
-    data.subjects = dbSubjects.map(s => ({ ...s, subjectName: s.name, grade: s.classId }));
+    data.subjects = sortSubjectsByGrade(dbSubjects.map(s => {
+      const grade = s.classId || s.grade || '';
+      const name = s.name || s.subjectName || '';
+      return {
+        ...s,
+        id: formatSubjectId(grade, name, s.id),
+        subjectName: name,
+        name: name,
+        grade: convertToRoman(grade),
+        classId: convertToRoman(grade)
+      };
+    }));
     data.attendance = dbAttendance.map(att => ({
       ...att,
       submitted: att.submitted === 1 || att.submitted === true
@@ -2461,7 +2731,7 @@ export const loadTenantSqlIntoMemory = async (tenantId) => {
       for (const d of days) {
         let val = t[d];
         if (typeof val === 'string') {
-          try { val = JSON.parse(val); } catch (e) { val = null; }
+          try { val = JSON.parse(val); } catch (e) { val = val.trim() ? { subject: val.trim() } : null; }
         }
         if (val) {
           const subjectVal = val.subject || '';
@@ -2610,8 +2880,8 @@ export const loadTenantSqlIntoMemory = async (tenantId) => {
       console.log(`[SQL Preload] Seeded default roles for tenant: ${tId}`);
     }
 
-    // Filter out parent, student, librarian roles in memory cache
-    data.roles = data.roles.filter(r => r.name !== 'Parent' && r.name !== 'Student' && r.name !== 'Librarian' && r.id !== 'role-parent' && r.id !== 'role-student' && r.id !== 'role-librarian');
+    // Filter out parent, student, librarian, expense manager default roles in memory cache
+    data.roles = data.roles.filter(r => r.name !== 'Parent' && r.name !== 'Student' && r.name !== 'Librarian' && r.id !== 'role-parent' && r.id !== 'role-student' && r.id !== 'role-librarian' && r.id !== 'role-expense-manager');
     
     // Rename Subject Teacher to Teacher in memory cache
     data.roles.forEach(r => {
@@ -2772,6 +3042,19 @@ export const loadTenantSqlIntoMemory = async (tenantId) => {
     }));
 
       dbCache[queryTenantId] = data;
+
+      // Populate initial snapshot for accurate change detection on writes
+      if (!lastSavedKeySnapshots[queryTenantId]) {
+        lastSavedKeySnapshots[queryTenantId] = {};
+      }
+      for (const k of TRACK_KEYS) {
+        if (data[k] !== undefined) {
+          try {
+            lastSavedKeySnapshots[queryTenantId][k] = JSON.stringify(data[k]);
+          } catch (e) {}
+        }
+      }
+
       return data;
     });
   } catch (err) {
@@ -2780,6 +3063,8 @@ export const loadTenantSqlIntoMemory = async (tenantId) => {
   }
 };
 
+export const sqlSyncQueues = {};
+export const lastSavedKeySnapshots = {};
 const activeLoads = {};
 export const lastCheckTimes = {};
 
@@ -2801,6 +3086,11 @@ export const ensureTenantSqlLoaded = async (req, res, next) => {
     const now = Date.now();
 
     // 1. First, ensure platform cache is loaded and valid so isSubdomainRegistered works reliably
+    if (sqlSyncQueues['platform']) {
+      try {
+        await sqlSyncQueues['platform'];
+      } catch (e) {}
+    }
     const hasValidPlatform = dbCache['platform'] && lastCheckTimes['platform'] && (now - lastCheckTimes['platform'] < 30000);
     if (!hasValidPlatform) {
       const schoolRows = await sqlDb.query('SELECT id, subdomain, status, name, code FROM schools');
@@ -2853,6 +3143,12 @@ export const ensureTenantSqlLoaded = async (req, res, next) => {
 
     // 4. Validate and load active tenant cache
     if (activeTenant !== 'platform') {
+      if (sqlSyncQueues[activeTenant]) {
+        try {
+          await sqlSyncQueues[activeTenant];
+        } catch (e) {}
+      }
+
       const cachedData = dbCache[activeTenant];
       const lastCheck = lastCheckTimes[activeTenant];
       const hasValidCache = cachedData && lastCheck && (now - lastCheck < 30000);
@@ -2915,8 +3211,7 @@ export const ensureTenantSqlLoaded = async (req, res, next) => {
   next();
 };
 
-// Queue to serialize SQL sync operations per tenant to prevent concurrent write race conditions
-const sqlSyncQueues = {};
+// (sqlSyncQueues defined above for access across middleware and sync routines)
 
 // Helpers to perform bulk insertions/updates in single queries
 const bulkInsertOrUpdate = async (tableName, columns, valueRows, updateColumns) => {
@@ -3083,7 +3378,7 @@ export const saveMemoryDbToSql = async (tenantId, db, changedKeys, newUpdatedAt)
             'salaryGrade', 'address', 'city', 'state', 'pincode', 'emergencyContact', 'emergencyPhone', 'photo', 'aadharFile', 
             'certificateFile', 'status', 'avatarBg', 'tenantId',
             'firstName', 'middleName', 'lastName', 'fullName', 'dob', 'bloodGroup', 'nationality', 'maritalStatus',
-            'aadhaarNumber', 'panNumber', 'joiningDate', 'employmentType', 'role', 'department', 'primarySubject',
+            'aadhaarNumber', 'panNumber', 'joiningDate', 'employmentType', 'role', 'hasRole', 'designation', 'department', 'primarySubject',
             'secondarySubject', 'alternateMobile', 'currentAddress', 'currentCity', 'currentState', 'currentCountry',
             'currentPostalCode', 'permanentAddress', 'permanentCity', 'permanentState', 'permanentCountry',
             'permanentPostalCode', 'sameAsPermanent', 'panFile', 'resumeFile', 'joiningLetterFile', 'otherFile', 'experiences',
@@ -3092,7 +3387,7 @@ export const saveMemoryDbToSql = async (tenantId, db, changedKeys, newUpdatedAt)
           const updateColumns = [
             'name', 'email', 'phone', 'username', 'password', 'status', 'address', 'qualification', 'experience', 'photo',
             'firstName', 'middleName', 'lastName', 'fullName', 'dob', 'bloodGroup', 'nationality', 'maritalStatus',
-            'aadhaarNumber', 'panNumber', 'joiningDate', 'employmentType', 'role', 'department', 'primarySubject',
+            'aadhaarNumber', 'panNumber', 'joiningDate', 'employmentType', 'role', 'hasRole', 'designation', 'department', 'primarySubject',
             'secondarySubject', 'alternateMobile', 'currentAddress', 'currentCity', 'currentState', 'currentCountry',
             'currentPostalCode', 'permanentAddress', 'permanentCity', 'permanentState', 'permanentCountry',
             'permanentPostalCode', 'sameAsPermanent', 'panFile', 'resumeFile', 'joiningLetterFile', 'otherFile', 'experiences',
@@ -3107,7 +3402,10 @@ export const saveMemoryDbToSql = async (tenantId, db, changedKeys, newUpdatedAt)
             t.emergencyContact || '', t.emergencyContactNumber || t.emergencyPhone || '', t.photo || '', t.aadharFile || '', 
             t.qualificationFile || t.certificateFile || '', t.status || 'Active', t.avatarBg || '', tId,
             t.firstName || '', t.middleName || '', t.lastName || '', t.fullName || '', t.dob || '', t.bloodGroup || '', t.nationality || '', t.maritalStatus || '',
-            t.aadhaarNumber || '', t.panNumber || '', t.joiningDate || '', t.employmentType || '', t.role || t.designation || 'Teacher', t.department || '', t.primarySubject || '',
+            t.aadhaarNumber || '', t.panNumber || '', t.joiningDate || '', t.employmentType || '', t.role || t.designation || 'Teacher',
+            typeof t.hasRole === 'string' ? t.hasRole : (t.hasRole ? 'Yes' : 'Yes'),
+            t.designation || t.role || 'Teacher',
+            t.department || '', t.primarySubject || '',
             t.secondarySubject || '', t.alternateMobile || '', t.currentAddress || '', t.currentCity || '', t.currentState || '', t.currentCountry || '',
             t.currentPostalCode || '', t.permanentAddress || '', t.permanentCity || '', t.permanentState || '', t.permanentCountry || '',
             t.permanentPostalCode || '', typeof t.sameAsPermanent === 'boolean' ? (t.sameAsPermanent ? 'Yes' : 'No') : (t.sameAsPermanent || 'No'),
@@ -3135,18 +3433,20 @@ export const saveMemoryDbToSql = async (tenantId, db, changedKeys, newUpdatedAt)
             'salaryGrade', 'address', 'city', 'state', 'pincode', 'emergencyContact', 'emergencyPhone', 'photo', 'aadharFile', 
             'certificateFile', 'status', 'avatarBg', 'tenantId',
             'firstName', 'middleName', 'lastName', 'fullName', 'dob', 'bloodGroup', 'nationality', 'maritalStatus',
-            'aadhaarNumber', 'panNumber', 'joiningDate', 'employmentType', 'role', 'department', 'primarySubject',
+            'aadhaarNumber', 'panNumber', 'joiningDate', 'employmentType', 'role', 'hasRole', 'designation', 'department', 'primarySubject',
             'secondarySubject', 'alternateMobile', 'currentAddress', 'currentCity', 'currentState', 'currentCountry',
             'currentPostalCode', 'permanentAddress', 'permanentCity', 'permanentState', 'permanentCountry',
-            'permanentPostalCode', 'sameAsPermanent', 'panFile', 'resumeFile', 'joiningLetterFile', 'otherFile', 'experiences'
+            'permanentPostalCode', 'sameAsPermanent', 'panFile', 'resumeFile', 'joiningLetterFile', 'otherFile', 'experiences',
+            'assignedGradeId', 'assignedSectionId', 'isClassTeacher', 'attendancePermission'
           ];
           const updateColumns = [
             'name', 'email', 'phone', 'username', 'password', 'status', 'address', 'qualification', 'experience', 'photo',
             'firstName', 'middleName', 'lastName', 'fullName', 'dob', 'bloodGroup', 'nationality', 'maritalStatus',
-            'aadhaarNumber', 'panNumber', 'joiningDate', 'employmentType', 'role', 'department', 'primarySubject',
+            'aadhaarNumber', 'panNumber', 'joiningDate', 'employmentType', 'role', 'hasRole', 'designation', 'department', 'primarySubject',
             'secondarySubject', 'alternateMobile', 'currentAddress', 'currentCity', 'currentState', 'currentCountry',
             'currentPostalCode', 'permanentAddress', 'permanentCity', 'permanentState', 'permanentCountry',
-            'permanentPostalCode', 'sameAsPermanent', 'panFile', 'resumeFile', 'joiningLetterFile', 'otherFile', 'experiences'
+            'permanentPostalCode', 'sameAsPermanent', 'panFile', 'resumeFile', 'joiningLetterFile', 'otherFile', 'experiences',
+            'assignedGradeId', 'assignedSectionId', 'isClassTeacher', 'attendancePermission'
           ];
           const valueRows = db.staff.map(s => [
             s.id, s.fullName || s.name || '', s.email || '', s.mobile || s.phone || '', s.username || '', s.password || '', s.gender || '', 
@@ -3157,12 +3457,16 @@ export const saveMemoryDbToSql = async (tenantId, db, changedKeys, newUpdatedAt)
             s.emergencyContact || '', s.emergencyContactNumber || s.emergencyPhone || '', s.photo || '', s.aadharFile || '', 
             s.qualificationFile || s.certificateFile || '', s.status || 'Active', s.avatarBg || '', tId,
             s.firstName || '', s.middleName || '', s.lastName || '', s.fullName || '', s.dob || '', s.bloodGroup || '', s.nationality || '', s.maritalStatus || '',
-            s.aadhaarNumber || '', s.panNumber || '', s.joiningDate || '', s.employmentType || '', s.role || s.designation || '', s.department || '', s.primarySubject || '',
+            s.aadhaarNumber || '', s.panNumber || '', s.joiningDate || '', s.employmentType || '', s.role || s.designation || '',
+            s.hasRole || 'Yes', s.designation || s.role || '',
+            s.department || '', s.primarySubject || '',
             s.secondarySubject || '', s.alternateMobile || '', s.currentAddress || '', s.currentCity || '', s.currentState || '', s.currentCountry || '',
             s.currentPostalCode || '', s.permanentAddress || '', s.permanentCity || '', s.permanentState || '', s.permanentCountry || '',
             s.permanentPostalCode || '', typeof s.sameAsPermanent === 'boolean' ? (s.sameAsPermanent ? 'Yes' : 'No') : (s.sameAsPermanent || 'No'),
             s.panFile || '', s.resumeFile || '', s.joiningLetterFile || '', s.otherFile || '',
-            typeof s.experiences === 'object' ? JSON.stringify(s.experiences) : (s.experiences || '')
+            typeof s.experiences === 'object' ? JSON.stringify(s.experiences) : (s.experiences || ''),
+            s.assignedGradeId || null, s.assignedSectionId || null,
+            s.isClassTeacher ? 1 : 0, s.attendancePermission ? 1 : 0
           ]);
           await bulkInsertOrUpdate('staff', columns, valueRows, updateColumns);
         })());
@@ -3178,13 +3482,46 @@ export const saveMemoryDbToSql = async (tenantId, db, changedKeys, newUpdatedAt)
             await sqlDb.query('DELETE FROM employees WHERE tenantId = ?', [tId]);
           }
 
-          const columns = ['id', 'name', 'fullName', 'role', 'department', 'email', 'phone', 'gender', 'qualification', 'experience', 'dateOfJoining', 'salaryGrade', 'reportingTo', 'address', 'city', 'state', 'pincode', 'emergencyContact', 'emergencyPhone', 'photo', 'aadharFile', 'certificateFile', 'status', 'avatarBg', 'password', 'tenantId', 'designation', 'designationLevel', 'employmentType'];
-          const updateColumns = ['name', 'role', 'department', 'email', 'phone', 'status', 'password', 'designation', 'designationLevel', 'employmentType', 'photo'];
+          const columns = [
+            'id', 'name', 'fullName', 'firstName', 'middleName', 'lastName', 'role', 'department', 'email', 'phone',
+            'gender', 'dob', 'bloodGroup', 'nationality', 'maritalStatus', 'aadhaarNumber', 'panNumber',
+            'qualification', 'experience', 'experiences', 'dateOfJoining', 'joiningDate', 'salaryGrade', 'reportingTo',
+            'address', 'city', 'state', 'country', 'pincode', 'currentAddress', 'currentCity', 'currentState', 'currentCountry',
+            'currentPostalCode', 'permanentAddress', 'permanentCity', 'permanentState', 'permanentCountry', 'permanentPostalCode',
+            'sameAsPermanent', 'alternateMobile', 'emergencyContact', 'emergencyPhone', 'emergencyContactNumber',
+            'photo', 'aadharFile', 'panFile', 'resumeFile', 'joiningLetterFile', 'certificateFile', 'otherFile',
+            'status', 'avatarBg', 'password', 'tenantId', 'designation', 'designationLevel', 'employmentType', 'staffCategory',
+            'primarySubject', 'secondarySubject', 'assignedGradeId', 'assignedSectionId', 'isClassTeacher', 'attendancePermission', 'qrCodePath'
+          ];
+          const updateColumns = [
+            'name', 'fullName', 'firstName', 'middleName', 'lastName', 'role', 'department', 'email', 'phone',
+            'gender', 'dob', 'bloodGroup', 'nationality', 'maritalStatus', 'aadhaarNumber', 'panNumber',
+            'qualification', 'experience', 'experiences', 'dateOfJoining', 'joiningDate', 'salaryGrade', 'reportingTo',
+            'address', 'city', 'state', 'country', 'pincode', 'currentAddress', 'currentCity', 'currentState', 'currentCountry',
+            'currentPostalCode', 'permanentAddress', 'permanentCity', 'permanentState', 'permanentCountry', 'permanentPostalCode',
+            'sameAsPermanent', 'alternateMobile', 'emergencyContact', 'emergencyPhone', 'emergencyContactNumber',
+            'photo', 'aadharFile', 'panFile', 'resumeFile', 'joiningLetterFile', 'certificateFile', 'otherFile',
+            'status', 'avatarBg', 'password', 'designation', 'designationLevel', 'employmentType', 'staffCategory',
+            'primarySubject', 'secondarySubject', 'assignedGradeId', 'assignedSectionId', 'isClassTeacher', 'attendancePermission', 'qrCodePath'
+          ];
           const valueRows = db.employees.filter(e => e.id).map(e => [
-            e.id, e.name, e.fullName, e.role, e.department, e.email, e.phone, e.gender, e.qualification, 
-            e.experience, e.dateOfJoining, e.salaryGrade, e.reportingTo, e.address, e.city, e.state, e.pincode, 
-            e.emergencyContact, e.emergencyPhone, e.photo, e.aadharFile, e.certificateFile, e.status || 'Active', 
-            e.avatarBg, e.password, tId, e.designation || '', e.designationLevel || '', e.employmentType || ''
+            e.id, e.name || e.fullName || '', e.fullName || e.name || '', e.firstName || '', e.middleName || '', e.lastName || '',
+            e.role || e.designation || 'Employee', e.department || '', e.email || '', e.phone || e.mobile || '',
+            e.gender || '', e.dob || '', e.bloodGroup || '', e.nationality || 'Indian', e.maritalStatus || '',
+            e.aadhaarNumber || '', e.panNumber || '',
+            typeof e.qualification === 'object' ? JSON.stringify(e.qualification) : (e.qualification || ''),
+            typeof e.experience === 'object' ? JSON.stringify(e.experience) : (e.experience || ''),
+            typeof e.experiences === 'object' ? JSON.stringify(e.experiences) : (e.experiences || ''),
+            e.dateOfJoining || e.joiningDate || '', e.joiningDate || e.dateOfJoining || '', e.salaryGrade || '', e.reportingTo || '',
+            e.currentAddress || e.address || '', e.currentCity || e.city || '', e.currentState || e.state || '', e.currentCountry || 'India',
+            e.currentPostalCode || e.pincode || '', e.currentAddress || e.address || '', e.currentCity || e.city || '', e.currentState || e.state || '', e.currentCountry || 'India',
+            e.currentPostalCode || e.pincode || '', e.permanentAddress || '', e.permanentCity || '', e.permanentState || '', e.permanentCountry || 'India', e.permanentPostalCode || '',
+            typeof e.sameAsPermanent === 'boolean' ? (e.sameAsPermanent ? 'Yes' : 'No') : (e.sameAsPermanent || 'No'),
+            e.alternateMobile || '', e.emergencyContact || '', e.emergencyPhone || e.emergencyContactNumber || '', e.emergencyContactNumber || e.emergencyPhone || '',
+            e.photo || '', e.aadharFile || e.aadhaarFile || '', e.panFile || '', e.resumeFile || '', e.joiningLetterFile || '', e.certificateFile || '', e.otherFile || '',
+            e.status || 'Active', e.avatarBg || '', e.password || '', tId, e.designation || '', e.designationLevel || '', e.employmentType || '', e.staffCategory || '',
+            e.primarySubject || '', e.secondarySubject || '', e.assignedGradeId || null, e.assignedSectionId || null,
+            e.isClassTeacher ? 1 : 0, e.attendancePermission ? 1 : 0, e.qrCodePath || ''
           ].map(v => v === undefined ? null : v));
           await bulkInsertOrUpdate('employees', columns, valueRows, updateColumns);
         })());
@@ -3200,17 +3537,65 @@ export const saveMemoryDbToSql = async (tenantId, db, changedKeys, newUpdatedAt)
             await sqlDb.query('DELETE FROM students WHERE tenantId = ?', [tId]);
           }
 
-          const columns = ['id', 'firstName', 'middleName', 'lastName', 'name', 'fullName', 'admissionNumber', 'admissionDate', 'dob', 'gender', 'bloodGroup', 'nationality', 'category', 'religion', 'aadhaarNumber', 'photo', 'status', 'photoBg', 'email', 'phone', 'feeStatus', 'rank', 'createdAt', 'updatedAt', 'tenantId', 'transportRequired', 'hostelRequired'];
-          const updateColumns = ['name', 'fullName', 'photo', 'status', 'email', 'phone', 'feeStatus', 'updatedAt', 'transportRequired', 'hostelRequired'];
+          const columns = [
+            'id', 'firstName', 'middleName', 'lastName', 'name', 'fullName', 'admissionNumber', 'admissionDate',
+            'dob', 'gender', 'bloodGroup', 'nationality', 'category', 'religion', 'aadhaarNumber', 'photo', 'status',
+            'photoBg', 'email', 'phone', 'feeStatus', 'rank', 'createdAt', 'updatedAt', 'tenantId',
+            'transportRequired', 'hostelRequired', 'studentClass', 'section', 'rollNumber', 'academicYear', 'admissionType',
+            'previousSchoolName', 'previousSchoolAddress', 'previousClassStudied', 'transferCertificateNumber',
+            'fatherName', 'fatherOccupation', 'fatherMobile', 'fatherEmail',
+            'motherName', 'motherOccupation', 'motherMobile', 'motherEmail',
+            'guardianName', 'guardianRelation', 'guardianContact',
+            'createParentLogin', 'parentUsername', 'parentEmail', 'parentPassword',
+            'currentAddress', 'permanentAddress', 'sameAsPermanent',
+            'city', 'state', 'country', 'postalCode', 'emergencyContactNumber',
+            'medicalConditions', 'allergies', 'disabilities', 'emergencyNotes',
+            'doctorName', 'doctorContact',
+            'route', 'pickupPoint', 'dropPoint', 'transportFeePlan',
+            'hostelBlock', 'roomNumber', 'bedNumber',
+            'feeStructure', 'scholarshipDetails', 'discountType', 'discountAmount', 'initialPaymentStatus'
+          ];
+          const updateColumns = [
+            'name', 'fullName', 'firstName', 'middleName', 'lastName', 'dob', 'gender', 'bloodGroup', 'nationality',
+            'category', 'religion', 'aadhaarNumber', 'photo', 'status', 'email', 'phone', 'feeStatus', 'updatedAt',
+            'transportRequired', 'hostelRequired', 'studentClass', 'section', 'rollNumber', 'academicYear', 'admissionType',
+            'previousSchoolName', 'previousSchoolAddress', 'previousClassStudied', 'transferCertificateNumber',
+            'fatherName', 'fatherOccupation', 'fatherMobile', 'fatherEmail',
+            'motherName', 'motherOccupation', 'motherMobile', 'motherEmail',
+            'guardianName', 'guardianRelation', 'guardianContact',
+            'createParentLogin', 'parentUsername', 'parentEmail', 'parentPassword',
+            'currentAddress', 'permanentAddress', 'sameAsPermanent',
+            'city', 'state', 'country', 'postalCode', 'emergencyContactNumber',
+            'medicalConditions', 'allergies', 'disabilities', 'emergencyNotes',
+            'doctorName', 'doctorContact',
+            'route', 'pickupPoint', 'dropPoint', 'transportFeePlan',
+            'hostelBlock', 'roomNumber', 'bedNumber',
+            'feeStructure', 'scholarshipDetails', 'discountType', 'discountAmount', 'initialPaymentStatus'
+          ];
           const valueRows = db.students.filter(s => s.id).map(s => [
-            s.id, s.firstName || s.fullName.split(' ')[0], s.middleName || '', s.lastName || s.fullName.split(' ').slice(1).join(' '),
-            s.fullName || s.name, s.fullName || s.name, s.admissionNumber || `ADM-${Date.now().toString().slice(-6)}`,
-            s.admissionDate || new Date().toISOString().split('T')[0], s.dob, s.gender, s.bloodGroup, 
-            s.nationality || 'Indian', s.category || 'General', s.religion || 'Hinduism', s.aadhaarNumber, s.photo, 
-            s.status || 'Active', s.photoBg, s.email, s.phone, s.feeStatus || 'Pending', s.rank || 'N/A', 
+            s.id, s.firstName || s.fullName?.split(' ')[0] || '', s.middleName || '', s.lastName || s.fullName?.split(' ').slice(1).join(' ') || '',
+            s.fullName || s.name || '', s.fullName || s.name || '', s.admissionNumber || `ADM-${Date.now().toString().slice(-6)}`,
+            s.admissionDate || new Date().toISOString().split('T')[0], s.dob || '', s.gender || '', s.bloodGroup || '', 
+            s.nationality || 'Indian', s.category || 'General', s.religion || 'Hinduism', s.aadhaarNumber || '', s.photo || '', 
+            s.status || 'Active', s.photoBg || '', s.email || '', s.phone || '', s.feeStatus || s.initialPaymentStatus || 'Pending', s.rank || 'N/A', 
             s.createdAt || new Date().toISOString(), s.updatedAt || new Date().toISOString(), tId,
-            s.transportRequired || 'No', s.hostelRequired || 'No'
-          ]);
+            s.transportRequired || 'No', s.hostelRequired || 'No',
+            s.studentClass || 'I', s.section || '', s.rollNumber || s.roll || '', s.academicYear || '2026-2027', s.admissionType || 'New Admission',
+            s.previousSchoolName || s.previousSchool || '', s.previousSchoolAddress || '', s.previousClassStudied || '', s.transferCertificateNumber || '',
+            s.fatherName || '', s.fatherOccupation || '', s.fatherMobile || '', s.fatherEmail || '',
+            s.motherName || '', s.motherOccupation || '', s.motherMobile || '', s.motherEmail || '',
+            s.guardianName || s.guardian || '', s.guardianRelation || '', s.guardianContact || '',
+            s.createParentLogin || 'No', s.parentUsername || '', s.parentEmail || '', s.parentPassword || '',
+            s.currentAddress || s.address || '', s.permanentAddress || s.address || '',
+            typeof s.sameAsPermanent === 'boolean' ? (s.sameAsPermanent ? 'Yes' : 'No') : (s.sameAsPermanent || 'No'),
+            s.city || '', s.state || '', s.country || 'India', s.postalCode || s.pincode || '', s.emergencyContactNumber || s.phone || '',
+            s.medicalConditions || '', s.allergies || '', s.disabilities || '', s.emergencyNotes || '',
+            s.doctorName || '', s.doctorContact || '',
+            s.route || '', s.pickupPoint || '', s.dropPoint || '', s.transportFeePlan || '',
+            s.hostelBlock || '', s.roomNumber || '', s.bedNumber || '',
+            s.feeStructure || '', s.scholarshipDetails || '', s.discountType || '',
+            parseFloat(s.discountAmount || 0), s.initialPaymentStatus || s.feeStatus || 'Pending'
+          ].map(v => v === undefined ? null : v));
           await bulkInsertOrUpdate('students', columns, valueRows, updateColumns);
 
           // Sub-Tables Sync in Parallel (respecting FK constraints after students are written)
@@ -3334,11 +3719,11 @@ export const saveMemoryDbToSql = async (tenantId, db, changedKeys, newUpdatedAt)
           // Class timetables
           for (const t of (db.timetables || [])) {
             if (!t.cohort || !t.time) continue;
-            const key = `${t.cohort}_${t.time}`;
+            const key = `${t.cohort.trim()}_${t.time.trim()}`;
             if (!weekRows[key]) {
               weekRows[key] = {
-                cohort: t.cohort,
-                time: t.time,
+                cohort: t.cohort.trim(),
+                time: t.time.trim(),
                 mon: null,
                 tue: null,
                 wed: null,
@@ -3363,7 +3748,7 @@ export const saveMemoryDbToSql = async (tenantId, db, changedKeys, newUpdatedAt)
                 if (t[d]) {
                   let val = t[d];
                   if (typeof val === 'string') {
-                    try { val = JSON.parse(val); } catch (e) { val = null; }
+                    try { val = JSON.parse(val); } catch (e) { val = val.trim() ? { subject: val.trim() } : null; }
                   }
                   if (val) {
                     weekRows[key][d] = val;
@@ -3377,12 +3762,12 @@ export const saveMemoryDbToSql = async (tenantId, db, changedKeys, newUpdatedAt)
           const TEACHER_PREFIX = 'TEACHER::';
           for (const t of (db.teacherTimetables || [])) {
             if (!t.teacher || !t.time) continue;
-            const prefixedCohort = `${TEACHER_PREFIX}${t.teacher}`;
-            const key = `${prefixedCohort}_${t.time}`;
+            const prefixedCohort = `${TEACHER_PREFIX}${t.teacher.trim()}`;
+            const key = `${prefixedCohort}_${t.time.trim()}`;
             if (!weekRows[key]) {
               weekRows[key] = {
                 cohort: prefixedCohort,
-                time: t.time,
+                time: t.time.trim(),
                 mon: null,
                 tue: null,
                 wed: null,
@@ -3713,10 +4098,10 @@ export const saveMemoryDbToSql = async (tenantId, db, changedKeys, newUpdatedAt)
             await sqlDb.query('DELETE FROM events WHERE tenantId = ?', [tId]);
           }
 
-          const columns = ['id', 'title', 'description', 'date', 'time', 'startTime', 'endTime', 'venue', 'audience', 'status', 'type', 'organizer', 'participants', 'isDeleted', 'tenantId'];
-          const updateColumns = ['title', 'description', 'date', 'time', 'startTime', 'endTime', 'venue', 'audience', 'status', 'type', 'organizer', 'participants', 'isDeleted'];
+          const columns = ['id', 'title', 'description', 'date', 'startDate', 'endDate', 'time', 'startTime', 'endTime', 'venue', 'audience', 'status', 'type', 'organizer', 'participants', 'isDeleted', 'tenantId'];
+          const updateColumns = ['title', 'description', 'date', 'startDate', 'endDate', 'time', 'startTime', 'endTime', 'venue', 'audience', 'status', 'type', 'organizer', 'participants', 'isDeleted'];
           const valueRows = db.events.filter(ev => ev.id).map(ev => [
-            ev.id, ev.title || '', ev.description || '', ev.date || '', ev.time || '', ev.startTime || '', ev.endTime || '', ev.venue || '', ev.audience || 'All',
+            ev.id, ev.title || '', ev.description || '', ev.date || ev.startDate || '', ev.startDate || ev.date || '', ev.endDate || ev.startDate || ev.date || '', ev.time || '', ev.startTime || '', ev.endTime || '', ev.venue || '', ev.audience || 'All',
             ev.status || 'Scheduled', ev.type || '', ev.organizer || '', ev.participants || '', ev.isDeleted ? 1 : 0, tId
           ]);
           await bulkInsertOrUpdate('events', columns, valueRows, updateColumns);
@@ -3726,19 +4111,28 @@ export const saveMemoryDbToSql = async (tenantId, db, changedKeys, newUpdatedAt)
       // 14d. Sync Subjects
       if (db.subjects && Array.isArray(db.subjects) && hasTableChanged('subjects')) {
         tasks.push((async () => {
-          const activeSubjectIds = db.subjects.map(sub => sub.id).filter(Boolean);
-          if (activeSubjectIds.length > 0) {
-            await sqlDb.query(`DELETE FROM subjects WHERE tenantId = ? AND id NOT IN (${activeSubjectIds.map(() => '?').join(',')})`, [tId, ...activeSubjectIds]);
-          } else {
-            await sqlDb.query('DELETE FROM subjects WHERE tenantId = ?', [tId]);
-          }
+          // Normalize IDs to grade-ascending format and sort
+          db.subjects = sortSubjectsByGrade(db.subjects.map(sub => {
+            const grade = sub.grade || sub.classId || '';
+            const name = sub.subjectName || sub.name || '';
+            return {
+              ...sub,
+              id: formatSubjectId(grade, name, sub.id),
+              grade: convertToRoman(grade),
+              classId: convertToRoman(grade),
+              name: name,
+              subjectName: name
+            };
+          }));
 
           const columns = ['id', 'name', 'code', 'classId', 'teacherId', 'teacherName', 'tenantId'];
-          const updateColumns = ['name', 'teacherId', 'teacherName'];
           const valueRows = db.subjects.filter(sub => sub.id).map(sub => [
             sub.id, sub.subjectName || sub.name || '', sub.code || '', sub.grade || sub.classId || '', sub.teacherId || '', sub.teacherName || '', tId
           ]);
-          await bulkInsertOrUpdate('subjects', columns, valueRows, updateColumns);
+
+          // Clear table and re-insert in sorted order so physical disk storage and primary key are both aligned
+          await sqlDb.query('DELETE FROM subjects WHERE tenantId = ?', [tId]);
+          await bulkInsertOnly('subjects', columns, valueRows);
         })());
       }
 
@@ -4499,7 +4893,7 @@ export const readDb = () => {
 };
 
 // Central Database Writer (Preserves synchronous signature)
-export const writeDb = (data) => {
+export const writeDb = (data, explicitChangedKeys = []) => {
   if (data && data.roles) {
     ensureOverviewPermissions(data.roles);
   }
@@ -4509,65 +4903,57 @@ export const writeDb = (data) => {
     activeTenant = 'platform';
   }
 
-  // Invalidate cache timing checks on database modifications
-  delete lastCheckTimes[activeTenant];
-  delete lastCheckTimes['platform'];
+  // Keep cache valid for the next 30 seconds since dbCache[activeTenant] is already up to date with the latest memory snapshot!
+  lastCheckTimes[activeTenant] = Date.now();
+  lastCheckTimes['platform'] = Date.now();
 
   if (isSqlActive()) {
-    const oldCache = dbCache[activeTenant];
-
-    // ---- Lightweight change detection (replaces 2x JSON deep-clone) ----
-    // Instead of cloning the entire DB twice, we detect which top-level keys
-    // changed by comparing array lengths and object references. This turns
-    // a 1-3 second synchronous block into a < 1ms operation.
     const changedKeys = new Set();
-    const trackKeys = [
-      'schools', 'school', 'plans', 'teachers', 'staff', 'students', 'timetables',
-      'teacherTimetables',
-      'invoices', 'fees', 'expenses', 'payroll', 'staffPayments', 'activities',
-      'exams', 'examTimetables', 'results', 'overallResults', 'notices',
-      'holidays', 'events', 'subjects', 'timeslots', 'feeStructures',
-      'feePeriods', 'salaryStructures', 'staffSalaryStructures', 'income',
-      'attendance', 'roles', 'userAccess', 'auditLogs', 'employeeQrCodes',
-      'attendanceRecords', 'attendanceLogs', 'attendanceReports',
-      'academicCalendarEvents', 'academicCalendarImports',
-      'publishedCalendarEvents', 'grades', 'departments', 'designations', 'staffDesignations', 'gradeDepartments',
-      'sections', 'publishedClassTimetables', 'publishedTeacherTimetables', 'attendanceSettings'
-    ];
+    if (Array.isArray(explicitChangedKeys)) {
+      explicitChangedKeys.forEach(k => { if (k) changedKeys.add(k); });
+    }
 
-    if (!oldCache) {
-      trackKeys.forEach(k => { if (data[k] !== undefined) changedKeys.add(k); });
-    } else {
-      for (const key of trackKeys) {
-        const oldVal = oldCache[key];
-        const newVal = data[key];
-        if (oldVal === newVal) continue;
-        if (!oldVal || !newVal) { changedKeys.add(key); continue; }
-        if (Array.isArray(newVal)) {
-          if (!Array.isArray(oldVal) || oldVal.length !== newVal.length) {
-            changedKeys.add(key);
-          } else if (newVal !== oldVal) {
-            changedKeys.add(key);
-          }
-          continue;
+    if (!lastSavedKeySnapshots[activeTenant]) {
+      lastSavedKeySnapshots[activeTenant] = {};
+    }
+
+    for (const key of TRACK_KEYS) {
+      if (data[key] === undefined) continue;
+      try {
+        const sig = JSON.stringify(data[key]);
+        if (lastSavedKeySnapshots[activeTenant][key] === undefined) {
+          lastSavedKeySnapshots[activeTenant][key] = sig;
+          changedKeys.add(key); // Mark as changed on initial detection so first write is never dropped
+        } else if (lastSavedKeySnapshots[activeTenant][key] !== sig) {
+          changedKeys.add(key);
+          lastSavedKeySnapshots[activeTenant][key] = sig;
         }
+      } catch (e) {
         changedKeys.add(key);
       }
     }
 
     // Preserve cache validation tokens
+    const oldCache = dbCache[activeTenant];
     if (oldCache) {
       if (oldCache._updatedAt) data._updatedAt = oldCache._updatedAt;
       if (oldCache._signature) data._signature = oldCache._signature;
     }
 
     const newUpdatedAt = new Date().toISOString();
+    if (changedKeys.size > 0) {
+      data._updatedAt = newUpdatedAt;
+    }
 
     // Use structuredClone (native, ~2-5x faster than JSON roundtrip) to create
     // a safe snapshot for background SQL sync, preventing concurrent mutation.
     const snapshot = (typeof structuredClone === 'function')
       ? structuredClone(data)
       : JSON.parse(JSON.stringify(data));
+
+    if (changedKeys.size > 0) {
+      snapshot._updatedAt = newUpdatedAt;
+    }
 
     // 1. Update memory cache instantly
     dbCache[activeTenant] = snapshot;

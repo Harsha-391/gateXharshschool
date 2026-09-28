@@ -32,6 +32,43 @@ import {
   X
 } from 'lucide-react';
 
+const normalizeGrade = (str) => {
+  if (!str) return { raw: '', base: '', dept: '' };
+  let s = String(str).trim();
+  s = s.replace(/[-/]\s*[A-Za-z]$/, '').trim();
+  s = s.replace(/^(class|grade|standard|std)\s+/i, '').trim();
+  const deptMatch = s.match(/^(.+?)\s*\((.+?)\)$/);
+  let base = s;
+  let dept = '';
+  if (deptMatch) {
+    base = deptMatch[1].trim();
+    dept = deptMatch[2].trim().toLowerCase();
+  }
+  const romanMap = {
+    'i': '1', 'ii': '2', 'iii': '3', 'iv': '4', 'v': '5',
+    'vi': '6', 'vii': '7', 'viii': '8', 'ix': '9', 'x': '10',
+    'xi': '11', 'xii': '12'
+  };
+  const baseLower = base.toLowerCase();
+  const arabic = romanMap[baseLower] || baseLower;
+  return { raw: s.toLowerCase(), base: arabic, dept };
+};
+
+const isClassMatch = (studentClassStr, feeClassStr) => {
+  if (!studentClassStr || !feeClassStr) return false;
+  const sLow = String(studentClassStr).trim().toLowerCase();
+  const fLow = String(feeClassStr).trim().toLowerCase();
+  if (sLow === fLow || sLow.includes(fLow) || fLow.includes(sLow)) return true;
+  const stu = normalizeGrade(studentClassStr);
+  const fee = normalizeGrade(feeClassStr);
+  if (stu.raw === fee.raw) return true;
+  if (stu.base && fee.base && stu.base === fee.base) {
+    if (stu.dept && fee.dept) return stu.dept === fee.dept;
+    return true;
+  }
+  return false;
+};
+
 export default function ParentDashboard({ onLogout }) {
   const [activeTab, setActiveTab] = useState('children');
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -108,6 +145,7 @@ export default function ParentDashboard({ onLogout }) {
   const [resultsSubTab, setResultsSubTab] = useState('history');
   const [fees, setFees] = useState([]);
   const [feeStructures, setFeeStructures] = useState([]);
+  const [feePeriods, setFeePeriods] = useState([]);
   const [notices, setNotices] = useState([]);
   const [events, setEvents] = useState([]);
   const [holidays, setHolidays] = useState([]);
@@ -243,6 +281,17 @@ export default function ParentDashboard({ onLogout }) {
         if (fstrRes.ok) {
           const fstrData = await fstrRes.json();
           setFeeStructures(Array.isArray(fstrData) ? fstrData : []);
+        }
+
+        const fperRes = await fetch('/api/finance/fee-periods', {
+          headers: { 
+            'Authorization': `Bearer ${token}`,
+            'x-tenant-id': tenant 
+          }
+        });
+        if (fperRes.ok) {
+          const fperData = await fperRes.json();
+          setFeePeriods(Array.isArray(fperData) ? fperData : []);
         }
 
         // 4. Fetch timetables
@@ -401,27 +450,27 @@ export default function ParentDashboard({ onLogout }) {
 
       // 3. Real Fee Receipts Collected & Due Cleared / Partial Notifications
       if (fees && fees.length > 0) {
-        // Calculate expected total for child quarter
-        let expectedQuarterTotal = 4000;
+        // Calculate expected total for child period
+        let expectedPeriodTotal = 4000;
         if (activeChild && feeStructures && feeStructures.length > 0) {
-          const childClass = (activeChild.studentClass || activeChild.grade || '').toLowerCase();
-          const matchedFs = feeStructures.find(fs => (fs.studentClass || '').toLowerCase().includes(childClass));
+          const childClass = activeChild.studentClass || activeChild.grade || '';
+          const matchedFs = feeStructures.find(fs => isClassMatch(childClass, fs.studentClass || fs.grade));
           if (matchedFs) {
             const tFee = matchedFs.tuitionFee || 0;
             const trFee = activeChild.transportRequired === 'Yes' ? (matchedFs.transportFee || 0) : 0;
             const oFee = matchedFs.otherCharges || 0;
-            const qTot = (tFee + trFee + oFee);
-            if (qTot > 0) expectedQuarterTotal = qTot;
+            const pTot = (tFee + trFee + oFee);
+            if (pTot > 0) expectedPeriodTotal = pTot;
           }
         }
 
         fees.forEach((f, idx) => {
-          const quarterLabel = f.billingPeriod || f.feeType || 'Quarter Fee';
+          const periodLabel = f.billingPeriod || f.feeType || 'Fee Period';
           if (f.status === 'Paid' || (f.paidAmount && Number(f.paidAmount) > 0)) {
             const isDueColl = f.remarks === 'DUE_COLLECTION' || f.isDueCollection || (f.receiptNumber && String(f.receiptNumber).includes('DUES'));
             const isPartial = !isDueColl && (
               (f.dueAmount && Number(f.dueAmount) > 0) || 
-              (Number(f.paidAmount || 0) < expectedQuarterTotal)
+              (Number(f.paidAmount || 0) < expectedPeriodTotal)
             );
 
             let statusLabel = 'FEE CLEARED';
@@ -444,10 +493,10 @@ export default function ParentDashboard({ onLogout }) {
               category: 'fee',
               title: `Fee Status (${statusLabel}): ${childName}`,
               message: isDueColl
-                ? `Receipt #${f.receiptNumber || ('REC-' + (f.id || '101'))}: ₹${f.paidAmount} due collected for ${quarterLabel} for ${childName}.`
+                ? `Receipt #${f.receiptNumber || ('REC-' + (f.id || '101'))}: ₹${f.paidAmount} due collected for ${periodLabel} for ${childName}.`
                 : (isPartial 
-                  ? `Receipt #${f.receiptNumber || ('REC-' + (f.id || '101'))}: ₹${f.paidAmount} partially paid for ${quarterLabel} for ${childName}.`
-                  : `Receipt #${f.receiptNumber || ('REC-' + (f.id || '101'))}: ₹${f.paidAmount} paid for ${quarterLabel} for ${childName}.`),
+                  ? `Receipt #${f.receiptNumber || ('REC-' + (f.id || '101'))}: ₹${f.paidAmount} partially paid for ${periodLabel} for ${childName}.`
+                  : `Receipt #${f.receiptNumber || ('REC-' + (f.id || '101'))}: ₹${f.paidAmount} paid for ${periodLabel} for ${childName}.`),
               time: f.paymentDate ? f.paymentDate.split('T')[0] : 'Recorded',
               timestamp: feeTimestamp,
               targetTab: 'fees',
@@ -2207,41 +2256,146 @@ export default function ParentDashboard({ onLogout }) {
           {/* TAB 7: FEE STATUS & RECEIPTS */}
           {activeTab === 'fees' && activeChild && (() => {
             const childFees = fees;
-            const quarters = [
-              { key: 'july-sep', label: '1. (July-Sep)' },
-              { key: 'oct-dec', label: '2. (Oct-Dec)' },
-              { key: 'jan-mar', label: '3. (Jan-Mar)' },
-              { key: 'apr-jun', label: '4. (Apr-Jun)' }
-            ];
+            const childClass = activeChild.studentClass || activeChild.grade || '';
 
-            // Map payment for each quarter
-            const quarterStatus = quarters.map(q => {
-              const matchedPayments = childFees.filter(f => {
-                const bp = (f.billingPeriod || f.feeType || '').toLowerCase();
-                return bp.includes(q.key) || bp.includes(q.label.toLowerCase());
-              });
+            // Match fee structures for this child's grade reliably
+            const matchedStructures = (feeStructures || []).filter(fs =>
+              isClassMatch(childClass, fs.studentClass || fs.grade)
+            );
 
+            // Determine frequency:
+            // 1. From matched fee structure
+            // 2. From fee payments' billingPeriod
+            // 3. Fallback to 'Quarterly'
+            let currentFrequency = 'Quarterly';
+            if (matchedStructures.length > 0 && matchedStructures[0].frequency) {
+              currentFrequency = matchedStructures[0].frequency;
+            } else if (childFees.some(f => (f.billingPeriod || '').toLowerCase().includes('half') || (f.billingPeriod || '').toLowerCase().includes('term'))) {
+              currentFrequency = 'Half-Yearly';
+            } else if (childFees.some(f => (f.billingPeriod || '').toLowerCase().includes('month'))) {
+              currentFrequency = 'Monthly';
+            } else if (childFees.some(f => (f.billingPeriod || '').toLowerCase().includes('year') || (f.billingPeriod || '').toLowerCase().includes('annu'))) {
+              currentFrequency = 'Yearly';
+            }
+
+            // Extract distinct monthRange periods from matched fee structures
+            const structRanges = [];
+            matchedStructures.forEach(fs => {
+              const r = (fs.monthRange || '').trim();
+              if (r && !structRanges.includes(r)) {
+                structRanges.push(r);
+              }
+            });
+
+            // Custom periods from feePeriods endpoint for this frequency
+            const customFp = (feePeriods || [])
+              .filter(fp => (fp.frequency || '').toLowerCase() === currentFrequency.toLowerCase())
+              .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0))
+              .map(fp => fp.name.trim())
+              .filter(Boolean);
+
+            // Built-in standard periods based on frequency
+            const getStandardPeriods = (freq) => {
+              const f = (freq || '').toLowerCase();
+              if (f.includes('half')) {
+                return ['1. (July-Dec)', '2. (Jan-Jun)'];
+              }
+              if (f.includes('month')) {
+                return [
+                  'January', 'February', 'March', 'April', 'May', 'June',
+                  'July', 'August', 'September', 'October', 'November', 'December'
+                ];
+              }
+              if (f.includes('year') || f.includes('annu')) {
+                return ['Full Year (Annual)'];
+              }
+              return ['1. (July-Sep)', '2. (Oct-Dec)', '3. (Jan-Mar)', '4. (Apr-Jun)'];
+            };
+
+            const periodLabels = structRanges.length > 0
+              ? structRanges
+              : (customFp.length > 0 ? customFp : getStandardPeriods(currentFrequency));
+
+            // Define periods objects
+            const periods = periodLabels.map((lbl, idx) => ({
+              index: idx + 1,
+              label: lbl,
+              key: lbl.toLowerCase()
+            }));
+
+            // Intelligent payment matching helper
+            const isPaymentForPeriod = (f, p, periodIdx) => {
+              const bp = (f.billingPeriod || '').toLowerCase().trim();
+              const pLabel = p.label.toLowerCase().trim();
+              const pKey = p.key;
+
+              // 1. Direct label match
+              if (bp && (bp === pLabel || bp === pKey || bp.includes(pLabel) || pLabel.includes(bp))) {
+                return true;
+              }
+
+              // 2. Term / Number matching (e.g. "Term 1", "1.", "Half-Yearly 1")
+              const pNum = String(periodIdx + 1);
+              if (bp) {
+                if (bp.includes(`term ${pNum}`) || bp.includes(`term-${pNum}`) || bp.includes(`term${pNum}`) || bp.includes(`${pNum}.`)) {
+                  return true;
+                }
+                if (bp.includes(`quarter ${pNum}`) || bp.includes(`quarter-${pNum}`) || bp.includes(`q${pNum}`)) {
+                  return true;
+                }
+                if (bp.includes(`half-yearly ${pNum}`) || bp.includes(`half yearly ${pNum}`) || bp.includes(`sem ${pNum}`)) {
+                  return true;
+                }
+              }
+
+              // 3. Month keywords
+              const months = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+              const pMonths = months.filter(m => pLabel.includes(m));
+              const bpMonths = months.filter(m => bp.includes(m));
+              if (pMonths.length > 0 && bpMonths.length > 0) {
+                if (pMonths.some(m => bpMonths.includes(m))) {
+                  return true;
+                }
+              }
+
+              return false;
+            };
+
+            // Map status for each period
+            const periodStatus = periods.map((p, idx) => {
+              const matchedPayments = childFees.filter(f => isPaymentForPeriod(f, p, idx));
               const totalPaid = matchedPayments.reduce((sum, f) => sum + Number(f.paidAmount || 0), 0);
               const lastPayment = matchedPayments[matchedPayments.length - 1];
 
-              // Calculate expected total for the quarter from feeStructures if available, or default
-              let expectedQuarterTotal = 4000;
-              if (activeChild) {
-                const childClass = (activeChild.studentClass || activeChild.grade || '').toLowerCase();
-                const matchedFs = feeStructures.find(fs => (fs.studentClass || '').toLowerCase().includes(childClass));
-                if (matchedFs) {
-                  const tFee = matchedFs.tuitionFee || 0;
-                  const trFee = activeChild.transportRequired === 'Yes' ? (matchedFs.transportFee || 0) : 0;
-                  const oFee = matchedFs.otherCharges || 0;
-                  const quarterTotal = (tFee + trFee + oFee);
-                  if (quarterTotal > 0) expectedQuarterTotal = quarterTotal;
+              // Expected period total
+              let expectedPeriodTotal = 0;
+              const matchedByRange = matchedStructures.find(fs =>
+                (fs.monthRange || '').trim().toLowerCase() === p.key
+              );
+              const targetFs = matchedByRange || matchedStructures[0];
+
+              if (targetFs) {
+                const tFee = targetFs.tuitionFee || 0;
+                const trFee = activeChild.transportRequired === 'Yes' ? (targetFs.transportFee || 0) : 0;
+                const oFee = targetFs.otherCharges || 0;
+                let subTot = tFee + trFee + oFee;
+                if (subTot === 0 && targetFs.totalFee > 0) subTot = targetFs.totalFee;
+
+                if (matchedByRange || targetFs.monthRange) {
+                  expectedPeriodTotal = subTot;
+                } else {
+                  expectedPeriodTotal = Math.round(subTot / (periods.length || 1));
                 }
               }
-              if (totalPaid > expectedQuarterTotal) {
-                expectedQuarterTotal = totalPaid;
+
+              if (!expectedPeriodTotal || expectedPeriodTotal <= 0) {
+                expectedPeriodTotal = 4000;
+              }
+              if (totalPaid > expectedPeriodTotal) {
+                expectedPeriodTotal = totalPaid;
               }
 
-              const remainingDue = Math.max(0, expectedQuarterTotal - totalPaid);
+              const remainingDue = Math.max(0, expectedPeriodTotal - totalPaid);
 
               let status = 'DUE';
               let badgeColor = '#ef4444';
@@ -2261,11 +2415,11 @@ export default function ParentDashboard({ onLogout }) {
               }
 
               return {
-                ...q,
+                ...p,
                 status,
                 totalPaid,
                 remainingDue,
-                expectedQuarterTotal,
+                expectedPeriodTotal,
                 lastPayment,
                 badgeColor,
                 badgeBg,
@@ -2273,12 +2427,30 @@ export default function ParentDashboard({ onLogout }) {
               };
             });
 
-            const paidCount = quarterStatus.filter(q => q.status === 'DUE CLEARED').length;
+            const paidCount = periodStatus.filter(q => q.status === 'DUE CLEARED').length;
+            const totalPeriods = periodStatus.length;
+            const isAllPaid = totalPeriods > 0 && paidCount === totalPeriods;
+
+            let freqBadgeUnit = 'Quarters';
+            const normFreq = (currentFrequency || '').toLowerCase();
+            if (normFreq.includes('half')) {
+              freqBadgeUnit = 'Half-Yearly';
+            } else if (normFreq.includes('month')) {
+              freqBadgeUnit = 'Months';
+            } else if (normFreq.includes('year') || normFreq.includes('annu')) {
+              freqBadgeUnit = 'Year';
+            } else if (normFreq.includes('quart')) {
+              freqBadgeUnit = 'Quarters';
+            } else {
+              freqBadgeUnit = 'Periods';
+            }
+
+            const badgeText = isAllPaid ? 'Fully Paid' : `${paidCount} / ${totalPeriods} ${freqBadgeUnit} Cleared`;
 
             return (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
                 
-                {/* Fee Structure & Quarterly Status Card */}
+                {/* Fee Structure & Dynamic Period Status Card */}
                 <div className="parent-card">
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '20px' }}>
                     <div>
@@ -2292,17 +2464,17 @@ export default function ParentDashboard({ onLogout }) {
                       borderRadius: '99px',
                       fontSize: '0.8rem',
                       fontWeight: 700,
-                      background: paidCount === 4 ? 'rgba(16,185,129,0.15)' : 'rgba(255,140,66,0.15)',
-                      color: paidCount === 4 ? '#10b981' : '#FF8C42',
-                      border: `1px solid ${paidCount === 4 ? '#10b981' : '#FF8C42'}40`
+                      background: isAllPaid ? 'rgba(16,185,129,0.15)' : 'rgba(255,140,66,0.15)',
+                      color: isAllPaid ? '#10b981' : '#FF8C42',
+                      border: `1px solid ${isAllPaid ? '#10b981' : '#FF8C42'}40`
                     }}>
-                      {paidCount === 4 ? 'Fully Paid' : `${paidCount} / 4 Quarters Cleared`}
+                      {badgeText}
                     </span>
                   </div>
 
-                  {/* Quarters Grid */}
+                  {/* Dynamic Periods Grid */}
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '14px' }}>
-                    {quarterStatus.map((q, idx) => (
+                    {periodStatus.map((q, idx) => (
                       <div
                         key={idx}
                         style={{
@@ -2366,82 +2538,74 @@ export default function ParentDashboard({ onLogout }) {
                   {childFees.length > 0 ? (
                     <div className="timetable-grid-container">
                       {(() => {
-                        const getQuarterKey = (f) => {
-                          const bp = (f.billingPeriod || f.feeType || '').toLowerCase();
-                          if (bp.includes('july-sep') || bp.includes('1.')) return '1. (July-Sep)';
-                          if (bp.includes('oct-dec') || bp.includes('2.')) return '2. (Oct-Dec)';
-                          if (bp.includes('jan-mar') || bp.includes('3.')) return '3. (Jan-Mar)';
-                          if (bp.includes('apr-jun') || bp.includes('4.')) return '4. (Apr-Jun)';
-                          return f.billingPeriod || 'Other Period';
+                        const getPeriodGroupKey = (f) => {
+                          for (let i = 0; i < periods.length; i++) {
+                            if (isPaymentForPeriod(f, periods[i], i)) {
+                              return periods[i].label;
+                            }
+                          }
+                          return f.billingPeriod || f.feeType || 'Fee Receipt';
                         };
 
                         const groupedFees = {};
                         childFees.forEach(f => {
-                          const qKey = getQuarterKey(f);
-                          if (!groupedFees[qKey]) groupedFees[qKey] = [];
-                          groupedFees[qKey].push(f);
+                          const pKey = getPeriodGroupKey(f);
+                          if (!groupedFees[pKey]) groupedFees[pKey] = [];
+                          groupedFees[pKey].push(f);
                         });
 
-                        const quarterKeys = Object.keys(groupedFees);
+                        const groupKeys = Object.keys(groupedFees);
 
                         return (
                           <table className="timetable-table">
                             <tbody>
-                              {quarterKeys.map((qKey) => {
-                                const items = groupedFees[qKey];
-                                const quarterTotalPaid = items.reduce((sum, item) => sum + Number(item.paidAmount || 0), 0);
+                              {groupKeys.map((pKey) => {
+                                const items = groupedFees[pKey];
+                                const groupTotalPaid = items.reduce((sum, item) => sum + Number(item.paidAmount || 0), 0);
 
-                                // Find target quarter expected total amount
-                                let expectedQuarterTotal = 4000;
-                                if (activeChild) {
-                                  const childClass = (activeChild.studentClass || activeChild.grade || '').toLowerCase();
-                                  const matchedFs = feeStructures.find(fs => (fs.studentClass || '').toLowerCase().includes(childClass));
-                                  if (matchedFs) {
-                                    const tFee = matchedFs.tuitionFee || 0;
-                                    const trFee = activeChild.transportRequired === 'Yes' ? (matchedFs.transportFee || 0) : 0;
-                                    const oFee = matchedFs.otherCharges || 0;
-                                    const qTot = (tFee + trFee + oFee);
-                                    if (qTot > 0) expectedQuarterTotal = qTot;
-                                  }
-                                }
-                                if (quarterTotalPaid > expectedQuarterTotal) {
-                                  expectedQuarterTotal = quarterTotalPaid;
+                                // Expected amount for this period group
+                                const matchedPeriodObj = periodStatus.find(p => p.label === pKey);
+                                let expectedGroupTotal = matchedPeriodObj?.expectedPeriodTotal || 4000;
+                                if (groupTotalPaid > expectedGroupTotal) {
+                                  expectedGroupTotal = groupTotalPaid;
                                 }
 
-                                const qRemainingDue = Math.max(0, expectedQuarterTotal - quarterTotalPaid);
-                                const isQuarterPaid = qRemainingDue === 0 && quarterTotalPaid > 0;
-                                const isQuarterPartial = quarterTotalPaid > 0 && qRemainingDue > 0;
+                                const groupRemainingDue = Math.max(0, expectedGroupTotal - groupTotalPaid);
+                                const isGroupPaid = groupRemainingDue === 0 && groupTotalPaid > 0;
+                                const isGroupPartial = groupTotalPaid > 0 && groupRemainingDue > 0;
+
+                                const bannerFreqTitle = normFreq.includes('half') ? 'Half-Yearly Period' : (normFreq.includes('month') ? 'Month' : (normFreq.includes('year') ? 'Year' : 'Quarter'));
 
                                 let runningPaid = 0;
 
                                 return (
-                                  <React.Fragment key={qKey}>
-                                    {/* Quarter Banner */}
+                                  <React.Fragment key={pKey}>
+                                    {/* Period Banner */}
                                     <tr style={{ background: 'rgba(255, 140, 66, 0.08)' }}>
                                       <td colSpan={7} style={{ padding: '10px 14px', borderBottom: '1px solid rgba(255, 140, 66, 0.2)' }}>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
                                           <span style={{ fontWeight: 800, color: '#FF8C42', fontSize: '0.84rem' }}>
-                                            Quarter: {qKey} — Total Collected: ₹{quarterTotalPaid.toLocaleString()} ({items.length} Transaction{items.length > 1 ? 's' : ''})
+                                            {bannerFreqTitle}: {pKey} — Total Collected: ₹{groupTotalPaid.toLocaleString()} ({items.length} Transaction{items.length > 1 ? 's' : ''})
                                           </span>
                                           <span style={{
                                             fontSize: '0.72rem',
                                             fontWeight: 800,
                                             padding: '3px 12px',
                                             borderRadius: '99px',
-                                            background: isQuarterPaid ? 'rgba(16,185,129,0.15)' : 'rgba(239, 68, 68, 0.15)',
-                                            color: isQuarterPaid ? '#10b981' : '#ef4444',
-                                            border: `1px solid ${isQuarterPaid ? '#10b981' : '#ef4444'}40`
+                                            background: isGroupPaid ? 'rgba(16,185,129,0.15)' : 'rgba(239, 68, 68, 0.15)',
+                                            color: isGroupPaid ? '#10b981' : '#ef4444',
+                                            border: `1px solid ${isGroupPaid ? '#10b981' : '#ef4444'}40`
                                           }}>
-                                            QUARTER STATUS: {isQuarterPaid ? 'PAID' : (isQuarterPartial ? `PARTIAL (DUE: ₹${qRemainingDue})` : 'DUE')}
+                                            STATUS: {isGroupPaid ? 'PAID' : (isGroupPartial ? `PARTIAL (DUE: ₹${groupRemainingDue})` : 'DUE')}
                                           </span>
                                         </div>
                                       </td>
                                     </tr>
 
-                                    {/* Column Header Row for this Quarter */}
+                                    {/* Column Header Row for this Period */}
                                     <tr style={{ background: 'rgba(255, 255, 255, 0.02)', borderBottom: '1px solid var(--border-glass)' }}>
                                       <th style={{ padding: '8px 12px', fontSize: '0.72rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Receipt No</th>
-                                      <th style={{ padding: '8px 12px', fontSize: '0.72rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Quarter / Billing Period</th>
+                                      <th style={{ padding: '8px 12px', fontSize: '0.72rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Period / Billing Period</th>
                                       <th style={{ padding: '8px 12px', fontSize: '0.72rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Fee Item</th>
                                       <th style={{ padding: '8px 12px', fontSize: '0.72rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Payment Method</th>
                                       <th style={{ padding: '8px 12px', fontSize: '0.72rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Amount Paid</th>
@@ -2452,7 +2616,7 @@ export default function ParentDashboard({ onLogout }) {
                                       const isDueCollection = f.remarks === 'DUE_COLLECTION' || f.isDueCollection || (f.receiptNumber && f.receiptNumber.includes('DUES'));
                                       
                                       runningPaid += Number(f.paidAmount || 0);
-                                      const remainingDueAfterThis = Math.max(0, expectedQuarterTotal - runningPaid);
+                                      const remainingDueAfterThis = Math.max(0, expectedGroupTotal - runningPaid);
                                       
                                       let entryBadgeText = 'FULL PAYMENT CLEARED';
                                       let entryBadgeBg = 'rgba(16, 185, 129, 0.12)';
@@ -2473,9 +2637,9 @@ export default function ParentDashboard({ onLogout }) {
                                       }
 
                                       return (
-                                        <tr key={f.id || `${qKey}-${i}`}>
+                                        <tr key={f.id || `${pKey}-${i}`}>
                                           <td><strong>{f.receiptNumber || `REC-${1000 + i}`}</strong></td>
-                                          <td style={{ fontWeight: 600 }}>{qKey}</td>
+                                          <td style={{ fontWeight: 600 }}>{pKey}</td>
                                           <td>{f.feeType}</td>
                                           <td>{f.paymentMethod}</td>
                                           <td style={{ color: '#10b981', fontWeight: 700 }}>₹{f.paidAmount}</td>

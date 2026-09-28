@@ -293,7 +293,7 @@ export default function AddStaff({ setActiveView, editData }) {
     ],
 
     // Step 6: Experience Information
-    experience: '', // Total teaching experience (e.g. 5 Years)
+    experience: '', // Total experience (e.g. 5 Years)
     experiences: [
       { schoolName: '', designation: '', duration: '', reason: '' }
     ]
@@ -1650,11 +1650,11 @@ export default function AddStaff({ setActiveView, editData }) {
         {activeStep === 6 && (
           <div className="glass-panel" style={{ padding: '28px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
             <h3 style={{ fontSize: '1rem', fontWeight: 700, margin: 0, color: 'var(--text-main)', borderBottom: '1px solid var(--border-glass)', paddingBottom: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Clock size={16} style={{ color: 'hsl(var(--color-primary))' }} /> Teaching Experience Information
+              <Clock size={16} style={{ color: 'hsl(var(--color-primary))' }} /> Experience Information
             </h3>
 
             <div className="form-group" style={{ maxWidth: '300px' }}>
-              <label>Total Teaching Experience (in Years)</label>
+              <label>Total Experience (in Years)</label>
               <input 
                 type="text"
                 name="experience"

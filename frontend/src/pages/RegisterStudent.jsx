@@ -1289,6 +1289,30 @@ export default function RegisterStudent({ setActiveView, editData }) {
                 {formErrors.studentClass && <span style={{ color: '#ef4444', fontSize: '0.75rem', marginTop: '4px', display: 'block' }}>{formErrors.studentClass}</span>}
               </div>
 
+              {formData.studentClass && (
+                <div className="form-group">
+                  <label>Section</label>
+                  <SearchableSelect 
+                    options={sectionOptions}
+                    value={formData.section}
+                    onChange={(val) => handleSelectChange('section', val)}
+                    placeholder={sectionOptions.length > 0 ? "Choose Section" : "No sections defined"}
+                    className="form-control"
+                  />
+                </div>
+              )}
+
+              <div className="form-group">
+                <label>Roll Number</label>
+                <input 
+                  type="text"
+                  name="rollNumber"
+                  value={formData.rollNumber}
+                  onChange={handleTextChange}
+                  className="form-control"
+                  placeholder="e.g. 101"
+                />
+              </div>
 
               <div className="form-group">
                 <label>Previous School Name (if Transfer)</label>
@@ -1813,6 +1837,55 @@ export default function RegisterStudent({ setActiveView, editData }) {
               </div>
             </div>
 
+            {formData.transportRequired === 'Yes' && (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '20px', marginTop: '10px', background: 'rgba(255, 107, 0, 0.03)', padding: '16px', borderRadius: '12px', border: '1px solid rgba(255, 107, 0, 0.1)' }}>
+                <div className="form-group">
+                  <label>Transport Route</label>
+                  <input 
+                    type="text"
+                    name="route"
+                    value={formData.route}
+                    onChange={handleTextChange}
+                    className="form-control"
+                    placeholder="e.g. Route 4 (North Ring)"
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Pickup Point / Stop</label>
+                  <input 
+                    type="text"
+                    name="pickupPoint"
+                    value={formData.pickupPoint}
+                    onChange={handleTextChange}
+                    className="form-control"
+                    placeholder="e.g. Central Circle"
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Drop Point / Stop</label>
+                  <input 
+                    type="text"
+                    name="dropPoint"
+                    value={formData.dropPoint}
+                    onChange={handleTextChange}
+                    className="form-control"
+                    placeholder="e.g. School Gate 2"
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Transport Fee Plan</label>
+                  <input 
+                    type="text"
+                    name="transportFeePlan"
+                    value={formData.transportFeePlan}
+                    onChange={handleTextChange}
+                    className="form-control"
+                    placeholder="e.g. Monthly / Quarterly / Annual"
+                  />
+                </div>
+              </div>
+            )}
+
           </div>
         )}
 
@@ -1847,6 +1920,43 @@ export default function RegisterStudent({ setActiveView, editData }) {
               </div>
             </div>
 
+            {formData.hostelRequired === 'Yes' && (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '20px', marginTop: '10px', background: 'rgba(59, 130, 246, 0.03)', padding: '16px', borderRadius: '12px', border: '1px solid rgba(59, 130, 246, 0.1)' }}>
+                <div className="form-group">
+                  <label>Hostel Block / Wing</label>
+                  <input 
+                    type="text"
+                    name="hostelBlock"
+                    value={formData.hostelBlock}
+                    onChange={handleTextChange}
+                    className="form-control"
+                    placeholder="e.g. Block B - Junior Wing"
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Room Number</label>
+                  <input 
+                    type="text"
+                    name="roomNumber"
+                    value={formData.roomNumber}
+                    onChange={handleTextChange}
+                    className="form-control"
+                    placeholder="e.g. 204"
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Bed Number / Allocation</label>
+                  <input 
+                    type="text"
+                    name="bedNumber"
+                    value={formData.bedNumber}
+                    onChange={handleTextChange}
+                    className="form-control"
+                    placeholder="e.g. Bed A"
+                  />
+                </div>
+              </div>
+            )}
 
           </div>
         )}
@@ -1958,8 +2068,12 @@ export default function RegisterStudent({ setActiveView, editData }) {
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '0.85rem' }}>
                   <div><strong>Admission ID:</strong> {formData.admissionNumber}</div>
-                  <div><strong>Class:</strong> Class {formData.studentClass}</div>
+                  <div><strong>Class & Section:</strong> Class {formData.studentClass}{formData.section ? ` - ${formData.section}` : ''}</div>
+                  {formData.rollNumber && <div><strong>Roll Number:</strong> {formData.rollNumber}</div>}
                   <div><strong>Type / Session:</strong> {formData.admissionType} / {formData.academicYear}</div>
+                  {formData.admissionType === 'Transfer' && formData.previousSchoolName && (
+                    <div><strong>Previous School:</strong> {formData.previousSchoolName}</div>
+                  )}
                   <div><strong>TC Number:</strong> {formData.transferCertificateNumber || 'N/A'}</div>
                 </div>
               </div>
@@ -1974,6 +2088,9 @@ export default function RegisterStudent({ setActiveView, editData }) {
                   <div><strong>Father:</strong> {formData.fatherName} ({formData.fatherMobile})</div>
                   <div><strong>Mother:</strong> {formData.motherName} ({formData.motherMobile})</div>
                   {formData.guardianName && <div><strong>Guardian:</strong> {formData.guardianName} ({formData.guardianContact})</div>}
+                  {formData.createParentLogin === 'Yes' && (
+                    <div><strong>Parent Portal Login:</strong> Enabled ({formData.parentUsername || formData.parentEmail})</div>
+                  )}
                 </div>
               </div>
 
@@ -1998,8 +2115,8 @@ export default function RegisterStudent({ setActiveView, editData }) {
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '0.85rem' }}>
                   <div><strong>SEN / Disabilities:</strong> {formData.disabilities || 'None'}</div>
-                  <div><strong>Transport Required:</strong> {formData.transportRequired}</div>
-                  <div><strong>Hostel Required:</strong> {formData.hostelRequired}</div>
+                  <div><strong>Transport:</strong> {formData.transportRequired}{formData.transportRequired === 'Yes' && formData.route ? ` (${formData.route} - ${formData.pickupPoint || 'Pickup'})` : ''}</div>
+                  <div><strong>Hostel:</strong> {formData.hostelRequired}{formData.hostelRequired === 'Yes' && formData.hostelBlock ? ` (${formData.hostelBlock} - Room ${formData.roomNumber || 'N/A'})` : ''}</div>
                 </div>
               </div>
 

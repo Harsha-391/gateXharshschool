@@ -28,6 +28,7 @@ import SkeletonLoader from '../components/SkeletonLoader';
 import KeepAlive from '../components/KeepAlive';
 import { fetchActiveGrades, fetchActiveSections } from '../utils/grades';
 import { hasPermission } from '../utils/permissions';
+import NotificationPanel from '../components/NotificationPanel';
 
 const lazyWithRetry = (componentImport) => {
   return lazy(async () => {
@@ -349,9 +350,8 @@ export default function AdminPanel({ setActiveView, onLogout, adminView, setAdmi
 
   // Redirect non-admin users away from admin-only views, and redirect admins to admin view on load/profile change
   useEffect(() => {
-    if (!userProfile) return;
-    const userRole = userProfile.role || '';
-    const isUserAdmin = userRole === 'Main Admin' || userRole === 'Principal' || userRole === 'Admin Dashboard';
+    const userRole = userProfile?.role || localStorage.getItem('portal_role') || localStorage.getItem('role') || '';
+    const isUserAdmin = ['Main Admin', 'Principal', 'Admin Dashboard', 'School Admin', 'Super Admin'].includes(userRole);
     
     // If not an admin and viewing an admin-only section, redirect to appropriate view
     if (!isUserAdmin && adminView === 'leave-management') {
@@ -949,7 +949,8 @@ export default function AdminPanel({ setActiveView, onLogout, adminView, setAdmi
                           display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '0.75rem',
                           borderTop: '1px solid var(--border-glass)', paddingTop: '8px', color: 'var(--text-muted)', marginTop: '4px'
                         }}>
-                          <span>📅 Date: <strong>{new Date(evt.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</strong></span>
+                          <span>📅 Start Date: <strong>{new Date((evt.startDate || evt.date) + (String(evt.startDate || evt.date).includes('T') ? '' : 'T00:00:00')).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</strong></span>
+                          <span>📅 End Date: <strong>{new Date((evt.endDate || evt.startDate || evt.date) + (String(evt.endDate || evt.startDate || evt.date).includes('T') ? '' : 'T00:00:00')).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</strong></span>
                           <span>📍 Venue: {evt.venue}</span>
                           <span>👥 Target: {evt.participants}</span>
                         </div>
@@ -1060,6 +1061,9 @@ export default function AdminPanel({ setActiveView, onLogout, adminView, setAdmi
                 </div>
               )}
             </div>
+
+            {/* ── ROW 6: Notifications ────────────────────────── */}
+            <NotificationPanel />
 
           </div>
         </KeepAlive>
@@ -1204,9 +1208,11 @@ export default function AdminPanel({ setActiveView, onLogout, adminView, setAdmi
             editData={editingTeacherForRegister} 
             setActiveView={(view) => { 
               if (view === 'teachers' || view === 'teacher-directory') { 
+                setEditingTeacherForRegister(null);
                 setDirectoryKey(k => k + 1); 
                 setAdminView('teachers'); 
               } else {
+                setEditingTeacherForRegister(null);
                 setActiveView(view); 
               }
             }} 

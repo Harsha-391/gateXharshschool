@@ -467,7 +467,11 @@ export default function StudentDirectory({ readOnly = true, onAddClick, onEditCl
       }
 
       try {
-        const res = await fetch(`/api/students/${studentId}`, { method: 'DELETE' });
+        const token = localStorage.getItem('token');
+        const res = await fetch(`/api/students/${studentId}`, { 
+          method: 'DELETE',
+          headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+        });
         if (!res.ok) {
           // Rollback on server failure
           setStudents(originalStudents);

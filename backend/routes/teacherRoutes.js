@@ -26,22 +26,23 @@ const uploadFields = upload.fields([
   { name: 'otherFile', maxCount: 1 }
 ]);
 
-// Apply auth globally to all teacher routes
+// Apply tenant context and auth globally to all teacher routes
+router.use(restoreTenantContext);
 router.use(auth);
 
 // 1. GET ALL TEACHERS
-router.get('/', restoreTenantContext, checkPermission('teacher-directory', 'view'), getTeachers);
+router.get('/', checkPermission('teacher-directory', 'view'), getTeachers);
 
 // 2. GET SINGLE TEACHER PROFILE BY EMPLOYEE ID
-router.get('/:id', restoreTenantContext, checkPermission('teacher-directory', 'view'), getTeacherById);
+router.get('/:id', checkPermission('teacher-directory', 'view'), getTeacherById);
 
 // 3. REGISTER NEW TEACHER
-router.post('/', uploadFields, restoreTenantContext, checkPermission('register-teacher', 'create'), teacherValidation, registerTeacher);
+router.post('/', uploadFields, checkPermission('register-teacher', 'create'), teacherValidation, registerTeacher);
 
 // 4. UPDATE TEACHER PROFILE
-router.put('/:id', uploadFields, restoreTenantContext, checkPermission('teacher-directory', 'edit'), updateTeacher);
+router.put('/:id', uploadFields, checkPermission('teacher-directory', 'edit'), updateTeacher);
 
 // 5. DISMISS/REMOVE TEACHER
-router.delete('/:id', restoreTenantContext, checkPermission('teacher-directory', 'delete'), deleteTeacher);
+router.delete('/:id', checkPermission('teacher-directory', 'delete'), deleteTeacher);
 
 export default router;

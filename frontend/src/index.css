@@ -919,6 +919,16 @@ select::placeholder {
   background: rgba(100, 116, 139, 0.25);
 }
 
+.school-action-badge-btn.btn-launch {
+  background: rgba(16, 185, 129, 0.12);
+  border-color: rgba(16, 185, 129, 0.25);
+  color: #10b981;
+}
+.school-action-badge-btn.btn-launch:hover {
+  background: rgba(16, 185, 129, 0.22);
+  color: #34d399;
+}
+
 .school-action-badge-btn.btn-credentials {
   background: rgba(245, 158, 11, 0.12);
   border-color: rgba(245, 158, 11, 0.25);

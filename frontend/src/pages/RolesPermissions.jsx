@@ -30,7 +30,7 @@ const getTenantHeader = () => {
   return '';
 };
 
-const TEACHER_ROLES = ['Principal', 'Vice Principal', 'Academic Coordinator', 'Staff', 'Receptionist', 'Accountant', 'Expense Manager'];
+const TEACHER_ROLES = ['Principal', 'Vice Principal', 'Academic Coordinator', 'Staff', 'Receptionist', 'Accountant'];
 
 const LEGACY_MODULE_MAP = {
   'student-directory': 'core-registers',
@@ -1105,7 +1105,7 @@ export default function RolesPermissions({ initialTab = 'dashboard', onPermissio
                 placeholder="e.g. Accounts Auditor, Front Desk Assistant"
                 value={roleForm.name}
                 onChange={(e) => setRoleForm({ ...roleForm, name: e.target.value })}
-                disabled={editingRole?.isSystem || ['Academic Coordinator', 'Staff', 'Teacher', 'Receptionist', 'Accountant', 'Expense Manager', 'Principal', 'Vice Principal'].includes(editingRole?.name)}
+                disabled={editingRole?.isSystem || ['Academic Coordinator', 'Staff', 'Teacher', 'Receptionist', 'Accountant', 'Principal', 'Vice Principal'].includes(editingRole?.name)}
                 style={{ marginTop: '6px', borderRadius: '10px' }}
               />
             </div>

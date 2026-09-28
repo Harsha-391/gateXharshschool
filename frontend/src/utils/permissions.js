@@ -124,7 +124,10 @@ export function hasPermission(module, action) {
   if (
     role === 'Developer Admin' || 
     role === 'Main Admin' || 
-    role === 'Admin Dashboard'
+    role === 'Admin Dashboard' ||
+    role === 'Principal' ||
+    role === 'School Admin' ||
+    role === 'Super Admin'
   ) {
     return true;
   }
@@ -226,5 +229,5 @@ export function hasPermission(module, action) {
  */
 export function isSuperAdmin() {
   const role = localStorage.getItem('portal_role') || localStorage.getItem('role');
-  return role === 'Developer Admin' || role === 'Main Admin' || role === 'Admin Dashboard';
+  return role === 'Developer Admin' || role === 'Main Admin' || role === 'Admin Dashboard' || role === 'Principal' || role === 'School Admin' || role === 'Super Admin';
 }

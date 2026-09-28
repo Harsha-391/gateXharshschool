@@ -555,11 +555,13 @@ export default function RegisterTeacher({ setActiveView, editData }) {
       Object.keys(files).forEach(key => { if (files[key]) dataObj.append(key, files[key]); });
 
       const url = editData ? `/api/teachers/${editData.employeeId || editData.id}` : '/api/teachers';
-      const method = editData ? 'PUT' : 'POST';
-
+      const token = localStorage.getItem('token');
       const res = await fetch(url, {
         method: method,
-        headers: { 'x-tenant-id': tenantSubdomain },
+        headers: { 
+          'x-tenant-id': tenantSubdomain,
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        },
         body: dataObj
       });
 
@@ -705,15 +707,42 @@ export default function RegisterTeacher({ setActiveView, editData }) {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
           <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-main)', margin: 0 }}>
-            {steps[activeStep - 1].label}
+            {editData ? `Edit Teacher: ${editData.fullName || editData.name || 'Profile'}` : steps[activeStep - 1].label}
           </h2>
           <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', margin: '4px 0 0 0' }}>
-            Step {activeStep} of 8 — Complete fields to advance.
+            {editData 
+              ? `Step ${activeStep} of 8 (${steps[activeStep - 1].label}) — Make your changes and click Save.`
+              : `Step ${activeStep} of 8 — Complete fields to advance.`
+            }
           </p>
         </div>
         
-        {/* Reset Draft Button */}
-        {!editData && (
+        {/* Actions Button */}
+        {editData ? (
+          <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+            <button 
+              type="button" 
+              onClick={() => {
+                performReset();
+                if (typeof setActiveView === 'function') setActiveView('teachers');
+              }}
+              className="btn-secondary"
+              style={{ padding: '8px 16px', fontSize: '0.8rem', borderRadius: '8px', cursor: 'pointer' }}
+            >
+              Cancel
+            </button>
+            <button 
+              type="button" 
+              onClick={handleSubmit}
+              disabled={loading}
+              className="btn-primary"
+              style={{ padding: '8px 20px', fontSize: '0.82rem', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '6px', cursor: loading ? 'not-allowed' : 'pointer', fontWeight: 700 }}
+            >
+              {loading ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
+              {loading ? 'Saving...' : 'Update & Save'}
+            </button>
+          </div>
+        ) : (
           <button 
             type="button" 
             onClick={resetForm}
@@ -911,10 +940,6 @@ export default function RegisterTeacher({ setActiveView, editData }) {
                 <div className="form-group">
                   <label>Designation</label>
                   <div className="form-control" style={{ background: 'rgba(255, 107, 0, 0.08)', fontWeight: 700, color: 'hsl(var(--color-primary))' }}>Teacher</div>
-                </div>
-                <div className="form-group">
-                  <label>Department</label>
-                  <SearchableSelect options={departmentOptions} value={formData.department} onChange={(v) => handleSelectChange('department', v)} placeholder="Select Department" className="form-control" />
                 </div>
                 <div className="form-group">
                   <label>Status</label>
@@ -1255,8 +1280,9 @@ export default function RegisterTeacher({ setActiveView, editData }) {
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '0.85rem' }}>
                     <div><strong>Role:</strong> Teacher</div>
-                    <div><strong>Department:</strong> {formData.department || 'N/A'}</div>
+                    {formData.department ? <div><strong>Department:</strong> {formData.department}</div> : null}
                     <div><strong>Subjects:</strong> {formData.primarySubject || 'N/A'} {formData.secondarySubject ? `, ${formData.secondarySubject}` : ''}</div>
+                    <div><strong>Class Teacher:</strong> {formData.isClassTeacher ? `Yes (Grade ${formData.assignedGradeId || 'N/A'}${formData.assignedSectionId ? ` - Section ${formData.assignedSectionId}` : ''})` : 'No'}</div>
                     <div><strong>Type / Session:</strong> {formData.employmentType || 'N/A'} / {formData.joiningDate || 'N/A'}</div>
                     <div><strong>Status:</strong> {formData.status || 'Active'}</div>
                   </div>
@@ -1356,7 +1382,26 @@ export default function RegisterTeacher({ setActiveView, editData }) {
             </button>
           </div>
 
-          <div style={{ display: 'flex', gap: '12px' }}>
+          <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+            {editData && activeStep < 8 && (
+              <button 
+                type="submit" 
+                className="btn-primary" 
+                disabled={loading}
+                style={{ 
+                  padding: '10px 22px', 
+                  borderRadius: '10px', 
+                  fontWeight: 700, 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: '6px', 
+                  cursor: loading ? 'not-allowed' : 'pointer',
+                  background: 'linear-gradient(135deg, hsl(var(--color-primary)) 0%, hsl(var(--color-secondary)) 100%)'
+                }}
+              >
+                {loading ? <><Loader2 size={16} className="animate-spin" /> Saving...</> : <><Save size={16} /> Save Changes</>}
+              </button>
+            )}
             {activeStep < 8 ? (
               <button type="button" onClick={handleNext} className="btn-primary"
                 style={{ padding: '10px 24px', borderRadius: '10px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>

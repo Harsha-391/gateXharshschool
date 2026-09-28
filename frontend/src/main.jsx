@@ -25,15 +25,19 @@ window.fetch = (input, init) => {
   const method = (init && init.method) ? init.method.toUpperCase() : 'GET';
   
   const getTenantHeader = () => {
+    const role = localStorage.getItem('role') || localStorage.getItem('portal_role');
+    if (role === 'Developer Admin') return '';
+    const reqUrl = typeof input === 'string' ? input : (input?.url || '');
+    if (reqUrl.includes('/api/platform/')) return '';
+
     if (init && init.headers) {
-      if (init.headers['x-tenant-id']) return init.headers['x-tenant-id'];
-      if (init.headers.get && typeof init.headers.get === 'function') {
-        const val = init.headers.get('x-tenant-id');
-        if (val) return val;
-      }
+      const headerVal = init.headers['x-tenant-id'] || (init.headers.get && typeof init.headers.get === 'function' && init.headers.get('x-tenant-id'));
+      if (headerVal === 'platform') return '';
+      if (headerVal) return headerVal;
     }
     if (input instanceof Request && input.headers) {
       const val = input.headers.get('x-tenant-id');
+      if (val === 'platform') return '';
       if (val) return val;
     }
     return localStorage.getItem('tenant_subdomain') || '';

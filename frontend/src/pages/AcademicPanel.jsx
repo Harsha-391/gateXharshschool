@@ -121,8 +121,10 @@ export default function AcademicPanel({ subView, setAdminView, userProfile, scho
   const [quickSubjectInputs, setQuickSubjectInputs] = useState({});
   const [subjectSearchQuery, setSubjectSearchQuery] = useState('');
   const [showBulkModal, setShowBulkModal] = useState(false);
+  const [bulkCohort, setBulkCohort] = useState('');
   const [bulkGrid, setBulkGrid] = useState({});
   const [showTeacherBulkModal, setShowTeacherBulkModal] = useState(false);
+  const [editingTeacherName, setEditingTeacherName] = useState('');
   const [teacherBulkGrid, setTeacherBulkGrid] = useState({});
   const [teacherBulkSearchQuery, setTeacherBulkSearchQuery] = useState('');
   const [teacherBulkGradeSearch, setTeacherBulkGradeSearch] = useState('All');
@@ -229,11 +231,13 @@ export default function AcademicPanel({ subView, setAdminView, userProfile, scho
   const [manualGrade, setManualGrade] = useState('');
   const [manualSection, setManualSection] = useState('');
   const [manualSlots, setManualSlots] = useState([]);
+  const [manualExamId, setManualExamId] = useState('');
+  const [savingTimetable, setSavingTimetable] = useState(false);
   const [isManualSchedulerOpen, setIsManualSchedulerOpen] = useState(false);
   const [draggedSlotIndex, setDraggedSlotIndex] = useState(null);
   const [expandedTimetables, setExpandedTimetables] = useState({}); // key: `${examId}-${grade}-${section}` -> boolean
   const [eventForm, setEventForm] = useState({
-    title: '', type: '', date: '', startTime: '', endTime: '', venue: '', description: '', organizer: 'School Admin', participants: 'All Students', status: 'Scheduled'
+    title: '', type: '', date: '', startDate: '', endDate: '', startTime: '', endTime: '', venue: '', description: '', organizer: 'School Admin', participants: 'All Students', status: 'Scheduled'
   });
   const [eventsTab, setEventsTab] = useState('active'); // 'active' or 'history'
   const [historySearch, setHistorySearch] = useState('');
@@ -662,10 +666,15 @@ export default function AcademicPanel({ subView, setAdminView, userProfile, scho
 
   const handleOpenBulkModalForCohort = (cohort) => {
     setActiveClass(cohort);
+    setBulkCohort(cohort);
     const currentGrid = {};
     daysOfWeek.forEach(day => {
       timeslots.forEach(slot => {
-        const match = timetables.find(t => t.cohort === cohort && t.day === day && t.time === slot);
+        const match = timetables.find(t => 
+          t.cohort && t.cohort.trim().toLowerCase() === cohort.trim().toLowerCase() && 
+          t.day === day && 
+          t.time === slot
+        );
         currentGrid[`${day}_${slot}`] = {
           subject: match ? match.subject : '',
           teacher: match ? match.teacher : '',
@@ -686,9 +695,21 @@ export default function AcademicPanel({ subView, setAdminView, userProfile, scho
       const key = `${day}_${slot}`;
       const cell = { ...(prev[key] || { subject: '', teacher: '', room: '' }) };
       cell[field] = value;
-      if (field === 'subject' && !value) {
-        cell.teacher = '';
-        cell.room = '';
+      if (field === 'subject') {
+        if (!value) {
+          cell.teacher = '';
+          cell.room = '';
+        } else {
+          const currentTargetCohort = bulkCohort || activeClass;
+          const targetGrade = currentTargetCohort.split('-')[0];
+          const matchedSubject = subjects.find(s => 
+            s.subjectName === value && 
+            (!targetGrade || !s.grade || s.grade.trim().toLowerCase() === targetGrade.trim().toLowerCase())
+          ) || subjects.find(s => s.subjectName === value);
+          if (matchedSubject && matchedSubject.teacher) {
+            cell.teacher = matchedSubject.teacher;
+          }
+        }
       }
       return {
         ...prev,
@@ -724,12 +745,15 @@ export default function AcademicPanel({ subView, setAdminView, userProfile, scho
       }
     });
 
+    if (savingTimetable) return;
+    setSavingTimetable(true);
+    const targetCohort = bulkCohort || activeClass;
     try {
       const res = await fetch('/api/academics/timetables/bulk', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          cohort: activeClass,
+          cohort: targetCohort,
           timetables: formattedTimetables
         })
       });
@@ -743,17 +767,20 @@ export default function AcademicPanel({ subView, setAdminView, userProfile, scho
       }
     } catch (err) {
       showToast('Network error during bulk operation.', 'error');
+    } finally {
+      setSavingTimetable(false);
     }
   };
 
   const handleOpenTeacherBulkModalForName = (tName) => {
     if (!tName) return;
+    setEditingTeacherName(tName);
     const currentGrid = {};
     daysOfWeek.forEach(day => {
       timeslots.forEach(slot => {
         const match = teacherTimetables.find(t =>
           t.teacher &&
-          t.teacher.toLowerCase() === tName.toLowerCase() &&
+          t.teacher.trim().toLowerCase() === tName.trim().toLowerCase() &&
           t.day === day &&
           t.time === slot
         );
@@ -828,8 +855,9 @@ export default function AcademicPanel({ subView, setAdminView, userProfile, scho
 
   const handleTeacherBulkSubmit = async (e) => {
     e.preventDefault();
+    const targetTeacher = editingTeacherName || activeTeacher;
     const currentTeacherObj = Array.isArray(teachers)
-      ? teachers.find(t => t.name.toLowerCase() === activeTeacher.toLowerCase())
+      ? teachers.find(t => (t.name || '').trim().toLowerCase() === (targetTeacher || '').trim().toLowerCase())
       : null;
     const teacherSubject = currentTeacherObj
       ? (currentTeacherObj.primarySubject || currentTeacherObj.subject || currentTeacherObj.subjectSpecialization || '')
@@ -848,12 +876,14 @@ export default function AcademicPanel({ subView, setAdminView, userProfile, scho
       }
     });
 
+    if (savingTimetable) return;
+    setSavingTimetable(true);
     try {
       const res = await fetch('/api/academics/timetables/bulk/teacher', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          teacher: activeTeacher,
+          teacher: targetTeacher,
           timetables: formattedTimetables
         })
       });
@@ -867,6 +897,8 @@ export default function AcademicPanel({ subView, setAdminView, userProfile, scho
       }
     } catch (err) {
       showToast('Network error during bulk operation.', 'error');
+    } finally {
+      setSavingTimetable(false);
     }
   };
 
@@ -922,6 +954,8 @@ export default function AcademicPanel({ subView, setAdminView, userProfile, scho
   // 1. Timetable Slot
   const handleTimetableSubmit = async (e) => {
     e.preventDefault();
+    if (savingTimetable) return;
+    setSavingTimetable(true);
     const payload = { cohort: activeClass, ...timetableForm };
     try {
       const res = await fetch('/api/academics/timetables', {
@@ -939,6 +973,8 @@ export default function AcademicPanel({ subView, setAdminView, userProfile, scho
       }
     } catch (e) {
       showToast('Network error during operation.', 'error');
+    } finally {
+      setSavingTimetable(false);
     }
   };
 
@@ -1161,10 +1197,18 @@ export default function AcademicPanel({ subView, setAdminView, userProfile, scho
     try {
       const url = editingId ? `/api/academics/events/${editingId}` : '/api/academics/events';
       const method = editingId ? 'PUT' : 'POST';
+      const actualStart = eventForm.startDate || eventForm.date;
+      const actualEnd = eventForm.endDate || actualStart;
+      const payload = {
+        ...eventForm,
+        date: actualStart,
+        startDate: actualStart,
+        endDate: actualEnd
+      };
       const res = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(eventForm)
+        body: JSON.stringify(payload)
       });
       if (res.ok) {
         showToast(editingId ? 'School event updated successfully.' : 'School event scheduled and logged.', 'success');
@@ -1568,11 +1612,14 @@ export default function AcademicPanel({ subView, setAdminView, userProfile, scho
     if (format === 'pdf') {
       try {
         const title = evt.title || 'Academic Event';
-        const formattedDate = new Date(evt.date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+        const startFormatted = new Date((evt.startDate || evt.date) + (String(evt.startDate || evt.date).includes('T') ? '' : 'T00:00:00')).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+        const endFormatted = new Date((evt.endDate || evt.startDate || evt.date) + (String(evt.endDate || evt.startDate || evt.date).includes('T') ? '' : 'T00:00:00')).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+        const formattedDate = startFormatted === endFormatted ? startFormatted : `${startFormatted} - ${endFormatted}`;
         const timeStr = `${evt.startTime || evt.time || 'N/A'}${evt.endTime ? ` - ${evt.endTime}` : ''}`;
         
         const docFields = [
-          { label: 'Date', value: formattedDate },
+          { label: 'Start Date', value: startFormatted },
+          { label: 'End Date', value: endFormatted },
           { label: 'Time', value: timeStr },
           { label: 'Venue', value: evt.venue || 'Campus Main Ground' },
           { label: 'Target Audience', value: evt.participants || 'All Students & Faculty' },
@@ -1588,7 +1635,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile, scho
         });
 
         const filename = `Event_${title.replace(/[^a-zA-Z0-9_-]/g, '_')}.pdf`;
-        const summaryText = `${title}\nType: ${evt.type || 'Event'}\nDate: ${formattedDate}\nTime: ${timeStr}\nVenue: ${evt.venue || 'Campus Main Ground'}\nAudience: ${evt.participants || 'All Students'}\n\n${evt.description || ''}`;
+        const summaryText = `${title}\nType: ${evt.type || 'Event'}\nStart Date: ${startFormatted}\nEnd Date: ${endFormatted}\nTime: ${timeStr}\nVenue: ${evt.venue || 'Campus Main Ground'}\nAudience: ${evt.participants || 'All Students'}\n\n${evt.description || ''}`;
 
         const docObj = {
           type: 'Event',
@@ -1607,7 +1654,8 @@ export default function AcademicPanel({ subView, setAdminView, userProfile, scho
               </div>
               <div class="desc">${evt.description || 'No description provided.'}</div>
               <div class="details">
-                <div class="details-label">Date:</div><div class="details-val">${formattedDate}</div>
+                <div class="details-label">Start Date:</div><div class="details-val">${startFormatted}</div>
+                <div class="details-label">End Date:</div><div class="details-val">${endFormatted}</div>
                 <div class="details-label">Time:</div><div class="details-val">${timeStr}</div>
                 <div class="details-label">Venue:</div><div class="details-val">${evt.venue || 'Campus Main Ground'}</div>
                 <div class="details-label">Target Audience:</div><div class="details-val">${evt.participants || 'All Students'}</div>
@@ -1641,7 +1689,8 @@ export default function AcademicPanel({ subView, setAdminView, userProfile, scho
         ['Title', evt.title],
         ['Type', evt.type],
         ['Description', evt.description || ''],
-        ['Date', new Date(evt.date).toLocaleDateString('en-US')],
+        ['Start Date', new Date((evt.startDate || evt.date) + (String(evt.startDate || evt.date).includes('T') ? '' : 'T00:00:00')).toLocaleDateString('en-US')],
+        ['End Date', new Date((evt.endDate || evt.startDate || evt.date) + (String(evt.endDate || evt.startDate || evt.date).includes('T') ? '' : 'T00:00:00')).toLocaleDateString('en-US')],
         ['Time', evt.time || ''],
         ['Venue', evt.venue || ''],
         ['Target Participants', evt.participants || ''],
@@ -1953,6 +2002,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile, scho
 
     if (targetExamId) {
       setActiveExam(targetExamId);
+      setManualExamId(targetExamId);
     }
     setManualGrade(targetGrade);
     setManualSection(targetSection);
@@ -1962,8 +2012,13 @@ export default function AcademicPanel({ subView, setAdminView, userProfile, scho
 
   const convertTo24HourFormat = (time12) => {
     if (!time12) return '09:00';
-    const match = time12.trim().match(/^(\d+):(\d+)\s*(am|pm)$/i);
-    if (!match) return '09:00';
+    const trimmed = time12.trim();
+    const match24 = trimmed.match(/^(\d{1,2}):(\d{2})$/);
+    if (match24) {
+      return `${String(parseInt(match24[1])).padStart(2, '0')}:${match24[2]}`;
+    }
+    const match = trimmed.match(/^(\d+):(\d+)\s*(am|pm)$/i);
+    if (!match) return trimmed || '09:00';
     let hrs = parseInt(match[1]);
     const mins = parseInt(match[2]);
     const ampm = match[3].toLowerCase();
@@ -2029,18 +2084,21 @@ export default function AcademicPanel({ subView, setAdminView, userProfile, scho
   };
 
   const handleSaveCustomTimetable = async () => {
+    if (savingTimetable) return;
+    setSavingTimetable(true);
     try {
-      const targetExamObj = exams.find(e => e.id === activeExam);
+      const currentExamId = manualExamId || activeExam;
+      const targetExamObj = exams.find(e => e.id === currentExamId);
       const allExamGradeSections = targetExamObj ? (targetExamObj.gradeSections || []) : [];
       const filteredSectionsForGrade = allExamGradeSections.filter(gs => gs.grade === manualGrade).map(gs => gs.section);
 
-      const sectionsToSave = filteredSectionsForGrade.length > 0 ? filteredSectionsForGrade : [manualSection || 'A'];
+      const sectionsToSave = manualSection ? [manualSection] : (filteredSectionsForGrade.length > 0 ? filteredSectionsForGrade : ['A']);
       const promises = sectionsToSave.map(sec =>
         fetch('/api/academics/exam-timetables/bulk', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            examId: activeExam,
+            examId: currentExamId,
             cohort: `${manualGrade}-${sec}`,
             schedules: manualSlots
           })
@@ -2050,7 +2108,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile, scho
       const allOk = responses.every(res => res.ok);
       if (allOk) {
         // Reset published status when editing schedules
-        await fetch(`/api/academics/exams/${activeExam}`, {
+        await fetch(`/api/academics/exams/${currentExamId}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ timetablePublished: false })
@@ -2063,6 +2121,8 @@ export default function AcademicPanel({ subView, setAdminView, userProfile, scho
       }
     } catch (err) {
       showToast('Network error while saving.', 'error');
+    } finally {
+      setSavingTimetable(false);
     }
   };
 
@@ -2207,7 +2267,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile, scho
             <button className="btn-secondary" onClick={() => setIsManualSchedulerOpen(false)}>
               Cancel
             </button>
-            <button className="btn-primary" onClick={handleSaveCustomTimetable}>
+            <button className="btn-primary" onClick={handleSaveCustomTimetable} disabled={savingTimetable}>
               Save Timetable
             </button>
           </div>
@@ -3596,6 +3656,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile, scho
 
       if (targetExamId) {
         setActiveExam(targetExamId);
+        setManualExamId(targetExamId);
       }
       setManualGrade(targetGrade);
       setManualSection(targetSection);
@@ -3657,8 +3718,13 @@ export default function AcademicPanel({ subView, setAdminView, userProfile, scho
 
     const convertTo24HourFormat = (time12) => {
       if (!time12) return '09:00';
-      const match = time12.trim().match(/^(\d+):(\d+)\s*(am|pm)$/i);
-      if (!match) return '09:00';
+      const trimmed = time12.trim();
+      const match24 = trimmed.match(/^(\d{1,2}):(\d{2})$/);
+      if (match24) {
+        return `${String(parseInt(match24[1])).padStart(2, '0')}:${match24[2]}`;
+      }
+      const match = trimmed.match(/^(\d+):(\d+)\s*(am|pm)$/i);
+      if (!match) return trimmed || '09:00';
       let hrs = parseInt(match[1]);
       const mins = parseInt(match[2]);
       const ampm = match[3].toLowerCase();
@@ -3682,14 +3748,17 @@ export default function AcademicPanel({ subView, setAdminView, userProfile, scho
     };
 
     const handleSaveCustomTimetable = async () => {
+      if (savingTimetable) return;
+      setSavingTimetable(true);
       try {
-        const sectionsToSave = filteredSectionsForGrade.length > 0 ? filteredSectionsForGrade : [manualSection || 'A'];
+        const currentExamId = manualExamId || activeExam;
+        const sectionsToSave = manualSection ? [manualSection] : (filteredSectionsForGrade.length > 0 ? filteredSectionsForGrade : ['A']);
         const promises = sectionsToSave.map(sec =>
           fetch('/api/academics/exam-timetables/bulk', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              examId: activeExam,
+              examId: currentExamId,
               cohort: `${manualGrade}-${sec}`,
               schedules: manualSlots
             })
@@ -3699,7 +3768,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile, scho
         const allOk = responses.every(res => res.ok);
         if (allOk) {
           // Reset published status when editing schedules
-          await fetch(`/api/academics/exams/${activeExam}`, {
+          await fetch(`/api/academics/exams/${currentExamId}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ timetablePublished: false })
@@ -3712,6 +3781,8 @@ export default function AcademicPanel({ subView, setAdminView, userProfile, scho
         }
       } catch (err) {
         showToast('Network error while saving.', 'error');
+      } finally {
+        setSavingTimetable(false);
       }
     };
 
@@ -4839,7 +4910,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile, scho
               <Settings size={16} /> Manage Event Types
             </button>
             <button className="btn-primary" onClick={() => {
-              setEventForm({ title: '', type: '', date: '', startTime: '', endTime: '', venue: '', description: '', organizer: 'School Admin', participants: 'All Students', status: 'Scheduled' });
+              setEventForm({ title: '', type: '', date: '', startDate: '', endDate: '', startTime: '', endTime: '', venue: '', description: '', organizer: 'School Admin', participants: 'All Students', status: 'Scheduled' });
               setEditingId(null);
               setShowAddModal(true);
             }}>
@@ -4937,6 +5008,8 @@ export default function AcademicPanel({ subView, setAdminView, userProfile, scho
                         title: evt.title,
                         type: evt.type,
                         date: evt.date,
+                        startDate: evt.startDate || evt.date || '',
+                        endDate: evt.endDate || evt.startDate || evt.date || '',
                         startTime: evt.startTime || evt.time || '',
                         endTime: evt.endTime || '',
                         venue: evt.venue,
@@ -4980,7 +5053,8 @@ export default function AcademicPanel({ subView, setAdminView, userProfile, scho
                     display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '0.78rem',
                     borderTop: '1px solid var(--border-glass)', paddingTop: '10px', color: 'var(--text-muted)'
                   }}>
-                    <span>📅 Date: <strong>{new Date(evt.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</strong></span>
+                    <span>📅 Start Date: <strong>{new Date((evt.startDate || evt.date) + (String(evt.startDate || evt.date).includes('T') ? '' : 'T00:00:00')).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</strong></span>
+                    <span>📅 End Date: <strong>{new Date((evt.endDate || evt.startDate || evt.date) + (String(evt.endDate || evt.startDate || evt.date).includes('T') ? '' : 'T00:00:00')).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</strong></span>
                     <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Clock size={13} style={{ color: 'hsl(var(--color-primary))', flexShrink: 0 }} /> Time: {evt.startTime || evt.time || 'N/A'}{evt.endTime ? ` - ${evt.endTime}` : ''}</span>
                     <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><MapPin size={13} style={{ color: 'hsl(var(--color-primary))', flexShrink: 0 }} /> Venue: {evt.venue || 'Campus Main Ground'}</span>
                     <span>👥 Target: {evt.participants}</span>
@@ -5061,7 +5135,8 @@ export default function AcademicPanel({ subView, setAdminView, userProfile, scho
                     display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '0.78rem',
                     borderTop: '1px solid var(--border-glass)', paddingTop: '10px', color: 'var(--text-muted)'
                   }}>
-                    <span>📅 Date: <strong>{new Date(evt.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</strong></span>
+                    <span>📅 Start Date: <strong>{new Date((evt.startDate || evt.date) + (String(evt.startDate || evt.date).includes('T') ? '' : 'T00:00:00')).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</strong></span>
+                    <span>📅 End Date: <strong>{new Date((evt.endDate || evt.startDate || evt.date) + (String(evt.endDate || evt.startDate || evt.date).includes('T') ? '' : 'T00:00:00')).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</strong></span>
                     <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Clock size={13} style={{ color: 'hsl(var(--color-primary))', flexShrink: 0 }} /> Time: {evt.startTime || evt.time || 'N/A'}{evt.endTime ? ` - ${evt.endTime}` : ''}</span>
                     <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><MapPin size={13} style={{ color: 'hsl(var(--color-primary))', flexShrink: 0 }} /> Venue: {evt.venue || 'Campus Main Ground'}</span>
                     <span>👥 Target: {evt.participants}</span>
@@ -5680,11 +5755,12 @@ export default function AcademicPanel({ subView, setAdminView, userProfile, scho
       id: evt.id,
       title: evt.title || 'Event',
       eventType: evt.type || 'Sports Event',
-      eventDate: evt.date,
+      eventDate: evt.startDate || evt.date,
+      endDate: evt.endDate || evt.startDate || evt.date,
       description: evt.description || (evt.venue ? `Venue: ${evt.venue}` : ''),
       applicableClasses: evt.audience || 'All',
-      startTime: evt.time || '',
-      endTime: '',
+      startTime: evt.startTime || evt.time || '',
+      endTime: evt.endTime || '',
       session: calendarSession,
       isEditable: false,
       source: 'Events'
@@ -6248,7 +6324,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile, scho
                           {e.eventDate ? new Date(e.eventDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}
                         </td>
                         <td style={{ padding: '12px 16px', color: 'var(--text-main)', fontWeight: 600 }}>
-                          {e.endTime ? new Date(e.endTime).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}
+                          {(e.endDate || e.eventDate) ? new Date((String(e.endDate || e.eventDate).includes('T') ? (e.endDate || e.eventDate) : (e.endDate || e.eventDate) + 'T00:00:00')).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}
                         </td>
                         <td style={{ padding: '12px 16px', color: 'var(--text-main)', fontWeight: 700 }}>{e.title}</td>
                         <td style={{ padding: '12px 16px' }}>
@@ -6354,7 +6430,12 @@ export default function AcademicPanel({ subView, setAdminView, userProfile, scho
     }
     for (let day = 1; day <= totalDays; day++) {
       const dateStr = `${calendarYear}-${String(activeMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-      const dayEvents = getMergedCalendarEvents().filter(e => e.eventDate === dateStr);
+      const dayEvents = getMergedCalendarEvents().filter(e => {
+        if (e.eventDate && e.endDate) {
+          return dateStr >= e.eventDate && dateStr <= e.endDate;
+        }
+        return e.eventDate === dateStr;
+      });
       calendarGrid.push({
         empty: false,
         day,
@@ -6674,7 +6755,12 @@ export default function AcademicPanel({ subView, setAdminView, userProfile, scho
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '12px', minHeight: '300px' }}>
                 {currentWeekDays.map((date, idx) => {
                   const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-                  const dayEvents = getMergedCalendarEvents().filter(e => e.eventDate === dateStr);
+                  const dayEvents = getMergedCalendarEvents().filter(e => {
+                    if (e.eventDate && e.endDate) {
+                      return dateStr >= e.eventDate && dateStr <= e.endDate;
+                    }
+                    return e.eventDate === dateStr;
+                  });
                   const isToday = now.getDate() === date.getDate() && now.getMonth() === date.getMonth() && now.getFullYear() === date.getFullYear();
 
                   return (
@@ -7880,7 +7966,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile, scho
               </div>
               <div className="modal-footer">
                 <button type="button" className="btn-secondary" onClick={() => setShowAddModal(false)}>Cancel</button>
-                <button type="submit" className="btn-primary">Schedule Period</button>
+                <button type="submit" className="btn-primary" disabled={savingTimetable}>Schedule Period</button>
               </div>
             </form>
           );
@@ -9317,7 +9403,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile, scho
                   <Calendar size={22} style={{ color: 'hsl(var(--color-primary))' }} /> Weekly Timetable Bulk Editor
                 </h3>
                 <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', margin: '4px 0 0 0' }}>
-                  Configure the entire weekly schedule for Class <strong style={{ color: 'hsl(var(--color-primary))' }}>{activeClass}</strong> at once.
+                  Configure the entire weekly schedule for Class <strong style={{ color: 'hsl(var(--color-primary))' }}>{bulkCohort || activeClass}</strong> at once.
                 </p>
               </div>
               <button
@@ -9351,7 +9437,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile, scho
                         {timeslots.map(slot => {
                           const key = `${day}_${slot}`;
                           const cell = bulkGrid[key] || { subject: '', teacher: '', room: '' };
-                          const gradeSubjects = subjects.filter(s => s.grade === activeClass.split('-')[0]);
+                          const gradeSubjects = subjects.filter(s => s.grade === (bulkCohort || activeClass).split('-')[0]);
 
                           const breakMatch = slot.match(/\[(.*?)\]/);
                           const breakType = breakMatch ? breakMatch[1] : null;
@@ -9425,6 +9511,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile, scho
                   <button
                     type="submit"
                     className="btn-primary"
+                    disabled={savingTimetable}
                     style={{
                       background: 'linear-gradient(135deg, hsl(var(--color-primary)) 0%, #e07830 100%)',
                       border: 'none',
@@ -9458,7 +9545,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile, scho
                   <Calendar size={22} style={{ color: 'hsl(var(--color-primary))' }} /> Weekly Teacher Timetable Bulk Editor
                 </h3>
                 <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', margin: '4px 0 0 0' }}>
-                  Configure the entire weekly schedule workload for teacher <strong style={{ color: 'hsl(var(--color-primary))' }}>{activeTeacher}</strong> at once.
+                  Configure the entire weekly schedule workload for teacher <strong style={{ color: 'hsl(var(--color-primary))' }}>{editingTeacherName || activeTeacher}</strong> at once.
                 </p>
               </div>
               <button
@@ -9605,6 +9692,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile, scho
                   <button
                     type="submit"
                     className="btn-primary"
+                    disabled={savingTimetable}
                     style={{
                       background: 'linear-gradient(135deg, hsl(var(--color-primary)) 0%, #e07830 100%)',
                       border: 'none',

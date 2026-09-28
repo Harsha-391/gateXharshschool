@@ -102,8 +102,10 @@ window.fetch = function (url, options = {}) {
 
   // 1. Context / headers injection (preserving original functionality)
   if (pathname.startsWith('/') || pathname.includes('/api/')) {
-    if (pathname.startsWith('/api/platform/')) {
-      delete options.headers['x-tenant-id'];
+    const role = localStorage.getItem('role') || localStorage.getItem('portal_role');
+    const isDev = isDeveloperAdmin || role === 'Developer Admin';
+    if (pathname.startsWith('/api/platform/') || isDev) {
+      options.headers['x-tenant-id'] = 'platform';
     } else if (!options.headers['x-tenant-id'] || options.headers['x-tenant-id'] === 'default') {
       const host = window.location.hostname.toLowerCase();
       const isIp = /^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$/.test(host);
@@ -228,6 +230,17 @@ window.fetch = function (url, options = {}) {
 const getRouteForRole = (role) => {
   if (!role) return 'admin';
   const lowerRole = role.toLowerCase().trim();
+  if (
+    lowerRole === 'admin' ||
+    lowerRole === 'main admin' ||
+    lowerRole === 'principal' ||
+    lowerRole === 'admin dashboard' ||
+    lowerRole === 'school admin' ||
+    lowerRole === 'master admin' ||
+    lowerRole === 'guest'
+  ) {
+    return 'admin';
+  }
   if (lowerRole.includes('teacher') || lowerRole.includes('staff')) return 'teacher';
   if (lowerRole.includes('expense')) return 'expense';
   if (lowerRole.includes('academic') || lowerRole.includes('coordinator')) return 'academic';
@@ -252,7 +265,7 @@ const getInitialAuthState = (targetRole) => {
   }
 
   if (targetRole === 'SchoolAdmin') {
-    return savedRole === 'Main Admin' || savedRole === 'Principal';
+    return ['Main Admin', 'Principal', 'Admin Dashboard', 'School Admin'].includes(savedRole);
   }
 
   return false;
@@ -282,14 +295,25 @@ export default function App() {
   });
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  const [schoolDetails, setSchoolDetails] = useState({ name: 'Aether Academy', principal: 'Alex Devlin' });
+  const [schoolDetails, setSchoolDetails] = useState({ name: 'School ERP Platform', principal: 'Master Admin' });
   
-  const [userProfile, setUserProfile] = useState({
-    name: localStorage.getItem('name') || 'User',
-    role: localStorage.getItem('role') || localStorage.getItem('portal_role') || 'Guest',
-    userType: localStorage.getItem('userType') || '',
-    photo: localStorage.getItem('photo') || '',
-    username: localStorage.getItem('username') || ''
+  const [userProfile, setUserProfile] = useState(() => {
+    const savedRole = localStorage.getItem('role') || localStorage.getItem('portal_role');
+    const savedName = localStorage.getItem('name');
+    const effectiveRole = (savedRole && savedRole !== 'Guest') ? savedRole : 'Main Admin';
+    const effectiveName = (savedName && savedName !== 'User' && savedName !== 'Guest') ? savedName : (effectiveRole === 'Main Admin' ? 'School Administrator' : 'Administrator');
+    return {
+      name: effectiveName,
+      role: effectiveRole,
+      userType: localStorage.getItem('userType') || '',
+      photo: localStorage.getItem('photo') || '',
+      username: localStorage.getItem('username') || '',
+      assignedGradeId: localStorage.getItem('assignedGradeId') || '',
+      assignedGradeName: localStorage.getItem('assignedGradeName') || '',
+      assignedSectionId: localStorage.getItem('assignedSectionId') || '',
+      assignedSectionName: localStorage.getItem('assignedSectionName') || '',
+      isClassTeacher: localStorage.getItem('isClassTeacher') === 'true'
+    };
   });
 
   const fetchUserProfile = async () => {
@@ -331,6 +355,13 @@ export default function App() {
         } else {
           localStorage.removeItem('overrides');
         }
+        if (data.assignedGradeId) localStorage.setItem('assignedGradeId', data.assignedGradeId);
+        if (data.assignedGradeName) localStorage.setItem('assignedGradeName', data.assignedGradeName);
+        if (data.assignedSectionId) localStorage.setItem('assignedSectionId', data.assignedSectionId);
+        if (data.assignedSectionName) localStorage.setItem('assignedSectionName', data.assignedSectionName);
+        if (data.isClassTeacher !== undefined) localStorage.setItem('isClassTeacher', String(data.isClassTeacher));
+
+        const isSchoolAdminRole = ['Main Admin', 'Principal', 'Admin Dashboard', 'School Admin'].includes(data.role);
 
         // Dynamically align React states to match backend role response
         if (data.role === 'Developer Admin') {
@@ -344,13 +375,36 @@ export default function App() {
           setActiveView('students');
         } else {
           setIsAdmin(true);
-          setIsSchoolAdmin(false);
+          setIsSchoolAdmin(isSchoolAdminRole);
         }
       } else if (res.status === 401) {
         handleLogout();
+      } else {
+        const savedRole = localStorage.getItem('role') || localStorage.getItem('portal_role');
+        const savedName = localStorage.getItem('name');
+        if (savedRole && savedRole !== 'Guest') {
+          setUserProfile(prev => ({
+            ...prev,
+            role: savedRole,
+            name: savedName && savedName !== 'User' ? savedName : prev.name
+          }));
+          const isSchoolAdminRole = ['Main Admin', 'Principal', 'Admin Dashboard', 'School Admin'].includes(savedRole);
+          setIsSchoolAdmin(isSchoolAdminRole);
+        }
       }
     } catch (err) {
       console.error('Error fetching user profile:', err);
+      const savedRole = localStorage.getItem('role') || localStorage.getItem('portal_role');
+      const savedName = localStorage.getItem('name');
+      if (savedRole && savedRole !== 'Guest') {
+        setUserProfile(prev => ({
+          ...prev,
+          role: savedRole,
+          name: savedName && savedName !== 'User' ? savedName : prev.name
+        }));
+        const isSchoolAdminRole = ['Main Admin', 'Principal', 'Admin Dashboard', 'School Admin'].includes(savedRole);
+        setIsSchoolAdmin(isSchoolAdminRole);
+      }
     }
   };
   
@@ -369,6 +423,10 @@ export default function App() {
   const initialised = useRef(false);
 
   const getActiveTenant = () => {
+    const role = localStorage.getItem('role') || localStorage.getItem('portal_role');
+    if (isDeveloperAdmin || role === 'Developer Admin') {
+      return null;
+    }
     const host = window.location.hostname.toLowerCase();
     const isIp = /^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$/.test(host);
     const isTunnel = host.endsWith('.lhr.life') || host.endsWith('.loca.lt') || host.endsWith('.ngrok-free.app') || host.endsWith('.ngrok.io') || host.endsWith('.trycloudflare.com') || host.endsWith('.pagekite.me') || host.endsWith('.serveo.net') || host.endsWith('.pinggy.link') || host.endsWith('.bore.pub') || host.endsWith('.zrok.io') || host.endsWith('.vercel.app') || host.includes('tunnel');
@@ -393,6 +451,11 @@ export default function App() {
 
   const fetchSchoolDetails = async () => {
     try {
+      const role = localStorage.getItem('role') || localStorage.getItem('portal_role');
+      if (isDeveloperAdmin || role === 'Developer Admin') {
+        setSchoolDetails({ name: 'School ERP Platform', principal: 'Master Admin' });
+        return;
+      }
       const tenant = getActiveTenant();
       if (!tenant) {
         setSchoolDetails({ name: 'School ERP Platform', principal: 'Master Admin' });
@@ -658,17 +721,35 @@ export default function App() {
       fetchUserProfile();
 
       const savedRole = localStorage.getItem('role') || localStorage.getItem('portal_role');
+      const savedName = localStorage.getItem('name');
       if (savedRole) {
+        setUserProfile(prev => ({
+          ...prev,
+          role: (savedRole && savedRole !== 'Guest') ? savedRole : 'Main Admin',
+          name: (savedName && savedName !== 'User' && savedName !== 'Guest') ? savedName : prev.name
+        }));
         switch (savedRole) {
           case 'Developer Admin':
             setIsDeveloperAdmin(true);
             setActiveView('dashboard');
+            localStorage.removeItem('tenant_subdomain');
+            sessionStorage.removeItem('tenant_subdomain');
+            localStorage.removeItem('school_name');
+            localStorage.removeItem('school_subdomain');
+            setSchoolDetails({ name: 'School ERP Platform', principal: 'Master Admin' });
             break;
           case 'Student':
           case 'Parent':
             setIsAdmin(false);
             setIsSchoolAdmin(false);
             setActiveView('students');
+            break;
+          case 'Main Admin':
+          case 'Principal':
+          case 'Admin Dashboard':
+          case 'School Admin':
+            setIsAdmin(true);
+            setIsSchoolAdmin(true);
             break;
           default:
             setIsAdmin(true);
@@ -814,6 +895,13 @@ export default function App() {
             setIsSchoolAdmin(false);
             setActiveView('students');
             break;
+          case 'Main Admin':
+          case 'Principal':
+          case 'Admin Dashboard':
+          case 'School Admin':
+            setIsAdmin(true);
+            setIsSchoolAdmin(true);
+            break;
           default:
             // Any other role is admin/staff level (Teacher, Accountant, Clerk, etc.)
             setIsAdmin(true);
@@ -833,19 +921,21 @@ export default function App() {
   useEffect(() => {
     if (!initialised.current) return;
     
-    const tenant = getActiveTenant();
+    const role = userProfile?.role || localStorage.getItem('role') || localStorage.getItem('portal_role');
+    const isDev = isDeveloperAdmin || role === 'Developer Admin';
+    const tenant = isDev ? null : getActiveTenant();
     const host = window.location.hostname;
     const parts = host.split('.');
     const isSubdomainResolved = parts.length > 2 || (parts.length === 2 && parts[1] === 'localhost') || (parts.length === 1 && !['localhost', 'platform', 'www', 'admin'].includes(parts[0].toLowerCase()));
-    const query = (tenant && !isSubdomainResolved) ? `?tenant=${tenant}` : '';
+    const query = (!isDev && tenant && !isSubdomainResolved) ? `?tenant=${tenant}` : '';
 
-    const isLoggedIn = isDeveloperAdmin || isAdmin || isSchoolAdmin;
+    const isLoggedIn = isDev || isAdmin || isSchoolAdmin;
 
     if (!isLoggedIn) {
       window.history.pushState(null, '', `/${query}`);
-    } else if (isDeveloperAdmin) {
-      window.history.pushState(null, '', `/school${query}`);
-    } else if (isAdmin) {
+    } else if (isDev) {
+      window.history.pushState(null, '', `/school`);
+    } else if (isAdmin || isSchoolAdmin) {
       const userRole = userProfile?.role || localStorage.getItem('role') || localStorage.getItem('portal_role') || 'Admin';
       const roleRoute = getRouteForRole(userRole);
       window.history.pushState(null, '', `/${roleRoute}${query}`);
@@ -857,18 +947,33 @@ export default function App() {
   // Dynamic Browser Tab Title and Favicon Manager
   useEffect(() => {
     const faviconLink = document.getElementById('favicon-link');
-    const tenant = getActiveTenant();
-    
-    // 1. Platform Level (No active school tenant)
-    if (!tenant) {
-      document.title = 'School ERP | Dev Admin';
+    const role = userProfile?.role || localStorage.getItem('role') || localStorage.getItem('portal_role');
+    const isDev = isDeveloperAdmin || role === 'Developer Admin';
+
+    // 1. Developer Admin / Platform Level
+    // The Developer Admin tab MUST always show the platform system logo and "Developer Admin", never school branding!
+    if (isDev) {
+      document.title = 'Developer Admin';
       if (faviconLink) {
         faviconLink.setAttribute('href', '/favicon.svg');
+        faviconLink.setAttribute('type', 'image/svg+xml');
       }
       return;
     }
 
-    // 2. School Tenant Level
+    const tenant = getActiveTenant();
+    
+    // 2. Platform Level (No active school tenant)
+    if (!tenant) {
+      document.title = 'Developer Admin';
+      if (faviconLink) {
+        faviconLink.setAttribute('href', '/favicon.svg');
+        faviconLink.setAttribute('type', 'image/svg+xml');
+      }
+      return;
+    }
+
+    // 3. School Tenant Level
     const schoolName = schoolDetails?.name || 'School';
     const logoUrl = schoolDetails?.logo || '/favicon.svg';
 
@@ -888,21 +993,20 @@ export default function App() {
       }
     }
 
-    // Determine current user context/role
-    const isLoggedIn = isDeveloperAdmin || isAdmin || isSchoolAdmin;
+    // Determine current user context/role inside a school tenant
+    const isLoggedIn = isAdmin || isSchoolAdmin;
     if (!isLoggedIn) {
       document.title = `${schoolName} | Login`;
       return;
     }
 
-    // Logged-in user role
-    const role = userProfile?.role || localStorage.getItem('role') || localStorage.getItem('portal_role');
-    if (role === 'Main Admin' || role === 'Admin Dashboard' || role === 'Principal') {
+    // Logged-in user role inside a school
+    if (role === 'Main Admin' || role === 'Admin Dashboard' || role === 'Principal' || role === 'School Admin' || isSchoolAdmin) {
       document.title = `${schoolName} | Admin`;
-    } else if (role) {
+    } else if (role && role !== 'Guest') {
       document.title = `${schoolName} | ${role}`;
     } else {
-      document.title = `${schoolName} | Portal`;
+      document.title = `${schoolName} | Admin`;
     }
   }, [schoolDetails, userProfile, isDeveloperAdmin, isAdmin, isSchoolAdmin]);
 
@@ -982,10 +1086,25 @@ export default function App() {
 
   const handleLoginSuccess = (role, name) => {
     localStorage.setItem('portal_role', role);
+    localStorage.setItem('role', role);
+    if (name) localStorage.setItem('name', name);
+
+    setUserProfile(prev => ({
+      ...prev,
+      role: role || prev.role,
+      name: name || prev.name
+    }));
+
+    const isSchoolAdminRole = ['Main Admin', 'Principal', 'Admin Dashboard', 'School Admin'].includes(role);
 
     if (role === 'Developer Admin') {
       setIsDeveloperAdmin(true);
       setActiveView('dashboard');
+      localStorage.removeItem('tenant_subdomain');
+      sessionStorage.removeItem('tenant_subdomain');
+      localStorage.removeItem('school_name');
+      localStorage.removeItem('school_subdomain');
+      setSchoolDetails({ name: 'School ERP Platform', principal: 'Master Admin' });
     } else if (role === 'Student') {
       setIsAdmin(false);
       setIsSchoolAdmin(false);
@@ -997,7 +1116,7 @@ export default function App() {
     } else {
       // Any admin/subadmin/staff/teacher dashboard role
       setIsAdmin(true);
-      setIsSchoolAdmin(false);
+      setIsSchoolAdmin(isSchoolAdminRole);
       
       // Select appropriate initial view if they don't have student view access
       setAdminView('overview');
@@ -1026,7 +1145,8 @@ export default function App() {
       'permissions', 'overrides', 'school_name', 'school_subdomain', 
       'from_dev_admin', 'dev_token', 'admin_view', 'userType',
       'refreshToken', 'lastActive', 'email', 'phone', 'parent_photo',
-      'active_session_id'
+      'active_session_id', 'assignedGradeId', 'assignedGradeName',
+      'assignedSectionId', 'assignedSectionName', 'isClassTeacher'
     ];
     authKeys.forEach(k => localStorage.removeItem(k));
     localStorage.removeItem('tenant_subdomain');
@@ -1067,7 +1187,7 @@ export default function App() {
       return <SchoolProfile schoolDetails={schoolDetails} fetchSchoolDetails={fetchSchoolDetails} isDeveloperAdmin={isDeveloperAdmin} devActiveTab={activeView === 'school' ? 'schools' : activeView === 'plans' ? 'plans' : 'dashboard'} />;
     }
 
-    if (isAdmin) {
+    if (isAdmin || isSchoolAdmin) {
       return <AdminPanel setActiveView={setActiveView} onLogout={handleLogout} adminView={adminView} setAdminView={setAdminView} onBackToMain={handleBackToMain} userProfile={userProfile} setUserProfile={setUserProfile} fetchUserProfile={fetchUserProfile} />;
     }
 

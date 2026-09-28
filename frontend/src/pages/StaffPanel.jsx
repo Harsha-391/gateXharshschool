@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import './StaffPanel.css';
 import { 
   Users, 
@@ -27,7 +27,8 @@ import {
 } from 'lucide-react';
 import StudentDirectory from './StudentDirectory';
 import StaffDirectory from './StaffDirectory';
-import { fetchActiveGrades, fetchActiveSections } from '../utils/grades';
+import { fetchActiveGrades, fetchActiveSections, areGradesEqual, areSectionsEqual, formatGradeDisplay, normalizeSection } from '../utils/grades';
+import NotificationPanel from '../components/NotificationPanel';
 
 const parseGradeName = (fullName) => {
   if (!fullName) return { baseGrade: '', department: '' };
@@ -266,6 +267,11 @@ export default function StaffPanel({ setActiveView, onLogout, teacherView, setTe
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
         </div>
       </div>
+
+      {/* Notifications Panel - show on dashboard/default view */}
+      {(!teacherView || teacherView === 'dashboard' || teacherView === 'mark-attendance') && (
+        <NotificationPanel compact={true} maxHeight="320px" />
+      )}
 
       {/* Dynamic Content */}
       {renderTeacherContent()}
@@ -907,14 +913,15 @@ export function MarkAttendanceView({ date, setDate, studentClass, setClass, sect
 // TAB B: ATTENDANCE HISTORY LOG VIEW
 // ============================================================================
 export function AttendanceHistoryView({ date, showToast, userProfile }) {
-  const isTeacher = userProfile?.role === 'Teacher';
-  const assignedClass = isTeacher ? userProfile?.assignedGradeId || '' : '';
-  const assignedSection = isTeacher ? userProfile?.assignedSectionId || '' : '';
+  const isTeacher = userProfile?.role === 'Teacher' || userProfile?.userType === 'Teacher' ||
+    localStorage.getItem('role') === 'Teacher' || localStorage.getItem('userType') === 'Teacher';
+  const assignedClass = isTeacher ? (userProfile?.assignedGradeName || userProfile?.assignedGradeId || localStorage.getItem('assignedGradeName') || localStorage.getItem('assignedGradeId') || '') : '';
+  const assignedSection = isTeacher ? (userProfile?.assignedSectionName || userProfile?.assignedSectionId || localStorage.getItem('assignedSectionName') || localStorage.getItem('assignedSectionId') || '') : '';
 
   const todayStr = new Date().toISOString().split('T')[0];
   const [historyDate, setHistoryDate] = useState(date || todayStr);
-  const [studentClass, setClass] = useState('');
-  const [section, setSection] = useState('A');
+  const [studentClass, setClass] = useState(assignedClass || '');
+  const [section, setSection] = useState(normalizeSection(assignedSection) || assignedSection || 'A');
   const [search, setSearch] = useState('');
   const [roster, setRoster] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -923,7 +930,7 @@ export function AttendanceHistoryView({ date, showToast, userProfile }) {
   useEffect(() => {
     if (isTeacher) {
       if (assignedClass) setClass(assignedClass);
-      if (assignedSection) setSection(assignedSection);
+      if (assignedSection) setSection(normalizeSection(assignedSection) || assignedSection);
     }
   }, [userProfile, assignedClass, assignedSection, isTeacher]);
 
@@ -933,11 +940,12 @@ export function AttendanceHistoryView({ date, showToast, userProfile }) {
   // Compute allowed sections for the selected studentClass
   const allowedSections = React.useMemo(() => {
     if (isTeacher) {
-      return assignedSection ? [assignedSection] : [];
+      const sec = normalizeSection(assignedSection || section) || assignedSection || section;
+      return sec ? [sec] : [];
     }
     const matchedGrade = activeGrades.find(g => g.name === studentClass);
     return matchedGrade ? (matchedGrade.sections || []) : [];
-  }, [studentClass, activeGrades, isTeacher, assignedSection]);
+  }, [studentClass, activeGrades, isTeacher, assignedSection, section]);
 
   // Sync selected section when class selection shifts
   useEffect(() => {
@@ -996,22 +1004,41 @@ export function AttendanceHistoryView({ date, showToast, userProfile }) {
     const loadGrades = async () => {
       const grades = await fetchActiveGrades();
       setActiveGrades(grades);
-      if (grades.length > 0) {
+      if (isTeacher) {
+        const tClass = assignedClass || userProfile?.assignedGradeName || userProfile?.assignedGradeId || '';
+        const tSec = assignedSection || userProfile?.assignedSectionName || userProfile?.assignedSectionId || '';
+        if (tClass) {
+          const found = grades.find(g => 
+            g.name === tClass || 
+            g.id === tClass || 
+            g.gradeId === tClass ||
+            areGradesEqual(g.name, tClass) || 
+            areGradesEqual(g.gradeName, tClass)
+          );
+          setClass(found ? found.name : tClass);
+        }
+        if (tSec) {
+          setSection(normalizeSection(tSec) || tSec);
+        }
+      } else if (grades.length > 0 && !studentClass) {
         setClass(grades[0].name);
       }
     };
     loadGrades();
-  }, []);
+  }, [userProfile, isTeacher, assignedClass, assignedSection]);
+
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState('all'); // 'all' or 'submitted'
   const [submittedDates, setSubmittedDates] = useState([]);
   const [loadingSubmitted, setLoadingSubmitted] = useState(false);
 
   const fetchSubmittedDates = async () => {
-    if (!studentClass || !section) return;
+    const targetClass = isTeacher ? (studentClass || assignedClass) : studentClass;
+    const targetSection = isTeacher ? (section || assignedSection) : section;
+    if (!targetClass || !targetSection) return;
     try {
       setLoadingSubmitted(true);
-      const res = await fetch(`/api/attendance/submitted-dates?studentClass=${encodeURIComponent(studentClass)}&section=${encodeURIComponent(section)}`);
+      const res = await fetch(`/api/attendance/submitted-dates?studentClass=${encodeURIComponent(targetClass)}&section=${encodeURIComponent(targetSection)}`);
       if (res.ok) {
         const data = await res.json();
         setSubmittedDates(data);
@@ -1024,13 +1051,15 @@ export function AttendanceHistoryView({ date, showToast, userProfile }) {
   };
 
   const fetchRoster = async (submittedOnly = false) => {
-    if (!studentClass || !section) return;
+    const targetClass = isTeacher ? (studentClass || assignedClass) : studentClass;
+    const targetSection = isTeacher ? (section || assignedSection) : section;
+    if (!targetClass || !targetSection) return;
     try {
       setLoading(true);
       const queryParams = new URLSearchParams({
         date: historyDate,
-        studentClass,
-        section
+        studentClass: targetClass,
+        section: targetSection
       });
       if (submittedOnly) queryParams.set('submitted', 'true');
       const res = await fetch(`/api/attendance?${queryParams.toString()}`);
@@ -1238,16 +1267,22 @@ export function AttendanceHistoryView({ date, showToast, userProfile }) {
             <label style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)' }}>Grade Class</label>
               <select 
                 className="select-custom" 
-                value={baseClass} 
+                value={isTeacher ? (baseClass || assignedClass) : baseClass} 
                 onChange={(e) => handleBaseClassChange(e.target.value)}
                 style={{ height: '38px', borderRadius: '8px' }}
                 disabled={isTeacher}
               >
-                {baseGrades.filter(g => !isTeacher || g === baseClass).map(g => (
-                  <option key={g} value={g}>
-                    {g.startsWith('LKG') || g.startsWith('UKG') || g.startsWith('NURSERY') ? g : `Grade ${g}`}
+                {isTeacher ? (
+                  <option value={baseClass || assignedClass}>
+                    {formatGradeDisplay(baseClass || assignedClass)}
                   </option>
-                ))}
+                ) : (
+                  baseGrades.map(g => (
+                    <option key={g} value={g}>
+                      {formatGradeDisplay(g)}
+                    </option>
+                  ))
+                )}
               </select>
           </div>
 
@@ -1262,9 +1297,13 @@ export function AttendanceHistoryView({ date, showToast, userProfile }) {
                 style={{ height: '38px', borderRadius: '8px' }}
                 disabled={isTeacher}
               >
-                {departmentsForSelectedGrade.filter(d => !isTeacher || d === selectedDept).map(d => (
-                  <option key={d} value={d}>{d}</option>
-                ))}
+                {isTeacher ? (
+                  <option value={selectedDept}>{selectedDept}</option>
+                ) : (
+                  departmentsForSelectedGrade.map(d => (
+                    <option key={d} value={d}>{d}</option>
+                  ))
+                )}
               </select>
             </div>
           )}
@@ -1273,14 +1312,20 @@ export function AttendanceHistoryView({ date, showToast, userProfile }) {
             <label style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)' }}>Section</label>
             <select 
               className="select-custom" 
-              value={section} 
+              value={isTeacher ? (normalizeSection(section || assignedSection) || section || assignedSection) : section} 
               onChange={(e) => setSection(e.target.value)}
               style={{ height: '38px', borderRadius: '8px' }}
               disabled={isTeacher}
             >
-              {allowedSections.map(secName => (
-                <option key={secName} value={secName}>Section {secName}</option>
-              ))}
+              {isTeacher ? (
+                <option value={normalizeSection(section || assignedSection) || section || assignedSection}>
+                  Section {normalizeSection(section || assignedSection) || section || assignedSection}
+                </option>
+              ) : (
+                allowedSections.map(secName => (
+                  <option key={secName} value={secName}>Section {normalizeSection(secName) || secName}</option>
+                ))
+              )}
             </select>
           </div>
 
@@ -1475,12 +1520,13 @@ export function AttendanceHistoryView({ date, showToast, userProfile }) {
 }
 
 export function StudentReportsView({ showToast, userProfile }) {
-  const isTeacher = userProfile?.role === 'Teacher';
-  const assignedClass = isTeacher ? userProfile?.assignedGradeId || '' : '';
-  const assignedSection = isTeacher ? userProfile?.assignedSectionId || '' : '';
+  const isTeacher = userProfile?.role === 'Teacher' || userProfile?.userType === 'Teacher' ||
+    localStorage.getItem('role') === 'Teacher' || localStorage.getItem('userType') === 'Teacher';
+  const assignedClass = isTeacher ? (userProfile?.assignedGradeName || userProfile?.assignedGradeId || localStorage.getItem('assignedGradeName') || localStorage.getItem('assignedGradeId') || '') : '';
+  const assignedSection = isTeacher ? (userProfile?.assignedSectionName || userProfile?.assignedSectionId || localStorage.getItem('assignedSectionName') || localStorage.getItem('assignedSectionId') || '') : '';
 
   const [studentClass, setClass] = useState(isTeacher ? assignedClass : 'All');
-  const [section, setSection] = useState(isTeacher ? assignedSection : 'All');
+  const [section, setSection] = useState(isTeacher ? (normalizeSection(assignedSection) || assignedSection) : 'All');
   const [search, setSearch] = useState('');
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -1490,7 +1536,7 @@ export function StudentReportsView({ showToast, userProfile }) {
   useEffect(() => {
     if (isTeacher) {
       if (assignedClass) setClass(assignedClass);
-      if (assignedSection) setSection(assignedSection);
+      if (assignedSection) setSection(normalizeSection(assignedSection) || assignedSection);
     }
   }, [userProfile, assignedClass, assignedSection, isTeacher]);
 
@@ -1816,14 +1862,15 @@ export function ClassReportsView({ showToast }) {
 // TAB E: MONTHLY INTERACTIVE CALENDAR VIEW
 // ============================================================================
 export function MonthlyCalendarView({ showToast, userProfile }) {
-  const isTeacher = userProfile?.role === 'Teacher';
-  const assignedClass = isTeacher ? userProfile?.assignedGradeId || '' : '';
-  const assignedSection = isTeacher ? userProfile?.assignedSectionId || '' : '';
+  const isTeacher = userProfile?.role === 'Teacher' || userProfile?.userType === 'Teacher' ||
+    localStorage.getItem('role') === 'Teacher' || localStorage.getItem('userType') === 'Teacher';
+  const assignedClass = isTeacher ? (userProfile?.assignedGradeName || userProfile?.assignedGradeId || localStorage.getItem('assignedGradeName') || localStorage.getItem('assignedGradeId') || '') : '';
+  const assignedSection = isTeacher ? (userProfile?.assignedSectionName || userProfile?.assignedSectionId || localStorage.getItem('assignedSectionName') || localStorage.getItem('assignedSectionId') || '') : '';
 
   const [studentsList, setStudentsList] = useState([]);
   const [selectedStudent, setSelectedStudent] = useState('');
   const [selectedGrade, setSelectedGrade] = useState(isTeacher ? assignedClass : '');
-  const [selectedSection, setSelectedSection] = useState(isTeacher ? assignedSection : 'A');
+  const [selectedSection, setSelectedSection] = useState(isTeacher ? (normalizeSection(assignedSection) || assignedSection) : 'A');
   const [searchName, setSearchName] = useState('');
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1); // 1-12
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
@@ -1835,7 +1882,7 @@ export function MonthlyCalendarView({ showToast, userProfile }) {
   useEffect(() => {
     if (isTeacher) {
       if (assignedClass) setSelectedGrade(assignedClass);
-      if (assignedSection) setSelectedSection(assignedSection);
+      if (assignedSection) setSelectedSection(normalizeSection(assignedSection) || assignedSection);
     }
   }, [userProfile, assignedClass, assignedSection, isTeacher]);
 

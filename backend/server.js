@@ -80,6 +80,7 @@ import { logAccess, logError, logSecurity, logAudit as fileLogAudit } from './ut
 import { sanitizeInput } from './middleware/sanitize.js';
 import { decrypt } from './utils/encryptionHelper.js';
 import { auth, generateToken, generateRefreshToken, verifyRefreshToken, blacklistToken, setAuthCookie, clearAuthCookie } from './middleware/auth.js';
+import jwt from 'jsonwebtoken';
 import multer from 'multer';
 import * as sqlDb from './utils/sqlDb.js';
 import { uploadToImageKit, deleteFromImageKit } from './utils/imagekit.js';
@@ -449,7 +450,9 @@ async function authenticateSchoolTenantUser({ schoolRecord, username, password, 
           const modules = [
             'dashboard', 'students', 'teachers', 'staff', 'academics', 'calendar', 'exams',
             'results', 'notices', 'events', 'holidays', 'attendance', 'fee-structures',
-            'salaries', 'expenses', 'income', 'roles-permissions'
+            'salaries', 'expenses', 'income', 'roles-permissions',
+            'teacher-leave-management', 'staff-leave-management', 'leave-management', 'report-management',
+            'settings', 'employee-directory', 'teacher-directory', 'staff-directory', 'student-directory'
           ];
           const actions = ['view', 'create', 'edit', 'delete', 'approve', 'publish', 'export', 'import', 'manage-settings'];
           const matrix = {};
@@ -1507,29 +1510,52 @@ app.get('/api/auth/profile', auth, restoreTenantContext, (req, res) => {
     return res.status(400).json({ error: 'Tenant context is missing.' });
   }
 
-  if (user.role === 'Main Admin') {
+  // Tenant Database
+  const db = readDb();
+
+  if (user.role === 'Main Admin' || user.role === 'Principal' || user.role === 'Admin Dashboard' || user.role === 'School Admin') {
     const platformDb = tenantStorage.run(null, () => readDb());
-    const schoolRecord = (platformDb.schools || []).find(s => slugify(s.subdomain) === slugify(tenantId));
-    if (!schoolRecord) {
-      return res.status(404).json({ error: 'School domain registration not found.' });
+    const schoolRecord = (platformDb.schools || []).find(s => slugify(s.subdomain) === slugify(tenantId)) || {};
+    
+    const adminRole = (db.roles || []).find(r => r.id === 'role-principal' || r.name === 'Principal' || r.id === 'role-super-admin' || r.name === 'Super Admin' || r.name === 'Main Admin');
+    let permissions = {};
+    if (adminRole && adminRole.permissions) {
+      permissions = typeof adminRole.permissions === 'string' ? JSON.parse(adminRole.permissions) : adminRole.permissions;
+    } else {
+      const modules = [
+        'dashboard', 'students', 'teachers', 'staff', 'academics', 'calendar', 'exams',
+        'results', 'notices', 'events', 'holidays', 'attendance', 'fee-structures',
+        'salaries', 'expenses', 'income', 'roles-permissions', 'teacher-leave-management',
+        'staff-leave-management', 'leave-management', 'report-management', 'settings',
+        'employee-directory', 'teacher-directory', 'staff-directory', 'student-directory'
+      ];
+      const actions = ['view', 'create', 'edit', 'delete', 'approve', 'publish', 'export', 'import', 'manage-settings'];
+      const matrix = {};
+      modules.forEach(m => {
+        matrix[m] = {};
+        actions.forEach(a => {
+          matrix[m][a] = true;
+        });
+      });
+      permissions = matrix;
     }
-    const adminRole = (db.roles || []).find(r => r.id === 'role-principal' || r.name === 'Principal' || r.id === 'role-super-admin' || r.name === 'Super Admin');
-    const permissions = adminRole ? (typeof adminRole.permissions === 'string' ? JSON.parse(adminRole.permissions) : adminRole.permissions) : {};
+
+    const principalName = schoolRecord.principalName || schoolRecord.principal || schoolRecord.adminName || (db.school && (db.school.principalName || db.school.principal || db.school.adminName)) || 'Principal';
+
     return res.json({
       role: 'Main Admin',
-      name: schoolRecord.principalName || schoolRecord.principal || schoolRecord.adminName,
-      username: schoolRecord.adminUsername,
-      email: schoolRecord.adminEmail,
-      phone: schoolRecord.phone,
-      photo: schoolRecord.adminPhoto || '',
-      password: schoolRecord.adminPassword,
+      name: principalName,
+      username: schoolRecord.adminUsername || user.username,
+      email: schoolRecord.adminEmail || schoolRecord.email || '',
+      phone: schoolRecord.phone || '',
+      photo: schoolRecord.adminPhoto || schoolRecord.logo || '',
+      password: schoolRecord.adminPassword || '',
       permissions: permissions,
       overrides: {}
     });
   }
 
   // Teachers / Staff / Employees / Sub-admin roles
-  const db = readDb();
   if (user.userType === 'Teacher') {
     const teacher = (db.teachers || []).find(t => t.id === user.id || t.username === user.username);
     if (teacher) {
@@ -2119,15 +2145,28 @@ app.get('/api/notifications', auth, restoreTenantContext, async (req, res) => {
     const isMainAdmin = ['developer admin', 'main admin', 'admin dashboard', 'principal', 'admin'].includes(role);
 
     let notifications = [];
+    const userType = (user.userType || '').toLowerCase();
     if (isMainAdmin) {
       notifications = await sqlDb.query(
         "SELECT * FROM notifications WHERE (recipientRole = 'main admin' OR recipientRole IS NULL OR recipientId = ?) AND tenantId = ? ORDER BY createdAt DESC LIMIT 50",
         [user.id || '', tenantId]
       );
     } else {
+      // Build role-based conditions: fetch notifications targeted at the user directly OR at their role
+      const roleConds = ["recipientId = ?"];
+      const roleParams = [user.id || ''];
+      if (role.includes('teacher') || userType === 'teacher') {
+        roleConds.push("recipientRole = 'teacher'");
+      }
+      if (role.includes('staff') || userType === 'staff') {
+        roleConds.push("recipientRole = 'staff'");
+      }
+      if (role.includes('student') || userType === 'student' || userType === 'parent') {
+        roleConds.push("recipientRole = 'student'");
+      }
       notifications = await sqlDb.query(
-        "SELECT * FROM notifications WHERE recipientId = ? AND tenantId = ? ORDER BY createdAt DESC LIMIT 50",
-        [user.id || '', tenantId]
+        `SELECT * FROM notifications WHERE (${roleConds.join(' OR ')}) AND tenantId = ? ORDER BY createdAt DESC LIMIT 50`,
+        [...roleParams, tenantId]
       );
     }
     res.json(notifications || []);
@@ -2404,6 +2443,7 @@ app.post('/api/employees', auth, staffUploadFields, restoreTenantContext, ensure
     };
 
     db.employees.push(newStaff);
+    db.employees = [...db.employees];
 
     if (!db.employeeQrCodes) db.employeeQrCodes = [];
     const newQrEntry = {
@@ -2424,31 +2464,80 @@ app.post('/api/employees', auth, staffUploadFields, restoreTenantContext, ensure
           await ensureEmployeeTableReady(tId);
         }
         const sqlDb = await import('./utils/sqlDb.js');
-        const columns = ['id', 'name', 'fullName', 'role', 'department', 'email', 'phone', 'gender', 'qualification', 'experience', 'dateOfJoining', 'salaryGrade', 'reportingTo', 'address', 'city', 'state', 'pincode', 'emergencyContact', 'emergencyPhone', 'photo', 'aadharFile', 'certificateFile', 'status', 'avatarBg', 'password', 'tenantId', 'designation', 'designationLevel', 'employmentType', 'qrCodePath'];
-        const updateColumns = ['name', 'fullName', 'role', 'department', 'email', 'phone', 'gender', 'qualification', 'experience', 'dateOfJoining', 'salaryGrade', 'reportingTo', 'address', 'city', 'state', 'pincode', 'emergencyContact', 'emergencyPhone', 'photo', 'aadharFile', 'certificateFile', 'status', 'avatarBg', 'password', 'designation', 'designationLevel', 'employmentType', 'qrCodePath'];
+        const columns = [
+          'id', 'name', 'fullName', 'firstName', 'middleName', 'lastName', 'role', 'department', 'email', 'phone',
+          'gender', 'dob', 'bloodGroup', 'nationality', 'maritalStatus', 'aadhaarNumber', 'panNumber',
+          'qualification', 'experience', 'experiences', 'dateOfJoining', 'joiningDate', 'salaryGrade', 'reportingTo',
+          'address', 'city', 'state', 'country', 'pincode', 'currentAddress', 'currentCity', 'currentState', 'currentCountry',
+          'currentPostalCode', 'permanentAddress', 'permanentCity', 'permanentState', 'permanentCountry', 'permanentPostalCode',
+          'sameAsPermanent', 'alternateMobile', 'emergencyContact', 'emergencyPhone', 'emergencyContactNumber',
+          'photo', 'aadharFile', 'panFile', 'resumeFile', 'joiningLetterFile', 'certificateFile', 'otherFile',
+          'status', 'avatarBg', 'password', 'tenantId', 'designation', 'designationLevel', 'employmentType', 'staffCategory',
+          'primarySubject', 'secondarySubject', 'assignedGradeId', 'assignedSectionId', 'isClassTeacher', 'attendancePermission', 'qrCodePath'
+        ];
+        const updateColumns = [
+          'name', 'fullName', 'firstName', 'middleName', 'lastName', 'role', 'department', 'email', 'phone',
+          'gender', 'dob', 'bloodGroup', 'nationality', 'maritalStatus', 'aadhaarNumber', 'panNumber',
+          'qualification', 'experience', 'experiences', 'dateOfJoining', 'joiningDate', 'salaryGrade', 'reportingTo',
+          'address', 'city', 'state', 'country', 'pincode', 'currentAddress', 'currentCity', 'currentState', 'currentCountry',
+          'currentPostalCode', 'permanentAddress', 'permanentCity', 'permanentState', 'permanentCountry', 'permanentPostalCode',
+          'sameAsPermanent', 'alternateMobile', 'emergencyContact', 'emergencyPhone', 'emergencyContactNumber',
+          'photo', 'aadharFile', 'panFile', 'resumeFile', 'joiningLetterFile', 'certificateFile', 'otherFile',
+          'status', 'avatarBg', 'password', 'designation', 'designationLevel', 'employmentType', 'staffCategory',
+          'primarySubject', 'secondarySubject', 'assignedGradeId', 'assignedSectionId', 'isClassTeacher', 'attendancePermission', 'qrCodePath'
+        ];
         const values = [
           newStaff.id,
           newStaff.name || newStaff.fullName || 'Employee',
           newStaff.fullName || newStaff.name || 'Employee',
+          newStaff.firstName || '',
+          newStaff.middleName || '',
+          newStaff.lastName || '',
           newStaff.role || newStaff.designation || 'Employee',
           newStaff.department || 'General',
           newStaff.email || '',
           newStaff.phone || newStaff.mobile || '',
           newStaff.gender || '',
+          newStaff.dob || '',
+          newStaff.bloodGroup || '',
+          newStaff.nationality || 'Indian',
+          newStaff.maritalStatus || '',
+          newStaff.aadhaarNumber || '',
+          newStaff.panNumber || '',
           typeof newStaff.qualification === 'object' ? JSON.stringify(newStaff.qualification) : (newStaff.qualification || ''),
-          typeof newStaff.experiences === 'object' ? JSON.stringify(newStaff.experiences) : (typeof newStaff.experience === 'object' ? JSON.stringify(newStaff.experience) : (newStaff.experience || '')),
+          typeof newStaff.experience === 'object' ? JSON.stringify(newStaff.experience) : (newStaff.experience || ''),
+          typeof newStaff.experiences === 'object' ? JSON.stringify(newStaff.experiences) : (newStaff.experiences || ''),
           newStaff.dateOfJoining || newStaff.joiningDate || '',
+          newStaff.joiningDate || newStaff.dateOfJoining || '',
           newStaff.salaryGrade || '',
           newStaff.reportingTo || '',
-          newStaff.address || newStaff.currentAddress || '',
-          newStaff.city || newStaff.currentCity || '',
-          newStaff.state || newStaff.currentState || '',
-          newStaff.pincode || newStaff.currentPostalCode || '',
+          newStaff.currentAddress || newStaff.address || '',
+          newStaff.currentCity || newStaff.city || '',
+          newStaff.currentState || newStaff.state || '',
+          newStaff.currentCountry || 'India',
+          newStaff.currentPostalCode || newStaff.pincode || '',
+          newStaff.currentAddress || newStaff.address || '',
+          newStaff.currentCity || newStaff.city || '',
+          newStaff.currentState || newStaff.state || '',
+          newStaff.currentCountry || 'India',
+          newStaff.currentPostalCode || newStaff.pincode || '',
+          newStaff.permanentAddress || '',
+          newStaff.permanentCity || '',
+          newStaff.permanentState || '',
+          newStaff.permanentCountry || 'India',
+          newStaff.permanentPostalCode || '',
+          typeof newStaff.sameAsPermanent === 'boolean' ? (newStaff.sameAsPermanent ? 'Yes' : 'No') : (newStaff.sameAsPermanent || 'No'),
+          newStaff.alternateMobile || '',
           newStaff.emergencyContact || '',
           newStaff.emergencyPhone || newStaff.emergencyContactNumber || '',
+          newStaff.emergencyContactNumber || newStaff.emergencyPhone || '',
           newStaff.photo || '',
           newStaff.aadharFile || newStaff.aadhaarFile || '',
+          newStaff.panFile || '',
+          newStaff.resumeFile || '',
+          newStaff.joiningLetterFile || '',
           newStaff.certificateFile || '',
+          newStaff.otherFile || '',
           newStaff.status || 'Active',
           newStaff.avatarBg || '',
           newStaff.password || '',
@@ -2456,6 +2545,13 @@ app.post('/api/employees', auth, staffUploadFields, restoreTenantContext, ensure
           newStaff.designation || '',
           newStaff.designationLevel || '',
           newStaff.employmentType || '',
+          newStaff.staffCategory || '',
+          newStaff.primarySubject || '',
+          newStaff.secondarySubject || '',
+          newStaff.assignedGradeId || null,
+          newStaff.assignedSectionId || null,
+          newStaff.isClassTeacher ? 1 : 0,
+          newStaff.attendancePermission ? 1 : 0,
           newStaff.qrCodePath || ''
         ].map(v => v === undefined ? null : v);
 
@@ -2481,7 +2577,7 @@ app.post('/api/employees', auth, staffUploadFields, restoreTenantContext, ensure
     }
 
     addActivity(db, 'registration', 'New Employee Recruited', `${derivedFullName} joined as ${staffRole || 'Employee'}`, 'hsl(var(--color-info))', 'rgba(hsl(var(--color-info)), 0.1)');
-    writeDb(db);
+    writeDb(db, ['employees']);
 
     res.status(201).json(newStaff);
   } catch (error) {
@@ -2546,9 +2642,8 @@ app.put('/api/employees/:id', auth, staffUploadFields, restoreTenantContext, ens
       staffCategory: updateData.staffCategory || updateData.role || currentStaff.staffCategory,
       designation: updateData.designation || currentStaff.designation || updateData.staffCategory || currentStaff.role,
       updatedAt: new Date().toISOString()
-    };
-
-    db.employees[empIndex] = updatedStaff;
+    };    db.employees[empIndex] = updatedStaff;
+    db.employees = [...db.employees];
 
     // Direct MySQL Update for Immediate Persistence
     if (isSqlActive()) {
@@ -2559,35 +2654,81 @@ app.put('/api/employees/:id', auth, staffUploadFields, restoreTenantContext, ens
           await ensureEmployeeTableReady(tId);
         }
         const sqlDb = await import('./utils/sqlDb.js');
-        const columns = ['name', 'fullName', 'role', 'department', 'email', 'phone', 'gender', 'qualification', 'experience', 'dateOfJoining', 'salaryGrade', 'reportingTo', 'address', 'city', 'state', 'pincode', 'emergencyContact', 'emergencyPhone', 'photo', 'aadharFile', 'certificateFile', 'status', 'avatarBg', 'password', 'designation', 'designationLevel', 'employmentType'];
+        const columns = [
+          'name', 'fullName', 'firstName', 'middleName', 'lastName', 'role', 'department', 'email', 'phone',
+          'gender', 'dob', 'bloodGroup', 'nationality', 'maritalStatus', 'aadhaarNumber', 'panNumber',
+          'qualification', 'experience', 'experiences', 'dateOfJoining', 'joiningDate', 'salaryGrade', 'reportingTo',
+          'address', 'city', 'state', 'country', 'pincode', 'currentAddress', 'currentCity', 'currentState', 'currentCountry',
+          'currentPostalCode', 'permanentAddress', 'permanentCity', 'permanentState', 'permanentCountry', 'permanentPostalCode',
+          'sameAsPermanent', 'alternateMobile', 'emergencyContact', 'emergencyPhone', 'emergencyContactNumber',
+          'photo', 'aadharFile', 'panFile', 'resumeFile', 'joiningLetterFile', 'certificateFile', 'otherFile',
+          'status', 'avatarBg', 'password', 'designation', 'designationLevel', 'employmentType', 'staffCategory',
+          'primarySubject', 'secondarySubject', 'assignedGradeId', 'assignedSectionId', 'isClassTeacher', 'attendancePermission'
+        ];
         const values = [
           updatedStaff.name || updatedStaff.fullName || 'Employee',
           updatedStaff.fullName || updatedStaff.name || 'Employee',
+          updatedStaff.firstName || '',
+          updatedStaff.middleName || '',
+          updatedStaff.lastName || '',
           updatedStaff.role || updatedStaff.designation || 'Employee',
           updatedStaff.department || 'General',
           updatedStaff.email || '',
           updatedStaff.phone || updatedStaff.mobile || '',
           updatedStaff.gender || '',
+          updatedStaff.dob || '',
+          updatedStaff.bloodGroup || '',
+          updatedStaff.nationality || 'Indian',
+          updatedStaff.maritalStatus || '',
+          updatedStaff.aadhaarNumber || '',
+          updatedStaff.panNumber || '',
           typeof updatedStaff.qualification === 'object' ? JSON.stringify(updatedStaff.qualification) : (updatedStaff.qualification || ''),
-          typeof updatedStaff.experiences === 'object' ? JSON.stringify(updatedStaff.experiences) : (typeof updatedStaff.experience === 'object' ? JSON.stringify(updatedStaff.experience) : (updatedStaff.experience || '')),
+          typeof updatedStaff.experience === 'object' ? JSON.stringify(updatedStaff.experience) : (updatedStaff.experience || ''),
+          typeof updatedStaff.experiences === 'object' ? JSON.stringify(updatedStaff.experiences) : (updatedStaff.experiences || ''),
           updatedStaff.dateOfJoining || updatedStaff.joiningDate || '',
+          updatedStaff.joiningDate || updatedStaff.dateOfJoining || '',
           updatedStaff.salaryGrade || '',
           updatedStaff.reportingTo || '',
-          updatedStaff.address || updatedStaff.currentAddress || '',
-          updatedStaff.city || updatedStaff.currentCity || '',
-          updatedStaff.state || updatedStaff.currentState || '',
-          updatedStaff.pincode || updatedStaff.currentPostalCode || '',
+          updatedStaff.currentAddress || updatedStaff.address || '',
+          updatedStaff.currentCity || updatedStaff.city || '',
+          updatedStaff.currentState || updatedStaff.state || '',
+          updatedStaff.currentCountry || 'India',
+          updatedStaff.currentPostalCode || updatedStaff.pincode || '',
+          updatedStaff.currentAddress || updatedStaff.address || '',
+          updatedStaff.currentCity || updatedStaff.city || '',
+          updatedStaff.currentState || updatedStaff.state || '',
+          updatedStaff.currentCountry || 'India',
+          updatedStaff.currentPostalCode || updatedStaff.pincode || '',
+          updatedStaff.permanentAddress || '',
+          updatedStaff.permanentCity || '',
+          updatedStaff.permanentState || '',
+          updatedStaff.permanentCountry || 'India',
+          updatedStaff.permanentPostalCode || '',
+          typeof updatedStaff.sameAsPermanent === 'boolean' ? (updatedStaff.sameAsPermanent ? 'Yes' : 'No') : (updatedStaff.sameAsPermanent || 'No'),
+          updatedStaff.alternateMobile || '',
           updatedStaff.emergencyContact || '',
           updatedStaff.emergencyPhone || updatedStaff.emergencyContactNumber || '',
+          updatedStaff.emergencyContactNumber || updatedStaff.emergencyPhone || '',
           updatedStaff.photo || '',
           updatedStaff.aadharFile || updatedStaff.aadhaarFile || '',
+          updatedStaff.panFile || '',
+          updatedStaff.resumeFile || '',
+          updatedStaff.joiningLetterFile || '',
           updatedStaff.certificateFile || '',
+          updatedStaff.otherFile || '',
           updatedStaff.status || 'Active',
           updatedStaff.avatarBg || '',
           updatedStaff.password || '',
           updatedStaff.designation || '',
           updatedStaff.designationLevel || '',
-          updatedStaff.employmentType || ''
+          updatedStaff.employmentType || '',
+          updatedStaff.staffCategory || '',
+          updatedStaff.primarySubject || '',
+          updatedStaff.secondarySubject || '',
+          updatedStaff.assignedGradeId || null,
+          updatedStaff.assignedSectionId || null,
+          updatedStaff.isClassTeacher ? 1 : 0,
+          updatedStaff.attendancePermission ? 1 : 0
         ].map(v => v === undefined ? null : v);
 
         const setClause = columns.map(c => `\`${c}\` = ?`).join(', ');
@@ -2598,7 +2739,7 @@ app.put('/api/employees/:id', auth, staffUploadFields, restoreTenantContext, ens
     }
 
     addActivity(db, 'alert', 'Employee Profile Updated', `${updatedStaff.name}'s profile was updated.`, 'hsl(var(--color-info))', 'rgba(hsl(var(--color-info)), 0.1)');
-    writeDb(db);
+    writeDb(db, ['employees']);
 
     res.json(updatedStaff);
   } catch (error) {
@@ -2610,24 +2751,57 @@ app.put('/api/employees/:id', auth, staffUploadFields, restoreTenantContext, ens
 app.delete('/api/employees/:id', auth, restoreTenantContext, ensureTenantSqlLoaded, checkPermission('employee-directory', 'delete'), async (req, res) => {
   const db = readDb();
   if (!db.employees) db.employees = [];
-  const empIndex = db.employees.findIndex(e => e.id === req.params.id);
+  const reqId = String(req.params.id || '').trim();
+  const cleanReqId = reqId.replace(/^(emp|tea|stf|staff)-?/i, '');
+  const empIndex = db.employees.findIndex(e => {
+    const eId = String(e.id || '').trim();
+    const eEmpId = String(e.employeeId || '').trim();
+    return eId === reqId || eEmpId === reqId ||
+           (cleanReqId && (eId.replace(/^(emp|tea|stf|staff)-?/i, '') === cleanReqId || eEmpId.replace(/^(emp|tea|stf|staff)-?/i, '') === cleanReqId));
+  });
 
   if (empIndex === -1) {
     return res.status(404).json({ error: 'Employee profile not found.' });
   }
 
-  const staffName = db.employees[empIndex].name;
+  const staffName = db.employees[empIndex].name || db.employees[empIndex].fullName || 'Employee';
   const deletedId = db.employees[empIndex].id;
+  const deletedEmpId = db.employees[empIndex].employeeId || deletedId;
+
+  // Cleanup ImageKit files safely if any without blocking
+  const emp = db.employees[empIndex];
+  const filesToDelete = [
+    emp.photo, emp.aadharFile, emp.aadhaarFile, emp.panFile, emp.resumeFile,
+    emp.joiningLetterFile, emp.certificateFile, emp.otherFile
+  ];
+  for (const fileUrl of filesToDelete) {
+    if (fileUrl) {
+      deleteFromImageKit(fileUrl).catch(e => console.error('[ImageKit Delete Error]', e?.message || e));
+    }
+  }
+
   db.employees.splice(empIndex, 1);
+  db.employees = [...db.employees];
+
+  // Also remove from teachers and staff if matching to maintain roster consistency
+  if (db.teachers && Array.isArray(db.teachers)) {
+    db.teachers = db.teachers.filter(t => t.id !== deletedId && t.employeeId !== deletedId && t.id !== deletedEmpId && t.employeeId !== deletedEmpId);
+  }
+  if (db.staff && Array.isArray(db.staff)) {
+    db.staff = db.staff.filter(s => s.id !== deletedId && s.employeeId !== deletedId && s.id !== deletedEmpId && s.employeeId !== deletedEmpId);
+  }
 
   if (db.employeeQrCodes) {
-    db.employeeQrCodes = db.employeeQrCodes.filter(q => q.employeeId !== deletedId && q.staffId !== deletedId);
+    db.employeeQrCodes = db.employeeQrCodes.filter(q => q.employeeId !== deletedId && q.staffId !== deletedId && q.teacherId !== deletedId && q.employeeId !== deletedEmpId);
   }
   if (db.attendanceRecords) {
-    db.attendanceRecords = db.attendanceRecords.filter(a => a.employeeId !== deletedId && a.staffId !== deletedId);
+    db.attendanceRecords = db.attendanceRecords.filter(a => a.employeeId !== deletedId && a.staffId !== deletedId && a.teacherId !== deletedId && a.employeeId !== deletedEmpId);
   }
   if (db.attendanceLogs) {
-    db.attendanceLogs = db.attendanceLogs.filter(l => l.employeeId !== deletedId && l.staffId !== deletedId);
+    db.attendanceLogs = db.attendanceLogs.filter(l => l.employeeId !== deletedId && l.staffId !== deletedId && l.teacherId !== deletedId && l.employeeId !== deletedEmpId);
+  }
+  if (db.userAccess) {
+    db.userAccess = db.userAccess.filter(ua => ua.userId !== deletedId && ua.userId !== deletedEmpId);
   }
 
   if (isSqlActive()) {
@@ -2635,15 +2809,23 @@ app.delete('/api/employees/:id', auth, restoreTenantContext, ensureTenantSqlLoad
       const sqlDb = await import('./utils/sqlDb.js');
       const tenantId = tenantStorage.getStore();
       const tId = tenantId ? slugify(tenantId) : 'platform';
-      await sqlDb.query('DELETE FROM employees WHERE id = ? AND (tenantId = ? OR tenantId IS NULL OR tenantId = ?)', [deletedId, tId, ''], tId);
-      await sqlDb.query('DELETE FROM employee_qr_codes WHERE (employeeId = ? OR staffId = ?) AND (tenantId = ? OR tenantId IS NULL OR tenantId = ?)', [deletedId, deletedId, tId, ''], tId);
+      await sqlDb.query('DELETE FROM employees WHERE (id = ? OR id = ?) AND (tenantId = ? OR tenantId IS NULL OR tenantId = ?)', [deletedId, deletedEmpId, tId, ''], tId);
+      await sqlDb.query('DELETE FROM teachers WHERE (id = ? OR id = ?) AND (tenantId = ? OR tenantId IS NULL OR tenantId = ?)', [deletedId, deletedEmpId, tId, ''], tId);
+      await sqlDb.query('DELETE FROM staff WHERE (id = ? OR id = ?) AND (tenantId = ? OR tenantId IS NULL OR tenantId = ?)', [deletedId, deletedEmpId, tId, ''], tId);
+      await sqlDb.query('DELETE FROM employee_qr_codes WHERE (employeeId = ? OR staffId = ? OR teacherId = ? OR employeeId = ?) AND (tenantId = ? OR tenantId IS NULL OR tenantId = ?)', [deletedId, deletedId, deletedId, deletedEmpId, tId, ''], tId);
+      await sqlDb.query('DELETE FROM attendance_records WHERE (employeeId = ? OR staffId = ? OR teacherId = ? OR employeeId = ?) AND (tenantId = ? OR tenantId IS NULL OR tenantId = ?)', [deletedId, deletedId, deletedId, deletedEmpId, tId, ''], tId);
+      await sqlDb.query('DELETE FROM attendance_logs WHERE (employeeId = ? OR staffId = ? OR teacherId = ? OR employeeId = ?) AND (tenantId = ? OR tenantId IS NULL OR tenantId = ?)', [deletedId, deletedId, deletedId, deletedEmpId, tId, ''], tId);
+      await sqlDb.query('DELETE FROM user_access WHERE (userId = ? OR userId = ?) AND (tenantId = ? OR tenantId IS NULL OR tenantId = ?)', [deletedId, deletedEmpId, tId, ''], tId);
+
+      const syncTs = new Date().toISOString();
+      await sqlDb.query('UPDATE schools SET updatedAt = ? WHERE subdomain = ?', [syncTs, tId]);
     } catch (sqlErr) {
       console.error('[SQL Direct Delete Employee Error]', sqlErr);
     }
   }
 
   addActivity(db, 'alert', 'Employee Dismissed', `${staffName} was removed from the roster`, 'rgb(var(--color-danger-rgb))', 'rgba(var(--color-danger-rgb), 0.1)');
-  writeDb(db);
+  writeDb(db, ['employees', 'teachers', 'staff']);
 
   res.json({ success: true, message: `Removed employee ${staffName}` });
 });
@@ -2807,6 +2989,23 @@ app.get('/api/school', restoreTenantContext, (req, res) => {
   const globalDb = tenantStorage.run(null, () => readDb());
   const schools = globalDb.schools || [];
 
+  // If caller is Developer Admin or platform request, return platform identity
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    try {
+      const token = authHeader.split(' ')[1];
+      const decoded = jwt.decode(token);
+      if (decoded && (decoded.role === 'Developer Admin' || decoded.username === 'dev@admin.com')) {
+        const db = readDb();
+        return res.json(db.school || { name: "GateX School ERP", principal: "Platform Admin" });
+      }
+    } catch (e) {}
+  }
+  if (req.headers['x-tenant-id'] === 'platform' || req.headers['x-developer-admin'] === 'true') {
+    const db = readDb();
+    return res.json(db.school || { name: "GateX School ERP", principal: "Platform Admin" });
+  }
+
   if (tenantId && isSubdomainRegistered(tenantId)) {
     const schoolRecord = schools.find(s => slugify(s.subdomain) === slugify(tenantId));
     if (schoolRecord) {
@@ -2818,8 +3017,8 @@ app.get('/api/school', restoreTenantContext, (req, res) => {
     }
   }
 
-  // If accessed without specific registered tenant header, provide active registered school if available
-  if (schools.length > 0) {
+  // If accessed without specific registered tenant header, provide active registered school if available (and not on platform)
+  if (!tenantId && req.headers['x-tenant-id'] !== 'platform' && !authHeader && schools.length > 0) {
     const activeSchool = schools.find(s => s.status !== 'Suspended') || schools[0];
     const tenantDb = tenantStorage.run(slugify(activeSchool.subdomain), () => readDb());
     return res.json({

@@ -1,7 +1,22 @@
-import { readDb, writeDb, addActivity, convertToRoman, tenantStorage, slugify } from '../utils/db.js';
+import { readDb, writeDb, addActivity, convertToRoman, tenantStorage, slugify, sortSubjectsByGrade, formatSubjectId } from '../utils/db.js';
 import * as sqlDb from '../utils/sqlDb.js';
 import * as XLSX from 'xlsx';
 import { PDFParse } from 'pdf-parse';
+
+// Helper: create a notification in the SQL notifications table
+const createNotification = async (title, message, type, recipientId, recipientRole) => {
+  try {
+    const tenantId = tenantStorage.getStore() || 'localhost';
+    const notifId = `NT-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
+    await sqlDb.query(
+      `INSERT INTO notifications (id, title, message, type, recipientId, recipientRole, \`read\`, createdAt, tenantId)
+       VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?)`,
+      [notifId, title, message, type, recipientId || null, recipientRole || null, new Date().toISOString(), tenantId]
+    );
+  } catch (err) {
+    console.error('[createNotification Error]:', err.message);
+  }
+};
 
 // Conflict helper: Checks if two time slots overlap
 // e.g. "09:00 AM - 10:00 AM" and "09:30 AM - 10:30 AM"
@@ -61,14 +76,32 @@ export const createTimetable = (req, res) => {
   }
 
   const db = readDb();
+  if (!db.timetables) db.timetables = [];
 
-  const cleanTeacher = (teacher || '').trim();
+  let cleanTeacher = (teacher || '').trim();
   const cleanRoom = (room || '').trim();
+
+  // Auto-fill teacher from subjects if not supplied
+  if (!cleanTeacher && db.subjects) {
+    const [g] = cohort.split('-');
+    const sub = db.subjects.find(s => 
+      (s.grade === g || s.classId === g) && 
+      ((s.subjectName && s.subjectName.toLowerCase() === subject.trim().toLowerCase()) || 
+       (s.name && s.name.toLowerCase() === subject.trim().toLowerCase()))
+    );
+    if (sub && sub.teacherName) {
+      cleanTeacher = sub.teacherName;
+    }
+  }
 
   // Conflict Detection: Teacher double booking or Room booking conflict (only if values are supplied and not n/a)
   let conflictMsg = null;
   const conflict = db.timetables.find(t => {
-    if (t.day.toLowerCase() === day.toLowerCase() && isTimeOverlapping(t.time, time)) {
+    // Skip if it's the exact same slot being updated
+    if (t.cohort && t.cohort.toLowerCase() === cohort.toLowerCase() && t.day && t.day.toLowerCase() === day.toLowerCase() && t.time === time) {
+      return false;
+    }
+    if (t.day && t.day.toLowerCase() === day.toLowerCase() && isTimeOverlapping(t.time, time)) {
       // Teacher conflict
       if (cleanTeacher !== '' && cleanTeacher.toLowerCase() !== 'n/a' && t.teacher && t.teacher.trim().toLowerCase() === cleanTeacher.toLowerCase()) {
         conflictMsg = `Faculty ${cleanTeacher} is already assigned to ${t.cohort} on ${day} during ${t.time}.`;
@@ -93,13 +126,38 @@ export const createTimetable = (req, res) => {
     day,
     time,
     subject,
-    teacher,
-    room,
+    teacher: cleanTeacher,
+    room: cleanRoom,
     session: session || '2026-2027'
   };
 
-  db.timetables.push(newSlot);
-  writeDb(db);
+  // If a slot for this cohort, day and time already exists, update it!
+  const existingSlotIdx = db.timetables.findIndex(t => 
+    t.cohort && t.cohort.toLowerCase() === cohort.toLowerCase() && 
+    t.day && t.day.toLowerCase() === day.toLowerCase() && 
+    t.time === time
+  );
+  if (existingSlotIdx !== -1) {
+    newSlot.id = db.timetables[existingSlotIdx].id;
+    db.timetables[existingSlotIdx] = newSlot;
+  } else {
+    db.timetables.push(newSlot);
+  }
+
+  // Also sync publishedClassTimetables if this cohort was published
+  if (db.publishedClassTimetables) {
+    const pubIdx = db.publishedClassTimetables.findIndex(pt => pt.cohort && pt.cohort.toLowerCase() === cohort.toLowerCase());
+    if (pubIdx !== -1) {
+      const cohortSlots = db.timetables.filter(t => t.cohort && t.cohort.toLowerCase() === cohort.toLowerCase());
+      db.publishedClassTimetables[pubIdx] = {
+        cohort,
+        slots: cohortSlots.map(s => ({ day: s.day, time: s.time, subject: s.subject, teacher: s.teacher || '', room: s.room || '' })),
+        publishedAt: new Date().toISOString()
+      };
+    }
+  }
+
+  writeDb(db, ['timetables', 'publishedClassTimetables']);
 
   res.status(201).json(newSlot);
 };
@@ -107,15 +165,33 @@ export const createTimetable = (req, res) => {
 export const deleteTimetable = (req, res) => {
   const { id } = req.params;
   const db = readDb();
+  if (!db.timetables) db.timetables = [];
 
   const initialCount = db.timetables.length;
+  const slotToDelete = db.timetables.find(t => t.id === id);
   db.timetables = db.timetables.filter(t => t.id !== id);
 
   if (db.timetables.length === initialCount) {
     return res.status(404).json({ error: 'Timetable period not found.' });
   }
 
-  writeDb(db);
+  if (slotToDelete && db.publishedClassTimetables) {
+    const pubIdx = db.publishedClassTimetables.findIndex(pt => pt.cohort && pt.cohort.toLowerCase() === slotToDelete.cohort.toLowerCase());
+    if (pubIdx !== -1) {
+      const cohortSlots = db.timetables.filter(t => t.cohort && t.cohort.toLowerCase() === slotToDelete.cohort.toLowerCase());
+      if (cohortSlots.length === 0) {
+        db.publishedClassTimetables.splice(pubIdx, 1);
+      } else {
+        db.publishedClassTimetables[pubIdx] = {
+          cohort: slotToDelete.cohort,
+          slots: cohortSlots.map(s => ({ day: s.day, time: s.time, subject: s.subject, teacher: s.teacher || '', room: s.room || '' })),
+          publishedAt: new Date().toISOString()
+        };
+      }
+    }
+  }
+
+  writeDb(db, ['timetables', 'publishedClassTimetables']);
   res.json({ message: 'Timetable period successfully deleted.' });
 };
 
@@ -166,7 +242,7 @@ export const createExam = (req, res) => {
 
   db.exams.push(newExam);
   addActivity(db, 'alert', 'New Examination Created', `${examName} created as Draft`, 'hsl(var(--color-primary))', 'rgba(hsl(var(--color-primary)), 0.1)');
-  writeDb(db);
+  writeDb(db, ['exams', 'activities']);
 
   res.status(201).json(newExam);
 };
@@ -203,7 +279,7 @@ export const updateExam = (req, res) => {
   if (db.publishedCalendarEvents) {
     db.publishedCalendarEvents = db.publishedCalendarEvents.filter(eventId => eventId !== id);
   }
-  writeDb(db);
+  writeDb(db, ['exams', 'publishedCalendarEvents']);
   res.json(db.exams[examIndex]);
 };
 
@@ -224,7 +300,7 @@ export const deleteExam = (req, res) => {
   if (db.publishedCalendarEvents) {
     db.publishedCalendarEvents = db.publishedCalendarEvents.filter(eventId => eventId !== id);
   }
-  writeDb(db);
+  writeDb(db, ['exams', 'examTimetables', 'results', 'overallResults', 'publishedCalendarEvents']);
   res.json({ message: 'Exam configuration deleted successfully.' });
 };
 
@@ -355,7 +431,7 @@ export const generateExamSchedule = (req, res) => {
   exam.status = 'Scheduled';
   exam.timetablePublished = false;
   db.examTimetables.push(...newSchedules);
-  writeDb(db);
+  writeDb(db, ['examTimetables', 'exams']);
 
   res.status(201).json({
     message: 'Schedule generated successfully.',
@@ -375,7 +451,7 @@ export const publishExam = (req, res) => {
 
   db.exams[examIndex].status = 'Published';
   db.exams[examIndex].timetablePublished = true;
-  writeDb(db);
+  writeDb(db, ['exams']);
 
   res.json({ message: 'Exam published successfully.', exam: db.exams[examIndex] });
 };
@@ -518,7 +594,7 @@ export const createExamTimetable = (req, res) => {
     parentExam.timetablePublished = false;
   }
 
-  writeDb(db);
+  writeDb(db, ['examTimetables', 'exams']);
 
   res.status(201).json(newSchedule);
 };
@@ -543,7 +619,7 @@ export const deleteExamTimetable = (req, res) => {
     }
   }
 
-  writeDb(db);
+  writeDb(db, ['examTimetables', 'exams']);
   res.json({ message: 'Exam slot deleted successfully.' });
 };
 
@@ -564,7 +640,7 @@ export const deleteCohortExamTimetable = (req, res) => {
     parentExam.timetablePublished = false;
   }
 
-  writeDb(db);
+  writeDb(db, ['examTimetables', 'exams']);
   res.json({ message: 'Exam timetable for cohort deleted successfully.' });
 };
 
@@ -607,7 +683,18 @@ export const createEvent = (req, res) => {
 
   db.events.push(newEvent);
   addActivity(db, 'alert', 'New School Event', `Event "${title}" scheduled for ${actualStartDate} to ${actualEndDate} at ${venue}`, 'hsl(var(--color-secondary))', 'rgba(hsl(var(--color-secondary)), 0.1)');
-  writeDb(db);
+  writeDb(db, ['events', 'activities']);
+
+  // Create notifications for event creation
+  const eventParticipants = (participants || 'All Students').toLowerCase();
+  createNotification('New Event Created', `Event "${title}" has been scheduled from ${actualStartDate} to ${actualEndDate} at ${venue}.`, 'event_created', null, 'main admin');
+  if (newEvent.status === 'Published') {
+    if (eventParticipants.includes('teacher') || eventParticipants.includes('staff') || eventParticipants.includes('all')) {
+      createNotification('📅 New Event', `"${title}" scheduled from ${actualStartDate} to ${actualEndDate} at ${venue}.`, 'event_published', null, 'teacher');
+      createNotification('📅 New Event', `"${title}" scheduled from ${actualStartDate} to ${actualEndDate} at ${venue}.`, 'event_published', null, 'staff');
+    }
+    createNotification('📅 New Event', `"${title}" scheduled from ${actualStartDate} to ${actualEndDate} at ${venue}.`, 'event_published', null, 'student');
+  }
 
   res.status(201).json(newEvent);
 };
@@ -644,10 +731,20 @@ export const updateEvent = (req, res) => {
     status: status || prevEvent.status
   };
 
+  // Notify if event was just published
+  if (status === 'Published' && prevEvent.status !== 'Published') {
+    const evtParticipants = (db.events[eventIdx].participants || 'All Students').toLowerCase();
+    if (evtParticipants.includes('teacher') || evtParticipants.includes('staff') || evtParticipants.includes('all')) {
+      createNotification('📅 Event Published', `"${db.events[eventIdx].title}" is now published. Date: ${db.events[eventIdx].startDate} to ${db.events[eventIdx].endDate}.`, 'event_published', null, 'teacher');
+      createNotification('📅 Event Published', `"${db.events[eventIdx].title}" is now published. Date: ${db.events[eventIdx].startDate} to ${db.events[eventIdx].endDate}.`, 'event_published', null, 'staff');
+    }
+    createNotification('📅 Event Published', `"${db.events[eventIdx].title}" is now published. Date: ${db.events[eventIdx].startDate} to ${db.events[eventIdx].endDate}.`, 'event_published', null, 'student');
+  }
+
   if (db.publishedCalendarEvents) {
     db.publishedCalendarEvents = db.publishedCalendarEvents.filter(eventId => eventId !== id);
   }
-  writeDb(db);
+  writeDb(db, ['events', 'publishedCalendarEvents']);
   res.json(db.events[eventIdx]);
 };
 
@@ -666,7 +763,7 @@ export const deleteEvent = (req, res) => {
   if (db.publishedCalendarEvents) {
     db.publishedCalendarEvents = db.publishedCalendarEvents.filter(eventId => eventId !== id);
   }
-  writeDb(db);
+  writeDb(db, ['events', 'publishedCalendarEvents']);
   res.json({ message: 'Event deleted successfully.', event });
 };
 
@@ -703,6 +800,19 @@ export const createNotice = (req, res) => {
   addActivity(db, 'alert', 'Notice Board Published', `Notice: "${title}" visibility set to: ${newNotice.visibility}`, 'hsl(var(--color-info))', 'rgba(hsl(var(--color-info)), 0.1)');
   writeDb(db);
 
+  // Create notifications for notice creation
+  createNotification('New Notice Published', `Notice: "${title}" — ${content.substring(0, 80)}${content.length > 80 ? '...' : ''}`, 'notice_created', null, 'main admin');
+  const noticeVis = (newNotice.visibility || 'All').toLowerCase();
+  if (newNotice.status === 'Published') {
+    if (noticeVis.includes('teacher') || noticeVis.includes('staff') || noticeVis === 'all') {
+      createNotification('📢 New Notice', `"${title}" — ${content.substring(0, 80)}${content.length > 80 ? '...' : ''}`, 'notice_published', null, 'teacher');
+      createNotification('📢 New Notice', `"${title}" — ${content.substring(0, 80)}${content.length > 80 ? '...' : ''}`, 'notice_published', null, 'staff');
+    }
+    if (noticeVis.includes('student') || noticeVis.includes('parent') || noticeVis === 'all') {
+      createNotification('📢 New Notice', `"${title}" — ${content.substring(0, 80)}${content.length > 80 ? '...' : ''}`, 'notice_published', null, 'student');
+    }
+  }
+
   res.status(201).json(newNotice);
 };
 
@@ -729,6 +839,19 @@ export const updateNotice = (req, res) => {
     status: status || db.notices[index].status || 'Published',
     isDeleted: isDeleted !== undefined ? isDeleted : (db.notices[index].isDeleted || false)
   };
+
+  // Notify if notice was just published
+  const updatedNotice = db.notices[index];
+  if (status === 'Published' && (!db.notices[index]._prevStatus || db.notices[index]._prevStatus !== 'Published')) {
+    const vis = (updatedNotice.visibility || 'All').toLowerCase();
+    if (vis.includes('teacher') || vis.includes('staff') || vis === 'all') {
+      createNotification('📢 Notice Published', `"${updatedNotice.title}" is now live.`, 'notice_published', null, 'teacher');
+      createNotification('📢 Notice Published', `"${updatedNotice.title}" is now live.`, 'notice_published', null, 'staff');
+    }
+    if (vis.includes('student') || vis.includes('parent') || vis === 'all') {
+      createNotification('📢 Notice Published', `"${updatedNotice.title}" is now live.`, 'notice_published', null, 'student');
+    }
+  }
 
   writeDb(db);
   res.json(db.notices[index]);
@@ -780,6 +903,14 @@ export const createHoliday = (req, res) => {
   db.holidays.push(newHoliday);
   writeDb(db);
 
+  // Create notifications for holiday creation
+  createNotification('New Holiday Declared', `Holiday "${name}" from ${startDate} to ${endDate}.`, 'holiday_created', null, 'main admin');
+  if (newHoliday.status === 'Published') {
+    createNotification('🎉 Holiday Declared', `"${name}" — ${startDate} to ${endDate}. ${description || ''}`.trim(), 'holiday_published', null, 'teacher');
+    createNotification('🎉 Holiday Declared', `"${name}" — ${startDate} to ${endDate}. ${description || ''}`.trim(), 'holiday_published', null, 'staff');
+    createNotification('🎉 Holiday Declared', `"${name}" — ${startDate} to ${endDate}. ${description || ''}`.trim(), 'holiday_published', null, 'student');
+  }
+
   res.status(201).json(newHoliday);
 };
 
@@ -823,6 +954,14 @@ export const updateHoliday = (req, res) => {
     status: status || db.holidays[index].status || 'Published',
     isDeleted: isDeleted !== undefined ? isDeleted : (db.holidays[index].isDeleted || false)
   };
+
+  // Notify if holiday was just published
+  const updatedHoliday = db.holidays[index];
+  if (status === 'Published') {
+    createNotification('🎉 Holiday Published', `"${updatedHoliday.name}" from ${updatedHoliday.startDate} to ${updatedHoliday.endDate}.`, 'holiday_published', null, 'teacher');
+    createNotification('🎉 Holiday Published', `"${updatedHoliday.name}" from ${updatedHoliday.startDate} to ${updatedHoliday.endDate}.`, 'holiday_published', null, 'staff');
+    createNotification('🎉 Holiday Published', `"${updatedHoliday.name}" from ${updatedHoliday.startDate} to ${updatedHoliday.endDate}.`, 'holiday_published', null, 'student');
+  }
 
   if (db.publishedCalendarEvents) {
     db.publishedCalendarEvents = db.publishedCalendarEvents.filter(eventId => eventId !== id);
@@ -1031,7 +1170,7 @@ export const reorderTimeslots = (req, res) => {
 // =============================================
 export const getSubjects = (req, res) => {
   const db = readDb();
-  res.json(db.subjects || []);
+  res.json(sortSubjectsByGrade(db.subjects || []));
 };
 
 export const createSubject = (req, res) => {
@@ -1046,20 +1185,24 @@ export const createSubject = (req, res) => {
   if (!db.subjects) db.subjects = [];
 
   const exists = db.subjects.some(
-    s => s.grade.toUpperCase() === formattedGrade.toUpperCase() && s.subjectName.toLowerCase() === subjectName.toLowerCase()
+    s => (s.grade || s.classId || '').toUpperCase() === formattedGrade.toUpperCase() &&
+         (s.subjectName || s.name || '').toLowerCase() === subjectName.toLowerCase()
   );
   if (exists) {
     return res.status(400).json({ error: 'Subject already registered for this grade.' });
   }
 
   const newSubject = {
-    id: `SUB-${Date.now()}`,
+    id: formatSubjectId(formattedGrade, subjectName),
     grade: formattedGrade,
+    classId: formattedGrade,
+    name: subjectName,
     subjectName
   };
 
   db.subjects.push(newSubject);
-  writeDb(db);
+  db.subjects = sortSubjectsByGrade(db.subjects);
+  writeDb(db, ['subjects']);
   res.status(201).json(newSubject);
 };
 
@@ -1075,7 +1218,8 @@ export const deleteSubject = (req, res) => {
     return res.status(404).json({ error: 'Subject not found.' });
   }
 
-  writeDb(db);
+  db.subjects = sortSubjectsByGrade(db.subjects);
+  writeDb(db, ['subjects']);
   res.json({ message: 'Subject successfully deleted.' });
 };
 
@@ -1098,12 +1242,15 @@ export const createSubjectBulk = (req, res) => {
     if (!cleanName) return;
 
     const exists = db.subjects.some(
-      s => s.grade.toUpperCase() === formattedGrade.toUpperCase() && s.subjectName.toLowerCase() === cleanName.toLowerCase()
+      s => (s.grade || s.classId || '').toUpperCase() === formattedGrade.toUpperCase() &&
+           (s.subjectName || s.name || '').toLowerCase() === cleanName.toLowerCase()
     );
     if (!exists) {
       const newSub = {
-        id: `SUB-${Date.now()}-${index}-${Math.random().toString(36).substr(2, 4)}`,
+        id: formatSubjectId(formattedGrade, cleanName, `SUB-${Date.now()}-${index}`),
         grade: formattedGrade,
+        classId: formattedGrade,
+        name: cleanName,
         subjectName: cleanName
       };
       db.subjects.push(newSub);
@@ -1113,7 +1260,8 @@ export const createSubjectBulk = (req, res) => {
     }
   });
 
-  writeDb(db);
+  db.subjects = sortSubjectsByGrade(db.subjects);
+  writeDb(db, ['subjects']);
   res.status(201).json({ message: 'Subjects processed.', added, duplicates });
 };
 
@@ -1129,31 +1277,61 @@ export const createTimetableBulk = (req, res) => {
   const db = readDb();
   if (!db.timetables) db.timetables = [];
 
-  // Remove existing entries for this cohort
-  db.timetables = db.timetables.filter(t => t.cohort !== cohort);
-  if (timetables.length === 0) {
-    if (db.publishedClassTimetables) {
-      db.publishedClassTimetables = db.publishedClassTimetables.filter(pt => pt.cohort !== cohort);
-    }
-  }
+  // Remove existing entries for this cohort (case-insensitive)
+  db.timetables = db.timetables.filter(t => !t.cohort || t.cohort.trim().toLowerCase() !== cohort.trim().toLowerCase());
 
   // Push new valid timetable entries
   timetables.forEach((slot, index) => {
     if (slot.subject && slot.subject.trim() !== '') {
+      let teacherName = (slot.teacher || '').trim();
+      if (!teacherName && db.subjects) {
+        const [g] = cohort.split('-');
+        const sub = db.subjects.find(s => 
+          (s.grade === g || s.classId === g) && 
+          ((s.subjectName && s.subjectName.toLowerCase() === slot.subject.trim().toLowerCase()) || 
+           (s.name && s.name.toLowerCase() === slot.subject.trim().toLowerCase()))
+        );
+        if (sub && sub.teacherName) {
+          teacherName = sub.teacherName;
+        }
+      }
       db.timetables.push({
         id: `TT-${Date.now()}-${index}`,
         cohort,
         day: slot.day,
         time: slot.time,
         subject: slot.subject,
-        teacher: slot.teacher || '',
+        teacher: teacherName,
         room: slot.room || '',
         session
       });
     }
   });
 
-  writeDb(db);
+  // Keep publishedClassTimetables in sync if already published
+  if (db.publishedClassTimetables) {
+    const existingPubIdx = db.publishedClassTimetables.findIndex(pt => pt.cohort && pt.cohort.trim().toLowerCase() === cohort.trim().toLowerCase());
+    if (existingPubIdx !== -1) {
+      if (timetables.length === 0) {
+        db.publishedClassTimetables.splice(existingPubIdx, 1);
+      } else {
+        const activeCohortSlots = db.timetables.filter(t => t.cohort && t.cohort.trim().toLowerCase() === cohort.trim().toLowerCase());
+        db.publishedClassTimetables[existingPubIdx] = {
+          cohort,
+          slots: activeCohortSlots.map(s => ({
+            day: s.day,
+            time: s.time,
+            subject: s.subject,
+            teacher: s.teacher || '',
+            room: s.room || ''
+          })),
+          publishedAt: new Date().toISOString()
+        };
+      }
+    }
+  }
+
+  writeDb(db, ['timetables', 'publishedClassTimetables']);
   res.status(201).json({ message: 'Timetable updated successfully.' });
 };
 
@@ -1166,13 +1344,8 @@ export const createTimetableBulkTeacher = (req, res) => {
   const db = readDb();
   if (!db.teacherTimetables) db.teacherTimetables = [];
 
-  // Remove existing entries for this teacher from teacherTimetables
-  db.teacherTimetables = db.teacherTimetables.filter(t => !t.teacher || t.teacher.toLowerCase() !== teacher.toLowerCase());
-  if (timetables.length === 0) {
-    if (db.publishedTeacherTimetables) {
-      db.publishedTeacherTimetables = db.publishedTeacherTimetables.filter(pt => !pt.teacher || pt.teacher.toLowerCase() !== teacher.toLowerCase());
-    }
-  }
+  // Remove existing entries for this teacher from teacherTimetables (case-insensitive)
+  db.teacherTimetables = db.teacherTimetables.filter(t => !t.teacher || t.teacher.trim().toLowerCase() !== teacher.trim().toLowerCase());
 
   // Push new valid timetable entries
   timetables.forEach((slot, index) => {
@@ -1190,7 +1363,29 @@ export const createTimetableBulkTeacher = (req, res) => {
     }
   });
 
-  writeDb(db);
+  // Keep publishedTeacherTimetables in sync if already published
+  if (db.publishedTeacherTimetables) {
+    const existingPubIdx = db.publishedTeacherTimetables.findIndex(pt => pt.teacher && pt.teacher.trim().toLowerCase() === teacher.trim().toLowerCase());
+    if (existingPubIdx !== -1) {
+      if (timetables.length === 0) {
+        db.publishedTeacherTimetables.splice(existingPubIdx, 1);
+      } else {
+        const activeTeacherSlots = db.teacherTimetables.filter(t => t.teacher && t.teacher.trim().toLowerCase() === teacher.trim().toLowerCase());
+        db.publishedTeacherTimetables[existingPubIdx] = {
+          teacher,
+          slots: activeTeacherSlots.map(s => ({
+            cohort: s.cohort,
+            day: s.day,
+            time: s.time,
+            subject: s.subject || ''
+          })),
+          publishedAt: new Date().toISOString()
+        };
+      }
+    }
+  }
+
+  writeDb(db, ['teacherTimetables', 'publishedTeacherTimetables']);
   res.status(201).json({ message: 'Teacher timetable updated successfully.' });
 };
 
@@ -1260,7 +1455,7 @@ export const publishTimetable = (req, res) => {
     return res.status(400).json({ error: 'Invalid type. Must be class or teacher.' });
   }
 
-  writeDb(db);
+  writeDb(db, ['publishedClassTimetables', 'publishedTeacherTimetables']);
   res.json({ message: 'Timetable published successfully.' });
 };
 
@@ -1273,8 +1468,13 @@ export const createExamTimetableBulk = (req, res) => {
   const db = readDb();
   if (!db.examTimetables) db.examTimetables = [];
 
-  // Remove existing entries for this exam and cohort
-  db.examTimetables = db.examTimetables.filter(et => !(et.examId === examId && et.cohort === cohort));
+  // Remove existing entries for this exam and cohort (case-insensitive)
+  db.examTimetables = db.examTimetables.filter(et => {
+    if (et.examId !== examId) return true;
+    if (et.cohort && et.cohort.trim().toLowerCase() === cohort.trim().toLowerCase()) return false;
+    if (et.grade && et.section && `${et.grade}-${et.section}`.toLowerCase() === cohort.trim().toLowerCase()) return false;
+    return true;
+  });
 
   const [grade, section] = cohort.split('-');
 
@@ -1306,7 +1506,7 @@ export const createExamTimetableBulk = (req, res) => {
     exam.timetablePublished = false;
   }
 
-  writeDb(db);
+  writeDb(db, ['examTimetables', 'exams']);
   res.status(201).json({ message: 'Exam timetable updated successfully.' });
 };
 

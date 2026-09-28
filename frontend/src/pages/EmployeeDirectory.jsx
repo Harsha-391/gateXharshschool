@@ -386,7 +386,11 @@ export default function EmployeeDirectory({ readOnly = true, onAddClick, onEditC
       }
 
       try {
-        const res = await fetch(`/api/employees/${staffId}`, { method: 'DELETE' });
+        const token = localStorage.getItem('token');
+        const res = await fetch(`/api/employees/${staffId}`, { 
+          method: 'DELETE',
+          headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+        });
         if (!res.ok) {
           // Rollback on server failure
           setStaffList(originalStaffList);

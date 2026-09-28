@@ -75,6 +75,15 @@ export default function SchoolLogin({ tenantSubdomain, onLoginSuccess }) {
         if (data.email) localStorage.setItem('email', data.email);
         if (data.phone) localStorage.setItem('phone', data.phone);
         
+        if (data.userType) {
+          localStorage.setItem('userType', data.userType);
+        }
+        if (data.assignedGradeId) localStorage.setItem('assignedGradeId', data.assignedGradeId);
+        if (data.assignedGradeName) localStorage.setItem('assignedGradeName', data.assignedGradeName);
+        if (data.assignedSectionId) localStorage.setItem('assignedSectionId', data.assignedSectionId);
+        if (data.assignedSectionName) localStorage.setItem('assignedSectionName', data.assignedSectionName);
+        if (data.isClassTeacher !== undefined) localStorage.setItem('isClassTeacher', String(data.isClassTeacher));
+
         if (data.permissions) {
           localStorage.setItem('permissions', JSON.stringify(data.permissions));
         } else {
