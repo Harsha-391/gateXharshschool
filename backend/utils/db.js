@@ -1459,6 +1459,7 @@ export const applySchemaUpdates = async (pool, isMaster = false, tenantId = null
   }
 
   // Reorganize subjects table in grade ascending order with formatted IDs
+  const subdomain = tenantId;
   if (subdomain && subdomain !== 'platform') {
     try {
       const [existingSubjects] = await pool.query('SELECT * FROM subjects WHERE tenantId = ? OR tenantId IS NULL OR tenantId = ?', [subdomain, '']);
@@ -1895,6 +1896,19 @@ export const initSqlDb = async () => {
         }
       }
       sqlDb.registerDbMapping(school.subdomain, dbName);
+    }
+
+    // Immediately pre-populate platform cache from SQL on boot
+    try {
+      const platformData = await loadTenantSqlIntoMemory('platform');
+      if (platformData) {
+        const schoolRows = await sqlDb.query("SELECT id, subdomain, status, name, code FROM schools", [], 'platform');
+        platformData._signature = (schoolRows || []).map(s => `${s.id}-${s.subdomain || ''}-${s.status || ''}-${s.name || ''}-${s.code || ''}`).join('|');
+        dbCache['platform'] = platformData;
+        lastCheckTimes['platform'] = Date.now();
+      }
+    } catch (cacheErr) {
+      console.warn('[SQL Init] Failed to pre-populate platform cache:', cacheErr.message);
     }
 
     isSqlInitialized = true;

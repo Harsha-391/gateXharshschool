@@ -95,8 +95,20 @@ const wsClients = new Set();
 let wss = null;
 
 async function computePlatformAnalytics() {
-  const db = readDb(); // Global DB
-  const schools = db.schools || [];
+  let schools = [];
+  if (isSqlActive()) {
+    try {
+      const sqlDb = await import('./utils/sqlDb.js');
+      const sqlSchools = await sqlDb.query('SELECT * FROM schools', [], 'platform');
+      if (sqlSchools && sqlSchools.length > 0) {
+        schools = sqlSchools;
+      }
+    } catch (e) {}
+  }
+  if (!schools || schools.length === 0) {
+    const db = readDb(); // Global DB fallback
+    schools = db.schools || [];
+  }
 
   const totalSchools = schools.length;
   const activeSchools = schools.filter(s => s.status === 'Active').length;
@@ -921,8 +933,37 @@ app.post('/api/auth/logout', (req, res) => {
 
 // Get all schools with tenant counts
 app.get('/api/platform/schools', async (req, res) => {
-  const db = readDb(); // Global DB
-  const schools = db.schools || [];
+  let schools = [];
+  if (isSqlActive()) {
+    try {
+      const sqlDb = await import('./utils/sqlDb.js');
+      const sqlSchools = await sqlDb.query('SELECT * FROM schools ORDER BY id DESC', [], 'platform');
+      if (sqlSchools && sqlSchools.length > 0) {
+        schools = sqlSchools.map(s => {
+          let parsedNoticeCategories = [];
+          let parsedHolidayClassifications = [];
+          try {
+            if (s.noticeCategories) parsedNoticeCategories = typeof s.noticeCategories === 'string' ? JSON.parse(s.noticeCategories) : s.noticeCategories;
+          } catch (e) {}
+          try {
+            if (s.holidayClassifications) parsedHolidayClassifications = typeof s.holidayClassifications === 'string' ? JSON.parse(s.holidayClassifications) : s.holidayClassifications;
+          } catch (e) {}
+          return {
+            ...s,
+            noticeCategories: Array.isArray(parsedNoticeCategories) ? parsedNoticeCategories : [],
+            holidayClassifications: Array.isArray(parsedHolidayClassifications) ? parsedHolidayClassifications : []
+          };
+        });
+      }
+    } catch (err) {
+      console.error('Failed to query schools directly from SQL:', err);
+    }
+  }
+
+  if (!schools || schools.length === 0) {
+    const db = readDb(); // Global DB fallback
+    schools = db.schools || [];
+  }
   
   let stats = {};
   if (isSqlActive()) {
@@ -1400,7 +1441,21 @@ app.get('/api/platform/analytics', async (req, res) => {
 // ==========================================
 
 // GET subscription plans
-app.get('/api/platform/plans', (req, res) => {
+app.get('/api/platform/plans', async (req, res) => {
+  if (isSqlActive()) {
+    try {
+      const sqlDb = await import('./utils/sqlDb.js');
+      const plans = await sqlDb.query('SELECT * FROM subscription_plans', [], 'platform');
+      if (plans && plans.length > 0) {
+        return res.json(plans.map(p => ({
+          id: p.id,
+          name: p.name,
+          price: p.price,
+          features: typeof p.features === 'string' ? JSON.parse(p.features) : (p.features || [])
+        })));
+      }
+    } catch (e) {}
+  }
   const db = tenantStorage.run(null, () => readDb());
   let plans = db.plans || [];
   res.json(plans);
