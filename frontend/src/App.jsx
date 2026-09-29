@@ -103,7 +103,7 @@ window.fetch = function (url, options = {}) {
   // 1. Context / headers injection (preserving original functionality)
   if (pathname.startsWith('/') || pathname.includes('/api/')) {
     const role = localStorage.getItem('role') || localStorage.getItem('portal_role');
-    const isDev = isDeveloperAdmin || role === 'Developer Admin';
+    const isDev = role === 'Developer Admin';
     if (pathname.startsWith('/api/platform/') || isDev) {
       options.headers['x-tenant-id'] = 'platform';
     } else if (!options.headers['x-tenant-id'] || options.headers['x-tenant-id'] === 'default') {
