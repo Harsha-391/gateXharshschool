@@ -2698,7 +2698,7 @@ function HistoryView({ expenses, expenseHistory, fetchExpenses, showToast, budge
               <Download size={13} /> Export CSV
             </button>
             <button 
-              onClick={() => window.print()}
+              onClick={() => filteredPeriodExpenses.length === 0 ? alert("No data available to export.") : window.print()}
               className="btn-secondary"
               style={{
                 padding: '8px 14px', fontWeight: 600,

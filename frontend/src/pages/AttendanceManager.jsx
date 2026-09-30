@@ -588,7 +588,10 @@ export default function AttendanceManager() {
 
   // CSV Export helper
   const handleExportCSV = () => {
-    if (reports.length === 0) return;
+    if (reports.length === 0) {
+      alert("No data available to export.");
+      return;
+    }
     const headers = ['Date', 'Employee ID', 'Type', 'Name', 'Department', 'Designation', 'Check-In', 'Check-Out', 'Hours Worked', 'Status'];
     const rows = reports.map(r => [
       r.date, r.employeeId, r.employeeType, r.name, r.department, r.designation, r.checkIn || '—', r.checkOut || '—', r.workingHours || '0', r.status

@@ -19,7 +19,6 @@
         "buildType": "apk"
       },
       "env": {
-        "EXPO_PUBLIC_DEFAULT_SERVER_URL": "https://acadmay.in",
         "EXPO_PUBLIC_CLOUD_URL": "https://acadmay.in"
       }
     },

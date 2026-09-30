@@ -841,7 +841,7 @@ function SalaryConfigurationDrawer({ employee, onClose, onSave, revisionHistory,
                     min="0"
                     value={formData[f.id]}
                     onChange={(e) => handleInputChange(f.id, e.target.value)}
-                    style={{ padding: '10px 12px', borderRadius: '8px', background: '#ffffff', border: '1px solid #cbd5e1', color: '#0f172a', fontWeight: 600 }}
+                    style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px', borderRadius: '8px', background: '#ffffff', border: '1px solid #cbd5e1', color: '#0f172a', fontWeight: 600 }}
                   />
                 </div>
               ))}
@@ -874,7 +874,7 @@ function SalaryConfigurationDrawer({ employee, onClose, onSave, revisionHistory,
                     min="0"
                     value={formData[f.id]}
                     onChange={(e) => handleInputChange(f.id, e.target.value)}
-                    style={{ padding: '10px 12px', borderRadius: '8px', background: '#ffffff', border: '1px solid #cbd5e1', color: '#0f172a', fontWeight: 600 }}
+                    style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px', borderRadius: '8px', background: '#ffffff', border: '1px solid #cbd5e1', color: '#0f172a', fontWeight: 600 }}
                   />
                 </div>
               ))}
@@ -893,7 +893,7 @@ function SalaryConfigurationDrawer({ employee, onClose, onSave, revisionHistory,
                 type="date"
                 value={formData.effectiveDate}
                 onChange={(e) => handleInputChange('effectiveDate', e.target.value)}
-                style={{ padding: '10px 12px', borderRadius: '8px', background: '#ffffff', border: '1px solid #cbd5e1', color: '#0f172a', fontWeight: 600 }}
+                style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px', borderRadius: '8px', background: '#ffffff', border: '1px solid #cbd5e1', color: '#0f172a', fontWeight: 600 }}
               />
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
@@ -901,7 +901,7 @@ function SalaryConfigurationDrawer({ employee, onClose, onSave, revisionHistory,
               <select
                 value={formData.status}
                 onChange={(e) => handleInputChange('status', e.target.value)}
-                style={{ padding: '10px 12px', borderRadius: '8px', background: '#ffffff', border: '1px solid #cbd5e1', color: '#0f172a', fontWeight: 600 }}
+                style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px', borderRadius: '8px', background: '#ffffff', border: '1px solid #cbd5e1', color: '#0f172a', fontWeight: 600 }}
               >
                 <option value="Active">Active</option>
                 <option value="Inactive">Inactive</option>
@@ -918,7 +918,7 @@ function SalaryConfigurationDrawer({ employee, onClose, onSave, revisionHistory,
                 placeholder="e.g. Annual Promotion / Increment"
                 value={formData.reason}
                 onChange={(e) => handleInputChange('reason', e.target.value)}
-                style={{ padding: '12px', borderRadius: '8px', background: '#ffffff', border: '1px solid #cbd5e1', color: '#0f172a', fontWeight: 600 }}
+                style={{ width: '100%', boxSizing: 'border-box', padding: '12px', borderRadius: '8px', background: '#ffffff', border: '1px solid #cbd5e1', color: '#0f172a', fontWeight: 600 }}
               />
             </div>
           )}
@@ -1450,6 +1450,10 @@ export function PayrollHistoryViewRedesign({ showToast }) {
   });
 
   const handleExportCSV = () => {
+    if (filtered.length === 0) {
+      alert("No data available to export.");
+      return;
+    }
     const headers = ['Receipt No', 'Employee ID', 'Name', 'Category', colConfig.label, 'Period', 'Payable', 'Paid', 'Balance', 'Method', 'Date', 'Status'];
     const rows = filtered.map(p => [
       p.receiptNo, p.employeeId, p.employeeName, p.employeeType, colConfig.accessor(p), `${p.month} ${p.year}`, p.finalPayable, p.paidAmount, p.balance, p.paymentMethod, p.paymentDate, p.status
@@ -1771,8 +1775,8 @@ function ReceiptSlipModal({ receipt, onClose }) {
         </div>
 
         {/* Slip Document body (printable) */}
-        <div style={{ flex: 1, overflowY: 'auto', padding: '40px', background: '#ffffff' }} ref={printRef}>
-          <div style={{ border: '2px solid #0f172a', padding: '30px', position: 'relative', background: '#ffffff' }}>
+        <div style={{ flex: 1, overflow: 'auto', padding: '20px', background: '#ffffff' }} ref={printRef}>
+          <div style={{ border: '2px solid #0f172a', padding: '30px', position: 'relative', background: '#ffffff', minWidth: '600px' }}>
             
             {/* Slip Header */}
             <div style={{ textAlign: 'center', marginBottom: '28px' }}>

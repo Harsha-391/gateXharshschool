@@ -349,6 +349,10 @@ export default function AuxiliaryIncome({ showToast }) {
   const historyTotalCollected = filteredHistoryEntries.reduce((sum, e) => sum + Number(e.amount || 0), 0);
 
   const handleExportCSV = (entriesToExport, filenamePrefix = 'auxiliary_income') => {
+    if (!entriesToExport || entriesToExport.length === 0) {
+      alert("No data available to export.");
+      return;
+    }
     const headers = ['Receipt No', 'Category', 'Received From', 'Amount (INR)', 'Date', 'Payment Mode', 'Reference', 'Description'];
     const rows = entriesToExport.map(e => [
       e.receiptNumber,
@@ -815,7 +819,7 @@ export default function AuxiliaryIncome({ showToast }) {
                 <Download size={13} /> Export CSV
               </button>
               <button 
-                onClick={() => window.print()} 
+                onClick={() => todayEntries.length === 0 ? alert("No data available to export.") : window.print()} 
                 style={{
                   padding: '6px 12px', background: 'var(--bg-card-subtle)', border: '1px solid var(--border-glass)',
                   borderRadius: '6px', color: 'var(--text-main)', fontSize: '0.78rem', fontWeight: 600, cursor: 'pointer',
@@ -1011,7 +1015,7 @@ export default function AuxiliaryIncome({ showToast }) {
                 <Download size={13} /> Export CSV
               </button>
               <button 
-                onClick={() => window.print()} 
+                onClick={() => filteredHistoryEntries.length === 0 ? alert("No data available to export.") : window.print()} 
                 style={{
                   padding: '6px 12px', background: 'var(--bg-card-subtle)', border: '1px solid var(--border-glass)',
                   borderRadius: '6px', color: 'var(--text-main)', fontSize: '0.78rem', fontWeight: 600, cursor: 'pointer',

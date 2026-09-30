@@ -771,6 +771,7 @@ export default function StaffDirectory({ setActiveView, readOnly = true, onAddCl
           <div onClick={(e) => e.stopPropagation()} className="glass-panel animate-scale-up"
             style={{
               width: '100%', maxWidth: '600px', maxHeight: '75vh',
+              boxSizing: 'border-box',
               background: 'var(--bg-elevated)', padding: '30px', display: 'flex', flexDirection: 'column',
               gap: '20px', overflowY: 'auto', borderRadius: '16px', minHeight: 0
             }}>

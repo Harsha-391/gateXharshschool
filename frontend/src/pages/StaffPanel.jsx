@@ -1152,6 +1152,10 @@ export function AttendanceHistoryView({ date, showToast, userProfile }) {
 
   // Export attendance report as CSV
   const exportAttendanceCSV = () => {
+    if (roster.length === 0) {
+      alert("No data available to export.");
+      return;
+    }
     const headers = ['Roll No', 'Student Name', 'Grade', 'Section', 'Attendance Status', 'Remarks'];
     const rows = roster.map(stu => [
       stu.rollNumber,
@@ -1622,6 +1626,10 @@ export function StudentReportsView({ showToast, userProfile }) {
 
   // Export to PDF / Print Window
   const handleExportPDF = () => {
+    if (displayedReports.length === 0) {
+      alert("No data available to export.");
+      return;
+    }
     window.print();
   };
 

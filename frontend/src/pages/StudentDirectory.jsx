@@ -786,29 +786,31 @@ export default function StudentDirectory({ readOnly = true, onAddClick, onEditCl
       {selectedStudent && createPortal(
         <div 
           onClick={() => setSelectedStudent(null)}
-          style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', isolation: 'isolate', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10000, padding: '20px' }}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10000, padding: '16px', boxSizing: 'border-box' }}
         >
           <div 
             onClick={(e) => e.stopPropagation()}
-            className="glass-panel animate-scale-up"
             style={{
-              width: '100%', maxWidth: '600px', maxHeight: '75vh',
-              background: 'var(--bg-elevated)',
-              padding: '30px',
+              width: '100%', maxWidth: '500px', maxHeight: '85vh',
+              background: '#ffffff',
+              color: '#0f172a',
+              padding: '24px',
               display: 'flex',
               flexDirection: 'column',
-              gap: '24px',
+              gap: '20px',
               overflowY: 'auto',
+              overflowX: 'hidden',
               borderRadius: '16px',
-              minHeight: 0
+              boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)',
+              boxSizing: 'border-box'
             }}
           >
             
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-glass)', paddingBottom: '16px' }}>
-              <h3 style={{ fontSize: '1.2rem', fontWeight: 800, margin: 0 }}>Student Registry Inspector</h3>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #e2e8f0', paddingBottom: '16px' }}>
+              <h3 style={{ fontSize: '1.2rem', fontWeight: 800, margin: 0, color: '#0f172a' }}>Student Registry Inspector</h3>
               <button 
                 onClick={() => setSelectedStudent(null)}
-                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '4px' }}
+                style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', padding: '4px' }}
               >
                 <X size={20} />
               </button>
@@ -873,39 +875,39 @@ export default function StudentDirectory({ readOnly = true, onAddClick, onEditCl
                   <h5 style={{ fontSize: '0.85rem', fontWeight: 700, textTransform: 'uppercase', color: 'hsl(var(--color-primary))', marginBottom: '10px' }}>Basic Information</h5>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                     {hasValue(selectedStudent.id) && (
-                      <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.02)', paddingBottom: '6px' }}>
-                        <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Registration ID</span>
-                        <strong style={{ fontSize: '0.85rem' }}>{selectedStudent.id}</strong>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #f1f5f9', paddingBottom: '6px' }}>
+                        <span style={{ fontSize: '0.85rem', color: '#64748b', fontWeight: 600 }}>Registration ID</span>
+                        <strong style={{ fontSize: '0.85rem', color: '#0f172a', textAlign: 'right' }}>{selectedStudent.id}</strong>
                       </div>
                     )}
                     {(hasValue(selectedStudent.dob) || hasValue(selectedStudent.gender)) && (
-                      <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.02)', paddingBottom: '6px' }}>
-                        <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>DOB / Gender</span>
-                        <strong style={{ fontSize: '0.85rem' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #f1f5f9', paddingBottom: '6px' }}>
+                        <span style={{ fontSize: '0.85rem', color: '#64748b', fontWeight: 600 }}>DOB / Gender</span>
+                        <strong style={{ fontSize: '0.85rem', color: '#0f172a', textAlign: 'right' }}>
                           {[selectedStudent.dob, selectedStudent.gender].filter(hasValue).join(' / ')}
                         </strong>
                       </div>
                     )}
                     {(hasValue(selectedStudent.bloodGroup) || hasValue(selectedStudent.nationality)) && (
-                      <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.02)', paddingBottom: '6px' }}>
-                        <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Blood Group / Nationality</span>
-                        <strong style={{ fontSize: '0.85rem' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #f1f5f9', paddingBottom: '6px' }}>
+                        <span style={{ fontSize: '0.85rem', color: '#64748b', fontWeight: 600 }}>Blood Group / Nationality</span>
+                        <strong style={{ fontSize: '0.85rem', color: '#0f172a', textAlign: 'right' }}>
                           {[selectedStudent.bloodGroup, selectedStudent.nationality].filter(hasValue).join(' / ')}
                         </strong>
                       </div>
                     )}
                     {(hasValue(selectedStudent.category) || hasValue(selectedStudent.religion)) && (
-                      <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.02)', paddingBottom: '6px' }}>
-                        <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Category / Religion</span>
-                        <strong style={{ fontSize: '0.85rem' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #f1f5f9', paddingBottom: '6px' }}>
+                        <span style={{ fontSize: '0.85rem', color: '#64748b', fontWeight: 600 }}>Category / Religion</span>
+                        <strong style={{ fontSize: '0.85rem', color: '#0f172a', textAlign: 'right' }}>
                           {[selectedStudent.category, selectedStudent.religion].filter(hasValue).join(' / ')}
                         </strong>
                       </div>
                     )}
                     {hasValue(selectedStudent.aadhaarNumber) && (
-                      <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.02)', paddingBottom: '6px' }}>
-                        <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Aadhaar Number</span>
-                        <strong style={{ fontSize: '0.85rem' }}>{selectedStudent.aadhaarNumber}</strong>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #f1f5f9', paddingBottom: '6px' }}>
+                        <span style={{ fontSize: '0.85rem', color: '#64748b', fontWeight: 600 }}>Aadhaar Number</span>
+                        <strong style={{ fontSize: '0.85rem', color: '#0f172a', textAlign: 'right' }}>{selectedStudent.aadhaarNumber}</strong>
                       </div>
                     )}
                   </div>
@@ -1042,35 +1044,35 @@ export default function StudentDirectory({ readOnly = true, onAddClick, onEditCl
                   <h5 style={{ fontSize: '0.85rem', fontWeight: 700, textTransform: 'uppercase', color: 'rgb(16, 185, 129)', marginBottom: '10px' }}>Contact & Address</h5>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                     {hasValue(selectedStudent.permanentAddress) && (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', borderBottom: '1px solid rgba(255,255,255,0.02)', paddingBottom: '6px' }}>
-                        <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Permanent Address</span>
-                        <strong style={{ fontSize: '0.85rem', lineHeight: '1.4' }}>{selectedStudent.permanentAddress}</strong>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', borderBottom: '1px solid #f1f5f9', paddingBottom: '6px' }}>
+                        <span style={{ fontSize: '0.85rem', color: '#64748b', fontWeight: 600 }}>Permanent Address</span>
+                        <strong style={{ fontSize: '0.85rem', lineHeight: '1.4', color: '#0f172a' }}>{selectedStudent.permanentAddress}</strong>
                       </div>
                     )}
                     {hasValue(selectedStudent.currentAddress) && !selectedStudent.isSameAddress && (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', borderBottom: '1px solid rgba(255,255,255,0.02)', paddingBottom: '6px' }}>
-                        <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Current Address</span>
-                        <strong style={{ fontSize: '0.85rem', lineHeight: '1.4' }}>{selectedStudent.currentAddress}</strong>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', borderBottom: '1px solid #f1f5f9', paddingBottom: '6px' }}>
+                        <span style={{ fontSize: '0.85rem', color: '#64748b', fontWeight: 600 }}>Current Address</span>
+                        <strong style={{ fontSize: '0.85rem', lineHeight: '1.4', color: '#0f172a' }}>{selectedStudent.currentAddress}</strong>
                       </div>
                     )}
                     {selectedStudent.isSameAddress && hasValue(selectedStudent.permanentAddress) && (
-                      <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.02)', paddingBottom: '6px' }}>
-                        <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Current Address</span>
-                        <strong style={{ fontSize: '0.85rem' }}>Same as Permanent Address</strong>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #f1f5f9', paddingBottom: '6px' }}>
+                        <span style={{ fontSize: '0.85rem', color: '#64748b', fontWeight: 600 }}>Current Address</span>
+                        <strong style={{ fontSize: '0.85rem', color: '#0f172a' }}>Same as Permanent Address</strong>
                       </div>
                     )}
                     {(hasValue(selectedStudent.city) || hasValue(selectedStudent.state) || hasValue(selectedStudent.postalCode) || hasValue(selectedStudent.pincode)) && (
-                      <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.02)', paddingBottom: '6px' }}>
-                        <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>City / State / Postal Code</span>
-                        <strong style={{ fontSize: '0.85rem' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #f1f5f9', paddingBottom: '6px' }}>
+                        <span style={{ fontSize: '0.85rem', color: '#64748b', fontWeight: 600 }}>City / State / Postal Code</span>
+                        <strong style={{ fontSize: '0.85rem', color: '#0f172a', textAlign: 'right' }}>
                           {[selectedStudent.city, selectedStudent.state, selectedStudent.postalCode || selectedStudent.pincode].filter(hasValue).join(' / ')}
                         </strong>
                       </div>
                     )}
                     {hasValue(selectedStudent.emergencyContactNumber) && (
-                      <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.02)', paddingBottom: '6px' }}>
-                        <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Emergency Contact Number</span>
-                        <strong style={{ fontSize: '0.85rem' }}>{selectedStudent.emergencyContactNumber}</strong>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #f1f5f9', paddingBottom: '6px' }}>
+                        <span style={{ fontSize: '0.85rem', color: '#64748b', fontWeight: 600, flexShrink: 0, paddingRight: '10px' }}>Emergency Contact Number</span>
+                        <strong style={{ fontSize: '0.85rem', color: '#0f172a', wordBreak: 'break-all', textAlign: 'right', maxWidth: '60%' }}>{selectedStudent.emergencyContactNumber}</strong>
                       </div>
                     )}
                   </div>
@@ -1088,33 +1090,33 @@ export default function StudentDirectory({ readOnly = true, onAddClick, onEditCl
                   <h5 style={{ fontSize: '0.85rem', fontWeight: 700, textTransform: 'uppercase', color: 'hsl(var(--color-danger))', marginBottom: '10px' }}>Medical Profile</h5>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                     {hasValue(selectedStudent.medicalConditions) && (
-                      <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.02)', paddingBottom: '6px' }}>
-                        <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Conditions / Chronic Illnesses</span>
-                        <strong style={{ fontSize: '0.85rem' }}>{selectedStudent.medicalConditions}</strong>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #f1f5f9', paddingBottom: '6px' }}>
+                        <span style={{ fontSize: '0.85rem', color: '#64748b', fontWeight: 600 }}>Conditions / Chronic Illnesses</span>
+                        <strong style={{ fontSize: '0.85rem', color: '#0f172a', textAlign: 'right' }}>{selectedStudent.medicalConditions}</strong>
                       </div>
                     )}
                     {hasValue(selectedStudent.allergies) && (
-                      <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.02)', paddingBottom: '6px' }}>
-                        <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Allergies</span>
-                        <strong style={{ fontSize: '0.85rem' }}>{selectedStudent.allergies}</strong>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #f1f5f9', paddingBottom: '6px' }}>
+                        <span style={{ fontSize: '0.85rem', color: '#64748b', fontWeight: 600 }}>Allergies</span>
+                        <strong style={{ fontSize: '0.85rem', color: '#0f172a', textAlign: 'right' }}>{selectedStudent.allergies}</strong>
                       </div>
                     )}
                     {hasValue(selectedStudent.disabilities) && (
-                      <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.02)', paddingBottom: '6px' }}>
-                        <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Disabilities or SEN Needs</span>
-                        <strong style={{ fontSize: '0.85rem' }}>{selectedStudent.disabilities}</strong>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #f1f5f9', paddingBottom: '6px' }}>
+                        <span style={{ fontSize: '0.85rem', color: '#64748b', fontWeight: 600 }}>Disabilities or SEN Needs</span>
+                        <strong style={{ fontSize: '0.85rem', color: '#0f172a', textAlign: 'right' }}>{selectedStudent.disabilities}</strong>
                       </div>
                     )}
                     {hasValue(selectedStudent.emergencyNotes) && (
-                      <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.02)', paddingBottom: '6px' }}>
-                        <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Emergency Notes</span>
-                        <strong style={{ fontSize: '0.85rem' }}>{selectedStudent.emergencyNotes}</strong>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #f1f5f9', paddingBottom: '6px' }}>
+                        <span style={{ fontSize: '0.85rem', color: '#64748b', fontWeight: 600 }}>Emergency Notes</span>
+                        <strong style={{ fontSize: '0.85rem', color: '#0f172a', textAlign: 'right' }}>{selectedStudent.emergencyNotes}</strong>
                       </div>
                     )}
                     {(hasValue(selectedStudent.doctorName) || hasValue(selectedStudent.doctorContact)) && (
-                      <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.02)', paddingBottom: '6px' }}>
-                        <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Family Doctor</span>
-                        <strong style={{ fontSize: '0.85rem' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #f1f5f9', paddingBottom: '6px' }}>
+                        <span style={{ fontSize: '0.85rem', color: '#64748b', fontWeight: 600 }}>Family Doctor</span>
+                        <strong style={{ fontSize: '0.85rem', color: '#0f172a', textAlign: 'right' }}>
                           {[selectedStudent.doctorName, selectedStudent.doctorContact].filter(hasValue).join(' - ')}
                         </strong>
                       </div>
@@ -1129,15 +1131,15 @@ export default function StudentDirectory({ readOnly = true, onAddClick, onEditCl
                   <h5 style={{ fontSize: '0.85rem', fontWeight: 700, textTransform: 'uppercase', color: 'rgb(245, 158, 11)', marginBottom: '10px' }}>Transport & Hostel</h5>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                     {hasValue(selectedStudent.transportRequired) && (
-                      <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.02)', paddingBottom: '6px' }}>
-                        <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Require Transport Service</span>
-                        <strong style={{ fontSize: '0.85rem' }}>{selectedStudent.transportRequired}</strong>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #f1f5f9', paddingBottom: '6px' }}>
+                        <span style={{ fontSize: '0.85rem', color: '#64748b', fontWeight: 600 }}>Require Transport Service</span>
+                        <strong style={{ fontSize: '0.85rem', color: '#0f172a', textAlign: 'right' }}>{selectedStudent.transportRequired}</strong>
                       </div>
                     )}
                     {hasValue(selectedStudent.hostelRequired) && (
-                      <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.02)', paddingBottom: '6px' }}>
-                        <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Require Hostel Accommodation</span>
-                        <strong style={{ fontSize: '0.85rem' }}>{selectedStudent.hostelRequired}</strong>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #f1f5f9', paddingBottom: '6px' }}>
+                        <span style={{ fontSize: '0.85rem', color: '#64748b', fontWeight: 600 }}>Require Hostel Accommodation</span>
+                        <strong style={{ fontSize: '0.85rem', color: '#0f172a', textAlign: 'right' }}>{selectedStudent.hostelRequired}</strong>
                       </div>
                     )}
                   </div>
@@ -1147,18 +1149,18 @@ export default function StudentDirectory({ readOnly = true, onAddClick, onEditCl
             </div>
 
             {/* Document upload previews sheet */}
-            <div style={{ borderTop: '1px solid var(--border-glass)', paddingTop: '16px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase' }}>Verified Documents</span>
+            <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '16px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <span style={{ fontSize: '0.85rem', color: '#475569', fontWeight: 800, letterSpacing: '0.04em', textTransform: 'uppercase' }}>Verified Documents</span>
               
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '8px' }}>
                 
                 {/* Aadhaar */}
                 {hasValue(selectedStudent.aadhaarFile) && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', padding: '10px', background: 'rgba(255,255,255,0.02)', borderRadius: '8px', border: '1px solid var(--border-glass)', justifyContent: 'space-between' }}>
-                    <span style={{ fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: 600 }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', padding: '10px', background: '#f8fafc', borderRadius: '8px', border: '1px solid #cbd5e1', justifyContent: 'space-between' }}>
+                    <span style={{ fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: 600, color: '#0f172a' }}>
                       <FileText size={12} style={{ color: 'hsl(var(--color-primary))' }} /> Aadhaar Card
                     </span>
-                    <a href={selectedStudent.aadhaarFile} target="_blank" rel="noreferrer" className="btn-secondary" style={{ padding: '4px 6px', fontSize: '0.65rem', borderRadius: '6px', textAlign: 'center' }}>
+                    <a href={selectedStudent.aadhaarFile} target="_blank" rel="noreferrer" style={{ background: '#e2e8f0', color: '#0f172a', padding: '4px 6px', fontSize: '0.65rem', borderRadius: '6px', textAlign: 'center', textDecoration: 'none', fontWeight: 600 }}>
                       Get Doc
                     </a>
                   </div>
@@ -1166,11 +1168,11 @@ export default function StudentDirectory({ readOnly = true, onAddClick, onEditCl
 
                 {/* Birth Cert */}
                 {hasValue(selectedStudent.birthCertificateFile) && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', padding: '10px', background: 'rgba(255,255,255,0.02)', borderRadius: '8px', border: '1px solid var(--border-glass)', justifyContent: 'space-between' }}>
-                    <span style={{ fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: 600 }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', padding: '10px', background: '#f8fafc', borderRadius: '8px', border: '1px solid #cbd5e1', justifyContent: 'space-between' }}>
+                    <span style={{ fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: 600, color: '#0f172a' }}>
                       <FileText size={12} style={{ color: 'hsl(var(--color-secondary))' }} /> Birth Cert
                     </span>
-                    <a href={selectedStudent.birthCertificateFile} target="_blank" rel="noreferrer" className="btn-secondary" style={{ padding: '4px 6px', fontSize: '0.65rem', borderRadius: '6px', textAlign: 'center' }}>
+                    <a href={selectedStudent.birthCertificateFile} target="_blank" rel="noreferrer" style={{ background: '#e2e8f0', color: '#0f172a', padding: '4px 6px', fontSize: '0.65rem', borderRadius: '6px', textAlign: 'center', textDecoration: 'none', fontWeight: 600 }}>
                       Get Doc
                     </a>
                   </div>
@@ -1178,11 +1180,11 @@ export default function StudentDirectory({ readOnly = true, onAddClick, onEditCl
 
                 {/* Marksheet */}
                 {hasValue(selectedStudent.marksheetFile) && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', padding: '10px', background: 'rgba(255,255,255,0.02)', borderRadius: '8px', border: '1px solid var(--border-glass)', justifyContent: 'space-between' }}>
-                    <span style={{ fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: 600 }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', padding: '10px', background: '#f8fafc', borderRadius: '8px', border: '1px solid #cbd5e1', justifyContent: 'space-between' }}>
+                    <span style={{ fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: 600, color: '#0f172a' }}>
                       <FileText size={12} style={{ color: 'hsl(var(--color-info))' }} /> Marksheet
                     </span>
-                    <a href={selectedStudent.marksheetFile} target="_blank" rel="noreferrer" className="btn-secondary" style={{ padding: '4px 6px', fontSize: '0.65rem', borderRadius: '6px', textAlign: 'center' }}>
+                    <a href={selectedStudent.marksheetFile} target="_blank" rel="noreferrer" style={{ background: '#e2e8f0', color: '#0f172a', padding: '4px 6px', fontSize: '0.65rem', borderRadius: '6px', textAlign: 'center', textDecoration: 'none', fontWeight: 600 }}>
                       Get Doc
                     </a>
                   </div>
@@ -1190,11 +1192,11 @@ export default function StudentDirectory({ readOnly = true, onAddClick, onEditCl
 
                 {/* TC */}
                 {hasValue(selectedStudent.transferCertificateFile) && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', padding: '10px', background: 'rgba(255,255,255,0.02)', borderRadius: '8px', border: '1px solid var(--border-glass)', justifyContent: 'space-between' }}>
-                    <span style={{ fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: 600 }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', padding: '10px', background: '#f8fafc', borderRadius: '8px', border: '1px solid #cbd5e1', justifyContent: 'space-between' }}>
+                    <span style={{ fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: 600, color: '#0f172a' }}>
                       <FileText size={12} style={{ color: 'rgb(var(--color-warning-rgb))' }} /> Transfer Cert
                     </span>
-                    <a href={selectedStudent.transferCertificateFile} target="_blank" rel="noreferrer" className="btn-secondary" style={{ padding: '4px 6px', fontSize: '0.65rem', borderRadius: '6px', textAlign: 'center' }}>
+                    <a href={selectedStudent.transferCertificateFile} target="_blank" rel="noreferrer" style={{ background: '#e2e8f0', color: '#0f172a', padding: '4px 6px', fontSize: '0.65rem', borderRadius: '6px', textAlign: 'center', textDecoration: 'none', fontWeight: 600 }}>
                       Get Doc
                     </a>
                   </div>

@@ -7588,7 +7588,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile, scho
                 <option value="excel">Excel Sheet</option>
                 <option value="csv">CSV Format</option>
               </CustomSelect>
-              <button className="btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '6px', height: '36px', padding: '0 12px', borderRadius: '8px' }} onClick={() => window.print()}>
+              <button className="btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '6px', height: '36px', padding: '0 12px', borderRadius: '8px' }} onClick={() => publishedEvents.length === 0 ? alert("No data available to export.") : window.print()}>
                 <Printer size={15} /> Print
               </button>
             </div>

@@ -1511,7 +1511,10 @@ export default function ResultManagementPanel({ activeTab: propActiveTab = 'anal
   }, [activeReportCardData, activeTemplateHtml, reportExamId, exams, reportSession, schoolInfo, overallResults, results, staffList, targetReportClass]);
 
   const handleExportCSV = () => {
-    if (!activeReportCardData) return;
+    if (!activeReportCardData) {
+      alert("No data available to export.");
+      return;
+    }
     const { student, examSections, grandPercentage } = activeReportCardData;
     
     // Construct CSV lines
