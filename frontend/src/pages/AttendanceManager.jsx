@@ -95,7 +95,7 @@ export default function AttendanceManager() {
   // Filter States for Reports
   const [filterEmpId, setFilterEmpId] = useState('');
   const [filterDept, setFilterDept] = useState('All');
-  const [filterType, setFilterType] = useState('All');
+  const [filterType, setFilterType] = useState('Staff');
   const [filterMonth, setFilterMonth] = useState('All');
   const [filterYear, setFilterYear] = useState(new Date().getFullYear().toString());
   const [filterStartDate, setFilterStartDate] = useState('');
@@ -1349,14 +1349,6 @@ export default function AttendanceManager() {
 
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', alignItems: 'center' }}>
 
-              {/* Type */}
-              <select className="select-custom" value={filterType} onChange={(e) => setFilterType(e.target.value)}>
-                <option value="All">All Types</option>
-                <option value="Staff">Staff Only</option>
-                <option value="Teacher">Teacher Only</option>
-                <option value="Employee">Employee Only</option>
-              </select>
-
               {/* Month */}
               <select className="select-custom" value={filterMonth} onChange={(e) => setFilterMonth(e.target.value)}>
                 <option value="All">All Months</option>
@@ -1409,9 +1401,12 @@ export default function AttendanceManager() {
           </div>
 
           {/* Results Grid List */}
-          <div className="glass-panel" style={{ padding: '24px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
-              <h3 style={{ fontSize: '1.05rem', fontWeight: 700, margin: 0 }}>Attendance Roster Search History</h3>
+          <div className="glass-panel" style={{ padding: '24px', overflow: 'hidden', boxSizing: 'border-box' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '12px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <h3 style={{ fontSize: '1.05rem', fontWeight: 700, margin: 0 }}>Attendance Roster Search History</h3>
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: 0 }}>View historical logs separated by role category.</p>
+              </div>
               
               <div style={{ display: 'flex', gap: '8px' }}>
                 <button onClick={handlePrintReport} className="btn-secondary" style={{ padding: '6px 12px', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem' }}>
@@ -1419,6 +1414,45 @@ export default function AttendanceManager() {
                 </button>
                 <button onClick={handleExportCSV} className="btn-secondary" style={{ padding: '6px 12px', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem' }}>
                   <Download size={13} /> Export CSV
+                </button>
+              </div>
+            </div>
+
+            {/* Tab Switcher — like Today's Log */}
+            <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', marginBottom: '16px', scrollbarWidth: 'none', msOverflowStyle: 'none', maxWidth: '100%', boxSizing: 'border-box' }}>
+              <div style={{ display: 'inline-flex', gap: '6px', background: 'rgba(255,255,255,0.02)', padding: '4px', borderRadius: '8px', border: '1px solid var(--border-glass)', minWidth: 'max-content' }}>
+                <button
+                  type="button"
+                  onClick={() => { setFilterType('Staff'); setReportPage(1); }}
+                  style={{
+                    padding: '6px 16px', borderRadius: '6px', border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: '0.78rem', transition: 'all 0.2s', whiteSpace: 'nowrap', flexShrink: 0,
+                    background: filterType === 'Staff' ? 'hsl(var(--color-primary))' : 'transparent',
+                    color: filterType === 'Staff' ? '#ffffff' : 'var(--text-muted)'
+                  }}
+                >
+                  Staff
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setFilterType('Teacher'); setReportPage(1); }}
+                  style={{
+                    padding: '6px 16px', borderRadius: '6px', border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: '0.78rem', transition: 'all 0.2s', whiteSpace: 'nowrap', flexShrink: 0,
+                    background: filterType === 'Teacher' ? '#3b82f6' : 'transparent',
+                    color: filterType === 'Teacher' ? '#ffffff' : 'var(--text-muted)'
+                  }}
+                >
+                  Teacher
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setFilterType('Employee'); setReportPage(1); }}
+                  style={{
+                    padding: '6px 16px', borderRadius: '6px', border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: '0.78rem', transition: 'all 0.2s', whiteSpace: 'nowrap', flexShrink: 0,
+                    background: filterType === 'Employee' ? '#ec4899' : 'transparent',
+                    color: filterType === 'Employee' ? '#ffffff' : 'var(--text-muted)'
+                  }}
+                >
+                  Employee
                 </button>
               </div>
             </div>
