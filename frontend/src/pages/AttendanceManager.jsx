@@ -22,7 +22,9 @@ import {
   AlertTriangle,
   Coffee,
   Trash2,
-  Edit2
+  Edit2,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 
 const getTenantHeader = () => {
@@ -98,6 +100,10 @@ export default function AttendanceManager() {
   const [filterYear, setFilterYear] = useState(new Date().getFullYear().toString());
   const [filterStartDate, setFilterStartDate] = useState('');
   const [filterEndDate, setFilterEndDate] = useState('');
+
+  // Pagination States for Reports History
+  const [reportPage, setReportPage] = useState(1);
+  const [reportLimit, setReportLimit] = useState(10);
 
   // Scanner Refs
   const videoRef = useRef(null);
@@ -325,6 +331,19 @@ export default function AttendanceManager() {
       fetchReports();
     }
   }, [activeTab, filterDept, filterType, filterMonth, filterYear, filterStartDate, filterEndDate]);
+
+  // Reset report pagination when filters change
+  useEffect(() => {
+    setReportPage(1);
+  }, [filterEmpId, filterDept, filterType, filterMonth, filterYear, filterStartDate, filterEndDate]);
+
+  // Adjust page if reports list changes or shrinks
+  useEffect(() => {
+    const maxPage = Math.max(1, Math.ceil(reports.length / reportLimit));
+    if (reportPage > maxPage) {
+      setReportPage(maxPage);
+    }
+  }, [reports.length, reportLimit, reportPage]);
 
   // --------------------------------------------------------
   // WEB AUDIO BEEP HELPER
@@ -661,6 +680,26 @@ export default function AttendanceManager() {
       </html>
     `);
     printWindow.document.close();
+  };
+
+  // Pagination Calculations for Historical Reports
+  const reportTotalPages = Math.max(1, Math.ceil(reports.length / reportLimit));
+  const reportStartIndex = (reportPage - 1) * reportLimit;
+  const reportEndIndex = Math.min(reportStartIndex + reportLimit, reports.length);
+  const paginatedReports = reports.slice(reportStartIndex, reportEndIndex);
+
+  // Google-style pagination page numbers generator
+  const getPaginationPages = (current, total) => {
+    if (total <= 7) {
+      return Array.from({ length: total }, (_, i) => i + 1);
+    }
+    if (current <= 4) {
+      return [1, 2, 3, 4, 5, '...', total];
+    }
+    if (current >= total - 3) {
+      return [1, '...', total - 4, total - 3, total - 2, total - 1, total];
+    }
+    return [1, '...', current - 1, current, current + 1, '...', total];
   };
 
   return (
@@ -1407,8 +1446,8 @@ export default function AttendanceManager() {
                     <tr>
                       <td colSpan="12" style={{ textAlign: 'center', padding: '60px', color: 'var(--text-muted)' }}>Querying attendance logs...</td>
                     </tr>
-                  ) : reports.length > 0 ? (
-                    reports.map((r) => (
+                  ) : paginatedReports.length > 0 ? (
+                    paginatedReports.map((r) => (
                       <tr key={r.id}>
                         <td style={{ fontWeight: 600 }}>{r.date}</td>
                         <td style={{ fontWeight: 700, color: 'hsl(var(--color-primary))' }}>{r.employeeId}</td>
@@ -1482,6 +1521,148 @@ export default function AttendanceManager() {
                 </tbody>
               </table>
             </div>
+
+            {/* Google-style Pagination Controls */}
+            {reports.length > 0 && (
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginTop: '20px',
+                borderTop: '1px solid var(--border-glass)',
+                paddingTop: '16px',
+                flexWrap: 'wrap',
+                gap: '12px'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                    Showing <strong style={{ color: 'var(--text-main)' }}>{reports.length === 0 ? 0 : reportStartIndex + 1}</strong> to <strong style={{ color: 'var(--text-main)' }}>{reportEndIndex}</strong> of <strong style={{ color: 'var(--text-main)' }}>{reports.length}</strong> entries
+                  </span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Per page:</span>
+                    <select
+                      className="select-custom"
+                      value={reportLimit}
+                      onChange={(e) => {
+                        setReportLimit(Number(e.target.value));
+                        setReportPage(1);
+                      }}
+                      style={{
+                        height: '28px',
+                        padding: '0 8px',
+                        borderRadius: '6px',
+                        fontSize: '0.78rem',
+                        background: 'var(--bg-glass)',
+                        border: '1px solid var(--border-glass)',
+                        color: 'var(--text-main)',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      <option value={10}>10</option>
+                      <option value={20}>20</option>
+                      <option value={50}>50</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  {/* Previous Button: disabled on first page */}
+                  <button
+                    type="button"
+                    disabled={reportPage <= 1}
+                    onClick={() => setReportPage(prev => Math.max(prev - 1, 1))}
+                    className="btn-secondary"
+                    style={{
+                      padding: '6px 12px',
+                      borderRadius: '8px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      fontSize: '0.8rem',
+                      fontWeight: 600,
+                      opacity: reportPage <= 1 ? 0.35 : 1,
+                      cursor: reportPage <= 1 ? 'not-allowed' : 'pointer',
+                      pointerEvents: reportPage <= 1 ? 'none' : 'auto',
+                      transition: 'all 0.2s ease'
+                    }}
+                    title={reportPage <= 1 ? 'You are on the first page' : 'Go to previous page'}
+                  >
+                    <ChevronLeft size={14} /> Previous
+                  </button>
+
+                  {/* Google-Style Page Numbers */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    {getPaginationPages(reportPage, reportTotalPages).map((item, idx) => {
+                      if (item === '...') {
+                        return (
+                          <span
+                            key={`ellipsis-${idx}`}
+                            style={{
+                              padding: '4px 6px',
+                              color: 'var(--text-muted)',
+                              fontSize: '0.85rem',
+                              userSelect: 'none'
+                            }}
+                          >
+                            ...
+                          </span>
+                        );
+                      }
+                      const isCurrent = item === reportPage;
+                      return (
+                        <button
+                          key={item}
+                          type="button"
+                          onClick={() => setReportPage(item)}
+                          style={{
+                            minWidth: '32px',
+                            height: '32px',
+                            padding: '0 6px',
+                            borderRadius: '8px',
+                            border: isCurrent ? '1px solid hsl(var(--color-primary))' : '1px solid var(--border-glass)',
+                            background: isCurrent ? 'hsl(var(--color-primary))' : 'var(--bg-glass)',
+                            color: isCurrent ? '#ffffff' : 'var(--text-main)',
+                            fontWeight: isCurrent ? 700 : 500,
+                            fontSize: '0.8rem',
+                            cursor: isCurrent ? 'default' : 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            transition: 'all 0.15s ease'
+                          }}
+                        >
+                          {item}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Next Button: disabled on last page */}
+                  <button
+                    type="button"
+                    disabled={reportPage >= reportTotalPages}
+                    onClick={() => setReportPage(prev => Math.min(prev + 1, reportTotalPages))}
+                    className="btn-secondary"
+                    style={{
+                      padding: '6px 12px',
+                      borderRadius: '8px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      fontSize: '0.8rem',
+                      fontWeight: 600,
+                      opacity: reportPage >= reportTotalPages ? 0.35 : 1,
+                      cursor: reportPage >= reportTotalPages ? 'not-allowed' : 'pointer',
+                      pointerEvents: reportPage >= reportTotalPages ? 'none' : 'auto',
+                      transition: 'all 0.2s ease'
+                    }}
+                    title={reportPage >= reportTotalPages ? 'You are on the last page' : 'Go to next page'}
+                  >
+                    Next <ChevronRight size={14} />
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
