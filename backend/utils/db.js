@@ -5010,6 +5010,4 @@ export const invalidateTenantCache = (tenantId) => {
   console.log(`[SQL Cache] Invalidated in-memory cache for tenant: ${activeTenant}`);
 };
 
-export const ensureEmployeeTableReady = async (tenantId) => {
-  return true;
-};
+
