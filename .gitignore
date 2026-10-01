@@ -49,3 +49,12 @@ backend/backups/
 **/.eas
 **/.eas/**
 
+# Notes & Documentation (Local)
+notes/
+notes/**
+backend/Notes/
+backend/Notes/**
+backend/notes/
+backend/notes/**
+
+
