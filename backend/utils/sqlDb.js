@@ -18,11 +18,12 @@ const masterConfig = {
   database: process.env.DB_NAME || 'school_management',
   ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : undefined,
   waitForConnections: true,
-  connectionLimit: parseInt(process.env.DB_CONNECTION_LIMIT || '10'),
+  connectionLimit: parseInt(process.env.DB_CONNECTION_LIMIT || '25'),
   queueLimit: 0,
   enableKeepAlive: true,
   keepAliveInitialDelay: 10000,
-  idleTimeout: 30000
+  idleTimeout: 60000,
+  connectTimeout: 30000
 };
 
 let masterPool;
@@ -89,7 +90,8 @@ export const getPoolForTenant = (tenantId) => {
   const poolConfig = {
     ...masterConfig,
     database: dbName,
-    connectionLimit: parseInt(process.env.DB_CONNECTION_LIMIT_TENANT || '10') // Safe limit per school database
+    connectionLimit: parseInt(process.env.DB_CONNECTION_LIMIT_TENANT || '25'),
+    connectTimeout: 30000
   };
 
   const pool = mysql.createPool(poolConfig);
@@ -117,26 +119,47 @@ export const query = async (sql, params, explicitTenantId) => {
     safeParams = params.map(v => v === undefined ? null : v);
   }
 
-  try {
-    const [results] = await pool.query(sql, safeParams);
-    return results;
-  } catch (err) {
-    if (err.code === 'ER_NO_SUCH_TABLE' || err.code === 'ER_BAD_FIELD_ERROR') {
-      console.warn(`[SQL Query Warning] Schema mismatch detected (code: ${err.code}) for tenant: ${tenantId}. Triggering dynamic schema sync...`);
-      try {
-        const { executeSchemaOnPool, applySchemaUpdates } = await import('./db.js');
-        const isMaster = !tenantId || tenantId === 'platform' || tenantId === 'localhost';
-        await executeSchemaOnPool(pool, isMaster);
-        await applySchemaUpdates(pool, isMaster, tenantId);
-        
-        console.log('[SQL Query] Dynamic schema sync completed. Retrying query...');
-        const [results] = await pool.query(sql, safeParams);
-        return results;
-      } catch (syncErr) {
-        console.error('[SQL Query ERROR] Dynamic schema sync failed:', syncErr.message);
+  const maxRetries = 2;
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const [results] = await pool.query(sql, safeParams);
+      return results;
+    } catch (err) {
+      const isTransient = [
+        'ETIMEDOUT',
+        'ECONNRESET',
+        'ECONNREFUSED',
+        'PROTOCOL_CONNECTION_LOST',
+        'EPIPE',
+        'PROTOCOL_ENQUEUE_AFTER_FATAL_ERROR',
+        'ER_CON_COUNT_ERROR',
+        'EAI_AGAIN'
+      ].some(code => err.code === code || err.message?.includes(code) || err.syscall === 'connect');
+
+      if (isTransient && attempt < maxRetries) {
+        const delay = (attempt + 1) * 800;
+        console.warn(`[SQL Query Warning] Transient connection glitch (${err.code || err.message}) for tenant: ${tenantId || 'platform'}. Retrying query (${attempt + 1}/${maxRetries}) in ${delay}ms...`);
+        await new Promise(r => setTimeout(r, delay));
+        continue;
       }
+
+      if (err.code === 'ER_NO_SUCH_TABLE' || err.code === 'ER_BAD_FIELD_ERROR') {
+        console.warn(`[SQL Query Warning] Schema mismatch detected (code: ${err.code}) for tenant: ${tenantId}. Triggering dynamic schema sync...`);
+        try {
+          const { executeSchemaOnPool, applySchemaUpdates } = await import('./db.js');
+          const isMaster = !tenantId || tenantId === 'platform' || tenantId === 'localhost';
+          await executeSchemaOnPool(pool, isMaster);
+          await applySchemaUpdates(pool, isMaster, tenantId);
+          
+          console.log('[SQL Query] Dynamic schema sync completed. Retrying query...');
+          const [results] = await pool.query(sql, safeParams);
+          return results;
+        } catch (syncErr) {
+          console.error('[SQL Query ERROR] Dynamic schema sync failed:', syncErr.message);
+        }
+      }
+      throw err;
     }
-    throw err;
   }
 };
 

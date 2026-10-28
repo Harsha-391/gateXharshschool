@@ -56,5 +56,6 @@ backend/Notes/
 backend/Notes/**
 backend/notes/
 backend/notes/**
-
-
+# Tests
+backend/tests/
+tests/

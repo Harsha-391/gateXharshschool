@@ -42,12 +42,22 @@ import {
   MapPin,
   Repeat,
   Share2,
-  FileText
+  FileText,
+  Sparkles
 } from 'lucide-react';
 import ResultManagementPanel from './ResultManagementPanel';
 import EXAM_TYPES from '../utils/examTypes';
 import { getGradesWithSubjects, getGradeOptions, GRADE_ORDER, fetchActiveGrades, fetchActiveSections } from '../utils/grades';
 import { buildPdfDocument, downloadPdf, printHtmlViaIframe } from '../utils/pdfExport';
+import { generateTimetable, formatFriendlyDate } from '../utils/timetableGenerator';
+
+const getTodayDateStr = () => {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+};
 
 const getTeacherSubjects = (t) => {
   if (!t) return '';
@@ -86,7 +96,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile, scho
   const [internalSchoolDetails, setInternalSchoolDetails] = useState(null);
 
   useEffect(() => {
-    fetch('/api/school/profile')
+    fetch('/api/school')
       .then(res => res.json())
       .then(data => {
         if (data && data.name) setInternalSchoolDetails(data);
@@ -98,10 +108,9 @@ export default function AcademicPanel({ subView, setAdminView, userProfile, scho
 
   // Master API states
   const [timetables, setTimetables] = useState([]);
-  const [publishedData, setPublishedData] = useState({ classTimetables: [], teacherTimetables: [] });
+  const [publishedData, setPublishedData] = useState({ classTimetables: [] });
   const [activeGrades, setActiveGrades] = useState([]);
   const [activeSections, setActiveSections] = useState([]);
-  const [teacherTimetables, setTeacherTimetables] = useState([]);
   const [exams, setExams] = useState([]);
   const [examTimetables, setExamTimetables] = useState([]);
   const [events, setEvents] = useState([]);
@@ -123,25 +132,16 @@ export default function AcademicPanel({ subView, setAdminView, userProfile, scho
   const [showBulkModal, setShowBulkModal] = useState(false);
   const [bulkCohort, setBulkCohort] = useState('');
   const [bulkGrid, setBulkGrid] = useState({});
-  const [showTeacherBulkModal, setShowTeacherBulkModal] = useState(false);
-  const [editingTeacherName, setEditingTeacherName] = useState('');
-  const [teacherBulkGrid, setTeacherBulkGrid] = useState({});
-  const [teacherBulkSearchQuery, setTeacherBulkSearchQuery] = useState('');
-  const [teacherBulkGradeSearch, setTeacherBulkGradeSearch] = useState('All');
-  const [teacherSearchQuery, setTeacherSearchQuery] = useState('');
 
   const [loading, setLoading] = useState(true);
   const [notification, setNotification] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchGrade, setSearchGrade] = useState('All');
   const [searchSection, setSearchSection] = useState('All');
-  const [publishedSubTab, setPublishedSubTab] = useState('class');
 
   // Active view filters
   const [activeClass, setActiveClass] = useState('I-A');
-  const [activeTeacher, setActiveTeacher] = useState('');
   const [activeExam, setActiveExam] = useState('');
-  const [teacherDropdownSearch, setTeacherDropdownSearch] = useState('');
   const [timetableSession, setTimetableSession] = useState('2026-2027');
   const [activeSubject, setActiveSubject] = useState('Mathematics');
   const [activeMonth, setActiveMonth] = useState(new Date().getMonth()); // 0-11
@@ -181,38 +181,402 @@ export default function AcademicPanel({ subView, setAdminView, userProfile, scho
   const [showExamWizard, setShowExamWizard] = useState(false);
   const [examWizardStep, setExamWizardStep] = useState(1);
   const [wizardError, setWizardError] = useState('');
+  const [wizardPreviewActiveGrade, setWizardPreviewActiveGrade] = useState('');
+  const [wizardSubmitting, setWizardSubmitting] = useState(false);
   const [wizardForm, setWizardForm] = useState({
+    id: null,
     examName: '',
     examType: '',
     customExamName: '',
     academicSession: '2026-2027',
     description: '',
-    totalMarks: 100,
+    marksPerSubject: 100,
     selectedGrades: [],
-    startDates: {},
-    endDates: {},
-    subjectMarks: {},
-    subjectIncluded: {},
-    gapDays: 1
+    startDate: '',
+    subjectsPerDay: 1,
+    startTime: '09:00',
+    durationMinutes: 120,
+    breakMinutes: 30
   });
+
+  // AI-Assisted Exam Planning Wizard State
+  const [aiPromptText, setAiPromptText] = useState('');
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiPlanData, setAiPlanData] = useState(null);
+  const [aiMissingAnswers, setAiMissingAnswers] = useState({});
+  const [aiNoticeMsg, setAiNoticeMsg] = useState(null);
+  const [wizardGroups, setWizardGroups] = useState(null);
+  const [wizardAiAudit, setWizardAiAudit] = useState(null);
+
+  // Auto Class Timetable AI Prompt & Class Range State
+  const [autoTimetableClassRange, setAutoTimetableClassRange] = useState('1 to 5');
+  const [autoTimetablePrompt, setAutoTimetablePrompt] = useState('');
+  const [autoTimetableLoading, setAutoTimetableLoading] = useState(false);
+
+  const resolveTargetGradesFromRange = (rangeStr) => {
+    if (!rangeStr || !activeGrades || activeGrades.length === 0) {
+      return activeGrades.map(g => g.name);
+    }
+    const s = String(rangeStr).trim().toLowerCase();
+    if (s === 'all' || s === 'all grades' || s === 'all classes') {
+      return activeGrades.map(g => g.name);
+    }
+    const romanMap = {
+      'xii': 12, 'xi': 11, 'x': 10, 'ix': 9, 'viii': 8,
+      'vii': 7, 'vi': 6, 'v': 5, 'iv': 4, 'iii': 3, 'ii': 2, 'i': 1
+    };
+    const parseNum = (val) => {
+      if (!val) return 0;
+      const v = String(val).trim().toLowerCase();
+      if (romanMap[v]) return romanMap[v];
+      for (const [r, n] of Object.entries(romanMap)) {
+        if (v.startsWith(r)) return n;
+      }
+      const match = v.match(/\d+/);
+      return match ? parseInt(match[0], 10) : 0;
+    };
+
+    const match = s.match(/(?:classes?|grades?)?\s*([0-9ivx]+)\s*(?:to|-)\s*([0-9ivx]+)/i);
+    if (match) {
+      const from = parseNum(match[1]);
+      const to = parseNum(match[2]);
+      const min = Math.min(from, to);
+      const max = Math.max(from, to);
+      return activeGrades
+        .filter(g => {
+          const n = parseNum(g.name);
+          return n >= min && n <= max;
+        })
+        .map(g => g.name);
+    }
+
+    const nums = (s.match(/\d+/g) || []).map(n => parseInt(n, 10));
+    if (nums.length > 0) {
+      const set = new Set(nums);
+      return activeGrades.filter(g => set.has(parseNum(g.name))).map(g => g.name);
+    }
+
+    return activeGrades.map(g => g.name);
+  };
+
+  const handleGenerateAutoTimetableInline = async () => {
+    const selectedGrades = resolveTargetGradesFromRange(autoTimetableClassRange);
+    if (!selectedGrades || selectedGrades.length === 0) {
+      showToast('No matching grades found for class range: ' + autoTimetableClassRange, 'error');
+      return;
+    }
+
+    setAutoTimetableLoading(true);
+    const token = localStorage.getItem('token') || '';
+    const tenant = localStorage.getItem('tenant_subdomain') || localStorage.getItem('school_id') || 'default';
+    const commonHeaders = {
+      'Content-Type': 'application/json',
+      ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+      'x-tenant-id': tenant,
+      'x-school-id': tenant
+    };
+
+    try {
+      // 1. If AI prompt text was written, extract any scheduling rules
+      let aiRules = [];
+      if (autoTimetablePrompt && autoTimetablePrompt.trim()) {
+        try {
+          const aiRes = await fetch('/api/timetable/ai/rules', {
+            method: 'POST',
+            headers: commonHeaders,
+            body: JSON.stringify({ text: autoTimetablePrompt.trim() })
+          });
+          const aiData = await aiRes.json();
+          if (aiData.rules && Array.isArray(aiData.rules)) {
+            aiRules = aiData.rules;
+          }
+        } catch (e) {
+          console.warn('AI rules extraction skipped:', e);
+        }
+      }
+
+      // Build target cohorts for each selected grade based on its registered sections
+      const targetCohorts = [];
+      const gradeSectionsMap = {};
+      selectedGrades.forEach(gName => {
+        const gradeObj = (activeGrades || []).find(g => g.name === gName || g.id === gName);
+        const sections = gradeObj && Array.isArray(gradeObj.sections) && gradeObj.sections.length > 0
+          ? gradeObj.sections
+          : ['A'];
+        gradeSectionsMap[gName] = sections;
+        sections.forEach(sec => {
+          targetCohorts.push(`${gName}-${sec}`);
+        });
+      });
+
+      // 2. Call backend /api/timetable/generate
+      const genRes = await fetch('/api/timetable/generate', {
+        method: 'POST',
+        headers: commonHeaders,
+        body: JSON.stringify({
+          selectedGrades,
+          targetCohorts,
+          gradeSections: gradeSectionsMap,
+          seed: Date.now()
+        })
+      });
+      const genData = await genRes.json();
+
+      const timetableResult = genData.data || genData;
+      if (!genRes.ok || (!genData.success && !timetableResult.grid && !timetableResult.entries)) {
+        throw new Error(genData.error || genData.message || 'Timetable engine was unable to schedule.');
+      }
+
+      const grid = timetableResult.grid || {};
+      const entriesFromGen = timetableResult.entries || [];
+
+      // 3. Format generated entries per cohort
+      const entriesToSave = [];
+      if (Array.isArray(entriesFromGen) && entriesFromGen.length > 0) {
+        entriesFromGen.forEach(cell => {
+          if (cell && cell.subject && cell.subject !== 'Break') {
+            const cohort = cell.cohort || (cell.section ? `${cell.grade}-${cell.section}` : `${cell.grade}-A`);
+            const [g, s] = cohort.includes('-') ? cohort.split('-') : [cell.grade, cell.section || 'A'];
+            entriesToSave.push({
+              cohort,
+              grade: g,
+              section: s || 'A',
+              day: cell.day,
+              periodIndex: cell.periodIndex,
+              periodNo: Number(cell.periodIndex) + 1,
+              timeSlot: cell.timeSlot || cell.time || '',
+              subject: cell.subject,
+              teacherId: cell.teacherId || '',
+              teacherName: cell.teacherName || ''
+            });
+          }
+        });
+      } else if (typeof grid === 'object') {
+        Object.keys(grid).forEach(cKey => {
+          const [g, s] = cKey.includes('-') ? cKey.split('-') : [cKey, 'A'];
+          Object.keys(grid[cKey] || {}).forEach(d => {
+            Object.keys(grid[cKey][d] || {}).forEach(slotIdx => {
+              const cell = grid[cKey][d][slotIdx];
+              if (cell && cell.subject && cell.subject !== 'Break') {
+                entriesToSave.push({
+                  cohort: cKey,
+                  grade: g,
+                  section: s || 'A',
+                  day: d,
+                  periodIndex: Number(slotIdx),
+                  periodNo: Number(slotIdx) + 1,
+                  timeSlot: cell.time || '',
+                  subject: cell.subject,
+                  teacherId: cell.teacherId || '',
+                  teacherName: cell.teacherName || ''
+                });
+              }
+            });
+          });
+        });
+      }
+
+      // 4. Save to /api/timetable/save
+      if (entriesToSave.length > 0) {
+        await fetch('/api/timetable/save', {
+          method: 'POST',
+          headers: commonHeaders,
+          body: JSON.stringify({
+            entries: entriesToSave,
+            versionName: `Auto Generated Schedule`
+          })
+        });
+      }
+
+      // 5. Also write each cohort directly into /api/academics/timetables/bulk with its own distinct schedule
+      const generatedCohorts = Array.from(new Set([
+        ...targetCohorts,
+        ...entriesToSave.map(e => e.cohort)
+      ])).filter(Boolean);
+
+      for (const cohort of generatedCohorts) {
+        const cohortSlots = entriesToSave.filter(e => e.cohort === cohort);
+        const bulkPayload = cohortSlots.map(s => ({
+          day: s.day,
+          time: s.timeSlot,
+          subject: s.subject,
+          teacher: s.teacherName
+        }));
+
+        await fetch('/api/academics/timetables/bulk', {
+          method: 'POST',
+          headers: commonHeaders,
+          body: JSON.stringify({
+            cohort,
+            timetables: bulkPayload,
+            session: timetableSession || '2026-2027'
+          })
+        });
+      }
+
+      // 6. Reload data so all grade cards appear immediately right below!
+      await fetchAllData();
+      showToast(`Timetables successfully generated for ${generatedCohorts.join(', ')} with zero clashes!`, 'success');
+    } catch (err) {
+      console.error('Error generating auto timetable:', err);
+      showToast('Generation error: ' + err.message, 'error');
+    } finally {
+      setAutoTimetableLoading(false);
+    }
+  };
 
   const resetWizardForm = () => {
     setWizardForm({
+      id: null,
       examName: '',
       examType: '',
       customExamName: '',
       academicSession: '2026-2027',
       description: '',
-      totalMarks: 100,
+      marksPerSubject: 100,
       selectedGrades: [],
-      startDates: {},
-      endDates: {},
-      subjectMarks: {},
-      subjectIncluded: {},
-      gapDays: 1
+      startDate: '',
+      subjectsPerDay: 1,
+      startTime: '09:00',
+      durationMinutes: 120,
+      breakMinutes: 30
     });
     setExamWizardStep(1);
     setWizardError('');
+    setWizardPreviewActiveGrade('');
+    setWizardSubmitting(false);
+    setAiPromptText('');
+    setAiLoading(false);
+    setAiPlanData(null);
+    setAiMissingAnswers({});
+    setAiNoticeMsg(null);
+    setWizardGroups(null);
+    setWizardAiAudit(null);
+  };
+
+  const handleGenerateAiPlan = async () => {
+    const text = (aiPromptText || '').trim();
+    if (!text) {
+      setAiNoticeMsg({ type: 'warning', text: 'Please type an exam description first.' });
+      return;
+    }
+    setAiLoading(true);
+    setAiNoticeMsg(null);
+    setWizardError('');
+
+    try {
+      const res = await fetch('/api/academics/exams/ai/plan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text })
+      });
+      const data = await res.json();
+
+      if (data.ok && data.plan) {
+        setAiPlanData(data);
+        const initAnswers = {};
+        if (data.missingQuestions && data.missingQuestions.length > 0) {
+          data.missingQuestions.forEach(q => {
+            initAnswers[q.key] = '';
+          });
+        }
+        setAiMissingAnswers(initAnswers);
+      } else {
+        const msg = data.message || data.error || 'AI is not available right now. Please fill the details manually.';
+        setAiNoticeMsg({ type: 'warning', text: msg });
+      }
+    } catch (err) {
+      console.error('Error generating AI plan:', err);
+      setAiNoticeMsg({
+        type: 'warning',
+        text: 'AI is not available right now. Please fill the details manually.'
+      });
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
+  const handleApplyAiPlanAndContinue = () => {
+    if (!aiPlanData || !aiPlanData.plan) return;
+    const plan = JSON.parse(JSON.stringify(aiPlanData.plan));
+
+    // Incorporate any answered missing questions
+    if (aiMissingAnswers) {
+      Object.entries(aiMissingAnswers).forEach(([key, val]) => {
+        if (!val) return;
+        if (key === 'examType') {
+          plan.examType = val;
+        } else if (key.startsWith('group_')) {
+          const parts = key.split('_');
+          const grpIdx = parseInt(parts[1], 10);
+          const field = parts[2];
+          if (plan.groups && plan.groups[grpIdx]) {
+            if (field === 'marksPerSubject' || field === 'subjectsPerDay' || field === 'paperDurationMinutes' || field === 'breakMinutes') {
+              plan.groups[grpIdx][field] = parseInt(val, 10);
+            } else {
+              plan.groups[grpIdx][field] = val;
+            }
+          }
+        }
+      });
+    }
+
+    // Validate required fields across all groups
+    let missingValidation = '';
+    (plan.groups || []).forEach((grp, idx) => {
+      const gName = grp.name || `Group ${idx + 1}`;
+      if (!grp.startDate) {
+        missingValidation = `Please specify the start date for ${gName}.`;
+      } else if (!grp.marksPerSubject || grp.marksPerSubject <= 0) {
+        missingValidation = `Please enter valid marks per subject for ${gName}.`;
+      }
+    });
+
+    if (missingValidation) {
+      setWizardError(missingValidation);
+      return;
+    }
+
+    // Gather all grades from all groups
+    const allSelectedGrades = [];
+    (plan.groups || []).forEach(grp => {
+      (grp.grades || []).forEach(g => {
+        if (!allSelectedGrades.some(sg => sg.grade === g)) {
+          allSelectedGrades.push({ grade: g, section: '' });
+        }
+      });
+    });
+
+    if (allSelectedGrades.length === 0) {
+      setWizardError('No valid grades matched the description. Please select grades manually.');
+      return;
+    }
+
+    const primaryGroup = plan.groups[0] || {};
+    const chosenExamType = plan.examType || wizardForm.examType || 'Unit Test - 1';
+
+    setWizardForm(prev => ({
+      ...prev,
+      examType: chosenExamType,
+      academicSession: plan.session || prev.academicSession,
+      marksPerSubject: primaryGroup.marksPerSubject || prev.marksPerSubject || 100,
+      selectedGrades: allSelectedGrades,
+      startDate: primaryGroup.startDate || prev.startDate || '',
+      subjectsPerDay: primaryGroup.subjectsPerDay || prev.subjectsPerDay || 1,
+      startTime: primaryGroup.firstPaperStart || prev.startTime || '09:00',
+      durationMinutes: primaryGroup.paperDurationMinutes || prev.durationMinutes || 120,
+      breakMinutes: primaryGroup.breakMinutes !== undefined ? primaryGroup.breakMinutes : prev.breakMinutes || 30
+    }));
+
+    setWizardGroups(plan.groups);
+    setWizardAiAudit({
+      originalText: aiPlanData.originalText,
+      plan
+    });
+
+    setWizardPreviewActiveGrade(allSelectedGrades[0]?.grade || '');
+    setWizardError('');
+    setExamWizardStep(3);
   };
 
   const [availableGradeSections, setAvailableGradeSections] = useState([]);
@@ -343,7 +707,6 @@ export default function AcademicPanel({ subView, setAdminView, userProfile, scho
   const [pubTtSearch, setPubTtSearch] = useState('');
   const [pubTtGrade, setPubTtGrade] = useState('All');
   const [pubTtSection, setPubTtSection] = useState('All');
-  const [pubTtTeacher, setPubTtTeacher] = useState('');
   const [pubExamSearch, setPubExamSearch] = useState('');
   const [pubExamGrade, setPubExamGrade] = useState('All');
 
@@ -457,7 +820,6 @@ export default function AcademicPanel({ subView, setAdminView, userProfile, scho
     try {
       const endpoints = [
         { url: '/api/academics/timetables', setter: setTimetables },
-        { url: '/api/academics/teacher-timetables', setter: setTeacherTimetables },
         { url: '/api/academics/published-timetables', setter: setPublishedData },
         { url: '/api/academics/exams', setter: setExams },
         { url: '/api/academics/exam-timetables', setter: setExamTimetables },
@@ -772,147 +1134,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile, scho
     }
   };
 
-  const handleOpenTeacherBulkModalForName = (tName) => {
-    if (!tName) return;
-    setEditingTeacherName(tName);
-    const currentGrid = {};
-    daysOfWeek.forEach(day => {
-      timeslots.forEach(slot => {
-        const match = teacherTimetables.find(t =>
-          t.teacher &&
-          t.teacher.trim().toLowerCase() === tName.trim().toLowerCase() &&
-          t.day === day &&
-          t.time === slot
-        );
-        currentGrid[`${day}_${slot}`] = {
-          cohort: match ? match.cohort : '',
-          subject: match ? match.subject : ''
-        };
-      });
-    });
-    setTeacherBulkGrid(currentGrid);
-    setShowTeacherBulkModal(true);
-  };
 
-  const handleOpenTeacherBulkModal = () => {
-    if (!activeTeacher) {
-      showToast('Please select a teacher first.', 'error');
-      return;
-    }
-    setTeacherBulkSearchQuery('');
-    setTeacherBulkGradeSearch('All');
-    handleOpenTeacherBulkModalForName(activeTeacher);
-  };
-
-  const handleDeleteWholeTeacherTimetable = async (tName) => {
-    if (!confirm(`Are you sure you want to clear the entire weekly timetable for teacher: ${tName}? This action cannot be undone.`)) return;
-    try {
-      const res = await fetch('/api/academics/timetables/bulk/teacher', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          teacher: tName,
-          timetables: []
-        })
-      });
-      if (res.ok) {
-        showToast(`Teacher ${tName} timetable cleared successfully.`, 'success');
-        fetchAllData();
-      } else {
-        const data = await res.json();
-        showToast(data.error || 'Failed to clear teacher timetable.', 'error');
-      }
-    } catch (e) {
-      showToast('Network error during operation.', 'error');
-    }
-  };
-
-  const handleTeacherBulkCellChange = (day, slot, field, value) => {
-    setTeacherBulkGrid(prev => {
-      const key = `${day}_${slot}`;
-      const cell = { ...(prev[key] || { cohort: '', subject: '' }) };
-      cell[field] = value;
-      if (field === 'cohort' && !value) {
-        cell.subject = '';
-      }
-      return {
-        ...prev,
-        [key]: cell
-      };
-    });
-  };
-
-  const handleClearTeacherBulkGrid = () => {
-    if (!confirm('Are you sure you want to clear all slots in this bulk editor? This will not be saved until you submit the form.')) return;
-    const cleared = {};
-    daysOfWeek.forEach(day => {
-      timeslots.forEach(slot => {
-        cleared[`${day}_${slot}`] = { cohort: '', subject: '' };
-      });
-    });
-    setTeacherBulkGrid(cleared);
-  };
-
-  const handleTeacherBulkSubmit = async (e) => {
-    e.preventDefault();
-    const targetTeacher = editingTeacherName || activeTeacher;
-    const currentTeacherObj = Array.isArray(teachers)
-      ? teachers.find(t => (t.name || '').trim().toLowerCase() === (targetTeacher || '').trim().toLowerCase())
-      : null;
-    const teacherSubject = currentTeacherObj
-      ? (currentTeacherObj.primarySubject || currentTeacherObj.subject || currentTeacherObj.subjectSpecialization || '')
-      : '';
-
-    const formattedTimetables = [];
-    Object.entries(teacherBulkGrid).forEach(([key, cell]) => {
-      const [day, slot] = key.split('_');
-      if (cell.cohort && cell.cohort.trim() !== '') {
-        formattedTimetables.push({
-          day,
-          time: slot,
-          cohort: cell.cohort,
-          subject: teacherSubject || cell.subject || ''
-        });
-      }
-    });
-
-    if (savingTimetable) return;
-    setSavingTimetable(true);
-    try {
-      const res = await fetch('/api/academics/timetables/bulk/teacher', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          teacher: targetTeacher,
-          timetables: formattedTimetables
-        })
-      });
-      const data = await res.json();
-      if (res.ok) {
-        showToast("Teacher's weekly timetable matrix updated successfully!", 'success');
-        setShowTeacherBulkModal(false);
-        fetchAllData();
-      } else {
-        showToast(data.error || 'Failed to update teacher timetable matrix.', 'error');
-      }
-    } catch (err) {
-      showToast('Network error during bulk operation.', 'error');
-    } finally {
-      setSavingTimetable(false);
-    }
-  };
-
-  // Sync active teacher selection on load
-  useEffect(() => {
-    if (Array.isArray(teachers) && teachers.length > 0 && !activeTeacher) {
-      const filtered = teachers.filter(isTeacherProfile);
-      if (filtered.length > 0) {
-        setActiveTeacher(filtered[0].name);
-      } else {
-        setActiveTeacher(teachers[0].name);
-      }
-    }
-  }, [teachers]);
 
   // Sync active exam selection on load
   useEffect(() => {
@@ -1007,21 +1229,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile, scho
     );
   };
 
-  const isTeacherTimetablePublished = (tName) => {
-    if (!publishedData || !publishedData.teacherTimetables) return false;
-    const pub = publishedData.teacherTimetables.find(pt => pt.teacher.toLowerCase() === tName.toLowerCase());
-    if (!pub) return false;
-    const current = teacherTimetables.filter(t => t.teacher && t.teacher.toLowerCase() === tName.toLowerCase());
-    if (current.length !== pub.slots.length) return false;
-    return current.every(c =>
-      pub.slots.some(p =>
-        c.cohort === p.cohort &&
-        c.day === p.day &&
-        c.time === p.time &&
-        c.subject === p.subject
-      )
-    );
-  };
+
 
   const handlePublishTimetable = async (type, identifier) => {
     try {
@@ -1137,6 +1345,18 @@ export default function AcademicPanel({ subView, setAdminView, userProfile, scho
       endDates[key] = gsItem.endDate || '';
     });
 
+    const gradesList = (examObj.gradeSections && examObj.gradeSections.length > 0)
+      ? examObj.gradeSections.map(gsItem => ({ grade: gsItem.grade, section: gsItem.section || '' }))
+      : (Array.isArray(examObj.grades) && examObj.grades.length > 0)
+        ? examObj.grades.map(g => ({ grade: g, section: '' }))
+        : [];
+
+    const mps = examObj.marks_per_subject !== undefined && examObj.marks_per_subject !== null
+      ? examObj.marks_per_subject
+      : examObj.marksPerSubject !== undefined && examObj.marksPerSubject !== null
+        ? examObj.marksPerSubject
+        : (examObj.rules && examObj.rules.marksPerSubject) || 100;
+
     setWizardForm({
       id: examObj.id,
       examName: examObj.examName,
@@ -1144,8 +1364,14 @@ export default function AcademicPanel({ subView, setAdminView, userProfile, scho
       customExamName: examObj.examType === 'Custom Exam' ? examObj.examName : '',
       academicSession: examObj.academicSession,
       description: examObj.description || '',
+      marksPerSubject: mps,
       totalMarks: examObj.totalMarks || 100,
-      selectedGrades: (examObj.gradeSections || []).map(gsItem => ({ grade: gsItem.grade, section: gsItem.section })),
+      selectedGrades: gradesList,
+      startDate: (examObj.rules && examObj.rules.startDate) || examObj.startDate || '',
+      subjectsPerDay: (examObj.rules && examObj.rules.subjectsPerDay) || 1,
+      startTime: (examObj.rules && examObj.rules.timings && examObj.rules.timings.startTime) || '09:00',
+      durationMinutes: (examObj.rules && examObj.rules.timings && examObj.rules.timings.durationMinutes) || 120,
+      breakMinutes: (examObj.rules && examObj.rules.timings && examObj.rules.timings.breakMinutes !== undefined) ? examObj.rules.timings.breakMinutes : 30,
       startDates,
       endDates,
       subjectMarks: examObj.subjectMarks || {},
@@ -2598,6 +2824,124 @@ export default function AcademicPanel({ subView, setAdminView, userProfile, scho
             </div>
           </div>
 
+          {/* Card 3: Auto Generated Timetable (AI) with Prompt & Class Range */}
+          <div className="glass-panel" style={{ padding: '20px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '14px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                <div style={{ padding: '8px', borderRadius: '8px', background: 'rgba(255, 107, 0, 0.1)', color: 'hsl(var(--color-primary))' }}>
+                  <Sparkles size={20} />
+                </div>
+                <div>
+                  <h4 style={{ fontSize: '0.95rem', fontWeight: 800, margin: 0 }}>Auto Timetable (AI)</h4>
+                  <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: 0 }}>Automated zero-clash period generator.</p>
+                </div>
+              </div>
+              <span className="ai-describe-badge" style={{ margin: 0 }}>
+                <Sparkles size={12} /> AI Assisted
+              </span>
+            </div>
+
+            {/* Range of Classes Input & Quick Presets */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)' }}>RANGE OF CLASSES</label>
+                <div style={{ display: 'flex', gap: '4px' }}>
+                  {['1 to 5', '6 to 10', '11 to 12', 'All'].map(preset => (
+                    <button
+                      key={preset}
+                      type="button"
+                      onClick={() => setAutoTimetableClassRange(preset)}
+                      style={{
+                        padding: '2px 8px',
+                        fontSize: '0.7rem',
+                        fontWeight: 600,
+                        borderRadius: '4px',
+                        border: autoTimetableClassRange === preset ? '1px solid hsl(var(--color-primary))' : '1px solid var(--border-glass)',
+                        background: autoTimetableClassRange === preset ? 'rgba(255, 107, 0, 0.15)' : 'var(--bg-glass)',
+                        color: autoTimetableClassRange === preset ? 'hsl(var(--color-primary))' : 'var(--text-muted)',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      {preset}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <input
+                type="text"
+                className="input-custom"
+                value={autoTimetableClassRange}
+                onChange={(e) => setAutoTimetableClassRange(e.target.value)}
+                placeholder="e.g. 1 to 5, 6 to 10, or All"
+                style={{
+                  width: '100%',
+                  padding: '8px 10px',
+                  fontSize: '0.82rem',
+                  borderRadius: '6px',
+                  background: 'var(--bg-glass-active)',
+                  border: '1px solid var(--border-glass)',
+                  color: 'var(--text-main)'
+                }}
+              />
+            </div>
+
+            {/* AI Prompt Section */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)' }}>PROMPT / SCHEDULING RULES</label>
+                <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{autoTimetablePrompt.length}/600</span>
+              </div>
+              <textarea
+                className="ai-describe-textarea"
+                rows={3}
+                maxLength={600}
+                placeholder="Describe your timetable rules (e.g. Schedule classes 1 to 5 with 5 periods a day, keep Mathematics in period 1 or 2, Friday afternoon sports...)"
+                value={autoTimetablePrompt}
+                onChange={(e) => setAutoTimetablePrompt(e.target.value)}
+                style={{
+                  minHeight: '68px',
+                  fontSize: '0.82rem',
+                  padding: '8px 10px',
+                  borderRadius: '6px',
+                  background: 'var(--bg-glass-active)',
+                  border: '1px solid var(--border-glass)',
+                  color: 'var(--text-main)'
+                }}
+              />
+            </div>
+
+            {/* Launch Action */}
+            <button
+              className="btn-primary"
+              type="button"
+              disabled={autoTimetableLoading}
+              onClick={handleGenerateAutoTimetableInline}
+              style={{
+                width: '100%',
+                background: 'linear-gradient(135deg, hsl(var(--color-primary)) 0%, #ea580c 100%)',
+                borderRadius: '8px',
+                padding: '10px',
+                justifyContent: 'center',
+                fontWeight: 700,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                opacity: autoTimetableLoading ? 0.7 : 1,
+                cursor: autoTimetableLoading ? 'not-allowed' : 'pointer'
+              }}
+            >
+              {autoTimetableLoading ? (
+                <>
+                  <Loader2 size={16} className="spin" /> Generating Timetable...
+                </>
+              ) : (
+                <>
+                  <Sparkles size={16} /> Generate Timetable
+                </>
+              )}
+            </button>
+          </div>
+
         </div>
 
         {/* Search & Filter Bar */}
@@ -2828,275 +3172,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile, scho
     );
   };
 
-  const renderTeacherTimetable = () => {
-    // Filter teachers using isTeacherProfile helper and match the select dropdown search input
-    const filteredTeachersForSelect = (Array.isArray(teachers) ? teachers : [])
-      .filter(isTeacherProfile)
-      .filter(t => {
-        if (!teacherDropdownSearch) return true;
-        const q = teacherDropdownSearch.toLowerCase();
-        const nameMatch = (t.fullName || t.name || '').toLowerCase().includes(q);
-        const subjects = getTeacherSubjects(t);
-        const subjectMatch = subjects.toLowerCase().includes(q);
-        return nameMatch || subjectMatch;
-      });
 
-    return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-
-        {/* Operations Grid */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px' }}>
-          {/* Card: Configure Teacher Timetable */}
-          <div className="glass-panel" style={{ padding: '20px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '16px' }}>
-            <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-              <div style={{ padding: '8px', borderRadius: '8px', background: 'rgba(255, 107, 0, 0.08)', color: 'hsl(var(--color-primary))' }}>
-                <Calendar size={20} />
-              </div>
-              <div>
-                <h4 style={{ fontSize: '0.95rem', fontWeight: 800, margin: 0 }}>Configure Teacher Schedule</h4>
-                <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: 0 }}>Setup the weekly matrix for a teacher.</p>
-              </div>
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              <div className="form-group" style={{ margin: 0 }}>
-                <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Search/Filter Teacher</label>
-                <input
-                  type="text"
-                  className="form-control"
-                  placeholder="Type to filter teachers..."
-                  value={teacherDropdownSearch}
-                  onChange={(e) => setTeacherDropdownSearch(e.target.value)}
-                  style={{ width: '100%', padding: '6px 12px', borderRadius: '8px', fontSize: '0.82rem', background: 'var(--bg-glass-active)', border: '1px solid var(--border-glass)', color: 'var(--text-main)', marginTop: '4px', marginBottom: '8px' }}
-                />
-                <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Select Teacher</label>
-                <CustomSelect                  className="select-custom"
-                  value={activeTeacher}
-                  onChange={(e) => setActiveTeacher(e.target.value)}
-                  style={{ width: '100%', marginTop: '4px', background: 'var(--bg-glass-active)', border: '1px solid var(--border-glass)' }}
-                >
-                  <option value="">-- Select Teacher --</option>
-                  {filteredTeachersForSelect.map((t, idx) => {
-                    const subjects = getTeacherSubjects(t);
-                    const label = subjects ? `${t.fullName || t.name} (${subjects})` : (t.fullName || t.name);
-                    return (
-                      <option key={idx} value={t.name}>{label}</option>
-                    );
-                  })}
-                </CustomSelect>
-              </div>
-              <button
-                className="btn-primary"
-                onClick={handleOpenTeacherBulkModal}
-                style={{
-                  width: '100%',
-                  background: 'linear-gradient(135deg, hsl(var(--color-primary)) 0%, #e07830 100%)',
-                  borderRadius: '8px',
-                  padding: '10px',
-                  justifyContent: 'center',
-                  fontWeight: 700
-                }}
-              >
-                Configure / Edit Timetable
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Search & Filter Bar */}
-        <div className="glass-panel" style={{ padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <Search size={18} style={{ color: 'var(--text-muted)' }} />
-            <h4 style={{ fontSize: '0.9rem', fontWeight: 800, margin: 0, color: 'var(--text-main)' }}>Search Teacher Timetables</h4>
-          </div>
-          <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
-            <input
-              type="text"
-              className="form-control"
-              placeholder="Search teacher by name..."
-              value={teacherSearchQuery}
-              onChange={(e) => setTeacherSearchQuery(e.target.value)}
-              style={{ width: '250px', padding: '6px 12px', borderRadius: '8px', fontSize: '0.82rem', background: 'var(--bg-glass-active)', border: '1px solid var(--border-glass)', color: 'var(--text-main)' }}
-            />
-            {teacherSearchQuery && (
-              <button
-                onClick={() => setTeacherSearchQuery('')}
-                className="btn-secondary"
-                style={{ padding: '6px 12px', fontSize: '0.8rem', borderRadius: '8px', border: '1px solid #ef4444', color: '#ef4444' }}
-              >
-                Clear Search
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* Timetable Grid Views */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
-          {(() => {
-            const teachersWithTimetables = [...new Set(teacherTimetables.filter(t => t.teacher && t.teacher.trim() !== '').map(t => t.teacher))].sort();
-            const filteredTeachers = teachersWithTimetables.filter(tName =>
-              teacherSearchQuery.trim() === '' || tName.toLowerCase().includes(teacherSearchQuery.toLowerCase())
-            );
-
-            return filteredTeachers.length > 0 ? (
-              filteredTeachers.map(tName => {
-                const teacherSlots = teacherTimetables.filter(t => t.teacher && t.teacher.toLowerCase() === tName.toLowerCase());
-
-                // Get teacher details for department/specialization
-                const teacherObj = Array.isArray(teachers) ? teachers.find(t => t.name.toLowerCase() === tName.toLowerCase()) : null;
-                const subjects = teacherObj ? getTeacherSubjects(teacherObj) : '';
-                const displaySubjects = subjects ? `(${subjects})` : '';
-
-                return (
-                  <div key={tName} className="glass-panel" style={{ padding: '24px', overflowX: 'auto', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-glass)', paddingBottom: '12px' }}>
-                      <div>
-                        <h3 style={{ fontSize: '1.15rem', fontWeight: 800, margin: 0 }}>
-                          Teacher Timetable: <span style={{ color: 'hsl(var(--color-info))' }}>{tName}</span> <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 500 }}>{displaySubjects}</span>
-                        </h3>
-                        <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: '2px 0 0 0' }}>
-                          Weekly matrix layout mapping classroom workloads for {tName}.
-                        </p>
-                      </div>
-                      <div style={{ display: 'flex', gap: '8px' }}>
-                        {isTeacherTimetablePublished(tName) ? (
-                          <button
-                            className="btn-secondary"
-                            disabled
-                            style={{
-                              padding: '6px 12px',
-                              fontSize: '0.8rem',
-                              borderRadius: '8px',
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '6px',
-                              border: '1px solid #10b981',
-                              color: '#10b981',
-                              background: 'rgba(16, 185, 129, 0.05)',
-                              cursor: 'not-allowed'
-                            }}
-                          >
-                            <Check size={13} /> Published
-                          </button>
-                        ) : (
-                          <button
-                            className="btn-primary"
-                            onClick={() => handlePublishTimetable('teacher', tName)}
-                            style={{
-                              padding: '6px 12px',
-                              fontSize: '0.8rem',
-                              borderRadius: '8px',
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '6px',
-                              background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                              border: 'none',
-                              color: '#ffffff',
-                              fontWeight: '600'
-                            }}
-                          >
-                            <Send size={13} /> Publish
-                          </button>
-                        )}
-                        <button
-                          className="btn-secondary"
-                          onClick={() => {
-                            setActiveTeacher(tName);
-                            handleOpenTeacherBulkModalForName(tName);
-                          }}
-                          style={{ padding: '6px 12px', fontSize: '0.8rem', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '6px', border: '1px solid var(--border-glass)' }}
-                        >
-                          <Settings size={13} /> Edit Timetable
-                        </button>
-                        <button
-                          className="btn-secondary"
-                          onClick={() => handleDeleteWholeTeacherTimetable(tName)}
-                          style={{ padding: '6px 12px', fontSize: '0.8rem', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '6px', border: '1px solid rgb(var(--color-danger-rgb))', color: 'rgb(var(--color-danger-rgb))' }}
-                        >
-                          <Trash2 size={13} /> Delete Timetable
-                        </button>
-                      </div>
-                    </div>
-
-                    <table className="table-custom" style={{ width: '100%', minWidth: '700px' }}>
-                      <thead>
-                        <tr>
-                          <th style={{ width: '150px' }}>Time Slot</th>
-                          {daysOfWeek.map(d => <th key={d}>{d}</th>)}
-                        </tr>
-                      </thead>
-                      <tbody>{timeslots.map(slot => {
-                        const breakMatch = slot.match(/\[(.*?)\]/);
-                        const breakType = breakMatch ? breakMatch[1] : null;
-                        const isBreak = !!breakType;
-
-                        if (isBreak) {
-                          return (
-                            <tr key={slot} style={{ background: 'rgba(245, 158, 11, 0.02)' }}>
-                              <td style={{ fontWeight: 700, color: 'hsl(var(--color-info))', fontSize: '0.8rem', padding: '12px' }}>{slot}</td>
-                              <td colSpan={6} style={{
-                                textAlign: 'center',
-                                verticalAlign: 'middle',
-                                padding: '12px',
-                                fontWeight: 800,
-                                color: '#d97706',
-                                letterSpacing: '3px',
-                                fontSize: '0.85rem',
-                                textTransform: 'uppercase',
-                                background: 'rgba(245, 158, 11, 0.04)',
-                                borderLeft: '1px solid var(--border-glass)',
-                                borderRadius: '8px'
-                              }}>
-                                {breakType === 'Lunch Break' ? '🍱 ' : breakType === 'Short Break' ? '☕ ' : breakType === 'Recess' ? '🏃 ' : breakType === 'Assembly' ? '📢 ' : '⚡ '}{breakType}
-                              </td>
-                            </tr>
-                          );
-                        }
-
-                        return (
-                          <tr key={slot}>
-                            <td style={{ fontWeight: 700, color: 'hsl(var(--color-info))', fontSize: '0.8rem' }}>{slot}</td>
-                            {daysOfWeek.map(day => {
-                              const matched = teacherSlots.find(t => t.day === day && t.time === slot);
-                              return (
-                                <td key={day} style={{ padding: '8px' }}>
-                                  {matched ? (
-                                    <div style={{
-                                      display: 'flex',
-                                      alignItems: 'center',
-                                      justifyContent: 'center',
-                                      textAlign: 'center',
-                                      gap: '4px',
-                                      width: '100%'
-                                    }}>
-                                      <Users size={12} style={{ color: 'hsl(var(--color-info))' }} />
-                                      <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-main)' }}>Grade {matched.cohort}</span>
-                                    </div>
-                                  ) : (
-                                    <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', fontStyle: 'italic', padding: '12px', textAlign: 'center' }}>
-                                      Free Study
-                                    </div>
-                                  )}
-                                </td>
-                              );
-                            })}
-                          </tr>
-                        );
-                      })}
-                      </tbody>
-                    </table>
-                  </div>
-                );
-              })
-            ) : (
-              <div className="glass-panel" style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>
-                No teacher timetables scheduled yet. Use the card above to set up a schedule for a teacher.
-              </div>
-            );
-          })()}
-        </div>
-      </div>
-    );
-  };
 
   const isExamExpiredOrCompleted = (ex) => {
     if (!ex) return false;
@@ -3129,7 +3205,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile, scho
       const matchSession = examSessionFilter === 'All' || ex.academicSession === examSessionFilter;
       const matchType = examTypeFilter === 'All' || ex.examType === examTypeFilter;
       const matchCustomName = examTypeFilter !== 'Custom Exam' || selectedCustomExamFilter === 'All' || ex.examName === selectedCustomExamFilter;
-      const matchGrade = examGradeFilter === 'All' || (ex.gradeSections || []).some(gs => gs.grade === examGradeFilter);
+      const matchGrade = examGradeFilter === 'All' || (ex.grades && ex.grades.includes(examGradeFilter)) || (ex.gradeSections || []).some(gs => gs.grade === examGradeFilter);
       const matchSection = examSectionFilter === 'All' || (ex.gradeSections || []).some(gs => gs.section === examSectionFilter);
       return matchSearch && matchSession && matchType && matchCustomName && matchGrade && matchSection;
     });
@@ -3223,7 +3299,11 @@ export default function AcademicPanel({ subView, setAdminView, userProfile, scho
         {filteredExams.length > 0 ? (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 340px), 1fr))', gap: '20px' }}>
             {filteredExams.flatMap(ex => {
-              const gsList = ex.gradeSections || [];
+              const gsList = (ex.gradeSections && ex.gradeSections.length > 0)
+                ? ex.gradeSections
+                : (Array.isArray(ex.grades) && ex.grades.length > 0)
+                  ? ex.grades.map(g => ({ grade: g, section: '', startDate: ex.startDate, endDate: ex.endDate }))
+                  : [];
               if (gsList.length === 0) return [{ ex, gs: null }];
               return gsList.map(gs => ({ ex, gs }));
             }).map(({ ex, gs }) => {
@@ -3242,6 +3322,15 @@ export default function AcademicPanel({ subView, setAdminView, userProfile, scho
                 return ex.subjectIncluded ? ex.subjectIncluded[subKey] !== false : true;
               });
               const totalSubjects = gs ? cohortSubjects.length : (ex.scheduleCount || 0);
+
+              const marksPerSub = ex.marks_per_subject !== undefined && ex.marks_per_subject !== null
+                ? parseInt(ex.marks_per_subject, 10)
+                : ex.marksPerSubject !== undefined && ex.marksPerSubject !== null
+                  ? parseInt(ex.marksPerSubject, 10)
+                  : (ex.rules && ex.rules.marksPerSubject)
+                    ? parseInt(ex.rules.marksPerSubject, 10)
+                    : 100;
+              const cardTotalMarks = totalSubjects > 0 ? (totalSubjects * marksPerSub) : (ex.totalMarks || 100);
 
               const isExpanded = gs ? !!expandedTimetables[`${ex.id}-${gs.grade}-${gs.section || ''}`] : false;
 
@@ -3274,13 +3363,13 @@ export default function AcademicPanel({ subView, setAdminView, userProfile, scho
                   <div style={{ padding: '18px 20px 14px', borderBottom: '1px solid var(--border-glass)', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '10px' }}>
                     <div style={{ minWidth: 0, flex: 1 }}>
                       <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'hsl(var(--color-primary))', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '4px' }}>
-                        {gs ? (gs.section ? `Grade ${gs.grade} - Section ${gs.section}` : `Grade ${gs.grade}`) : 'All Grades'}
+                        {gs ? (gs.section ? `Grade ${gs.grade} - Section ${gs.section}` : `Grade ${gs.grade}`) : (ex.grades && ex.grades.length > 0 ? `Grade ${ex.grades.join(', ')}` : 'All Grades')}
                         {ex.academicSession && ` • Session ${ex.academicSession}`}
                       </div>
                       <h3 style={{ fontSize: '1.05rem', fontWeight: 800, margin: 0, color: 'var(--text-main)', wordBreak: 'break-word' }}>{ex.examName || ex.name}</h3>
                       <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '6px' }}>
                         <span style={{ fontSize: '0.72rem', padding: '2px 8px', borderRadius: '10px', background: 'rgba(255, 107, 0, 0.08)', color: 'hsl(var(--color-primary))', border: '1px solid rgba(255, 107, 0, 0.15)', fontWeight: 600 }}>{ex.examType || ex.term}</span>
-                        <span style={{ fontSize: '0.72rem', padding: '2px 8px', borderRadius: '10px', background: 'rgba(245, 158, 11, 0.08)', color: '#f59e0b', border: '1px solid rgba(245, 158, 11, 0.15)', fontWeight: 600 }}>Total Marks: {ex.totalMarks || 100}</span>
+                        <span style={{ fontSize: '0.72rem', padding: '2px 8px', borderRadius: '10px', background: 'rgba(245, 158, 11, 0.08)', color: '#f59e0b', border: '1px solid rgba(245, 158, 11, 0.15)', fontWeight: 600 }}>Total Marks: {cardTotalMarks}</span>
                       </div>
                     </div>
                     <span style={{ padding: '4px 10px', borderRadius: '20px', fontSize: '0.68rem', fontWeight: 700, flexShrink: 0, ...sc }}>{ex.status}</span>
@@ -3310,7 +3399,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile, scho
                               const subKey = `${gs.grade}-${sub}`;
                               const isIncluded = ex.subjectIncluded ? ex.subjectIncluded[subKey] !== false : true;
                               if (isIncluded) {
-                                const marks = ex.subjectMarks && ex.subjectMarks[subKey] !== undefined ? ex.subjectMarks[subKey] : (ex.totalMarks || 100);
+                                const marks = ex.subjectMarks && ex.subjectMarks[subKey] !== undefined ? ex.subjectMarks[subKey] : marksPerSub;
                                 list.push({ grade: gs.grade, section: gs.section, subject: sub, marks });
                               }
                             });
@@ -4096,7 +4185,11 @@ export default function AcademicPanel({ subView, setAdminView, userProfile, scho
         {filteredHistory.length > 0 ? (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 340px), 1fr))', gap: '20px' }}>
             {filteredHistory.flatMap(ex => {
-              const gsList = ex.gradeSections || [];
+              const gsList = (ex.gradeSections && ex.gradeSections.length > 0)
+                ? ex.gradeSections
+                : (Array.isArray(ex.grades) && ex.grades.length > 0)
+                  ? ex.grades.map(g => ({ grade: g, section: '', startDate: ex.startDate, endDate: ex.endDate }))
+                  : [];
               if (gsList.length === 0) return [{ ex, gs: null }];
               return gsList.map(gs => ({ ex, gs }));
             }).map(({ ex, gs }) => {
@@ -4115,6 +4208,15 @@ export default function AcademicPanel({ subView, setAdminView, userProfile, scho
                 return ex.subjectIncluded ? ex.subjectIncluded[subKey] !== false : true;
               });
               const totalSubjects = gs ? cohortSubjects.length : (ex.scheduleCount || 0);
+
+              const marksPerSub = ex.marks_per_subject !== undefined && ex.marks_per_subject !== null
+                ? parseInt(ex.marks_per_subject, 10)
+                : ex.marksPerSubject !== undefined && ex.marksPerSubject !== null
+                  ? parseInt(ex.marksPerSubject, 10)
+                  : (ex.rules && ex.rules.marksPerSubject)
+                    ? parseInt(ex.rules.marksPerSubject, 10)
+                    : 100;
+              const cardTotalMarks = totalSubjects > 0 ? (totalSubjects * marksPerSub) : (ex.totalMarks || 100);
 
               const statusColors = { Draft: { bg: 'rgba(107,114,128,0.08)', color: '#6b7280', border: '1px solid rgba(107,114,128,0.15)' }, Scheduled: { bg: 'rgba(255, 107, 0,0.08)', color: 'hsl(var(--color-primary))', border: '1px solid rgba(255, 107, 0,0.15)' }, Published: { bg: 'rgba(16,185,129,0.08)', color: '#10b981', border: '1px solid rgba(16,185,129,0.15)' }, Completed: { bg: 'rgba(59,130,246,0.08)', color: '#3b82f6', border: '1px solid rgba(59,130,246,0.15)' } };
               const sc = statusColors[ex.status] || statusColors.Draft;
@@ -4137,11 +4239,14 @@ export default function AcademicPanel({ subView, setAdminView, userProfile, scho
                   <div style={{ padding: '20px 20px 16px', borderBottom: '1px solid var(--border-glass)', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '10px' }}>
                     <div style={{ minWidth: 0, flex: 1 }}>
                       <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'hsl(var(--color-primary))', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '4px' }}>
-                        {gs ? (gs.section ? `Grade ${gs.grade} - Section ${gs.section}` : `Grade ${gs.grade}`) : 'All Grades'}
+                        {gs ? (gs.section ? `Grade ${gs.grade} - Section ${gs.section}` : `Grade ${gs.grade}`) : (ex.grades && ex.grades.length > 0 ? `Grade ${ex.grades.join(', ')}` : 'All Grades')}
                         {ex.academicSession && ` • Session ${ex.academicSession}`}
                       </div>
                       <h3 style={{ fontSize: '1.05rem', fontWeight: 800, margin: 0, color: 'var(--text-main)', wordBreak: 'break-word' }}>{ex.examName}</h3>
-                      <span style={{ fontSize: '0.72rem', padding: '2px 8px', borderRadius: '10px', background: 'rgba(255, 107, 0, 0.08)', color: 'hsl(var(--color-primary))', border: '1px solid rgba(255, 107, 0, 0.15)', display: 'inline-block', marginTop: '6px', fontWeight: 600 }}>{ex.examType}</span>
+                      <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '6px' }}>
+                        <span style={{ fontSize: '0.72rem', padding: '2px 8px', borderRadius: '10px', background: 'rgba(255, 107, 0, 0.08)', color: 'hsl(var(--color-primary))', border: '1px solid rgba(255, 107, 0, 0.15)', display: 'inline-block', fontWeight: 600 }}>{ex.examType}</span>
+                        <span style={{ fontSize: '0.72rem', padding: '2px 8px', borderRadius: '10px', background: 'rgba(245, 158, 11, 0.08)', color: '#f59e0b', border: '1px solid rgba(245, 158, 11, 0.15)', display: 'inline-block', fontWeight: 600 }}>Total Marks: {cardTotalMarks}</span>
+                      </div>
                     </div>
                     <span style={{ padding: '4px 10px', borderRadius: '20px', fontSize: '0.68rem', fontWeight: 700, flexShrink: 0, ...sc }}>{ex.status}</span>
                   </div>
@@ -4171,7 +4276,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile, scho
                               const subKey = `${gs.grade}-${sub}`;
                               const isIncluded = ex.subjectIncluded ? ex.subjectIncluded[subKey] !== false : true;
                               if (isIncluded) {
-                                const marks = ex.subjectMarks && ex.subjectMarks[subKey] !== undefined ? ex.subjectMarks[subKey] : (ex.totalMarks || 100);
+                                const marks = ex.subjectMarks && ex.subjectMarks[subKey] !== undefined ? ex.subjectMarks[subKey] : marksPerSub;
                                 list.push({ grade: gs.grade, section: gs.section, subject: sub, marks });
                               }
                             });
@@ -4300,7 +4405,11 @@ export default function AcademicPanel({ subView, setAdminView, userProfile, scho
         ) : filteredPublishedExams.length > 0 ? (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 340px), 1fr))', gap: '20px' }}>
             {filteredPublishedExams.flatMap(ex => {
-              const gsList = ex.gradeSections || [];
+              const gsList = (ex.gradeSections && ex.gradeSections.length > 0)
+                ? ex.gradeSections
+                : (Array.isArray(ex.grades) && ex.grades.length > 0)
+                  ? ex.grades.map(g => ({ grade: g, section: '', startDate: ex.startDate, endDate: ex.endDate }))
+                  : [];
               const allowedGsList = pubExamGrade === 'All' ? gsList : gsList.filter(gs => gs.grade === pubExamGrade);
               if (allowedGsList.length === 0) return [{ ex, gs: null }];
               return allowedGsList.map(gs => ({ ex, gs }));
@@ -4320,6 +4429,15 @@ export default function AcademicPanel({ subView, setAdminView, userProfile, scho
                 return ex.subjectIncluded ? ex.subjectIncluded[subKey] !== false : true;
               });
               const totalSubjects = gs ? cohortSubjects.length : (ex.scheduleCount || 0);
+
+              const marksPerSub = ex.marks_per_subject !== undefined && ex.marks_per_subject !== null
+                ? parseInt(ex.marks_per_subject, 10)
+                : ex.marksPerSubject !== undefined && ex.marksPerSubject !== null
+                  ? parseInt(ex.marksPerSubject, 10)
+                  : (ex.rules && ex.rules.marksPerSubject)
+                    ? parseInt(ex.rules.marksPerSubject, 10)
+                    : 100;
+              const cardTotalMarks = totalSubjects > 0 ? (totalSubjects * marksPerSub) : (ex.totalMarks || 100);
 
               const isExpanded = gs ? !!expandedTimetables[`${ex.id}-${gs.grade}-${gs.section || ''}`] : false;
 
@@ -4351,13 +4469,13 @@ export default function AcademicPanel({ subView, setAdminView, userProfile, scho
                   <div style={{ padding: '20px 20px 16px', borderBottom: '1px solid var(--border-glass)', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '10px' }}>
                     <div style={{ minWidth: 0, flex: 1 }}>
                       <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'hsl(var(--color-primary))', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '4px' }}>
-                        {gs ? (gs.section ? `Grade ${gs.grade} - Section ${gs.section}` : `Grade ${gs.grade}`) : 'All Grades'}
+                        {gs ? (gs.section ? `Grade ${gs.grade} - Section ${gs.section}` : `Grade ${gs.grade}`) : (ex.grades && ex.grades.length > 0 ? `Grade ${ex.grades.join(', ')}` : 'All Grades')}
                         {ex.academicSession && ` • Session ${ex.academicSession}`}
                       </div>
                       <h3 style={{ fontSize: '1.05rem', fontWeight: 800, margin: 0, color: 'var(--text-main)', wordBreak: 'break-word' }}>{ex.examName}</h3>
                       <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '6px' }}>
                         <span style={{ fontSize: '0.72rem', padding: '2px 8px', borderRadius: '10px', background: 'rgba(255, 107, 0, 0.08)', color: 'hsl(var(--color-primary))', border: '1px solid rgba(255, 107, 0, 0.15)', fontWeight: 600 }}>{ex.examType}</span>
-                        <span style={{ fontSize: '0.72rem', padding: '2px 8px', borderRadius: '10px', background: 'rgba(245, 158, 11, 0.08)', color: '#f59e0b', border: '1px solid rgba(245, 158, 11, 0.15)', fontWeight: 600 }}>Total Marks: {ex.totalMarks || 100}</span>
+                        <span style={{ fontSize: '0.72rem', padding: '2px 8px', borderRadius: '10px', background: 'rgba(245, 158, 11, 0.08)', color: '#f59e0b', border: '1px solid rgba(245, 158, 11, 0.15)', fontWeight: 600 }}>Total Marks: {cardTotalMarks}</span>
                       </div>
                     </div>
                     <span style={{ padding: '4px 10px', borderRadius: '20px', fontSize: '0.68rem', fontWeight: 700, flexShrink: 0, ...sc }}>{ex.status}</span>
@@ -4386,7 +4504,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile, scho
                               const subKey = `${gs.grade}-${sub}`;
                               const isIncluded = ex.subjectIncluded ? ex.subjectIncluded[subKey] !== false : true;
                               if (isIncluded) {
-                                const marks = ex.subjectMarks && ex.subjectMarks[subKey] !== undefined ? ex.subjectMarks[subKey] : (ex.totalMarks || 100);
+                                const marks = ex.subjectMarks && ex.subjectMarks[subKey] !== undefined ? ex.subjectMarks[subKey] : marksPerSub;
                                 list.push({ grade: gs.grade, section: gs.section, subject: sub, marks });
                               }
                             });
@@ -4512,53 +4630,14 @@ export default function AcademicPanel({ subView, setAdminView, userProfile, scho
         })
       : [];
 
-    const showTeacherTimetables = publishedData && publishedData.teacherTimetables ? publishedData.teacherTimetables : [];
-    const isTeacherFiltered = pubTtSearch.trim() !== '' || pubTtTeacher !== '';
-    const filteredTeacherTimetables = isTeacherFiltered
-      ? showTeacherTimetables.filter(pub => {
-          const query = pubTtSearch.toLowerCase().trim();
-          const matchesSearch = query === '' || pub.teacher.toLowerCase().startsWith(query);
-          const matchesSelect = pubTtTeacher === '' || pub.teacher.toLowerCase() === pubTtTeacher.toLowerCase();
-          return matchesSearch && matchesSelect;
-        })
-      : [];
-
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
         {/* Header */}
         <div className="glass-panel" style={{ padding: '20px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
           <div>
             <h3 style={{ fontSize: '1.1rem', fontWeight: 700 }}>Published Timetables</h3>
-            <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Official active class and teacher timetables visible to the school portal.</p>
+            <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Official active class timetables visible to the school portal.</p>
           </div>
-        </div>
-
-        {/* Tabs Row */}
-        <div className="glass-panel" style={{ padding: '8px', display: 'flex', gap: '8px', overflowX: 'auto', borderRadius: '12px' }}>
-          <button
-            onClick={() => { setPublishedSubTab('class'); setPubTtSearch(''); }}
-            className={`tab-btn-custom ${publishedSubTab === 'class' ? 'active' : ''}`}
-            style={{
-              display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px', borderRadius: '8px', fontSize: '0.85rem', fontWeight: 600, border: 'none', cursor: 'pointer',
-              background: publishedSubTab === 'class' ? 'rgba(255, 107, 0,0.1)' : 'transparent',
-              color: publishedSubTab === 'class' ? 'rgb(255, 107, 0)' : 'var(--text-muted)',
-              transition: 'all 0.2s ease'
-            }}
-          >
-            <Clock size={16} /> Published Class Timetable
-          </button>
-          <button
-            onClick={() => { setPublishedSubTab('teacher'); setPubTtSearch(''); }}
-            className={`tab-btn-custom ${publishedSubTab === 'teacher' ? 'active' : ''}`}
-            style={{
-              display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px', borderRadius: '8px', fontSize: '0.85rem', fontWeight: 600, border: 'none', cursor: 'pointer',
-              background: publishedSubTab === 'teacher' ? 'rgba(255, 107, 0,0.1)' : 'transparent',
-              color: publishedSubTab === 'teacher' ? 'rgb(255, 107, 0)' : 'var(--text-muted)',
-              transition: 'all 0.2s ease'
-            }}
-          >
-            <UserCheck size={16} /> Published Teacher Timetable
-          </button>
         </div>
 
         {/* Search & Filter Bar */}
@@ -4567,294 +4646,156 @@ export default function AcademicPanel({ subView, setAdminView, userProfile, scho
             <Search size={18} style={{ color: 'var(--text-muted)' }} />
             <h4 style={{ fontSize: '0.9rem', fontWeight: 800, margin: 0, color: 'var(--text-main)' }}>Search & Filter Published</h4>
           </div>
-          {publishedSubTab === 'class' ? (
-            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Search cohort (e.g. IX-A)..."
-                value={pubTtSearch}
-                onChange={(e) => setPubTtSearch(e.target.value.replace(/[^A-Za-z0-9\-\s]/g, ''))}
-                style={{ width: '220px', padding: '6px 12px', borderRadius: '8px', fontSize: '0.82rem', background: 'var(--bg-glass-active)', border: '1px solid var(--border-glass)', color: 'var(--text-main)' }}
-              />
+          <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
+            <input
+              type="text"
+              className="form-control"
+              placeholder="Search cohort (e.g. IX-A)..."
+              value={pubTtSearch}
+              onChange={(e) => setPubTtSearch(e.target.value.replace(/[^A-Za-z0-9\-\s]/g, ''))}
+              style={{ width: '220px', padding: '6px 12px', borderRadius: '8px', fontSize: '0.82rem', background: 'var(--bg-glass-active)', border: '1px solid var(--border-glass)', color: 'var(--text-main)' }}
+            />
 
-              <CustomSelect                className="select-custom"
-                value={pubTtGrade}
-                onChange={(e) => setPubTtGrade(e.target.value)}
-                style={{ padding: '6px 12px', borderRadius: '8px', fontSize: '0.82rem', background: 'var(--bg-glass-active)', border: '1px solid var(--border-glass)', color: 'var(--text-main)' }}
+            <CustomSelect              className="select-custom"
+              value={pubTtGrade}
+              onChange={(e) => setPubTtGrade(e.target.value)}
+              style={{ padding: '6px 12px', borderRadius: '8px', fontSize: '0.82rem', background: 'var(--bg-glass-active)', border: '1px solid var(--border-glass)', color: 'var(--text-main)' }}
+            >
+              <option value="All">All Grades</option>
+              {activeGrades.map(g => (
+                <option key={g.id} value={g.name}>Grade {g.name}</option>
+              ))}
+            </CustomSelect>
+
+            <CustomSelect              className="select-custom"
+              value={pubTtSection}
+              onChange={(e) => setPubTtSection(e.target.value)}
+              style={{ padding: '6px 12px', borderRadius: '8px', fontSize: '0.82rem', background: 'var(--bg-glass-active)', border: '1px solid var(--border-glass)', color: 'var(--text-main)' }}
+            >
+              <option value="All">All Sections</option>
+              {activeSections.map(s => (
+                <option key={s.id} value={s.name}>Section {s.name}</option>
+              ))}
+            </CustomSelect>
+
+            {(pubTtSearch || pubTtGrade !== 'All' || pubTtSection !== 'All') && (
+              <button
+                onClick={() => {
+                  setPubTtSearch('');
+                  setPubTtGrade('All');
+                  setPubTtSection('All');
+                }}
+                className="btn-secondary"
+                style={{ padding: '6px 12px', fontSize: '0.8rem', borderRadius: '8px', border: '1px solid #ef4444', color: '#ef4444' }}
               >
-                <option value="All">All Grades</option>
-                {activeGrades.map(g => (
-                  <option key={g.id} value={g.name}>Grade {g.name}</option>
-                ))}
-              </CustomSelect>
-
-              <CustomSelect                className="select-custom"
-                value={pubTtSection}
-                onChange={(e) => setPubTtSection(e.target.value)}
-                style={{ padding: '6px 12px', borderRadius: '8px', fontSize: '0.82rem', background: 'var(--bg-glass-active)', border: '1px solid var(--border-glass)', color: 'var(--text-main)' }}
-              >
-                <option value="All">All Sections</option>
-                {activeSections.map(s => (
-                  <option key={s.id} value={s.name}>Section {s.name}</option>
-                ))}
-              </CustomSelect>
-
-              {(pubTtSearch || pubTtGrade !== 'All' || pubTtSection !== 'All') && (
-                <button
-                  onClick={() => {
-                    setPubTtSearch('');
-                    setPubTtGrade('All');
-                    setPubTtSection('All');
-                  }}
-                  className="btn-secondary"
-                  style={{ padding: '6px 12px', fontSize: '0.8rem', borderRadius: '8px', border: '1px solid #ef4444', color: '#ef4444' }}
-                >
-                  Clear Filters
-                </button>
-              )}
-            </div>
-          ) : (
-            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Search teacher name..."
-                value={pubTtSearch}
-                onChange={(e) => setPubTtSearch(e.target.value.replace(/[^A-Za-z\s]/g, ''))}
-                style={{ width: '220px', padding: '6px 12px', borderRadius: '8px', fontSize: '0.82rem', background: 'var(--bg-glass-active)', border: '1px solid var(--border-glass)', color: 'var(--text-main)' }}
-              />
-
-              <CustomSelect                className="select-custom"
-                value={pubTtTeacher}
-                onChange={(e) => setPubTtTeacher(e.target.value)}
-                style={{ padding: '6px 12px', borderRadius: '8px', fontSize: '0.82rem', background: 'var(--bg-glass-active)', border: '1px solid var(--border-glass)', color: 'var(--text-main)' }}
-              >
-                <option value="">All Teachers</option>
-                {teachers.map((t, idx) => (
-                  <option key={idx} value={t.name}>{t.fullName || t.name}</option>
-                ))}
-              </CustomSelect>
-
-              {(pubTtSearch || pubTtTeacher) && (
-                <button
-                  onClick={() => {
-                    setPubTtSearch('');
-                    setPubTtTeacher('');
-                  }}
-                  className="btn-secondary"
-                  style={{ padding: '6px 12px', fontSize: '0.8rem', borderRadius: '8px', border: '1px solid #ef4444', color: '#ef4444' }}
-                >
-                  Clear Filters
-                </button>
-              )}
-            </div>
-          )}
+                Clear Filters
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Content list */}
-        {publishedSubTab === 'class' ? (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
-            {!isClassFiltered ? (
-              <div className="glass-panel" style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>
-                <Search size={32} style={{ opacity: 0.3, marginBottom: '12px' }} />
-                <p style={{ fontWeight: 600 }}>Please select a filter or enter a search query to load published class timetables.</p>
-              </div>
-            ) : filteredClassTimetables.length > 0 ? (
-              filteredClassTimetables.map(pub => (
-                <div key={pub.cohort} className="glass-panel animate-scale-up" style={{ padding: '24px', overflowX: 'auto', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-glass)', paddingBottom: '12px' }}>
-                    <div>
-                      <h3 style={{ fontSize: '1.15rem', fontWeight: 800, margin: 0 }}>
-                        Class Timetable: <span style={{ color: 'hsl(var(--color-primary))' }}>{pub.cohort}</span>
-                      </h3>
-                      <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: '2px 0 0 0' }}>
-                        Published on {formatDate(pub.publishedAt)}
-                      </p>
-                    </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
+          {!isClassFiltered ? (
+            <div className="glass-panel" style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>
+              <Search size={32} style={{ opacity: 0.3, marginBottom: '12px' }} />
+              <p style={{ fontWeight: 600 }}>Please select a filter or enter a search query to load published class timetables.</p>
+            </div>
+          ) : filteredClassTimetables.length > 0 ? (
+            filteredClassTimetables.map(pub => (
+              <div key={pub.cohort} className="glass-panel animate-scale-up" style={{ padding: '24px', overflowX: 'auto', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-glass)', paddingBottom: '12px' }}>
+                  <div>
+                    <h3 style={{ fontSize: '1.15rem', fontWeight: 800, margin: 0 }}>
+                      Class Timetable: <span style={{ color: 'hsl(var(--color-primary))' }}>{pub.cohort}</span>
+                    </h3>
+                    <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: '2px 0 0 0' }}>
+                      Published on {formatDate(pub.publishedAt)}
+                    </p>
                   </div>
+                </div>
 
-                  <table className="table-custom" style={{ width: '100%', minWidth: '700px' }}>
-                    <thead>
-                      <tr>
-                        <th style={{ width: '150px' }}>Time Slot</th>
-                        {daysOfWeek.map(d => <th key={d}>{d}</th>)}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {timeslots.map(slot => {
-                        const breakMatch = slot.match(/\[(.*?)\]/);
-                        const breakType = breakMatch ? breakMatch[1] : null;
-                        const isBreak = !!breakType;
+                <table className="table-custom" style={{ width: '100%', minWidth: '700px' }}>
+                  <thead>
+                    <tr>
+                      <th style={{ width: '150px' }}>Time Slot</th>
+                      {daysOfWeek.map(d => <th key={d}>{d}</th>)}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {timeslots.map(slot => {
+                      const breakMatch = slot.match(/\[(.*?)\]/);
+                      const breakType = breakMatch ? breakMatch[1] : null;
+                      const isBreak = !!breakType;
 
-                        if (isBreak) {
-                          return (
-                            <tr key={slot} style={{ background: 'rgba(245, 158, 11, 0.02)' }}>
-                              <td style={{ fontWeight: 700, color: 'hsl(var(--color-primary))', fontSize: '0.8rem', padding: '12px' }}>{slot}</td>
-                              <td colSpan={6} style={{
-                                textAlign: 'center',
-                                verticalAlign: 'middle',
-                                padding: '12px',
-                                fontWeight: 800,
-                                color: '#d97706',
-                                letterSpacing: '3px',
-                                fontSize: '0.85rem',
-                                textTransform: 'uppercase',
-                                background: 'rgba(245, 158, 11, 0.04)',
-                                borderLeft: '1px solid var(--border-glass)',
-                                borderRadius: '8px'
-                              }}>
-                                {breakType}
-                              </td>
-                            </tr>
-                          );
-                        }
-
+                      if (isBreak) {
                         return (
-                          <tr key={slot}>
-                            <td style={{ fontWeight: 700, color: 'hsl(var(--color-primary))', fontSize: '0.8rem' }}>{slot}</td>
-                            {daysOfWeek.map(day => {
-                              const matched = pub.slots.find(s => s.day === day && s.time === slot);
-                              return (
-                                <td key={day} style={{ padding: '8px' }}>
-                                  {matched ? (
-                                    <div style={{
-                                      display: 'flex',
-                                      flexDirection: 'column',
-                                      alignItems: 'center',
-                                      justifyContent: 'center',
-                                      textAlign: 'center',
-                                      gap: '2px'
-                                    }}>
-                                      <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-main)', textTransform: 'capitalize' }}>{matched.subject}</span>
-                                      {matched.teacher && matched.teacher.trim() !== '' && matched.teacher.toLowerCase() !== 'n/a' && (
-                                        <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '3px' }}>
-                                          <UserCheck size={9} /> {matched.teacher}
-                                        </span>
-                                      )}
-                                    </div>
-                                  ) : (
-                                    <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', fontStyle: 'italic', padding: '12px', textAlign: 'center' }}>
-                                      Free Study
-                                    </div>
-                                  )}
-                                </td>
-                              );
-                            })}
+                          <tr key={slot} style={{ background: 'rgba(245, 158, 11, 0.02)' }}>
+                            <td style={{ fontWeight: 700, color: 'hsl(var(--color-primary))', fontSize: '0.8rem', padding: '12px' }}>{slot}</td>
+                            <td colSpan={6} style={{
+                              textAlign: 'center',
+                              verticalAlign: 'middle',
+                              padding: '12px',
+                              fontWeight: 800,
+                              color: '#d97706',
+                              letterSpacing: '3px',
+                              fontSize: '0.85rem',
+                              textTransform: 'uppercase',
+                              background: 'rgba(245, 158, 11, 0.04)',
+                              borderLeft: '1px solid var(--border-glass)',
+                              borderRadius: '8px'
+                            }}>
+                              {breakType}
+                            </td>
                           </tr>
                         );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              ))
-            ) : (
-              <div className="glass-panel" style={{ padding: '60px 40px', textAlign: 'center', color: 'var(--text-muted)' }}>
-                <Clock size={40} style={{ opacity: 0.3 }} />
-                <p style={{ fontWeight: 600, marginTop: '12px' }}>No published class timetables found matching search criteria.</p>
-              </div>
-            )}
-          </div>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
-            {!isTeacherFiltered ? (
-              <div className="glass-panel" style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>
-                <Search size={32} style={{ opacity: 0.3, marginBottom: '12px' }} />
-                <p style={{ fontWeight: 600 }}>Please select a filter or enter a search query to load published teacher timetables.</p>
-              </div>
-            ) : filteredTeacherTimetables.length > 0 ? (
-              filteredTeacherTimetables.map(pub => (
-                <div key={pub.teacher} className="glass-panel animate-scale-up" style={{ padding: '24px', overflowX: 'auto', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-glass)', paddingBottom: '12px' }}>
-                    <div>
-                      <h3 style={{ fontSize: '1.15rem', fontWeight: 800, margin: 0 }}>
-                        Teacher Timetable: <span style={{ color: 'hsl(var(--color-info))' }}>{pub.teacher}</span>
-                      </h3>
-                      <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: '2px 0 0 0' }}>
-                        Published on {formatDate(pub.publishedAt)}
-                      </p>
-                    </div>
-                  </div>
+                      }
 
-                  <table className="table-custom" style={{ width: '100%', minWidth: '700px' }}>
-                    <thead>
-                      <tr>
-                        <th style={{ width: '150px' }}>Time Slot</th>
-                        {daysOfWeek.map(d => <th key={d}>{d}</th>)}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {timeslots.map(slot => {
-                        const breakMatch = slot.match(/\[(.*?)\]/);
-                        const breakType = breakMatch ? breakMatch[1] : null;
-                        const isBreak = !!breakType;
-
-                        if (isBreak) {
-                          return (
-                            <tr key={slot} style={{ background: 'rgba(245, 158, 11, 0.02)' }}>
-                              <td style={{ fontWeight: 700, color: 'hsl(var(--color-info))', fontSize: '0.8rem', padding: '12px' }}>{slot}</td>
-                              <td colSpan={6} style={{
-                                textAlign: 'center',
-                                verticalAlign: 'middle',
-                                padding: '12px',
-                                fontWeight: 800,
-                                color: '#d97706',
-                                letterSpacing: '3px',
-                                fontSize: '0.85rem',
-                                textTransform: 'uppercase',
-                                background: 'rgba(245, 158, 11, 0.04)',
-                                borderLeft: '1px solid var(--border-glass)',
-                                borderRadius: '8px'
-                              }}>
-                                {breakType}
+                      return (
+                        <tr key={slot}>
+                          <td style={{ fontWeight: 700, color: 'hsl(var(--color-primary))', fontSize: '0.8rem' }}>{slot}</td>
+                          {daysOfWeek.map(day => {
+                            const matched = pub.slots.find(s => s.day === day && s.time === slot);
+                            return (
+                              <td key={day} style={{ padding: '8px' }}>
+                                {matched ? (
+                                  <div style={{
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    textAlign: 'center',
+                                    gap: '2px'
+                                  }}>
+                                    <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-main)', textTransform: 'capitalize' }}>{matched.subject}</span>
+                                    {matched.teacher && matched.teacher.trim() !== '' && matched.teacher.toLowerCase() !== 'n/a' && (
+                                      <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                                        <UserCheck size={9} /> {matched.teacher}
+                                      </span>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', fontStyle: 'italic', padding: '12px', textAlign: 'center' }}>
+                                    Free Study
+                                  </div>
+                                )}
                               </td>
-                            </tr>
-                          );
-                        }
-
-                        return (
-                          <tr key={slot}>
-                            <td style={{ fontWeight: 700, color: 'hsl(var(--color-info))', fontSize: '0.8rem' }}>{slot}</td>
-                            {daysOfWeek.map(day => {
-                              const matched = pub.slots.find(s => s.day === day && s.time === slot);
-                              return (
-                                <td key={day} style={{ padding: '8px' }}>
-                                  {matched ? (
-                                    <div style={{
-                                      display: 'flex',
-                                      flexDirection: 'column',
-                                      alignItems: 'center',
-                                      justifyContent: 'center',
-                                      textAlign: 'center',
-                                      gap: '4px',
-                                      width: '100%'
-                                    }}>
-                                      <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-main)' }}>Class {matched.cohort}</span>
-                                      <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>({matched.subject})</span>
-                                    </div>
-                                  ) : (
-                                    <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', fontStyle: 'italic', padding: '12px', textAlign: 'center' }}>
-                                      Free Study
-                                    </div>
-                                  )}
-                                </td>
-                              );
-                            })}
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              ))
-            ) : (
-              <div className="glass-panel" style={{ padding: '60px 40px', textAlign: 'center', color: 'var(--text-muted)' }}>
-                <UserCheck size={40} style={{ opacity: 0.3 }} />
-                <p style={{ fontWeight: 600, marginTop: '12px' }}>No published teacher timetables found matching search criteria.</p>
+                            );
+                          })}
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
-            )}
-          </div>
-        )}
+            ))
+          ) : (
+            <div className="glass-panel" style={{ padding: '60px 40px', textAlign: 'center', color: 'var(--text-muted)' }}>
+              <Clock size={40} style={{ opacity: 0.3 }} />
+              <p style={{ fontWeight: 600, marginTop: '12px' }}>No published class timetables found matching search criteria.</p>
+            </div>
+          )}
+        </div>
       </div>
     );
   };
@@ -7717,7 +7658,11 @@ export default function AcademicPanel({ subView, setAdminView, userProfile, scho
             </CustomSelect>
             <CustomSelect className="select-custom" value={activeExam} onChange={(e) => { setActiveExam(e.target.value); setResultsEntry({}); }}>
               <option value="">Select Exam Set</option>
-              {exams.map(ex => <option key={ex.id} value={ex.id}>{ex.examName}</option>)}
+              {exams.map(ex => (
+                <option key={ex.id} value={ex.id}>
+                  {ex.examName} {ex.grades && ex.grades.length > 0 ? `(${ex.grades.map(g => `Grade ${g}`).join(', ')})` : ''}
+                </option>
+              ))}
             </CustomSelect>
           </div>
         </div>
@@ -8303,8 +8248,6 @@ export default function AcademicPanel({ subView, setAdminView, userProfile, scho
       case 'academic-manager':
       case 'academic-class-timetable':
         return renderClassTimetable();
-      case 'academic-teacher-timetable':
-        return renderTeacherTimetable();
       case 'academic-exams':
         return renderExams();
       case 'academic-exams-history':
@@ -8361,7 +8304,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile, scho
 
 
       {/* Sub-navigation Menu Header for Academic Manager */}
-      {['academic-manager', 'academic-class-timetable', 'academic-teacher-timetable', 'academic-exams', 'academic-exams-history'].includes(subView) && (
+      {['academic-manager', 'academic-class-timetable', 'academic-exams', 'academic-exams-history'].includes(subView) && (
         <div className="glass-panel" style={{ padding: '8px', display: 'flex', gap: '8px', overflowX: 'auto', borderRadius: '12px' }}>
           <button
             onClick={() => {
@@ -8376,20 +8319,6 @@ export default function AcademicPanel({ subView, setAdminView, userProfile, scho
             }}
           >
             <Clock size={16} /> Class Timetable
-          </button>
-          <button
-            onClick={() => {
-              setAdminView('academic-teacher-timetable');
-            }}
-            className={`tab-btn-custom ${subView === 'academic-teacher-timetable' ? 'active' : ''}`}
-            style={{
-              display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px', borderRadius: '8px', fontSize: '0.85rem', fontWeight: 600, border: 'none', cursor: 'pointer',
-              background: subView === 'academic-teacher-timetable' ? 'rgba(255, 107, 0,0.1)' : 'transparent',
-              color: subView === 'academic-teacher-timetable' ? 'rgb(255, 107, 0)' : 'var(--text-muted)',
-              transition: 'all 0.2s ease'
-            }}
-          >
-            <UserCheck size={16} /> Teacher Timetable
           </button>
           <button
             onClick={() => {
@@ -8497,33 +8426,37 @@ export default function AcademicPanel({ subView, setAdminView, userProfile, scho
       {/* Exam Creation Wizard Modal */}
       {showExamWizard && createPortal(
         <div className="modal-overlay" style={{ zIndex: 20000000 }}>
-          <div className="animate-scale-up" style={{
-            width: '100%', maxWidth: '680px', maxHeight: '90vh', overflowY: 'auto', padding: '32px', borderRadius: '20px',
-            background: 'var(--bg-card)', border: '1px solid var(--border-glass)',
-            boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)', display: 'flex', flexDirection: 'column', gap: '24px'
-          }}>
+          <div className="animate-scale-up exam-wizard-modal">
             {/* Header */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-glass)', paddingBottom: '16px' }}>
               <div>
                 <h3 style={{ fontSize: '1.2rem', fontWeight: 800, margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <BookOpen size={20} style={{ color: 'hsl(var(--color-primary))' }} /> Create New Exam
+                  <BookOpen size={20} style={{ color: 'hsl(var(--color-primary))' }} /> {wizardForm.id ? 'Edit Exam' : 'Create New Exam'}
                 </h3>
                 <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: '4px 0 0 0' }}>
-                  Step {examWizardStep} of 4
+                  Step {examWizardStep} of 3
                 </p>
               </div>
-              <button onClick={() => { resetWizardForm(); setShowExamWizard(false); }} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '1.8rem', lineHeight: 1, padding: '4px' }}>{"\u00d7"}</button>
+              <button
+                type="button"
+                onClick={() => { resetWizardForm(); setShowExamWizard(false); }}
+                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '1.8rem', lineHeight: 1, padding: '4px' }}
+              >
+                {"\u00d7"}
+              </button>
             </div>
 
             {/* Step Progress */}
             <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-              {[1, 2, 3, 4].map(step => (
+              {[1, 2, 3].map(step => (
                 <div key={step} style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1 }}>
                   <div style={{
                     width: '32px', height: '32px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem', fontWeight: 700,
                     background: step <= examWizardStep ? 'hsl(var(--color-primary))' : 'var(--bg-glass-active)', color: step <= examWizardStep ? '#fff' : 'var(--text-muted)'
                   }}>{step}</div>
-                  <div style={{ flex: 1, height: '2px', background: step < examWizardStep ? 'hsl(var(--color-primary))' : 'var(--border-glass)', borderRadius: '1px' }} />
+                  {step < 3 && (
+                    <div style={{ flex: 1, height: '2px', background: step < examWizardStep ? 'hsl(var(--color-primary))' : 'var(--border-glass)', borderRadius: '1px' }} />
+                  )}
                 </div>
               ))}
             </div>
@@ -8551,7 +8484,302 @@ export default function AcademicPanel({ subView, setAdminView, userProfile, scho
             {/* Step 1: Basic Information */}
             {examWizardStep === 1 && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                <h4 style={{ fontSize: '1rem', fontWeight: 700, margin: 0 }}>Basic Information</h4>
+                {/* AI-Assisted Exam Planning Box */}
+                <div className="ai-describe-box">
+                  <div className="ai-describe-header">
+                    <div className="ai-describe-title-wrap">
+                      <span style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-main)' }}>
+                        Describe your exam (optional)
+                      </span>
+                      <span className="ai-describe-badge">
+                        <Sparkles size={12} /> AI Assisted
+                      </span>
+                    </div>
+                    <span className="ai-describe-char-count">
+                      {aiPromptText.length}/600
+                    </span>
+                  </div>
+
+                  <textarea
+                    className="ai-describe-textarea"
+                    maxLength={600}
+                    rows={3}
+                    placeholder="Unit Test 1 for classes 1 to 6 from 12 Oct, 2 papers a day, 100 marks. Second group classes 7 to 12 from 14 Oct, 3 papers a day, 50 marks. Skip Sundays."
+                    value={aiPromptText}
+                    onChange={e => {
+                      setAiPromptText(e.target.value);
+                      if (aiNoticeMsg) setAiNoticeMsg(null);
+                    }}
+                    disabled={aiLoading}
+                  />
+
+                  <div className="ai-describe-footer">
+                    <span className="ai-describe-hint">
+                      The AI extracts your plan settings. Timetables, dates, and subjects are scheduled conflict-free by the existing system algorithm.
+                    </span>
+                    <button
+                      type="button"
+                      className="ai-btn-generate"
+                      onClick={handleGenerateAiPlan}
+                      disabled={aiLoading || !aiPromptText.trim()}
+                    >
+                      {aiLoading ? (
+                        <>
+                          <Loader2 size={15} className="spin" /> Parsing Plan...
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles size={15} /> Generate Plan
+                        </>
+                      )}
+                    </button>
+                  </div>
+
+                  {/* Friendly non-blocking notice/error banner */}
+                  {aiNoticeMsg && (
+                    <div className={`ai-alert-banner ${aiNoticeMsg.type === 'info' ? 'ai-alert-info' : 'ai-alert-warning'}`}>
+                      <AlertCircle size={16} style={{ flexShrink: 0 }} />
+                      <span>{aiNoticeMsg.text}</span>
+                      <button
+                        type="button"
+                        onClick={() => setAiNoticeMsg(null)}
+                        style={{ marginLeft: 'auto', background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', padding: '0 4px', fontSize: '1rem', lineHeight: 1 }}
+                      >
+                        ×
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* "Did I understand correctly?" Summary Card */}
+                {aiPlanData && aiPlanData.plan && (
+                  <div className="ai-summary-card animate-scale-up">
+                    <div className="ai-summary-header">
+                      <h5 className="ai-summary-title">
+                        <Sparkles size={18} /> Did I understand correctly?
+                      </h5>
+                      <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                        {aiPlanData.plan.session && (
+                          <span className="ai-grade-pill">
+                            Session: {aiPlanData.plan.session}
+                          </span>
+                        )}
+                        {aiPlanData.plan.examType && (
+                          <span className="ai-grade-pill">
+                            {aiPlanData.plan.examType}
+                          </span>
+                        )}
+                        <button
+                          type="button"
+                          className="btn-secondary"
+                          onClick={() => {
+                            setAiPlanData(null);
+                            setAiMissingAnswers({});
+                          }}
+                          style={{ fontSize: '0.74rem', padding: '4px 10px', borderRadius: '6px' }}
+                        >
+                          Clear AI Plan
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Notices or Warnings */}
+                    {((aiPlanData.notices && aiPlanData.notices.length > 0) || (aiPlanData.warnings && aiPlanData.warnings.length > 0)) && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                        {(aiPlanData.notices || []).map((note, nIdx) => (
+                          <div key={nIdx} className="ai-alert-banner ai-alert-info">
+                            <AlertCircle size={15} style={{ flexShrink: 0 }} />
+                            <span>{note}</span>
+                          </div>
+                        ))}
+                        {(aiPlanData.warnings || []).map((warn, wIdx) => (
+                          <div key={wIdx} className="ai-alert-banner ai-alert-warning">
+                            <AlertCircle size={15} style={{ flexShrink: 0 }} />
+                            <span>{warn}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Groups list */}
+                    <div className="ai-groups-grid">
+                      {aiPlanData.plan.groups.map((grp, gIdx) => (
+                        <div key={gIdx} className="ai-group-card">
+                          <div className="ai-group-header">
+                            <div>
+                              <span className="ai-group-name">{grp.name || `Group ${gIdx + 1}`}</span>
+                              <div className="ai-group-pills">
+                                {(grp.grades || []).map(g => (
+                                  <span key={g} className="ai-grade-pill">Grade {g}</span>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="ai-group-details-grid">
+                            <div className="ai-group-field">
+                              <span className="ai-group-field-label">Start Date *</span>
+                              <input
+                                type="date"
+                                className="ai-group-input"
+                                min={getTodayDateStr()}
+                                value={grp.startDate || ''}
+                                onChange={e => {
+                                  const updated = { ...aiPlanData };
+                                  updated.plan.groups[gIdx].startDate = e.target.value;
+                                  setAiPlanData(updated);
+                                  if (wizardError) setWizardError('');
+                                }}
+                                required
+                              />
+                            </div>
+
+                            <div className="ai-group-field">
+                              <span className="ai-group-field-label">Subjects / Day</span>
+                              <CustomSelect
+                                className="ai-group-input"
+                                value={String(grp.subjectsPerDay || 1)}
+                                onChange={e => {
+                                  const updated = { ...aiPlanData };
+                                  updated.plan.groups[gIdx].subjectsPerDay = parseInt(e.target.value, 10) || 1;
+                                  setAiPlanData(updated);
+                                }}
+                              >
+                                <option value="1">1 Paper / Day</option>
+                                <option value="2">2 Papers / Day</option>
+                                <option value="3">3 Papers / Day</option>
+                                <option value="4">4 Papers / Day</option>
+                              </CustomSelect>
+                            </div>
+
+                            <div className="ai-group-field">
+                              <span className="ai-group-field-label">Marks / Subject *</span>
+                              <input
+                                type="number"
+                                min="1"
+                                className="ai-group-input"
+                                placeholder="e.g. 100"
+                                value={grp.marksPerSubject || ''}
+                                onChange={e => {
+                                  const val = parseInt(e.target.value, 10);
+                                  const updated = { ...aiPlanData };
+                                  updated.plan.groups[gIdx].marksPerSubject = isNaN(val) ? '' : val;
+                                  setAiPlanData(updated);
+                                  if (wizardError) setWizardError('');
+                                }}
+                                required
+                              />
+                            </div>
+
+                            <div className="ai-group-field">
+                              <span className="ai-group-field-label">Timings</span>
+                              <span className="ai-group-field-val" style={{ fontSize: '0.8rem', marginTop: '4px' }}>
+                                {grp.firstPaperStart || '09:00'} ({grp.paperDurationMinutes || 120}m, break {grp.breakMinutes || 30}m)
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Small Inline Fields for Missing Questions */}
+                    {aiPlanData.missingQuestions && aiPlanData.missingQuestions.length > 0 && (
+                      <div className="ai-missing-box">
+                        <span className="ai-missing-title">
+                          <AlertCircle size={16} /> Additional Details Needed
+                        </span>
+                        <div className="ai-missing-fields-grid">
+                          {aiPlanData.missingQuestions.map(q => {
+                            if (q.type === 'select' && q.options) {
+                              return (
+                                <div key={q.key} className="ai-missing-item">
+                                  <label>{q.label} *</label>
+                                  <CustomSelect
+                                    className="ai-group-input"
+                                    value={aiMissingAnswers[q.key] || ''}
+                                    onChange={e => {
+                                      setAiMissingAnswers({ ...aiMissingAnswers, [q.key]: e.target.value });
+                                      if (wizardError) setWizardError('');
+                                    }}
+                                  >
+                                    <option value="">Select...</option>
+                                    {q.options.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                                  </CustomSelect>
+                                </div>
+                              );
+                            }
+                            if (q.type === 'date') {
+                              return (
+                                <div key={q.key} className="ai-missing-item">
+                                  <label>{q.label} *</label>
+                                  <input
+                                    type="date"
+                                    min={getTodayDateStr()}
+                                    className="ai-group-input"
+                                    value={aiMissingAnswers[q.key] || ''}
+                                    onChange={e => {
+                                      setAiMissingAnswers({ ...aiMissingAnswers, [q.key]: e.target.value });
+                                      if (wizardError) setWizardError('');
+                                    }}
+                                  />
+                                </div>
+                              );
+                            }
+                            return (
+                              <div key={q.key} className="ai-missing-item">
+                                <label>{q.label} *</label>
+                                <input
+                                  type="number"
+                                  min="1"
+                                  placeholder="e.g. 100"
+                                  className="ai-group-input"
+                                  value={aiMissingAnswers[q.key] || ''}
+                                  onChange={e => {
+                                    setAiMissingAnswers({ ...aiMissingAnswers, [q.key]: e.target.value });
+                                    if (wizardError) setWizardError('');
+                                  }}
+                                />
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Actions */}
+                    <div className="ai-summary-actions">
+                      <button
+                        type="button"
+                        className="btn-secondary"
+                        onClick={() => {
+                          setAiPlanData(null);
+                          setAiMissingAnswers({});
+                        }}
+                        style={{ fontSize: '0.84rem', padding: '8px 16px', borderRadius: '8px' }}
+                      >
+                        Edit Form Manually
+                      </button>
+                      <button
+                        type="button"
+                        className="btn-primary"
+                        onClick={handleApplyAiPlanAndContinue}
+                        style={{
+                          fontSize: '0.84rem',
+                          padding: '8px 20px',
+                          borderRadius: '8px',
+                          fontWeight: 700,
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px'
+                        }}
+                      >
+                        Continue to Schedule <ArrowRight size={16} />
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                <h4 style={{ fontSize: '1rem', fontWeight: 700, margin: '8px 0 0 0' }}>Basic Information</h4>
                 <div className="form-group">
                   <label>Academic Session *</label>
                   <CustomSelect className="form-control" value={wizardForm.academicSession} onChange={e => setWizardForm({ ...wizardForm, academicSession: e.target.value })} style={{ marginTop: '4px' }}>
@@ -8614,9 +8842,28 @@ export default function AcademicPanel({ subView, setAdminView, userProfile, scho
                   <textarea className="form-control" placeholder="Optional description..." value={wizardForm.description} onChange={e => setWizardForm({ ...wizardForm, description: e.target.value })} rows={3} style={{ marginTop: '4px', resize: 'vertical' }} />
                 </div>
                 <div className="form-group">
-                  <label>Total Marks (per subject) *</label>
-                  <input type="number" className="form-control" placeholder="e.g. 100" min="1" value={wizardForm.totalMarks} onChange={e => setWizardForm({ ...wizardForm, totalMarks: parseInt(e.target.value) || 0 })} style={{ marginTop: '4px' }} />
-                  <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: '4px 0 0 0' }}>Default marks for each subject. You can override per subject in Step 3.</p>
+                  <label style={{ color: ((!wizardForm.marksPerSubject || wizardForm.marksPerSubject <= 0) && wizardError) ? '#ef4444' : undefined }}>Marks Per Subject *</label>
+                  <input
+                    type="number"
+                    className="form-control"
+                    placeholder="e.g. 100"
+                    min="1"
+                    step="1"
+                    value={wizardForm.marksPerSubject || ''}
+                    onChange={e => {
+                      const val = parseInt(e.target.value, 10);
+                      setWizardForm({ ...wizardForm, marksPerSubject: isNaN(val) ? '' : val });
+                      if (wizardError) setWizardError('');
+                    }}
+                    style={{
+                      marginTop: '4px',
+                      borderColor: ((!wizardForm.marksPerSubject || wizardForm.marksPerSubject <= 0) && wizardError) ? '#ef4444' : undefined
+                    }}
+                    required
+                  />
+                  <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: '4px 0 0 0' }}>
+                    Marks assigned to each subject. Total exam marks will be automatically calculated based on the number of subjects.
+                  </p>
                 </div>
               </div>
             )}
@@ -8624,8 +8871,15 @@ export default function AcademicPanel({ subView, setAdminView, userProfile, scho
             {/* Step 2: Select Grades */}
             {examWizardStep === 2 && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                <h4 style={{ fontSize: '1rem', fontWeight: 700, margin: 0 }}>Select Grades</h4>
-                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: 0 }}>Select one or more grades.</p>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div>
+                    <h4 style={{ fontSize: '1rem', fontWeight: 700, margin: 0 }}>Select Grades</h4>
+                    <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: '4px 0 0 0' }}>Select one or more grades for this examination.</p>
+                  </div>
+                  <span style={{ fontSize: '0.8rem', fontWeight: 600, color: wizardForm.selectedGrades.length > 0 ? 'hsl(var(--color-primary))' : 'var(--text-muted)' }}>
+                    {wizardForm.selectedGrades.length} Grade{wizardForm.selectedGrades.length !== 1 ? 's' : ''} Selected
+                  </span>
+                </div>
                 {(() => {
                   const currentExamName = wizardForm.examType === 'Custom Exam' ? wizardForm.customExamName : wizardForm.examType;
 
@@ -8653,6 +8907,9 @@ export default function AcademicPanel({ subView, setAdminView, userProfile, scho
                       (ex.gradeSections || []).forEach(gs => {
                         alreadyUsedGrades.add(gs.grade);
                       });
+                      (ex.grades || []).forEach(g => {
+                        alreadyUsedGrades.add(g);
+                      });
                     }
                   });
 
@@ -8663,7 +8920,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile, scho
                       return currentGradeOrder.indexOf(a) - currentGradeOrder.indexOf(b);
                     });
                   return uniqueGradesWithSubjects.length > 0 ? (
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '10px', maxHeight: '300px', overflowY: 'auto', padding: '4px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '10px', maxHeight: '320px', overflowY: 'auto', padding: '4px' }}>
                       {uniqueGradesWithSubjects.map((g, idx) => {
                         const isSelected = wizardForm.selectedGrades.some(sg => sg.grade === g);
                         return (
@@ -8671,22 +8928,17 @@ export default function AcademicPanel({ subView, setAdminView, userProfile, scho
                             const updated = isSelected
                               ? wizardForm.selectedGrades.filter(sg => sg.grade !== g)
                               : [...wizardForm.selectedGrades, { grade: g, section: "" }];
-                            const newStartDates = { ...wizardForm.startDates };
-                            const newEndDates = { ...wizardForm.endDates };
-                            const key = `${g}-`;
-                            if (!isSelected) {
-                              newStartDates[key] = '';
-                              newEndDates[key] = '';
-                            } else {
-                              delete newStartDates[key];
-                              delete newEndDates[key];
+                            setWizardForm({ ...wizardForm, selectedGrades: updated });
+                            if (wizardError) setWizardError('');
+                            if (!wizardPreviewActiveGrade || isSelected) {
+                              setWizardPreviewActiveGrade(updated[0]?.grade || '');
                             }
-                            setWizardForm({ ...wizardForm, selectedGrades: updated, startDates: newStartDates, endDates: newEndDates });
                           }} style={{
-                            padding: '12px', borderRadius: '10px', cursor: 'pointer', userSelect: 'none',
-                            background: isSelected ? 'rgba(255, 107, 0,0.12)' : 'var(--bg-glass-active)',
+                            padding: '14px 12px', borderRadius: '12px', cursor: 'pointer', userSelect: 'none',
+                            background: isSelected ? 'rgba(255, 107, 0, 0.12)' : 'var(--bg-glass-active)',
                             border: isSelected ? '2px solid hsl(var(--color-primary))' : '1px solid var(--border-glass)',
-                            textAlign: 'center', fontWeight: 600, fontSize: '0.85rem',
+                            textAlign: 'center', fontWeight: 700, fontSize: '0.88rem',
+                            color: isSelected ? 'hsl(var(--color-primary))' : 'var(--text-main)',
                             transition: 'all 0.15s'
                           }}>
                             Grade {g}
@@ -8696,161 +8948,356 @@ export default function AcademicPanel({ subView, setAdminView, userProfile, scho
                     </div>
                   ) : (
                     <div style={{ padding: '30px', textAlign: 'center', color: 'var(--text-muted)' }}>
-                      No grades found with subjects. Please add subjects to a grade first.
+                      No grades found with configured subjects. Please add subjects to a grade first.
                     </div>
                   );
                 })()}
               </div>
             )}
 
-            {/* Step 3: Subject Assignment & Configuration */}
-            {examWizardStep === 3 && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                <h4 style={{ fontSize: '1rem', fontWeight: 700, margin: 0 }}>Subject Configuration</h4>
-                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: 0 }}>
-                  Set marks per subject and choose which subjects to include in the exam schedule.
-                </p>
-                {(() => {
-                  const uniqueGrades = [...new Set(wizardForm.selectedGrades.map(g => g.grade))];
-                  return uniqueGrades.length > 0 ? (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', maxHeight: '400px', overflowY: 'auto', paddingRight: '4px' }}>
-                      {uniqueGrades.map(grade => {
-                        const gradeSubjects = subjects.filter(s => s.grade === grade).map(s => s.subjectName);
-                        return (
-                          <div key={grade} className="glass-panel" style={{ padding: '16px 20px', background: 'var(--bg-glass-active)', border: '1px solid var(--border-glass)', borderRadius: '14px' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', paddingBottom: '10px', borderBottom: '1px solid var(--border-glass)' }}>
-                              <h5 style={{ fontSize: '0.95rem', fontWeight: 700, margin: 0, color: 'hsl(var(--color-primary))' }}>
-                                Grade {grade}
-                              </h5>
-                              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>
-                                {gradeSubjects.filter(sub => wizardForm.subjectIncluded[`${grade}-${sub}`] !== false).length} / {gradeSubjects.length} subjects included
-                              </span>
-                            </div>
-                            {gradeSubjects.length > 0 ? (
-                              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                                {/* Header Row */}
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 120px 100px', gap: '12px', padding: '0 4px', alignItems: 'center' }}>
-                                  <span style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Subject</span>
-                                  <span style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', textAlign: 'center' }}>Marks</span>
-                                  <span style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', textAlign: 'center' }}>Include</span>
-                                </div>
-                                {gradeSubjects.map((sub, i) => {
-                                  const subKey = `${grade}-${sub}`;
-                                  const isIncluded = wizardForm.subjectIncluded[subKey] !== false;
-                                  const subMarks = wizardForm.subjectMarks[subKey] !== undefined ? wizardForm.subjectMarks[subKey] : wizardForm.totalMarks;
-                                  return (
-                                    <div key={i} style={{
-                                      display: 'grid', gridTemplateColumns: '1fr 120px 100px', gap: '12px', padding: '10px 12px',
-                                      background: isIncluded ? 'rgba(255, 107, 0,0.04)' : 'rgba(239,68,68,0.03)',
-                                      border: isIncluded ? '1px solid rgba(255, 107, 0,0.15)' : '1px solid rgba(239,68,68,0.12)',
-                                      borderRadius: '10px', alignItems: 'center',
-                                      opacity: isIncluded ? 1 : 0.6,
-                                      transition: 'all 0.2s ease'
-                                    }}>
-                                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
-                                        <div style={{
-                                          width: '8px', height: '8px', borderRadius: '50%', flexShrink: 0,
-                                          background: isIncluded ? 'hsl(var(--color-primary))' : 'rgb(var(--color-danger-rgb))'
-                                        }} />
-                                        <span style={{
-                                          fontSize: '0.88rem', fontWeight: 600,
-                                          textDecoration: isIncluded ? 'none' : 'line-through',
-                                          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
-                                        }}>{sub}</span>
-                                      </div>
-                                      <input
-                                        type="number"
-                                        min="1"
-                                        value={subMarks}
-                                        onChange={e => setWizardForm({
-                                          ...wizardForm,
-                                          subjectMarks: { ...wizardForm.subjectMarks, [subKey]: parseInt(e.target.value) || 0 }
-                                        })}
-                                        disabled={!isIncluded}
-                                        className="form-control"
-                                        style={{
-                                          padding: '6px 10px', fontSize: '0.82rem', textAlign: 'center',
-                                          borderRadius: '8px', width: '100%',
-                                          opacity: isIncluded ? 1 : 0.4
-                                        }}
-                                      />
-                                      <div style={{ display: 'flex', justifyContent: 'center' }}>
-                                        <button
-                                          type="button"
-                                          onClick={() => setWizardForm({
-                                            ...wizardForm,
-                                            subjectIncluded: { ...wizardForm.subjectIncluded, [subKey]: !isIncluded }
-                                          })}
-                                          style={{
-                                            padding: '5px 16px', borderRadius: '20px', cursor: 'pointer',
-                                            fontSize: '0.78rem', fontWeight: 700, border: 'none',
-                                            background: isIncluded
-                                              ? 'linear-gradient(135deg, rgba(16,185,129,0.15), rgba(16,185,129,0.08))'
-                                              : 'linear-gradient(135deg, rgba(239,68,68,0.15), rgba(239,68,68,0.08))',
-                                            color: isIncluded ? '#10b981' : 'rgb(var(--color-danger-rgb))',
-                                            transition: 'all 0.2s ease'
-                                          }}
-                                        >
-                                          {isIncluded ? 'Yes' : 'No'}
-                                        </button>
-                                      </div>
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            ) : (
-                              <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
-                                No subjects configured for Grade {grade}. Please add subjects in the Grade & Subjects section.
-                              </span>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  ) : (
-                    <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-muted)' }}>
-                      No grades selected.
-                    </div>
-                  );
-                })()}
-              </div>
-            )}
+            {/* Step 3: Schedule & Auto Timetable */}
+            {examWizardStep === 3 && (() => {
+              const activeGrade = wizardPreviewActiveGrade || wizardForm.selectedGrades[0]?.grade || '';
+              const gradeSubjects = subjects.filter(s => s.grade === activeGrade).map(s => s.subjectName);
 
-            {/* Step 4: Schedule Configuration */}
-            {examWizardStep === 4 && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                <h4 style={{ fontSize: '1rem', fontWeight: 700, margin: 0 }}>Schedule Configuration</h4>
-                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: 0 }}>
-                  Set the exam start and end dates for each grade-section.
-                </p>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                  {wizardForm.selectedGrades.map((gs, idx) => {
-                    const key = `${gs.grade}-${gs.section}`;
-                    return (
-                      <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '12px 16px', background: 'var(--bg-glass-active)', border: '1px solid var(--border-glass)', borderRadius: '10px', flexWrap: 'wrap' }}>
-                        <div style={{ minWidth: '120px', fontWeight: 700, fontSize: '0.9rem' }}>
-                          Grade {gs.grade} - {gs.section}
+              // Look up if this active grade belongs to an AI plan group
+              const matchedGroup = (wizardGroups && wizardGroups.find(g => (g.grades || []).includes(activeGrade))) || null;
+
+              const effectiveStartDate = (matchedGroup?.startDate || wizardForm.startDate || '').trim();
+              const effectivePerDay = parseInt(matchedGroup?.subjectsPerDay || wizardForm.subjectsPerDay, 10) || 1;
+              const effectiveMarks = parseInt(matchedGroup?.marksPerSubject || wizardForm.marksPerSubject, 10) || 100;
+              const effectiveTimings = {
+                startTime: matchedGroup?.firstPaperStart || wizardForm.startTime || '09:00',
+                durationMinutes: parseInt(matchedGroup?.paperDurationMinutes || wizardForm.durationMinutes, 10) || 120,
+                breakMinutes: parseInt(matchedGroup?.breakMinutes !== undefined ? matchedGroup.breakMinutes : wizardForm.breakMinutes, 10) >= 0
+                  ? parseInt(matchedGroup?.breakMinutes !== undefined ? matchedGroup.breakMinutes : wizardForm.breakMinutes, 10)
+                  : 30
+              };
+              const effectiveOffDays = (wizardAiAudit?.plan?.global?.offDays) || ['Sunday'];
+              const effectiveHolidays = (wizardAiAudit?.plan?.global?.holidays) || [];
+
+              let currentPreview = null;
+              if (effectiveStartDate && activeGrade) {
+                try {
+                  currentPreview = generateTimetable({
+                    subjects: gradeSubjects,
+                    startDate: effectiveStartDate,
+                    subjectsPerDay: effectivePerDay,
+                    marksPerSubject: effectiveMarks,
+                    timings: effectiveTimings,
+                    offDays: effectiveOffDays,
+                    holidays: effectiveHolidays
+                  });
+                } catch (e) {
+                  currentPreview = null;
+                }
+              }
+
+              return (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+                  <div>
+                    <h4 style={{ fontSize: '1rem', fontWeight: 700, margin: 0 }}>Schedule & Auto Timetable</h4>
+                    <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: '4px 0 0 0' }}>
+                      Configure examination parameters to generate a conflict-free schedule.
+                    </p>
+                  </div>
+
+                  {matchedGroup && (
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      padding: '8px 12px',
+                      borderRadius: '10px',
+                      background: 'rgba(255, 107, 0, 0.1)',
+                      border: '1px solid rgba(255, 107, 0, 0.25)',
+                      fontSize: '0.82rem',
+                      fontWeight: 600,
+                      color: 'hsl(var(--color-primary))'
+                    }}>
+                      <Sparkles size={15} style={{ flexShrink: 0 }} />
+                      <span>Applied Group Plan: <strong>{matchedGroup.name || `Grade ${activeGrade}`}</strong> ({matchedGroup.gradeFrom} to {matchedGroup.gradeTo}) • {effectiveMarks} Marks/Paper</span>
+                    </div>
+                  )}
+
+                  {/* Rules Inputs */}
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+                    gap: '14px',
+                    padding: '16px',
+                    borderRadius: '14px',
+                    background: 'var(--bg-glass-active)',
+                    border: '1px solid var(--border-glass)'
+                  }}>
+                    <div className="form-group" style={{ margin: 0 }}>
+                      <label style={{ fontSize: '0.8rem', fontWeight: 600, display: 'block', marginBottom: '4px' }}>
+                        Start Date *
+                      </label>
+                      <input
+                        type="date"
+                        className="form-control"
+                        min={getTodayDateStr()}
+                        value={effectiveStartDate}
+                        onChange={e => {
+                          const newDate = e.target.value;
+                          setWizardForm({ ...wizardForm, startDate: newDate });
+                          if (wizardGroups && matchedGroup) {
+                            const updated = wizardGroups.map(g => (g === matchedGroup ? { ...g, startDate: newDate } : g));
+                            setWizardGroups(updated);
+                          }
+                          if (wizardError) setWizardError('');
+                        }}
+                        style={{
+                          fontSize: '0.84rem',
+                          padding: '8px 12px',
+                          borderRadius: '8px',
+                          borderColor: (!effectiveStartDate && wizardError) ? '#ef4444' : undefined
+                        }}
+                        required
+                      />
+                    </div>
+
+                    <div className="form-group" style={{ margin: 0 }}>
+                      <label style={{ fontSize: '0.8rem', fontWeight: 600, display: 'block', marginBottom: '4px' }}>
+                        Subjects Per Day
+                      </label>
+                      <CustomSelect
+                        className="form-control"
+                        value={String(effectivePerDay)}
+                        onChange={e => {
+                          const perDay = parseInt(e.target.value, 10) || 1;
+                          setWizardForm({ ...wizardForm, subjectsPerDay: perDay });
+                          if (wizardGroups && matchedGroup) {
+                            const updated = wizardGroups.map(g => (g === matchedGroup ? { ...g, subjectsPerDay: perDay } : g));
+                            setWizardGroups(updated);
+                          }
+                        }}
+                        style={{ fontSize: '0.84rem', borderRadius: '8px' }}
+                      >
+                        <option value="1">1 Paper / Day</option>
+                        <option value="2">2 Papers / Day</option>
+                        <option value="3">3 Papers / Day</option>
+                        <option value="4">4 Papers / Day</option>
+                      </CustomSelect>
+                    </div>
+
+                    <div className="form-group" style={{ margin: 0 }}>
+                      <label style={{ fontSize: '0.8rem', fontWeight: 600, display: 'block', marginBottom: '4px' }}>
+                        Start Time
+                      </label>
+                      <input
+                        type="time"
+                        className="form-control"
+                        value={effectiveTimings.startTime}
+                        onChange={e => {
+                          const time = e.target.value;
+                          setWizardForm({ ...wizardForm, startTime: time });
+                          if (wizardGroups && matchedGroup) {
+                            const updated = wizardGroups.map(g => (g === matchedGroup ? { ...g, firstPaperStart: time } : g));
+                            setWizardGroups(updated);
+                          }
+                        }}
+                        style={{ fontSize: '0.84rem', padding: '8px 12px', borderRadius: '8px' }}
+                      />
+                    </div>
+
+                    <div className="form-group" style={{ margin: 0 }}>
+                      <label style={{ fontSize: '0.8rem', fontWeight: 600, display: 'block', marginBottom: '4px' }}>
+                        Duration
+                      </label>
+                      <CustomSelect
+                        className="form-control"
+                        value={String(effectiveTimings.durationMinutes)}
+                        onChange={e => {
+                          const dur = parseInt(e.target.value, 10) || 120;
+                          setWizardForm({ ...wizardForm, durationMinutes: dur });
+                          if (wizardGroups && matchedGroup) {
+                            const updated = wizardGroups.map(g => (g === matchedGroup ? { ...g, paperDurationMinutes: dur } : g));
+                            setWizardGroups(updated);
+                          }
+                        }}
+                        style={{ fontSize: '0.84rem', borderRadius: '8px' }}
+                      >
+                        <option value="60">60 Mins (1 Hour)</option>
+                        <option value="90">90 Mins (1.5 Hours)</option>
+                        <option value="120">120 Mins (2 Hours)</option>
+                        <option value="150">150 Mins (2.5 Hours)</option>
+                        <option value="180">180 Mins (3 Hours)</option>
+                      </CustomSelect>
+                    </div>
+
+                    {effectivePerDay > 1 && (
+                      <div className="form-group animate-slide-down" style={{ margin: 0 }}>
+                        <label style={{ fontSize: '0.8rem', fontWeight: 600, display: 'block', marginBottom: '4px' }}>
+                          Break Between Papers
+                        </label>
+                        <CustomSelect
+                          className="form-control"
+                          value={String(effectiveTimings.breakMinutes)}
+                          onChange={e => {
+                            const brk = parseInt(e.target.value, 10) || 0;
+                            setWizardForm({ ...wizardForm, breakMinutes: brk });
+                            if (wizardGroups && matchedGroup) {
+                              const updated = wizardGroups.map(g => (g === matchedGroup ? { ...g, breakMinutes: brk } : g));
+                              setWizardGroups(updated);
+                            }
+                          }}
+                          style={{ fontSize: '0.84rem', borderRadius: '8px' }}
+                        >
+                          <option value="15">15 Minutes</option>
+                          <option value="30">30 Minutes</option>
+                          <option value="45">45 Minutes</option>
+                          <option value="60">60 Minutes</option>
+                        </CustomSelect>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Grade Tabs */}
+                  {wizardForm.selectedGrades.length > 1 && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                        Grade Preview
+                      </span>
+                      <div className="exam-preview-grade-tabs">
+                        {wizardForm.selectedGrades.map(sg => {
+                          const isTabActive = (activeGrade === sg.grade);
+                          return (
+                            <button
+                              key={sg.grade}
+                              type="button"
+                              className={`exam-preview-grade-tab ${isTabActive ? 'active' : ''}`}
+                              onClick={() => setWizardPreviewActiveGrade(sg.grade)}
+                            >
+                              Grade {sg.grade}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Preview Section */}
+                  {!wizardForm.startDate ? (
+                    <div style={{
+                      padding: '24px',
+                      borderRadius: '12px',
+                      background: 'rgba(255, 107, 0, 0.05)',
+                      border: '1px dashed rgba(255, 107, 0, 0.25)',
+                      textAlign: 'center',
+                      color: 'var(--text-muted)',
+                      fontSize: '0.85rem'
+                    }}>
+                      Select an exam start date above to view the auto-generated timetable preview.
+                    </div>
+                  ) : currentPreview ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                      {/* Summary Cards */}
+                      <div className="exam-preview-summary-card">
+                        <div className="exam-preview-stat">
+                          <span className="exam-preview-stat-label">Total Subjects</span>
+                          <span className="exam-preview-stat-val">{currentPreview.summary.totalSubjects}</span>
                         </div>
-                        <div style={{ flex: 1, minWidth: '160px' }}>
-                          <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Start Date *</label>
-                          <input type="date" className="form-control" value={wizardForm.startDates[key] || ''} onChange={e => setWizardForm({ ...wizardForm, startDates: { ...wizardForm.startDates, [key]: e.target.value } })} required style={{ padding: '6px 10px', borderRadius: '8px', fontSize: '0.82rem' }} />
+                        <div className="exam-preview-stat">
+                          <span className="exam-preview-stat-label">Exam Days</span>
+                          <span className="exam-preview-stat-val">{currentPreview.summary.totalExamDays} Days</span>
                         </div>
-                        <div style={{ flex: 1, minWidth: '160px' }}>
-                          <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>End Date *</label>
-                          <input type="date" className="form-control" value={wizardForm.endDates[key] || ''} onChange={e => setWizardForm({ ...wizardForm, endDates: { ...wizardForm.endDates, [key]: e.target.value } })} required style={{ padding: '6px 10px', borderRadius: '8px', fontSize: '0.82rem' }} />
+                        <div className="exam-preview-stat">
+                          <span className="exam-preview-stat-label">Total Marks</span>
+                          <span className="exam-preview-stat-val" style={{ color: 'hsl(var(--color-primary))' }}>
+                            {currentPreview.summary.totalMarks}
+                            <span style={{ fontSize: '0.72rem', fontWeight: 500, color: 'var(--text-muted)', marginLeft: '4px' }}>
+                              ({currentPreview.summary.totalSubjects} × {currentPreview.summary.marksPerSubject})
+                            </span>
+                          </span>
+                        </div>
+                        <div className="exam-preview-stat">
+                          <span className="exam-preview-stat-label">Date Span</span>
+                          <span className="exam-preview-stat-val" style={{ fontSize: '0.85rem', fontWeight: 700 }}>
+                            {currentPreview.summary.startDate ? formatFriendlyDate(currentPreview.summary.startDate) : '-'}
+                            {currentPreview.summary.endDate && currentPreview.summary.endDate !== currentPreview.summary.startDate ? ` to ${formatFriendlyDate(currentPreview.summary.endDate)}` : ''}
+                          </span>
                         </div>
                       </div>
-                    );
-                  })}
+
+                      {/* Notice Banners */}
+                      {currentPreview.summary.notices && currentPreview.summary.notices.length > 0 && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                          {currentPreview.summary.notices.map((notice, nIdx) => (
+                            <div key={nIdx} className="exam-preview-notice">
+                              <AlertCircle size={16} style={{ flexShrink: 0, marginTop: '1px' }} />
+                              <span>{notice}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Timetable Table */}
+                      {currentPreview.schedule && currentPreview.schedule.length > 0 ? (
+                        <div className="exam-preview-table-wrap">
+                          <table className="exam-preview-table">
+                            <thead>
+                              <tr>
+                                <th style={{ width: '130px' }}>Date</th>
+                                <th style={{ width: '110px' }}>Day</th>
+                                <th style={{ width: '180px' }}>Time Slot</th>
+                                <th>Subject</th>
+                                <th style={{ width: '90px', textAlign: 'center' }}>Marks</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {currentPreview.schedule.map((row, rIdx) => (
+                                <tr key={rIdx}>
+                                  <td style={{ fontWeight: 600 }}>{row.date}</td>
+                                  <td style={{ color: 'var(--text-muted)', fontWeight: 600 }}>{row.dayOfWeek}</td>
+                                  <td>
+                                    <span style={{
+                                      display: 'inline-block',
+                                      padding: '3px 8px',
+                                      borderRadius: '6px',
+                                      background: 'var(--bg-glass-active)',
+                                      fontSize: '0.78rem',
+                                      fontWeight: 600
+                                    }}>
+                                      {row.timeSlot}
+                                    </span>
+                                  </td>
+                                  <td style={{ fontWeight: 700, color: 'hsl(var(--color-primary))' }}>
+                                    {row.subject}
+                                  </td>
+                                  <td style={{ textAlign: 'center', fontWeight: 700 }}>
+                                    {row.marks}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      ) : (
+                        <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                          No subjects configured for Grade {activeGrade}. Please add subjects to this grade in the Grades & Subjects section.
+                        </div>
+                      )}
+                    </div>
+                  ) : null}
                 </div>
-              </div>
-            )}
+              );
+            })()}
 
             {/* Footer Buttons */}
             <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid var(--border-glass)', paddingTop: '16px' }}>
               <div>
                 {examWizardStep > 1 && (
-                  <button className="btn-secondary" onClick={() => setExamWizardStep(examWizardStep - 1)} style={{ padding: '10px 20px', borderRadius: '8px', fontWeight: 600 }}>
+                  <button
+                    type="button"
+                    className="btn-secondary"
+                    onClick={() => {
+                      setWizardError('');
+                      setExamWizardStep(examWizardStep - 1);
+                    }}
+                    style={{ padding: '10px 20px', borderRadius: '8px', fontWeight: 600 }}
+                  >
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
                       <ArrowLeft size={16} /> Back
                     </span>
@@ -8858,111 +9305,150 @@ export default function AcademicPanel({ subView, setAdminView, userProfile, scho
                 )}
               </div>
               <div style={{ display: 'flex', gap: '12px' }}>
-                <button className="btn-secondary" onClick={() => { resetWizardForm(); setShowExamWizard(false); }} style={{ padding: '10px 20px', borderRadius: '8px', fontWeight: 600 }}>
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={() => { resetWizardForm(); setShowExamWizard(false); }}
+                  style={{ padding: '10px 20px', borderRadius: '8px', fontWeight: 600 }}
+                >
                   Cancel
                 </button>
-                {examWizardStep < 4 ? (
-                  <button className="btn-primary" onClick={() => {
-                    if (examWizardStep === 1 && !wizardForm.examType) {
-                      setWizardError('Please select an exam type to proceed.');
-                      showToast('Please select exam type.', 'error');
-                      return;
-                    }
-                    if (examWizardStep === 1 && wizardForm.examType === 'Custom Exam' && !(wizardForm.customExamName || '').trim()) {
-                      setWizardError('Please enter the custom exam name.');
-                      showToast('Please enter the custom exam name.', 'error');
-                      return;
-                    }
-                    if (examWizardStep === 2 && wizardForm.selectedGrades.length === 0) {
-                      setWizardError('Please select at least one grade-section.');
-                      showToast('Please select at least one grade-section.', 'error');
-                      return;
-                    }
-                    setWizardError('');
-                    setExamWizardStep(examWizardStep + 1);
-                  }} style={{ padding: '10px 20px', borderRadius: '8px', fontWeight: 700 }}>
+                {examWizardStep < 3 ? (
+                  <button
+                    type="button"
+                    className="btn-primary"
+                    onClick={() => {
+                      if (examWizardStep === 1) {
+                        if (!wizardForm.examType) {
+                          setWizardError('Please select an exam type to proceed.');
+                          showToast('Please select exam type.', 'error');
+                          return;
+                        }
+                        if (wizardForm.examType === 'Custom Exam' && !(wizardForm.customExamName || '').trim()) {
+                          setWizardError('Please enter the custom exam name.');
+                          showToast('Please enter the custom exam name.', 'error');
+                          return;
+                        }
+                        const marks = parseInt(wizardForm.marksPerSubject, 10);
+                        if (isNaN(marks) || marks <= 0) {
+                          setWizardError('Please enter a valid whole number greater than 0 for Marks Per Subject.');
+                          showToast('Marks per subject must be greater than 0.', 'error');
+                          return;
+                        }
+                      }
+                      if (examWizardStep === 2 && wizardForm.selectedGrades.length === 0) {
+                        setWizardError('Please select at least one grade to proceed.');
+                        showToast('Please select at least one grade.', 'error');
+                        return;
+                      }
+                      setWizardError('');
+                      setExamWizardStep(examWizardStep + 1);
+                    }}
+                    style={{ padding: '10px 20px', borderRadius: '8px', fontWeight: 700 }}
+                  >
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
                       Next <ArrowRight size={16} />
                     </span>
                   </button>
                 ) : (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <span style={{ fontSize: '0.9rem', fontWeight: 600, color: 'hsl(var(--color-primary))', background: 'rgba(255, 107, 0,0.1)', padding: '6px 12px', borderRadius: '6px' }}>
-                      {wizardForm.examType === 'Custom Exam' ? wizardForm.customExamName : wizardForm.examType}
-                    </span>
-                    <button className="btn-primary" onClick={async () => {
-                      // Auto-generate examName from examType / customExamName
-                      const examName = wizardForm.examType === 'Custom Exam' ? wizardForm.customExamName : wizardForm.examType;
-                      // Validate: all start and end dates required
-                      const missingDates = wizardForm.selectedGrades.filter(gs => {
-                        const key = `${gs.grade}-${gs.section}`;
-                        return !wizardForm.startDates[key] || !wizardForm.endDates[key];
-                      });
-                      if (missingDates.length > 0) {
-                        setWizardError('Please set start and end dates for all grade-sections.');
-                        showToast('Please set start and end dates for all grade-sections.', 'error');
+                  <button
+                    type="button"
+                    className="btn-primary"
+                    disabled={wizardSubmitting}
+                    onClick={async () => {
+                      if (!wizardForm.startDate) {
+                        setWizardError('Please select an exam start date.');
+                        showToast('Please select start date.', 'error');
                         return;
                       }
-
-                      // Check: end date must not be earlier than start date
-                      const invalidDates = wizardForm.selectedGrades.filter(gs => {
-                        const key = `${gs.grade}-${gs.section}`;
-                        return new Date(wizardForm.startDates[key]) > new Date(wizardForm.endDates[key]);
-                      });
-                      if (invalidDates.length > 0) {
-                        setWizardError('End date cannot be earlier than start date.');
-                        showToast('End date cannot be earlier than start date.', 'error');
+                      if (wizardForm.startDate < getTodayDateStr()) {
+                        setWizardError('Start date cannot be in the past.');
+                        showToast('Start date cannot be in the past.', 'error');
+                        return;
+                      }
+                      const marks = parseInt(wizardForm.marksPerSubject, 10);
+                      if (isNaN(marks) || marks <= 0) {
+                        setWizardError('Marks per subject must be greater than 0.');
+                        showToast('Marks per subject must be greater than 0.', 'error');
                         return;
                       }
                       setWizardError('');
+                      setWizardSubmitting(true);
 
-                      const gradeSections = wizardForm.selectedGrades.map(gs => ({
-                        grade: gs.grade,
-                        section: gs.section,
-                        startDate: wizardForm.startDates[`${gs.grade}-${gs.section}`],
-                        endDate: wizardForm.endDates[`${gs.grade}-${gs.section}`]
-                      }));
-
+                      const examName = wizardForm.examType === 'Custom Exam' ? wizardForm.customExamName : wizardForm.examType;
                       try {
                         const url = wizardForm.id ? `/api/academics/exams/${wizardForm.id}` : '/api/academics/exams';
                         const method = wizardForm.id ? 'PUT' : 'POST';
 
-                        const existingExam = wizardForm.id ? exams.find(e => e.id === wizardForm.id) : null;
-                        const hasSchedules = wizardForm.id ? examTimetables.some(et => et.examId === wizardForm.id) : false;
-                        const statusVal = existingExam ? (hasSchedules ? 'Scheduled' : 'Draft') : 'Draft';
+                        const payload = {
+                          examName,
+                          examType: wizardForm.examType,
+                          customExamName: wizardForm.customExamName,
+                          academicSession: wizardForm.academicSession,
+                          description: wizardForm.description,
+                          marksPerSubject: marks,
+                          grades: wizardForm.selectedGrades.map(g => g.grade),
+                          startDate: wizardForm.startDate,
+                          subjectsPerDay: parseInt(wizardForm.subjectsPerDay, 10) || 1,
+                          timings: {
+                            startTime: wizardForm.startTime || '09:00',
+                            durationMinutes: parseInt(wizardForm.durationMinutes, 10) || 120,
+                            breakMinutes: parseInt(wizardForm.breakMinutes, 10) >= 0 ? parseInt(wizardForm.breakMinutes, 10) : 30
+                          }
+                        };
+
+                        if (wizardAiAudit && wizardAiAudit.originalText) {
+                          payload.adminText = wizardAiAudit.originalText;
+                        }
+                        if (wizardAiAudit && wizardAiAudit.plan) {
+                          payload.planJson = wizardAiAudit.plan;
+                        }
+                        if (wizardGroups && wizardGroups.length > 0) {
+                          payload.groups = wizardGroups;
+                        }
+                        if (wizardAiAudit?.plan?.global?.offDays) {
+                          payload.offDays = wizardAiAudit.plan.global.offDays;
+                        }
+                        if (wizardAiAudit?.plan?.global?.holidays) {
+                          payload.holidays = wizardAiAudit.plan.global.holidays;
+                        }
 
                         const res = await fetch(url, {
-                          method: method,
+                          method,
                           headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({
-                            examName: examName,
-                            examType: wizardForm.examType,
-                            academicSession: wizardForm.academicSession,
-                            description: wizardForm.description,
-                            totalMarks: wizardForm.totalMarks,
-                            subjectMarks: wizardForm.subjectMarks,
-                            subjectIncluded: wizardForm.subjectIncluded,
-                            gradeSections,
-                            status: statusVal,
-                            timetablePublished: false
-                          })
+                          body: JSON.stringify(payload)
                         });
+
+                        const data = await res.json();
                         if (res.ok) {
-                          showToast(wizardForm.id ? 'Exam updated successfully!' : 'Exam created successfully!', 'success');
+                          showToast(wizardForm.id ? 'Exam updated successfully!' : 'Exam and timetable created successfully!', 'success');
                           resetWizardForm();
                           setShowExamWizard(false);
                           fetchAllData();
                         } else {
-                          const data = await res.json();
+                          setWizardError(data.error || 'Failed to save exam.');
                           showToast(data.error || 'Failed to save exam.', 'error');
                         }
-                      } catch (e) {
+                      } catch (err) {
+                        setWizardError('Network error. Failed to reach the server.');
                         showToast('Network error.', 'error');
+                      } finally {
+                        setWizardSubmitting(false);
                       }
-                    }} style={{ padding: '10px 24px', borderRadius: '8px', fontWeight: 700, background: 'linear-gradient(135deg, hsl(var(--color-primary)) 0%, #e07830 100%)', border: 'none', color: '#fff', cursor: 'pointer' }}>
-                      {wizardForm.id ? 'Save Exam' : 'Create Exam'}
-                    </button>
-                  </div>
+                    }}
+                    style={{
+                      padding: '10px 24px',
+                      borderRadius: '8px',
+                      fontWeight: 700,
+                      background: 'linear-gradient(135deg, hsl(var(--color-primary)) 0%, #e07830 100%)',
+                      border: 'none',
+                      color: '#fff',
+                      cursor: wizardSubmitting ? 'not-allowed' : 'pointer',
+                      opacity: wizardSubmitting ? 0.7 : 1
+                    }}
+                  >
+                    {wizardSubmitting ? 'Creating Exam...' : (wizardForm.id ? 'Save Exam' : 'Create Exam')}
+                  </button>
                 )}
               </div>
             </div>
@@ -9531,186 +10017,7 @@ export default function AcademicPanel({ subView, setAdminView, userProfile, scho
         document.body
       )}
 
-      {showTeacherBulkModal && createPortal(
-        <div className="modal-overlay" style={{ zIndex: 20000000 }}>
-          <div className="animate-scale-up glass-panel" style={{
-            width: '100%', maxWidth: '1200px', maxHeight: '90vh', overflowY: 'auto',
-            padding: '32px', borderRadius: '20px',
-            background: 'var(--bg-card)', border: '1px solid var(--border-glass)',
-            boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)', display: 'flex', flexDirection: 'column', gap: '24px'
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-glass)', paddingBottom: '16px' }}>
-              <div>
-                <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-main)', margin: 0, display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <Calendar size={22} style={{ color: 'hsl(var(--color-primary))' }} /> Weekly Teacher Timetable Bulk Editor
-                </h3>
-                <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', margin: '4px 0 0 0' }}>
-                  Configure the entire weekly schedule workload for teacher <strong style={{ color: 'hsl(var(--color-primary))' }}>{editingTeacherName || activeTeacher}</strong> at once.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowTeacherBulkModal(false)}
-                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '2rem', lineHeight: 1, padding: '4px' }}
-              >
-                {"\u00d7"}
-              </button>
-            </div>
 
-
-
-            <form onSubmit={handleTeacherBulkSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-              <div style={{ overflowX: 'auto', borderRadius: '12px', border: '1px solid var(--border-glass)', background: 'var(--bg-glass-active)' }}>
-                <table className="table-custom" style={{ width: '100%', borderCollapse: 'collapse', minWidth: '1000px' }}>
-                  <thead>
-                    <tr style={{ background: 'var(--bg-glass-active)' }}>
-                      <th style={{ padding: '16px', fontSize: '0.8rem', textTransform: 'uppercase', color: 'var(--text-muted)', width: '120px' }}>Day</th>
-                      {timeslots.map(slot => (
-                        <th key={slot} style={{ padding: '16px', fontSize: '0.8rem', textTransform: 'uppercase', color: 'var(--text-muted)', textAlign: 'center' }}>
-                          {slot}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {daysOfWeek.map(day => (
-                      <tr key={day} style={{ borderBottom: '1px solid var(--border-glass)' }}>
-                        <td style={{ padding: '16px', fontWeight: 800, color: 'hsl(var(--color-primary))', fontSize: '0.85rem', background: 'rgba(255,255,255,0.01)' }}>
-                          {day}
-                        </td>
-                        {timeslots.map(slot => {
-                          const key = `${day}_${slot}`;
-                          const cell = teacherBulkGrid[key] || { cohort: '', subject: '' };
-                          const allCohortsSet = new Set();
-                          activeGrades.forEach(g => {
-                            if (g.sections && g.sections.length > 0) {
-                              g.sections.forEach(sec => {
-                                allCohortsSet.add(`${g.name}-${sec}`);
-                              });
-                            }
-                          });
-                          const allCohorts = [...allCohortsSet];
-
-                          // Ensure current cell's cohort is always included
-                          const cellCohorts = [...allCohorts];
-                          if (cell.cohort && !cellCohorts.includes(cell.cohort)) {
-                            cellCohorts.push(cell.cohort);
-                          }
-
-                          // Sort cohorts: Grade order first, then Section order
-                          cellCohorts.sort((a, b) => {
-                            const [gA, sA] = a.split('-');
-                            const [gB, sB] = b.split('-');
-                            const currentGradeOrder = activeGrades.map(g => g.name);
-                            const idxA = currentGradeOrder.indexOf(gA);
-                            const idxB = currentGradeOrder.indexOf(gB);
-                            if (idxA !== idxB) {
-                              return idxA - idxB;
-                            }
-                            return (sA || '').localeCompare(sB || '');
-                          });
-                          return (() => {
-                            const breakMatch = slot.match(/\[(.*?)\]/);
-                            const breakType = breakMatch ? breakMatch[1] : null;
-                            const isBreak = !!breakType;
-
-                            if (isBreak) {
-                              return (
-                                <td key={slot} style={{
-                                  padding: '12px',
-                                  verticalAlign: 'middle',
-                                  borderLeft: '1px solid var(--border-glass)',
-                                  background: 'rgba(245, 158, 11, 0.03)',
-                                  textAlign: 'center',
-                                  fontWeight: 700,
-                                  color: '#d97706',
-                                  fontSize: '0.8rem'
-                                }}>
-                                  {breakType === 'Lunch Break' ? '🍱 ' : breakType === 'Short Break' ? '☕ ' : breakType === 'Recess' ? '🏃 ' : breakType === 'Assembly' ? '📢 ' : '⚡ '}{breakType}
-                                </td>
-                              );
-                            }
-
-                            return (
-                              <td key={slot} style={{ padding: '12px', verticalAlign: 'top', borderLeft: '1px solid var(--border-glass)' }}>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                  <CustomSelect                                    value={cell.cohort}
-                                    onChange={(e) => handleTeacherBulkCellChange(day, slot, 'cohort', e.target.value)}
-                                    style={{
-                                      width: '100%',
-                                      padding: '6px 18px 6px 8px',
-                                      borderRadius: '6px',
-                                      background: 'var(--bg-glass-active)',
-                                      border: '1px solid var(--border-glass)',
-                                      color: 'var(--text-main)',
-                                      fontSize: '0.78rem',
-                                      fontWeight: 600,
-                                      outline: 'none',
-                                      textOverflow: 'ellipsis',
-                                      whiteSpace: 'nowrap',
-                                      overflow: 'hidden'
-                                    }}
-                                  >
-                                    <option value="">-- Off / Free --</option>
-                                    {cellCohorts.map(cohort => {
-                                      const parts = cohort.split('-');
-                                      const displayLabel = parts.length === 2 ? `${parts[0]} (${parts[1]})` : cohort;
-                                      return (
-                                        <option key={cohort} value={cohort}>{displayLabel}</option>
-                                      );
-                                    })}
-                                  </CustomSelect>
-                                </div>
-                              </td>
-                            );
-                          })();
-                        })}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '10px' }}>
-                <button
-                  type="button"
-                  onClick={handleClearTeacherBulkGrid}
-                  className="btn-secondary"
-                  style={{ borderColor: '#ef4444', color: '#ef4444', borderRadius: '8px', padding: '10px 18px', fontWeight: 600 }}
-                >
-                  Clear All Slots
-                </button>
-                <div style={{ display: 'flex', gap: '12px' }}>
-                  <button
-                    type="button"
-                    onClick={() => setShowTeacherBulkModal(false)}
-                    className="btn-secondary"
-                    style={{ borderRadius: '8px', padding: '10px 18px', fontWeight: 600 }}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="btn-primary"
-                    disabled={savingTimetable}
-                    style={{
-                      background: 'linear-gradient(135deg, hsl(var(--color-primary)) 0%, #e07830 100%)',
-                      border: 'none',
-                      borderRadius: '8px',
-                      padding: '10px 24px',
-                      fontWeight: 700,
-                      boxShadow: '0 4px 12px rgba(255, 107, 0, 0.3)'
-                    }}
-                  >
-                    Save Timetable Matrix
-                  </button>
-                </div>
-              </div>
-            </form>
-          </div>
-        </div>,
-        document.body
-      )}
 
       {showConfirmModal && createPortal(
         <div className="modal-overlay" style={{ zIndex: 20000000 }}>

@@ -13,6 +13,7 @@ import { auth } from '../middleware/auth.js';
 import { checkPermission } from '../middleware/permissionMiddleware.js';
 import { restoreTenantContext, ensureTenantSqlLoaded, readDb } from '../utils/db.js';
 import { attendanceLimiter } from '../middleware/rateLimiter.js';
+import { normalizeGradeStr, areGradesMatch, normalizeSectionStr, areSectionsMatch } from '../utils/gradeUtils.js';
 
 const router = express.Router();
 
@@ -22,43 +23,12 @@ router.use(restoreTenantContext);
 router.use(ensureTenantSqlLoaded);
 router.use(attendanceLimiter);
 
+
 // Apply checkPermission based on request method
 router.use((req, res, next) => {
   const action = req.method === 'GET' ? 'view' : 'create';
   return checkPermission('attendance', action)(req, res, next);
 });
-
-const normalizeGradeStr = (g) => {
-  if (!g) return '';
-  let str = String(g).trim().toUpperCase();
-  str = str.replace(/^GRADE\s+/i, '').trim();
-  const romanToNum = {
-    'I': '1', 'II': '2', 'III': '3', 'IV': '4', 'V': '5',
-    'VI': '6', 'VII': '7', 'VIII': '8', 'IX': '9', 'X': '10',
-    'XI': '11', 'XII': '12'
-  };
-  const base = str.split(/[\s()\-]+/)[0];
-  if (romanToNum[base]) {
-    return romanToNum[base];
-  }
-  return str;
-};
-
-const areGradesMatch = (g1, g2) => {
-  if (!g1 || !g2) return false;
-  if (String(g1).trim().toLowerCase() === String(g2).trim().toLowerCase()) return true;
-  return normalizeGradeStr(g1) === normalizeGradeStr(g2);
-};
-
-const normalizeSectionStr = (s) => {
-  if (!s) return '';
-  return String(s).trim().toUpperCase().replace(/^SECTION\s+/i, '').trim();
-};
-
-const areSectionsMatch = (s1, s2) => {
-  if (!s1 || !s2) return false;
-  return normalizeSectionStr(s1) === normalizeSectionStr(s2);
-};
 
 // Guard: validate teacher's assigned class/section & attendance permission
 const validateTeacherAttendanceAccess = (req, res, next) => {
@@ -76,7 +46,14 @@ const validateTeacherAttendanceAccess = (req, res, next) => {
   const db = readDb();
   const teacher = (db.teachers || []).find(t => t.id === user.id || (user.username && t.username === user.username)) || user;
 
-  // 1. Attendance permission check
+  // 1. Class teacher check
+  const isClassTeacher = teacher.isClassTeacher === true || teacher.isClassTeacher === 1 || teacher.isClassTeacher === 'Yes' ||
+    user.isClassTeacher === true || user.isClassTeacher === 1 || user.isClassTeacher === 'Yes';
+  if (!isClassTeacher) {
+    return res.status(403).json({ error: 'Forbidden. Only class teachers are authorized to access student attendance.' });
+  }
+
+  // 2. Attendance permission check
   const hasAttPerm = teacher.attendancePermission === true || teacher.attendancePermission === 1 || teacher.attendancePermission === 'Yes' ||
     user.attendancePermission === true || user.attendancePermission === 1 || user.attendancePermission === 'Yes';
   if (!hasAttPerm) {

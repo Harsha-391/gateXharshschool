@@ -89,6 +89,10 @@ const writeDb = (data, req = null, action = null, details = null) => {
   }
 };
 
+const getActiveTenantId = (req) => {
+  return tenantStorage.getStore() || req?.user?.tenantId || req?.headers?.['x-tenant-id'] || 'noble';
+};
+
 // =============================================
 // 1. ACCOUNT MANAGEMENT OVERVIEW / DASHBOARD TELEMETRY
 // =============================================
@@ -214,8 +218,40 @@ export const getAccountManagementOverview = async (req, res) => {
 // =============================================
 // 2. FEE STRUCTURES
 // =============================================
-export const getFeeStructures = (req, res) => {
+export const getFeeStructures = async (req, res) => {
   try {
+    const tId = getActiveTenantId(req);
+    if (isSqlActive()) {
+      const rows = await sqlDb.query(
+        "SELECT * FROM fee_structures WHERE (tenantId = ? OR tenantId IS NULL OR tenantId = '') ORDER BY studentClass ASC, frequency ASC, monthRange ASC",
+        [tId]
+      );
+      const mapped = (rows || []).map(r => ({
+        id: r.id,
+        grade: r.studentClass || r.classId,
+        studentClass: r.studentClass || r.classId,
+        classId: r.classId || r.studentClass,
+        admissionFee: parseFloat(r.admissionFee || 0),
+        tuitionFee: parseFloat(r.tuitionFee || 0),
+        examFee: parseFloat(r.examFee || 0),
+        transportFee: parseFloat(r.transportFee || 0),
+        hostelFee: parseFloat(r.hostelFee || 0),
+        libraryFee: parseFloat(r.libraryFee || 0),
+        otherCharges: parseFloat(r.otherCharges || 0),
+        totalFee: parseFloat(r.totalFee || r.amount || 0),
+        amount: parseFloat(r.amount || r.totalFee || 0),
+        frequency: r.frequency || 'Yearly',
+        monthRange: r.monthRange || null,
+        tenantId: r.tenantId || tId
+      }));
+
+      // Keep in-memory cache synchronized as fallback
+      const db = readDb();
+      db.feeStructures = mapped;
+
+      return res.json(mapped);
+    }
+
     const db = readDb();
     res.json(db.feeStructures || []);
   } catch (err) {
@@ -224,7 +260,7 @@ export const getFeeStructures = (req, res) => {
   }
 };
 
-export const createFeeStructure = (req, res) => {
+export const createFeeStructure = async (req, res) => {
   try {
     const db = readDb();
     const payloads = Array.isArray(req.body) ? req.body : [req.body];
@@ -239,6 +275,7 @@ export const createFeeStructure = (req, res) => {
       }
     }
 
+    const tId = getActiveTenantId(req);
     const savedStructures = [];
 
     for (const payload of payloads) {
@@ -256,17 +293,13 @@ export const createFeeStructure = (req, res) => {
       const isQuarterlyOrHalf = frequency === 'Quarterly' || frequency === 'Half-Yearly' || frequency === 'Monthly';
       const finalMonthRange = isQuarterlyOrHalf ? monthRange : null;
 
-      const existingIndex = db.feeStructures.findIndex(fs => 
-        fs.studentClass === studentClass && 
-        (fs.frequency || 'Yearly') === (frequency || 'Yearly') &&
-        (isQuarterlyOrHalf ? (fs.monthRange === finalMonthRange) : true)
-      );
-
-      const id = existingIndex > -1 ? db.feeStructures[existingIndex].id : `FSTR-${studentClass}-${frequency || 'Yearly'}-${finalMonthRange || 'All'}`.replace(/\s+/g, '-');
+      const id = payload.id || `FSTR-${studentClass}-${frequency || 'Yearly'}-${finalMonthRange || 'All'}`.replace(/\s+/g, '-');
 
       const structure = {
         id,
+        classId: studentClass,
         studentClass,
+        grade: studentClass,
         admissionFee: admission,
         tuitionFee: tuition,
         examFee: exam,
@@ -275,14 +308,67 @@ export const createFeeStructure = (req, res) => {
         libraryFee: library,
         otherCharges: other,
         totalFee,
+        amount: totalFee,
         frequency: frequency || 'Yearly',
         monthRange: finalMonthRange,
+        tenantId: tId,
         updatedAt: new Date().toISOString()
       };
 
+      if (isSqlActive()) {
+        await sqlDb.query(
+          `INSERT INTO fee_structures 
+            (id, classId, studentClass, admissionFee, tuitionFee, examFee, transportFee, hostelFee, libraryFee, otherCharges, totalFee, amount, frequency, monthRange, tenantId)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+           ON DUPLICATE KEY UPDATE 
+            classId = VALUES(classId),
+            studentClass = VALUES(studentClass),
+            admissionFee = VALUES(admissionFee),
+            tuitionFee = VALUES(tuitionFee),
+            examFee = VALUES(examFee),
+            transportFee = VALUES(transportFee),
+            hostelFee = VALUES(hostelFee),
+            libraryFee = VALUES(libraryFee),
+            otherCharges = VALUES(otherCharges),
+            totalFee = VALUES(totalFee),
+            amount = VALUES(amount),
+            frequency = VALUES(frequency),
+            monthRange = VALUES(monthRange)`,
+          [
+            id, studentClass, studentClass, admission, tuition, exam, transport,
+            hostel, library, other, totalFee, totalFee, frequency || 'Yearly', finalMonthRange, tId
+          ]
+        );
+
+        // Ensure this period name is stored in fee_periods table in SQL
+        if (finalMonthRange && (frequency === 'Quarterly' || frequency === 'Half-Yearly')) {
+          try {
+            const existing = await sqlDb.query(
+              'SELECT id FROM fee_periods WHERE tenantId = ? AND frequency = ? AND name = ?',
+              [tId, frequency, finalMonthRange]
+            );
+            if (!existing || existing.length === 0) {
+              const fpId = `FP-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
+              const [orderRow] = await sqlDb.query(
+                'SELECT COALESCE(MAX(sortOrder), -1) + 1 AS nextOrder FROM fee_periods WHERE tenantId = ? AND frequency = ?',
+                [tId, frequency]
+              );
+              await sqlDb.query(
+                'INSERT INTO fee_periods (id, frequency, name, sortOrder, tenantId) VALUES (?, ?, ?, ?, ?)',
+                [fpId, frequency, finalMonthRange, orderRow?.nextOrder || 0, tId]
+              );
+            }
+          } catch (pErr) {
+            console.warn('Auto fee period creation warning:', pErr.message);
+          }
+        }
+      }
+
+      const existingIndex = (db.feeStructures || []).findIndex(fs => fs.id === id);
       if (existingIndex > -1) {
         db.feeStructures[existingIndex] = structure;
       } else {
+        if (!db.feeStructures) db.feeStructures = [];
         db.feeStructures.push(structure);
       }
       savedStructures.push(structure);
@@ -299,16 +385,29 @@ export const createFeeStructure = (req, res) => {
   }
 };
 
-export const deleteFeeStructure = (req, res) => {
+export const deleteFeeStructure = async (req, res) => {
   try {
     const db = readDb();
-    const ids = req.params.id.split(',');
-    
+    const ids = req.params.id.split(',').map(s => s.trim()).filter(Boolean);
+    const tId = getActiveTenantId(req);
+
+    if (ids.length === 0) {
+      return res.status(400).json({ error: 'No IDs provided.' });
+    }
+
+    if (isSqlActive()) {
+      const placeholders = ids.map(() => '?').join(',');
+      await sqlDb.query(
+        `DELETE FROM fee_structures WHERE tenantId = ? AND id IN (${placeholders})`,
+        [tId, ...ids]
+      );
+    }
+
     let deletedAny = false;
     let targetClass = '';
-    
+
     ids.forEach(id => {
-      const idx = db.feeStructures.findIndex(fs => fs.id === id);
+      const idx = (db.feeStructures || []).findIndex(fs => fs.id === id);
       if (idx !== -1) {
         const removed = db.feeStructures.splice(idx, 1)[0];
         targetClass = removed.studentClass;
@@ -316,14 +415,12 @@ export const deleteFeeStructure = (req, res) => {
       }
     });
 
-    if (!deletedAny) {
-      return res.status(404).json({ error: 'Fee structure(s) not found.' });
+    if (deletedAny) {
+      addActivity(db, 'alert', 'Fee Structure Removed', `Removed fee structure for Grade ${targetClass}`, 'rgb(var(--color-danger-rgb))', 'rgba(var(--color-danger-rgb), 0.1)');
+      writeDb(db, req, 'Delete Fee Structure', `Grade: ${targetClass}`);
     }
 
-    addActivity(db, 'alert', 'Fee Structure Removed', `Removed fee structure for Grade ${targetClass}`, 'rgb(var(--color-danger-rgb))', 'rgba(var(--color-danger-rgb), 0.1)');
-    writeDb(db, req, 'Delete Fee Structure', `Grade: ${targetClass}`);
-
-    res.json({ success: true, message: `Removed fee structure for ${targetClass}` });
+    res.json({ success: true, message: `Removed fee structure for ${targetClass || 'selected grades'}` });
   } catch (err) {
     console.error('Error deleting fee structure:', err);
     res.status(500).json({ error: 'Server error deleting fee structure.' });
@@ -1505,14 +1602,12 @@ export const deleteStaffSalaryStructure = (req, res) => {
   }
 };
 
-export const updateFeeStructure = (req, res) => {
+export const updateFeeStructure = async (req, res) => {
   try {
     const { id } = req.params;
     const { studentClass, admissionFee, tuitionFee, examFee, transportFee, hostelFee, libraryFee, otherCharges, frequency, monthRange } = req.body;
+    const tId = getActiveTenantId(req);
     const db = readDb();
-
-    const idx = db.feeStructures.findIndex(fs => fs.id === id);
-    if (idx === -1) return res.status(404).json({ error: 'Fee structure not found.' });
 
     const admission = Number(admissionFee) || 0;
     const tuition = Number(tuitionFee) || 0;
@@ -1523,12 +1618,36 @@ export const updateFeeStructure = (req, res) => {
     const other = Number(otherCharges) || 0;
     const totalFee = admission + tuition + exam + transport + hostel + library + other;
 
-    const isQuarterlyOrHalf = frequency === 'Quarterly' || frequency === 'Half-Yearly';
+    const isQuarterlyOrHalf = frequency === 'Quarterly' || frequency === 'Half-Yearly' || frequency === 'Monthly';
     const finalMonthRange = isQuarterlyOrHalf ? monthRange : null;
 
-    db.feeStructures[idx] = {
-      ...db.feeStructures[idx],
-      studentClass: studentClass || db.feeStructures[idx].studentClass,
+    if (isSqlActive()) {
+      await sqlDb.query(
+        `UPDATE fee_structures SET 
+          studentClass = COALESCE(?, studentClass),
+          admissionFee = ?,
+          tuitionFee = ?,
+          examFee = ?,
+          transportFee = ?,
+          hostelFee = ?,
+          libraryFee = ?,
+          otherCharges = ?,
+          totalFee = ?,
+          amount = ?,
+          frequency = COALESCE(?, frequency),
+          monthRange = ?
+        WHERE tenantId = ? AND id = ?`,
+        [
+          studentClass, admission, tuition, exam, transport, hostel,
+          library, other, totalFee, totalFee, frequency, finalMonthRange, tId, id
+        ]
+      );
+    }
+
+    const idx = (db.feeStructures || []).findIndex(fs => fs.id === id);
+    const updatedObj = {
+      id,
+      studentClass: studentClass || (idx !== -1 ? db.feeStructures[idx].studentClass : ''),
       admissionFee: admission,
       tuitionFee: tuition,
       examFee: exam,
@@ -1537,15 +1656,23 @@ export const updateFeeStructure = (req, res) => {
       libraryFee: library,
       otherCharges: other,
       totalFee,
-      frequency: frequency || db.feeStructures[idx].frequency || 'Yearly',
+      amount: totalFee,
+      frequency: frequency || (idx !== -1 ? db.feeStructures[idx].frequency : 'Yearly'),
       monthRange: finalMonthRange,
       updatedAt: new Date().toISOString()
     };
 
-    addActivity(db, 'account_management', 'Fee Structure Updated', `Fee structure for Grade ${db.feeStructures[idx].studentClass} updated to ₹${totalFee.toLocaleString()}`, 'rgb(var(--color-success-rgb))', 'rgba(var(--color-success-rgb), 0.1)');
+    if (idx !== -1) {
+      db.feeStructures[idx] = { ...db.feeStructures[idx], ...updatedObj };
+    } else {
+      if (!db.feeStructures) db.feeStructures = [];
+      db.feeStructures.push(updatedObj);
+    }
+
+    addActivity(db, 'account_management', 'Fee Structure Updated', `Fee structure for Grade ${updatedObj.studentClass} updated to ₹${totalFee.toLocaleString()}`, 'rgb(var(--color-success-rgb))', 'rgba(var(--color-success-rgb), 0.1)');
     writeDb(db);
 
-    res.json(db.feeStructures[idx]);
+    res.json(updatedObj);
   } catch (err) {
     console.error('Error updating fee structure:', err);
     res.status(500).json({ error: 'Server error updating fee structure.' });
@@ -1743,8 +1870,52 @@ export const getExpenseHistory = (req, res) => {
 };
 
 // ===== Fee Periods (Custom Month Ranges) =====
-export const getFeePeriods = (req, res) => {
+export const getFeePeriods = async (req, res) => {
   try {
+    const tId = getActiveTenantId(req);
+    if (isSqlActive()) {
+      let rows = await sqlDb.query(
+        'SELECT id, frequency, name, sortOrder, tenantId FROM fee_periods WHERE tenantId = ? ORDER BY sortOrder ASC, id ASC',
+        [tId]
+      );
+
+      // Auto-heal from fee_structures if empty
+      if (!rows || rows.length === 0) {
+        const distinctRanges = await sqlDb.query(
+          "SELECT DISTINCT frequency, monthRange FROM fee_structures WHERE tenantId = ? AND monthRange IS NOT NULL AND monthRange != ''",
+          [tId]
+        );
+        if (distinctRanges && distinctRanges.length > 0) {
+          let order = 0;
+          for (const item of distinctRanges) {
+            const fpId = `FP-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
+            try {
+              await sqlDb.query(
+                'INSERT INTO fee_periods (id, frequency, name, sortOrder, tenantId) VALUES (?, ?, ?, ?, ?)',
+                [fpId, item.frequency, item.monthRange, order++, tId]
+              );
+            } catch (e) {}
+          }
+          rows = await sqlDb.query(
+            'SELECT id, frequency, name, sortOrder, tenantId FROM fee_periods WHERE tenantId = ? ORDER BY sortOrder ASC, id ASC',
+            [tId]
+          );
+        }
+      }
+
+      const mapped = (rows || []).map(r => ({
+        id: r.id,
+        frequency: r.frequency,
+        name: r.name,
+        sortOrder: r.sortOrder || 0
+      }));
+
+      const db = readDb();
+      db.feePeriods = mapped;
+
+      return res.json(mapped);
+    }
+
     const db = readDb();
     res.json(db.feePeriods || []);
   } catch (err) {
@@ -1753,23 +1924,63 @@ export const getFeePeriods = (req, res) => {
   }
 };
 
-export const createFeePeriod = (req, res) => {
+export const createFeePeriod = async (req, res) => {
   try {
-    const db = readDb();
     const { frequency, name } = req.body;
     if (!frequency || !name) {
       return res.status(400).json({ error: 'Frequency and name are required.' });
     }
-    const duplicate = db.feePeriods.find(fp => fp.frequency === frequency && fp.name.toLowerCase() === name.toLowerCase());
+    const trimmedName = name.trim();
+    const tId = getActiveTenantId(req);
+
+    if (isSqlActive()) {
+      const existing = await sqlDb.query(
+        'SELECT id FROM fee_periods WHERE tenantId = ? AND frequency = ? AND LOWER(name) = LOWER(?)',
+        [tId, frequency, trimmedName]
+      );
+      if (existing && existing.length > 0) {
+        return res.status(409).json({ error: `Period "${trimmedName}" already exists for ${frequency}.` });
+      }
+
+      const newId = `FP-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
+      const [orderRow] = await sqlDb.query(
+        'SELECT COALESCE(MAX(sortOrder), -1) + 1 AS nextOrder FROM fee_periods WHERE tenantId = ? AND frequency = ?',
+        [tId, frequency]
+      );
+      const nextOrder = orderRow?.nextOrder || 0;
+
+      await sqlDb.query(
+        'INSERT INTO fee_periods (id, frequency, name, sortOrder, tenantId) VALUES (?, ?, ?, ?, ?)',
+        [newId, frequency, trimmedName, nextOrder, tId]
+      );
+
+      const created = {
+        id: newId,
+        frequency,
+        name: trimmedName,
+        sortOrder: nextOrder
+      };
+
+      const db = readDb();
+      if (!db.feePeriods) db.feePeriods = [];
+      db.feePeriods.push(created);
+      writeDb(db);
+
+      return res.status(201).json(created);
+    }
+
+    const db = readDb();
+    const duplicate = (db.feePeriods || []).find(fp => fp.frequency === frequency && fp.name.toLowerCase() === trimmedName.toLowerCase());
     if (duplicate) {
-      return res.status(409).json({ error: `Period "${name}" already exists for ${frequency}.` });
+      return res.status(409).json({ error: `Period "${trimmedName}" already exists for ${frequency}.` });
     }
     const newPeriod = {
       id: `FP-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`,
       frequency,
-      name,
-      sortOrder: db.feePeriods.filter(fp => fp.frequency === frequency).length
+      name: trimmedName,
+      sortOrder: (db.feePeriods || []).filter(fp => fp.frequency === frequency).length
     };
+    if (!db.feePeriods) db.feePeriods = [];
     db.feePeriods.push(newPeriod);
     writeDb(db);
     res.status(201).json(newPeriod);
@@ -1779,14 +1990,23 @@ export const createFeePeriod = (req, res) => {
   }
 };
 
-export const deleteFeePeriod = (req, res) => {
+export const deleteFeePeriod = async (req, res) => {
   try {
+    const { id } = req.params;
+    const tId = getActiveTenantId(req);
+
+    if (isSqlActive()) {
+      await sqlDb.query('DELETE FROM fee_periods WHERE tenantId = ? AND id = ?', [tId, id]);
+    }
+
     const db = readDb();
-    const idx = db.feePeriods.findIndex(fp => fp.id === req.params.id);
-    if (idx === -1) return res.status(404).json({ error: 'Fee period not found.' });
-    const removed = db.feePeriods.splice(idx, 1)[0];
-    writeDb(db);
-    res.json({ success: true, deleted: removed });
+    const idx = (db.feePeriods || []).findIndex(fp => fp.id === id);
+    let removed = null;
+    if (idx !== -1) {
+      removed = db.feePeriods.splice(idx, 1)[0];
+      writeDb(db);
+    }
+    res.json({ success: true, deleted: removed || { id } });
   } catch (err) {
     console.error('Error deleting fee period:', err);
     res.status(500).json({ error: 'Server error deleting fee period.' });

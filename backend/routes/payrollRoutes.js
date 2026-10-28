@@ -18,11 +18,11 @@ router.get('/directory', async (req, res) => {
     let queryStr = '';
     
     if (type === 'Teacher') {
-      queryStr = 'SELECT id, name, department, role, joiningDate, status, photo FROM teachers';
+      queryStr = "SELECT id, name, department, role, COALESCE(joiningDate, dateOfJoining, '') as joiningDate, COALESCE(status, 'Active') as status, photo FROM teachers";
     } else if (type === 'Staff') {
-      queryStr = 'SELECT id, name, department, role, joiningDate, status, photo FROM staff';
+      queryStr = "SELECT id, name, department, role, designation, COALESCE(joiningDate, dateOfJoining, '') as joiningDate, COALESCE(status, 'Active') as status, photo FROM staff";
     } else if (type === 'Employee') {
-      queryStr = 'SELECT id, name, department, designation, role, COALESCE(joiningDate, dateOfJoining, "") as joiningDate, status, photo FROM employees';
+      queryStr = "SELECT id, name, department, designation, role, COALESCE(joiningDate, dateOfJoining, '') as joiningDate, COALESCE(status, 'Active') as status, photo FROM employees";
     } else {
       return res.status(400).json({ error: 'Invalid type parameter. Must be Teacher, Staff, or Employee.' });
     }
@@ -113,7 +113,7 @@ router.post('/salary-masters', async (req, res) => {
     const netSalary = grossSalary - totalDeductions;
     
     const [existing] = await sqlDb.query('SELECT * FROM salary_masters WHERE employeeId = ?', [employeeId]);
-    const tenantId = req.headers['x-tenant-id'] || 'rerum';
+    const tenantId = req.tenantId || req.user?.tenantId || req.headers['x-tenant-id'] || 'noble';
     
     if (existing) {
       // Record salary revision history if net salary changed
@@ -243,7 +243,7 @@ router.post('/payments', async (req, res) => {
     const seq = String((countRows[0]?.cnt || 0) + 1).padStart(5, '0');
     const receiptNo = `REC-${year}${month.toUpperCase().substring(0, 3)}-${seq}`;
     
-    const tenantId = req.headers['x-tenant-id'] || 'rerum';
+    const tenantId = req.tenantId || req.user?.tenantId || req.headers['x-tenant-id'] || 'noble';
     const id = `PAY-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
     
     await sqlDb.query(
@@ -282,7 +282,7 @@ router.post('/payments', async (req, res) => {
 router.get('/dashboard', async (req, res) => {
   try {
     // 1. Enforce tenant context validation
-    const activeTenant = req.headers['x-tenant-id'] || req.query.tenantId;
+    const activeTenant = req.tenantId || req.user?.tenantId || req.headers['x-tenant-id'] || req.query.tenantId || 'noble';
     if (!activeTenant || activeTenant === 'platform' || activeTenant === 'default') {
       return res.status(400).json({ error: 'Valid tenant context (x-tenant-id header) is required to access the payroll dashboard.' });
     }

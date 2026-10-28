@@ -18,14 +18,17 @@ import {
   Filter,
   FileText,
   MapPin,
-  Download,
   Info,
   Edit3,
   Plus,
-  Printer
+  Printer,
+  Upload,
+  RotateCcw,
+  GraduationCap
 } from 'lucide-react';
 import { hasPermission } from '../utils/permissions';
 import { fetchActiveGrades, fetchActiveSections } from '../utils/grades';
+import StudentBulkImportModal from '../components/StudentBulkImportModal';
 
 export default function StudentDirectory({ readOnly = true, onAddClick, onEditClick, userProfile }) {
   const isTeacher = userProfile?.role === 'Teacher' || userProfile?.userType === 'Teacher';
@@ -33,7 +36,7 @@ export default function StudentDirectory({ readOnly = true, onAddClick, onEditCl
   const assignedSection = isTeacher ? (userProfile?.assignedSectionName || userProfile?.assignedSectionId || '') : '';
 
   const [students, setStudents] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [activeGrades, setActiveGrades] = useState([]);
   const [sections, setSections] = useState([]);
 
@@ -47,7 +50,6 @@ export default function StudentDirectory({ readOnly = true, onAddClick, onEditCl
     loadGradesAndSections();
   }, []);
 
-  
   const hasValue = (val) => {
     if (val === undefined || val === null || val === '') return false;
     const lower = String(val).trim().toLowerCase();
@@ -57,18 +59,11 @@ export default function StudentDirectory({ readOnly = true, onAddClick, onEditCl
   
   // Search, Filters & Sorting States
   const [searchQuery, setSearchQuery] = useState('');
-  const [classFilter, setClassFilter] = useState(isTeacher ? assignedClass : 'All');
-  const [sectionFilter, setSectionFilter] = useState(isTeacher ? assignedSection : 'All');
+  const [classFilter, setClassFilter] = useState('');
+  const [sectionFilter, setSectionFilter] = useState('All');
   const [yearFilter, setYearFilter] = useState('All');
   const [sortBy, setSortBy] = useState('name');
   const [sortOrder, setSortOrder] = useState('asc');
-
-  useEffect(() => {
-    if (isTeacher) {
-      if (assignedClass) setClassFilter(assignedClass);
-      if (assignedSection) setSectionFilter(assignedSection);
-    }
-  }, [userProfile, assignedClass, assignedSection, isTeacher]);
   
   // Pagination States
   const [page, setPage] = useState(1);
@@ -83,6 +78,90 @@ export default function StudentDirectory({ readOnly = true, onAddClick, onEditCl
   const [editFormData, setEditFormData] = useState({});
   const [editLoading, setEditLoading] = useState(false);
   const [schoolDetails, setSchoolDetails] = useState(null);
+
+  // Bulk Import States & Permission
+  const canImport = !readOnly && hasPermission('register-student', 'create');
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [recentBatchId, setRecentBatchId] = useState(() => {
+    const bId = localStorage.getItem('latest_import_batch_id');
+    const bTime = localStorage.getItem('latest_import_batch_time');
+    if (bId && bTime && Date.now() - parseInt(bTime, 10) < 24 * 60 * 60 * 1000) {
+      return bId;
+    }
+    return null;
+  });
+
+  // Check server for any active import batch on mount and when students are updated
+  useEffect(() => {
+    const checkLatestBatch = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        const tenantSubdomain = localStorage.getItem('tenant_subdomain') || 'default';
+        const res = await fetch('/api/students/import/latest-batch', {
+          headers: {
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+            'x-tenant-id': tenantSubdomain
+          }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.batchId) {
+            setRecentBatchId(data.batchId);
+            localStorage.setItem('latest_import_batch_id', data.batchId);
+            localStorage.setItem('latest_import_batch_time', Date.now().toString());
+          } else {
+            setRecentBatchId(null);
+            localStorage.removeItem('latest_import_batch_id');
+            localStorage.removeItem('latest_import_batch_time');
+          }
+        }
+      } catch (err) {
+        // Fallback to localStorage value
+      }
+    };
+
+    checkLatestBatch();
+
+    const handleStudentsUpdated = () => {
+      checkLatestBatch();
+      fetchStudents();
+    };
+
+    window.addEventListener('students-updated', handleStudentsUpdated);
+    return () => window.removeEventListener('students-updated', handleStudentsUpdated);
+  }, []);
+
+  const handleUndoRecentImport = async () => {
+    if (!recentBatchId) return;
+    if (!window.confirm("Are you sure you want to undo the last import? All students from this import batch will be removed from the directory.")) {
+      return;
+    }
+    try {
+      const token = localStorage.getItem('token');
+      const tenantSubdomain = localStorage.getItem('tenant_subdomain') || 'default';
+      const res = await fetch(`/api/students/import/undo/${recentBatchId}`, {
+        method: 'POST',
+        headers: {
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+          'x-tenant-id': tenantSubdomain
+        }
+      });
+      const data = await res.json();
+      if (res.ok) {
+        alert(data.message || 'Import batch undone successfully. Students removed.');
+        localStorage.removeItem('latest_import_batch_id');
+        localStorage.removeItem('latest_import_batch_time');
+        setRecentBatchId(null);
+        window.dispatchEvent(new CustomEvent('students-updated'));
+        window.dispatchEvent(new CustomEvent('attendance-refresh'));
+        fetchStudents();
+      } else {
+        alert(data.error || 'Failed to undo import batch.');
+      }
+    } catch (err) {
+      alert('Network error while undoing import batch: ' + err.message);
+    }
+  };
 
   useEffect(() => {
     const fetchSchool = async () => {
@@ -361,8 +440,7 @@ export default function StudentDirectory({ readOnly = true, onAddClick, onEditCl
       fatherMobile: student.fatherMobile || '',
       motherName: student.motherName || '',
       emergencyContactNumber: student.emergencyContactNumber || '',
-      academicYear: student.academicYear || '2026-2027',
-      status: student.status || 'Active'
+      academicYear: student.academicYear || '2026-2027'
     });
   };
 
@@ -370,10 +448,16 @@ export default function StudentDirectory({ readOnly = true, onAddClick, onEditCl
     e.preventDefault();
     setEditLoading(true);
     try {
+      const token = localStorage.getItem('token');
+      const tenantSubdomain = localStorage.getItem('tenant_subdomain') || 'default';
       const studentId = editingStudent.id;
       const res = await fetch(`/api/students/${studentId}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'x-tenant-id': tenantSubdomain,
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        },
         body: JSON.stringify(editFormData)
       });
       if (res.ok) {
@@ -393,7 +477,7 @@ export default function StudentDirectory({ readOnly = true, onAddClick, onEditCl
   };
 
   const fetchStudents = async () => {
-    if (classFilter === 'All' && sectionFilter === 'All' && yearFilter === 'All' && searchQuery.trim() === '') {
+    if (!classFilter && !searchQuery.trim()) {
       setStudents([]);
       setTotalCount(0);
       setTotalPages(1);
@@ -402,6 +486,9 @@ export default function StudentDirectory({ readOnly = true, onAddClick, onEditCl
     }
     try {
       setLoading(true);
+      const token = localStorage.getItem('token');
+      const tenantSubdomain = localStorage.getItem('tenant_subdomain') || 'default';
+
       const queryParams = new URLSearchParams({
         search: searchQuery,
         class: classFilter,
@@ -414,7 +501,12 @@ export default function StudentDirectory({ readOnly = true, onAddClick, onEditCl
         limit
       }).toString();
       
-      const res = await fetch(`/api/students?${queryParams}`);
+      const res = await fetch(`/api/students?${queryParams}`, {
+        headers: {
+          'x-tenant-id': tenantSubdomain,
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        }
+      });
       if (res.ok) {
         const data = await res.json();
         setStudents(data.students || []);
@@ -428,8 +520,6 @@ export default function StudentDirectory({ readOnly = true, onAddClick, onEditCl
     }
   };
 
-
-
   // Reload students on search/filter/pagination triggers
   useEffect(() => {
     fetchStudents();
@@ -442,7 +532,7 @@ export default function StudentDirectory({ readOnly = true, onAddClick, onEditCl
 
   // Sync section filter with class filter
   useEffect(() => {
-    if (classFilter !== 'All') {
+    if (classFilter) {
       const matchedGrade = activeGrades.find(g => g.name === classFilter);
       const allowedSections = matchedGrade ? (matchedGrade.sections || []) : [];
       if (sectionFilter !== 'All' && !allowedSections.includes(sectionFilter)) {
@@ -453,7 +543,81 @@ export default function StudentDirectory({ readOnly = true, onAddClick, onEditCl
     }
   }, [classFilter, activeGrades, sectionFilter]);
 
-  // Delete Student Profile
+  // Bulk Selection & Deletion States
+  const canDelete = !readOnly && hasPermission('student-directory', 'delete');
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+
+  // Clear selections when filters or pagination changes
+  useEffect(() => {
+    setSelectedIds([]);
+  }, [searchQuery, classFilter, sectionFilter, yearFilter, page]);
+
+  const handleToggleSelect = (id) => {
+    setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  };
+
+  const handleSelectAll = () => {
+    const pageIds = students.map(s => s.id);
+    const allSelected = pageIds.length > 0 && pageIds.every(id => selectedIds.includes(id));
+    if (allSelected) {
+      setSelectedIds(prev => prev.filter(id => !pageIds.includes(id)));
+    } else {
+      setSelectedIds(prev => Array.from(new Set([...prev, ...pageIds])));
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.length === 0) return;
+    if (!window.confirm(`Are you sure you want to completely dismiss the ${selectedIds.length} selected student(s) from the ERP registry? This action cannot be undone.`)) {
+      return;
+    }
+    setBulkDeleting(true);
+    const countToDelete = selectedIds.length;
+    const targetIds = [...selectedIds];
+
+    const originalStudents = [...students];
+    const originalTotalCount = totalCount;
+
+    // Optimistically update local states
+    setStudents(prev => prev.filter(s => !targetIds.includes(s.id)));
+    setTotalCount(prev => Math.max(0, prev - countToDelete));
+    setSelectedIds([]);
+    if (selectedStudent && targetIds.includes(selectedStudent.id)) {
+      setSelectedStudent(null);
+    }
+
+    try {
+      const token = localStorage.getItem('token');
+      const tenantSubdomain = localStorage.getItem('tenant_subdomain') || localStorage.getItem('tenantSubdomain') || '';
+      const res = await fetch('/api/students/bulk-delete', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-tenant-id': tenantSubdomain,
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify({ ids: targetIds })
+      });
+      if (!res.ok) {
+        setStudents(originalStudents);
+        setTotalCount(originalTotalCount);
+        const errData = await res.json().catch(() => ({}));
+        alert(errData.error || 'Server error occurred during bulk deletion.');
+      } else {
+        fetchStudents();
+      }
+    } catch (err) {
+      console.error('Error bulk removing students:', err);
+      setStudents(originalStudents);
+      setTotalCount(originalTotalCount);
+      alert('Network error while bulk deleting students.');
+    } finally {
+      setBulkDeleting(false);
+    }
+  };
+
+  // Delete Single Student Profile
   const handleDeleteStudent = async (studentId, studentName) => {
     if (window.confirm(`Are you sure you want to completely dismiss student ${studentName} (${studentId}) from the ERP registry?`)) {
       const originalStudents = [...students];
@@ -462,6 +626,7 @@ export default function StudentDirectory({ readOnly = true, onAddClick, onEditCl
       // Optimistically update local states
       setStudents(prev => prev.filter(s => s.id !== studentId));
       setTotalCount(prev => Math.max(0, prev - 1));
+      setSelectedIds(prev => prev.filter(id => id !== studentId));
       if (selectedStudent && selectedStudent.id === studentId) {
         setSelectedStudent(null);
       }
@@ -496,7 +661,7 @@ export default function StudentDirectory({ readOnly = true, onAddClick, onEditCl
     setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc');
   };
 
-  const isSearchOrFilterActive = searchQuery !== '' || classFilter !== 'All' || sectionFilter !== 'All' || yearFilter !== 'All';
+  const isSearchOrFilterActive = searchQuery !== '' || Boolean(classFilter) || sectionFilter !== 'All' || yearFilter !== 'All';
 
   return (
     <div className="animate-slide-up" style={{ display: 'flex', flexDirection: 'column', gap: '20px', width: '100%' }}>
@@ -519,7 +684,7 @@ export default function StudentDirectory({ readOnly = true, onAddClick, onEditCl
             />
           </div>
 
-          <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
             <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
               <Filter size={14} /> Section:
             </span>
@@ -529,11 +694,11 @@ export default function StudentDirectory({ readOnly = true, onAddClick, onEditCl
               value={sectionFilter}
               onChange={(e) => setSectionFilter(e.target.value)}
               style={{ padding: '8px 12px', borderRadius: '8px', fontSize: '0.85rem' }}
-              disabled={isTeacher}
+              disabled={!classFilter}
             >
-              {!isTeacher && <option value="All">All Sections</option>}
+              <option value="All">All Sections</option>
               {(() => {
-                const allowedSections = classFilter !== 'All'
+                const allowedSections = classFilter
                   ? (activeGrades.find(g => g.name === classFilter)?.sections || [])
                   : [];
                 return [...new Set(allowedSections)].map(secName => (
@@ -541,6 +706,33 @@ export default function StudentDirectory({ readOnly = true, onAddClick, onEditCl
                 ));
               })()}
             </select>
+
+            {/* Bulk Import Buttons - ONLY on Student Directory */}
+            {canImport && (
+              <>
+                <button
+                  type="button"
+                  className="btn-primary"
+                  onClick={() => setShowImportModal(true)}
+                  title="Import students in bulk via Excel or CSV"
+                  style={{ padding: '8px 16px', borderRadius: '8px', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '6px' }}
+                >
+                  <Upload size={15} /> Import Students
+                </button>
+
+                {recentBatchId && (
+                  <button
+                    type="button"
+                    className="btn-secondary"
+                    onClick={handleUndoRecentImport}
+                    title="Undo previous import batch (remove imported students)"
+                    style={{ padding: '8px 14px', borderRadius: '8px', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '6px', color: '#ef4444', borderColor: 'rgba(239, 68, 68, 0.4)', background: 'rgba(239, 68, 68, 0.05)', fontWeight: 600 }}
+                  >
+                    <RotateCcw size={14} /> Undo Import
+                  </button>
+                )}
+              </>
+            )}
           </div>
 
         </div>
@@ -548,13 +740,15 @@ export default function StudentDirectory({ readOnly = true, onAddClick, onEditCl
         {/* Row 2: Grade Chips selection */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', borderTop: '1px solid var(--border-glass)', paddingTop: '14px' }}>
           <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 600 }}>Grades:</span>
-          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-            {activeGrades.map(g => g.name).filter(grade => !isTeacher || grade === assignedClass).map(grade => {
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+            {activeGrades.map(g => g.name).map(grade => {
               const isSelected = classFilter === grade;
+              const gradeLabel = grade.startsWith('LKG') || grade.startsWith('UKG') || grade.startsWith('NURSERY') ? grade : `Grade ${grade}`;
               return (
                 <button
                   key={grade}
-                  onClick={() => !isTeacher && setClassFilter(classFilter === grade ? 'All' : grade)}
+                  type="button"
+                  onClick={() => setClassFilter(classFilter === grade ? '' : grade)}
                   className={isSelected ? "btn-primary" : "btn-secondary"}
                   style={{
                     padding: '6px 14px',
@@ -564,10 +758,12 @@ export default function StudentDirectory({ readOnly = true, onAddClick, onEditCl
                     border: isSelected ? 'none' : '1px solid var(--border-glass)',
                     cursor: 'pointer',
                     transition: 'all 0.2s ease',
-                    height: 'fit-content'
+                    height: 'fit-content',
+                    display: 'inline-flex',
+                    alignItems: 'center'
                   }}
                 >
-                  {grade.startsWith('LKG') || grade.startsWith('UKG') || grade.startsWith('NURSERY') ? grade : `Grade ${grade}`}
+                  <span>{gradeLabel}</span>
                 </button>
               );
             })}
@@ -604,9 +800,12 @@ export default function StudentDirectory({ readOnly = true, onAddClick, onEditCl
 
           <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
             <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 500 }}>
-              Total Registrations: <strong style={{ color: 'var(--text-main)' }}>{totalCount}</strong>
+              {classFilter ? (
+                <>Grade Registrations: <strong style={{ color: 'var(--text-main)' }}>{totalCount}</strong></>
+              ) : (
+                <>Select a Grade above</>
+              )}
             </span>
-
           </div>
 
         </div>
@@ -616,167 +815,346 @@ export default function StudentDirectory({ readOnly = true, onAddClick, onEditCl
       {/* Directory Roster Table Card */}
       <div className="glass-panel" style={{ padding: '24px', position: 'relative' }}>
         
-        {!isSearchOrFilterActive ? (
-          <div style={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: '100px 24px',
-            textAlign: 'center',
-            gap: '12px'
-          }}>
-            <span style={{
-              fontSize: '1.25rem',
-              fontWeight: 600,
-              color: 'var(--text-muted)',
-              opacity: 0.7,
-              letterSpacing: '0.05em'
-            }}>
-              Please select a grade filter or enter a search query to load students.
-            </span>
-          </div>
-        ) : loading ? (
+        {loading ? (
           <div style={{ textAlign: 'center', padding: '60px', color: 'var(--text-muted)', fontSize: '0.9rem' }}>
             Loading students database directory...
           </div>
         ) : (
           <>
-            <div className="custom-table-container">
-              <table className="custom-table">
-                <thead>
-                  <tr>
-                    <th>Registration ID</th>
-                    <th>Student Name</th>
-                    <th>Class</th>
-                    <th>Section</th>
-                    <th>Parent Contact</th>
-                    <th>Roll No</th>
-                    <th>Academic Year</th>
-                    <th style={{ textAlign: 'right' }}>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {students.length > 0 ? (
-                    students.map((stu) => (
-                      <tr key={stu.id}>
-                        <td style={{ fontWeight: 700, color: 'hsl(var(--color-primary))' }}>{stu.id}</td>
-                        <td>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                            {stu.photo ? (
-                              <img 
-                                src={stu.photo} 
-                                alt={stu.name} 
-                                style={{ width: '32px', height: '32px', borderRadius: '50%', objectFit: 'cover', border: '1px solid var(--border-glass)' }}
+            {/* Helper to render student table for any grade view */}
+            {(() => {
+              const renderStudentTable = (itemsToRender, { showClassCol = true, emptyMessage = 'No students found.' } = {}) => {
+                return (
+                  <div className="custom-table-container">
+                    <table className="custom-table">
+                      <thead>
+                        <tr>
+                          {canDelete && (
+                            <th style={{ width: '44px', textAlign: 'center', padding: '10px 8px' }}>
+                              <input
+                                type="checkbox"
+                                checked={itemsToRender.length > 0 && itemsToRender.every(s => selectedIds.includes(s.id))}
+                                onChange={() => {
+                                  const pageIds = itemsToRender.map(s => s.id);
+                                  const allSelected = pageIds.length > 0 && pageIds.every(id => selectedIds.includes(id));
+                                  if (allSelected) {
+                                    setSelectedIds(prev => prev.filter(id => !pageIds.includes(id)));
+                                  } else {
+                                    setSelectedIds(prev => Array.from(new Set([...prev, ...pageIds])));
+                                  }
+                                }}
+                                aria-label="Select all students in this view"
+                                style={{ cursor: 'pointer', width: '16px', height: '16px', accentColor: 'hsl(var(--color-primary))' }}
                               />
-                            ) : (
-                              <div style={{
-                                width: '32px',
-                                height: '32px',
-                                borderRadius: '50%',
-                                background: stu.photoBg || '#334155',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                color: 'white',
-                                fontSize: '0.75rem',
-                                fontWeight: 700
-                              }}>
-                                {stu.name.split(' ').map(n=>n[0]).join('').substring(0, 2).toUpperCase()}
-                              </div>
-                            )}
-                            <span style={{ fontWeight: 600 }}>{stu.name}</span>
-                          </div>
-                        </td>
-                        <td style={{ fontWeight: 500 }}>{stu.studentClass || (stu.grade && stu.grade.split('-')[0]) || 'Nursery'}</td>
-                        <td style={{ fontWeight: 500 }}>{stu.section || '-'}</td>
-                        <td style={{ fontWeight: 500 }}>{stu.phone || stu.guardianContact || 'N/A'}</td>
-                        <td style={{ fontWeight: 600, color: 'var(--text-muted)' }}>{stu.rollNumber || stu.roll || '-'}</td>
-                        <td style={{ fontWeight: 500 }}>{stu.academicYear || '2026-2027'}</td>
-                        <td>
-                          <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-                            <button 
-                              onClick={() => setSelectedStudent(stu)}
-                              className="btn-secondary" 
-                              style={{ padding: '6px 8px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                              title="Inspect"
-                            >
-                              <Info size={13} />
-                            </button>
-                            <button 
-                              onClick={() => handlePrintIDCard(stu)}
-                              className="btn-secondary" 
-                              style={{ padding: '6px 8px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                              title="Print ID Card"
-                            >
-                              <Printer size={13} />
-                            </button>
-                            {!readOnly && (
-                              <>
-                                {hasPermission('student-directory', 'edit') && (
-                                  <button 
-                                    onClick={() => onEditClick ? onEditClick(stu) : openEditModal(stu)}
-                                    className="btn-secondary" 
-                                    style={{ padding: '6px 8px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                                    title="Edit"
-                                  >
-                                    <Edit3 size={13} />
-                                  </button>
+                            </th>
+                          )}
+                          <th>Registration ID</th>
+                          <th>Student Name</th>
+                          {showClassCol && <th>Class</th>}
+                          <th>Section</th>
+                          <th>Parent Contact</th>
+                          <th>Roll No</th>
+                          <th>Academic Year</th>
+                          <th style={{ textAlign: 'right' }}>Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {itemsToRender.length > 0 ? (
+                          itemsToRender.map((stu) => {
+                            const isSelected = selectedIds.includes(stu.id);
+                            return (
+                              <tr 
+                                key={stu.id}
+                                style={{
+                                  background: isSelected ? 'rgba(var(--color-primary-rgb, 255, 140, 66), 0.08)' : undefined,
+                                  transition: 'background-color 0.15s ease'
+                                }}
+                              >
+                                {canDelete && (
+                                  <td style={{ textAlign: 'center', padding: '10px 8px' }} onClick={(e) => e.stopPropagation()}>
+                                    <input
+                                      type="checkbox"
+                                      checked={isSelected}
+                                      onChange={() => handleToggleSelect(stu.id)}
+                                      aria-label={`Select student ${stu.name}`}
+                                      style={{ cursor: 'pointer', width: '16px', height: '16px', accentColor: 'hsl(var(--color-primary))' }}
+                                    />
+                                  </td>
                                 )}
-                                {hasPermission('student-directory', 'delete') && (
-                                  <button 
-                                    onClick={() => handleDeleteStudent(stu.id, stu.name)}
-                                    className="btn-danger" 
-                                    style={{ padding: '6px 8px', borderRadius: '8px', background: 'rgba(var(--color-danger-rgb), 0.1)', border: '1px solid rgba(var(--color-danger-rgb), 0.2)', color: 'rgb(var(--color-danger-rgb))' }}
-                                    title="Delete profile"
-                                  >
-                                    <Trash2 size={14} />
-                                  </button>
-                                )}
-                              </>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td colSpan="8" style={{ textAlign: 'center', padding: '50px', color: 'var(--text-muted)' }}>
-                        {searchQuery ? `No students found starting with '${searchQuery}'.` : 'No registered students found matching your filters.'}
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
+                                <td style={{ fontWeight: 700, color: 'hsl(var(--color-primary))' }}>{stu.id}</td>
+                                <td>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                    {stu.photo ? (
+                                      <img 
+                                        src={stu.photo} 
+                                        alt={stu.name} 
+                                        style={{ width: '32px', height: '32px', borderRadius: '50%', objectFit: 'cover', border: '1px solid var(--border-glass)' }}
+                                      />
+                                    ) : (
+                                      <div style={{
+                                        width: '32px',
+                                        height: '32px',
+                                        borderRadius: '50%',
+                                        background: stu.photoBg || '#334155',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        color: 'white',
+                                        fontSize: '0.75rem',
+                                        fontWeight: 700
+                                      }}>
+                                        {stu.name.split(' ').map(n=>n[0]).join('').substring(0, 2).toUpperCase()}
+                                      </div>
+                                    )}
+                                    <span style={{ fontWeight: 600 }}>{stu.name}</span>
+                                  </div>
+                                </td>
+                                {showClassCol && <td style={{ fontWeight: 500 }}>{stu.studentClass || (stu.grade && stu.grade.split('-')[0]) || 'Nursery'}</td>}
+                                <td style={{ fontWeight: 500 }}>{stu.section || '-'}</td>
+                                <td style={{ fontWeight: 500 }}>{stu.phone || stu.guardianContact || 'N/A'}</td>
+                                <td style={{ fontWeight: 600, color: 'var(--text-muted)' }}>{stu.rollNumber || stu.roll || '-'}</td>
+                                <td style={{ fontWeight: 500 }}>{stu.academicYear || '2026-2027'}</td>
+                                <td>
+                                  <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                                    <button 
+                                      onClick={() => setSelectedStudent(stu)}
+                                      className="btn-secondary" 
+                                      style={{ padding: '6px 8px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                      title="Inspect"
+                                    >
+                                      <Info size={13} />
+                                    </button>
+                                    <button 
+                                      onClick={() => handlePrintIDCard(stu)}
+                                      className="btn-secondary" 
+                                      style={{ padding: '6px 8px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                      title="Print ID Card"
+                                    >
+                                      <Printer size={13} />
+                                    </button>
+                                    {!readOnly && (
+                                      <>
+                                        {hasPermission('student-directory', 'edit') && (
+                                          <button 
+                                            onClick={() => onEditClick ? onEditClick(stu) : openEditModal(stu)}
+                                            className="btn-secondary" 
+                                            style={{ padding: '6px 8px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                            title="Edit"
+                                          >
+                                            <Edit3 size={13} />
+                                          </button>
+                                        )}
+                                        {canDelete && (
+                                          <button 
+                                            onClick={() => handleDeleteStudent(stu.id, stu.name)}
+                                            className="btn-danger" 
+                                            style={{ padding: '6px 8px', borderRadius: '8px', background: 'rgba(var(--color-danger-rgb), 0.1)', border: '1px solid rgba(var(--color-danger-rgb), 0.2)', color: 'rgb(var(--color-danger-rgb))' }}
+                                            title="Delete profile"
+                                          >
+                                            <Trash2 size={14} />
+                                          </button>
+                                        )}
+                                      </>
+                                    )}
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })
+                        ) : (
+                          <tr>
+                            <td colSpan={canDelete ? (showClassCol ? "9" : "8") : (showClassCol ? "8" : "7")} style={{ textAlign: 'center', padding: '50px', color: 'var(--text-muted)' }}>
+                              {emptyMessage}
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                );
+              };
 
-            {/* Pagination Controls */}
-            {totalPages > 1 && (
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '20px', borderTop: '1px solid var(--border-glass)', paddingTop: '16px' }}>
-                <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                  Showing Page <strong style={{ color: 'var(--text-main)' }}>{page}</strong> of <strong style={{ color: 'var(--text-main)' }}>{totalPages}</strong>
-                </span>
-                
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  <button 
-                    disabled={page === 1}
-                    onClick={() => setPage(prev => Math.max(prev - 1, 1))}
-                    className="btn-secondary"
-                    style={{ padding: '6px 12px', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.8rem' }}
-                  >
-                    <ChevronLeft size={14} /> Previous
-                  </button>
-                  <button 
-                    disabled={page === totalPages}
-                    onClick={() => setPage(prev => Math.min(prev + 1, totalPages))}
-                    className="btn-secondary"
-                    style={{ padding: '6px 12px', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.8rem' }}
-                  >
-                    Next <ChevronRight size={14} />
-                  </button>
+              const renderPagination = () => {
+                if (totalPages <= 1) return null;
+                return (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '20px', borderTop: '1px solid var(--border-glass)', paddingTop: '16px' }}>
+                    <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                      Showing Page <strong style={{ color: 'var(--text-main)' }}>{page}</strong> of <strong style={{ color: 'var(--text-main)' }}>{totalPages}</strong>
+                    </span>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <button 
+                        disabled={page === 1}
+                        onClick={() => setPage(prev => Math.max(prev - 1, 1))}
+                        className="btn-secondary"
+                        style={{ padding: '6px 12px', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.8rem' }}
+                      >
+                        <ChevronLeft size={14} /> Previous
+                      </button>
+                      <button 
+                        disabled={page === totalPages}
+                        onClick={() => setPage(prev => Math.min(prev + 1, totalPages))}
+                        className="btn-secondary"
+                        style={{ padding: '6px 12px', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.8rem' }}
+                      >
+                        Next <ChevronRight size={14} />
+                      </button>
+                    </div>
+                  </div>
+                );
+              };
+
+              // 1. Search Query is Active -> Show Filtered Results
+              if (searchQuery.trim() !== '') {
+                return (
+                  <div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                      <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 700, color: 'var(--text-main)' }}>
+                        Search Results for "{searchQuery}"
+                      </h3>
+                      <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                        {students.length} matching student{students.length !== 1 ? 's' : ''}
+                      </span>
+                    </div>
+                    {renderStudentTable(students, { showClassCol: true, emptyMessage: `No students found starting with '${searchQuery}'.` })}
+                    {renderPagination()}
+                  </div>
+                );
+              }
+
+              // 2. Specific Grade is Selected -> Show Single Grade Table
+              if (classFilter) {
+                return (
+                  <div>
+                    {/* Grade Navigation Bar */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '16px', paddingBottom: '14px', borderBottom: '1px solid var(--border-glass)' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <button
+                          type="button"
+                          onClick={() => setClassFilter('')}
+                          className="btn-secondary"
+                          style={{ padding: '6px 12px', borderRadius: '8px', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '4px' }}
+                          title="Clear grade selection"
+                        >
+                          <X size={14} /> Clear Selection
+                        </button>
+                        <div>
+                          <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <GraduationCap size={18} style={{ color: 'hsl(var(--color-primary))' }} />
+                            Grade {classFilter} Directory
+                          </h3>
+                          <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                            Viewing student records strictly for Grade {classFilter}
+                          </span>
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                        <span className="badge-pill" style={{ background: 'rgba(var(--color-primary-rgb, 255, 140, 66), 0.12)', color: 'hsl(var(--color-primary))', padding: '4px 12px', borderRadius: '16px', fontSize: '0.8rem', fontWeight: 700 }}>
+                          {totalCount} Student{totalCount !== 1 ? 's' : ''} Enrolled
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Bulk Selection Action Toolbar */}
+                    {canDelete && selectedIds.length > 0 && (
+                      <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        padding: '12px 18px',
+                        marginBottom: '16px',
+                        borderRadius: '12px',
+                        background: 'linear-gradient(135deg, rgba(255, 140, 66, 0.15) 0%, rgba(255, 90, 95, 0.15) 100%)',
+                        border: '1px solid rgba(255, 140, 66, 0.35)',
+                        boxShadow: '0 4px 20px rgba(0, 0, 0, 0.15)',
+                        animation: 'fadeIn 0.2s ease-in-out'
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                          <span style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            minWidth: '24px',
+                            height: '24px',
+                            padding: '0 6px',
+                            borderRadius: '12px',
+                            background: 'hsl(var(--color-primary))',
+                            color: '#fff',
+                            fontSize: '0.75rem',
+                            fontWeight: 800
+                          }}>
+                            {selectedIds.length}
+                          </span>
+                          <span style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-main)' }}>
+                            {selectedIds.length} student{selectedIds.length > 1 ? 's' : ''} selected
+                          </span>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                          <button
+                            type="button"
+                            onClick={() => setSelectedIds([])}
+                            className="btn-secondary"
+                            style={{ padding: '6px 14px', borderRadius: '8px', fontSize: '0.8rem', cursor: 'pointer' }}
+                          >
+                            Deselect All
+                          </button>
+                          <button
+                            type="button"
+                            disabled={bulkDeleting}
+                            onClick={handleBulkDelete}
+                            className="btn-danger"
+                            style={{
+                              padding: '6px 16px',
+                              borderRadius: '8px',
+                              fontSize: '0.8rem',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '6px',
+                              cursor: bulkDeleting ? 'not-allowed' : 'pointer',
+                              background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
+                              color: '#ffffff',
+                              border: 'none',
+                              boxShadow: '0 2px 8px rgba(239, 68, 68, 0.35)',
+                              fontWeight: 600
+                            }}
+                          >
+                            <Trash2 size={14} />
+                            {bulkDeleting ? 'Deleting...' : `Delete Selected (${selectedIds.length})`}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {renderStudentTable(students, { showClassCol: false, emptyMessage: `No registered students found in Grade ${classFilter} matching your filters.` })}
+                    {renderPagination()}
+                  </div>
+                );
+              }
+
+              // 3. No Grade Selected -> Prompt user to select a grade from above
+              return (
+                <div style={{ textAlign: 'center', padding: '60px 20px', color: 'var(--text-muted)' }}>
+                  <div style={{
+                    width: '64px',
+                    height: '64px',
+                    borderRadius: '18px',
+                    background: 'rgba(var(--color-primary-rgb, 255, 140, 66), 0.1)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    margin: '0 auto 16px auto',
+                    color: 'hsl(var(--color-primary))'
+                  }}>
+                    <BookOpen size={30} />
+                  </div>
+                  <h3 style={{ margin: '0 0 8px 0', fontSize: '1.15rem', fontWeight: 700, color: 'var(--text-main)' }}>
+                    Select a Grade to View Students
+                  </h3>
+                  <p style={{ margin: 0, fontSize: '0.88rem', color: 'var(--text-muted)', maxWidth: '440px', marginInline: 'auto', lineHeight: '1.5' }}>
+                    Please click on a grade from the buttons above to view its student records.
+                  </p>
                 </div>
-              </div>
-            )}
+              );
+            })()}
           </>
         )}
 
@@ -921,7 +1299,6 @@ export default function StudentDirectory({ readOnly = true, onAddClick, onEditCl
                 hasValue(selectedStudent.admissionDate) || 
                 hasValue(selectedStudent.admissionType) || 
                 hasValue(selectedStudent.academicYear) || 
-                hasValue(selectedStudent.status) || 
                 hasValue(selectedStudent.previousSchoolName) || 
                 hasValue(selectedStudent.previousSchoolAddress) || 
                 hasValue(selectedStudent.previousClassStudied) || 
@@ -949,12 +1326,10 @@ export default function StudentDirectory({ readOnly = true, onAddClick, onEditCl
                         </strong>
                       </div>
                     )}
-                    {(hasValue(selectedStudent.academicYear) || hasValue(selectedStudent.status)) && (
+                    {hasValue(selectedStudent.academicYear) && (
                       <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.02)', paddingBottom: '6px' }}>
-                        <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Academic Year / Status</span>
-                        <strong style={{ fontSize: '0.85rem' }}>
-                          {[selectedStudent.academicYear, selectedStudent.status].filter(hasValue).join(' / ')}
-                        </strong>
+                        <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Academic Year</span>
+                        <strong style={{ fontSize: '0.85rem' }}>{selectedStudent.academicYear}</strong>
                       </div>
                     )}
                     {(hasValue(selectedStudent.previousSchoolName) || hasValue(selectedStudent.previousSchoolAddress)) && (
@@ -970,6 +1345,14 @@ export default function StudentDirectory({ readOnly = true, onAddClick, onEditCl
                         <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Previous Class / TC Number</span>
                         <strong style={{ fontSize: '0.85rem' }}>
                           {[selectedStudent.previousClassStudied, selectedStudent.transferCertificateNumber].filter(hasValue).join(' / ')}
+                        </strong>
+                      </div>
+                    )}
+                    {hasValue(selectedStudent.import_batch_id) && (
+                      <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.02)', paddingBottom: '6px' }}>
+                        <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Bulk Import</span>
+                        <strong style={{ fontSize: '0.85rem', color: '#FF8C42' }}>
+                          Imported on {new Date(selectedStudent.imported_at || Date.now()).toLocaleDateString()}
                         </strong>
                       </div>
                     )}
@@ -1329,15 +1712,6 @@ export default function StudentDirectory({ readOnly = true, onAddClick, onEditCl
                   </select>
                 </div>
 
-                <div className="form-group">
-                  <label>Status</label>
-                  <select value={editFormData.status || ''} onChange={(e) => setEditFormData({ ...editFormData, status: e.target.value })}
-                    className="form-control" style={{ padding: '10px 14px', borderRadius: '10px' }}>
-                    <option value="Active">Active</option>
-                    <option value="Inactive">Inactive</option>
-                    <option value="Suspended">Suspended</option>
-                  </select>
-                </div>
 
                 <div className="form-group">
                   <label>Father's Name</label>
@@ -1379,6 +1753,22 @@ export default function StudentDirectory({ readOnly = true, onAddClick, onEditCl
           </div>
         </div>
       )}
+
+      {/* Student Bulk Import Wizard Modal */}
+      <StudentBulkImportModal
+        isOpen={showImportModal}
+        onClose={() => {
+          setShowImportModal(false);
+          const latestBatch = localStorage.getItem('latest_import_batch_id');
+          if (latestBatch) setRecentBatchId(latestBatch);
+          fetchStudents();
+        }}
+        onImportComplete={() => {
+          fetchStudents();
+          const latestBatch = localStorage.getItem('latest_import_batch_id');
+          if (latestBatch) setRecentBatchId(latestBatch);
+        }}
+      />
 
     </div>
   );

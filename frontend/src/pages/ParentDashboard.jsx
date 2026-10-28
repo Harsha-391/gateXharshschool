@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import './ParentDashboard.css';
 import '../components/Header.css';
 import { 
@@ -70,7 +71,39 @@ const isClassMatch = (studentClassStr, feeClassStr) => {
 };
 
 export default function ParentDashboard({ onLogout }) {
-  const [activeTab, setActiveTab] = useState('children');
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  const getTabFromPath = () => {
+    const parts = location.pathname.split('/').filter(Boolean);
+    if (parts.length >= 2 && parts[0] === 'parent') {
+      const seg = parts[1];
+      if (seg === 'dashboard' || seg === 'children' || seg === 'students') return 'children';
+      if (['attendance', 'results', 'timetable', 'fees', 'notices', 'settings'].includes(seg)) {
+        return seg;
+      }
+    }
+    return 'children';
+  };
+
+  const [activeTab, setActiveTabState] = useState(getTabFromPath);
+
+  useEffect(() => {
+    const tabFromUrl = getTabFromPath();
+    if (tabFromUrl !== activeTab) {
+      setActiveTabState(tabFromUrl);
+    }
+  }, [location.pathname]);
+
+  const setActiveTab = (tabOrUpdater) => {
+    const nextTab = typeof tabOrUpdater === 'function' ? tabOrUpdater(activeTab) : tabOrUpdater;
+    setActiveTabState(nextTab);
+    const slug = nextTab === 'children' ? 'dashboard' : nextTab;
+    const target = `/parent/${slug}${location.search}`;
+    if (location.pathname !== `/parent/${slug}`) {
+      navigate(target);
+    }
+  };
   const [mobileOpen, setMobileOpen] = useState(false);
   const [attendanceSubTab, setAttendanceSubTab] = useState('history');
   const [attendanceDateFilter, setAttendanceDateFilter] = useState('');
@@ -83,6 +116,55 @@ export default function ParentDashboard({ onLogout }) {
   const [showProfilePopup, setShowProfilePopup] = useState(false);
   const [photo, setPhoto] = useState(localStorage.getItem('parent_photo') || '');
   const notificationRef = useRef(null);
+
+  // Forced password change state for bulk imported parent accounts
+  const [mustChangePassword, setMustChangePassword] = useState(
+    localStorage.getItem('mustChangePassword') === 'true'
+  );
+  const [newPasswordInput, setNewPasswordInput] = useState('');
+  const [confirmPasswordInput, setConfirmPasswordInput] = useState('');
+  const [passwordChangeLoading, setPasswordChangeLoading] = useState(false);
+  const [passwordChangeError, setPasswordChangeError] = useState('');
+  const [passwordChangeSuccess, setPasswordChangeSuccess] = useState('');
+
+  const handleForcePasswordChange = async (e) => {
+    e.preventDefault();
+    setPasswordChangeError('');
+    if (!newPasswordInput || newPasswordInput.length < 5) {
+      setPasswordChangeError('New password must be at least 5 characters long.');
+      return;
+    }
+    if (newPasswordInput !== confirmPasswordInput) {
+      setPasswordChangeError('Passwords do not match.');
+      return;
+    }
+    setPasswordChangeLoading(true);
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch('/api/auth/change-password', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ newPassword: newPasswordInput })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        localStorage.setItem('mustChangePassword', 'false');
+        setPasswordChangeSuccess('Password updated successfully! Welcome to your dashboard.');
+        setTimeout(() => {
+          setMustChangePassword(false);
+        }, 1200);
+      } else {
+        setPasswordChangeError(data.error || 'Failed to update password.');
+      }
+    } catch (err) {
+      setPasswordChangeError('Network error while updating password.');
+    } finally {
+      setPasswordChangeLoading(false);
+    }
+  };
 
   const handlePhotoChange = (e) => {
     const file = e.target.files[0];
@@ -200,6 +282,12 @@ export default function ParentDashboard({ onLogout }) {
           setChildren(studentArray);
           if (studentArray.length > 0) {
             setActiveChild(studentArray[0]);
+            const primaryChild = studentArray[0];
+            const hasMustChange = primaryChild.must_change_password === true || primaryChild.must_change_password === 'Yes' || primaryChild.mustChangePassword === true;
+            if (!hasMustChange || primaryChild.createParentLogin === 'Yes') {
+              setMustChangePassword(false);
+              localStorage.removeItem('mustChangePassword');
+            }
           }
         }
       } catch (err) {
@@ -3150,6 +3238,129 @@ export default function ParentDashboard({ onLogout }) {
 
         </main>
       </div>
+
+      {/* Mandatory Password Change Dialog for Imported Parent Accounts */}
+      {mustChangePassword && (
+        <div className="force-password-overlay">
+          <div className="force-password-modal animate-slide-up" style={{ position: 'relative' }}>
+            <button
+              type="button"
+              onClick={() => {
+                setMustChangePassword(false);
+                localStorage.removeItem('mustChangePassword');
+              }}
+              style={{
+                position: 'absolute',
+                top: '16px',
+                right: '16px',
+                background: 'rgba(255, 255, 255, 0.05)',
+                border: '1px solid var(--border-glass, rgba(255, 255, 255, 0.1))',
+                borderRadius: '50%',
+                width: '32px',
+                height: '32px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                color: 'var(--text-muted, #94a3b8)',
+                transition: 'all 0.2s ease'
+              }}
+              title="Close"
+              onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--text-main, #ffffff)'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-muted, #94a3b8)'; }}
+            >
+              <X size={18} />
+            </button>
+            <div className="force-password-header">
+              <div className="force-password-icon">
+                <Lock size={28} />
+              </div>
+              <h3 className="force-password-title">Security Update Required</h3>
+              <p className="force-password-subtitle">
+                Your parent account was created with a temporary default password. For the security of your child's records, you must choose a new password before proceeding.
+              </p>
+            </div>
+
+            <form onSubmit={handleForcePasswordChange} className="force-password-form">
+              {passwordChangeError && (
+                <div className="force-password-alert error">
+                  <AlertCircle size={16} />
+                  <span>{passwordChangeError}</span>
+                </div>
+              )}
+              {passwordChangeSuccess && (
+                <div className="force-password-alert success">
+                  <CheckCircle size={16} />
+                  <span>{passwordChangeSuccess}</span>
+                </div>
+              )}
+
+              <div className="force-password-field">
+                <label className="force-password-label">New Password</label>
+                <input
+                  type="password"
+                  className="force-password-input"
+                  placeholder="Enter new password (min. 5 chars)"
+                  value={newPasswordInput}
+                  onChange={(e) => setNewPasswordInput(e.target.value)}
+                  disabled={passwordChangeLoading}
+                  required
+                />
+              </div>
+
+              <div className="force-password-field">
+                <label className="force-password-label">Confirm New Password</label>
+                <input
+                  type="password"
+                  className="force-password-input"
+                  placeholder="Re-type new password"
+                  value={confirmPasswordInput}
+                  onChange={(e) => setConfirmPasswordInput(e.target.value)}
+                  disabled={passwordChangeLoading}
+                  required
+                />
+              </div>
+
+              <button
+                type="submit"
+                className="force-password-submit-btn"
+                disabled={passwordChangeLoading || !newPasswordInput}
+              >
+                {passwordChangeLoading ? (
+                  <span>Updating Password...</span>
+                ) : (
+                  <>
+                    <Lock size={16} />
+                    <span>Set New Password & Continue</span>
+                  </>
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setMustChangePassword(false);
+                  localStorage.removeItem('mustChangePassword');
+                }}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--text-muted, #64748b)',
+                  fontSize: '0.85rem',
+                  fontWeight: 500,
+                  cursor: 'pointer',
+                  padding: '8px',
+                  textAlign: 'center',
+                  width: '100%',
+                  marginTop: '4px'
+                }}
+              >
+                Skip for now and continue to Dashboard
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
 
     </div>
   );

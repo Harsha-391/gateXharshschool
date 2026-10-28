@@ -51,7 +51,6 @@ CREATE TABLE IF NOT EXISTS students (
   religion VARCHAR(100) DEFAULT 'Hinduism',
   aadhaarNumber VARCHAR(100),
   photo LONGTEXT,
-  status VARCHAR(50) DEFAULT 'Active',
   photoBg LONGTEXT,
   email VARCHAR(255),
   phone VARCHAR(255),
@@ -109,10 +108,16 @@ CREATE TABLE IF NOT EXISTS students (
   discountType VARCHAR(100),
   discountAmount DECIMAL(10,2) DEFAULT 0.00,
   initialPaymentStatus VARCHAR(50) DEFAULT 'Pending',
+  import_batch_id VARCHAR(64) NULL,
+  imported_at VARCHAR(100) NULL,
+  is_deleted_by_batch VARCHAR(10) DEFAULT 'No',
+  must_change_password VARCHAR(10) DEFAULT 'No',
   createdAt VARCHAR(100),
   updatedAt VARCHAR(100),
   tenantId VARCHAR(100)
 );
+
+CREATE INDEX IF NOT EXISTS idx_students_import_batch ON students (import_batch_id);
 
 -- 3. Student Enrollments Table
 CREATE TABLE IF NOT EXISTS student_enrollments (
@@ -241,6 +246,7 @@ CREATE TABLE IF NOT EXISTS parent_accounts (
   studentId VARCHAR(50) NOT NULL,
   parentUsername VARCHAR(100) NOT NULL,
   parentPassword VARCHAR(100) NOT NULL,
+  must_change_password VARCHAR(10) DEFAULT 'No',
   createdAt VARCHAR(100),
   tenantId VARCHAR(100),
   FOREIGN KEY (studentId) REFERENCES students(id) ON DELETE CASCADE
@@ -257,14 +263,14 @@ CREATE TABLE IF NOT EXISTS employees (
   role VARCHAR(255) NULL,
   department VARCHAR(255) NULL,
   email VARCHAR(255) NULL,
-  phone VARCHAR(50),
+  phone VARCHAR(255),
   gender VARCHAR(50),
   dob VARCHAR(50),
   bloodGroup VARCHAR(20),
   nationality VARCHAR(100) DEFAULT 'Indian',
   maritalStatus VARCHAR(50),
-  aadhaarNumber VARCHAR(100),
-  panNumber VARCHAR(100),
+  aadhaarNumber VARCHAR(255),
+  panNumber VARCHAR(255),
   qualification TEXT NULL,
   experience TEXT NULL,
   experiences TEXT,
@@ -288,10 +294,10 @@ CREATE TABLE IF NOT EXISTS employees (
   permanentCountry VARCHAR(100) DEFAULT 'India',
   permanentPostalCode VARCHAR(50),
   sameAsPermanent VARCHAR(10) DEFAULT 'No',
-  alternateMobile VARCHAR(50),
+  alternateMobile VARCHAR(255),
   emergencyContact VARCHAR(255),
-  emergencyPhone VARCHAR(50),
-  emergencyContactNumber VARCHAR(50),
+  emergencyPhone VARCHAR(255),
+  emergencyContactNumber VARCHAR(255),
   photo LONGTEXT,
   aadharFile LONGTEXT,
   panFile LONGTEXT,
@@ -299,7 +305,6 @@ CREATE TABLE IF NOT EXISTS employees (
   joiningLetterFile LONGTEXT,
   certificateFile LONGTEXT,
   otherFile LONGTEXT,
-  status VARCHAR(50) DEFAULT 'Active',
   avatarBg TEXT,
   password VARCHAR(255),
   tenantId VARCHAR(100),
@@ -313,8 +318,88 @@ CREATE TABLE IF NOT EXISTS employees (
   assignedSectionId VARCHAR(50) DEFAULT NULL,
   isClassTeacher TINYINT(1) DEFAULT 0,
   attendancePermission TINYINT(1) DEFAULT 0,
-  qrCodePath TEXT NULL
+  teachingGrades TEXT,
+  qrCodePath TEXT NULL,
+  batch_id VARCHAR(64) NULL,
+  INDEX idx_emp_batch_id (batch_id)
 );
+
+-- 11b. Import Batches Table
+CREATE TABLE IF NOT EXISTS import_batches (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  batch_id VARCHAR(64) NOT NULL UNIQUE,
+  module VARCHAR(50) DEFAULT 'staff',
+  imported_by VARCHAR(150) NULL,
+  file_name VARCHAR(255) NULL,
+  total_rows INT DEFAULT 0,
+  success_count INT DEFAULT 0,
+  skipped_count INT DEFAULT 0,
+  status VARCHAR(20) DEFAULT 'active',
+  created_at DATETIME NULL,
+  undone_at DATETIME NULL,
+  created_designations TEXT NULL,
+  tenantId VARCHAR(100) NULL,
+  INDEX idx_import_batch_status (status),
+  INDEX idx_import_batch_id (batch_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 11b-2. Staff Import Staging Table
+CREATE TABLE IF NOT EXISTS staff_import_staging (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  batch_id VARCHAR(64) NOT NULL,
+  staff_id VARCHAR(50) NOT NULL,
+  full_name VARCHAR(255) NULL,
+  first_name VARCHAR(100) NULL,
+  middle_name VARCHAR(100) NULL,
+  last_name VARCHAR(100) NULL,
+  mobile VARCHAR(100) NULL,
+  email VARCHAR(255) NULL,
+  gender VARCHAR(20) NULL,
+  dob VARCHAR(50) NULL,
+  joining_date VARCHAR(50) NULL,
+  qualification TEXT NULL,
+  experience VARCHAR(50) NULL,
+  department VARCHAR(100) NULL,
+  designation VARCHAR(100) NULL,
+  designation_id VARCHAR(100) NULL,
+  blood_group VARCHAR(10) NULL,
+  nationality VARCHAR(50) NULL,
+  marital_status VARCHAR(50) NULL,
+  address TEXT NULL,
+  alternate_mobile VARCHAR(100) NULL,
+  tenantId VARCHAR(100) NULL,
+  created_at DATETIME NULL,
+  raw_data TEXT NULL,
+  INDEX idx_sis_batch (batch_id),
+  INDEX idx_sis_sid (staff_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 11c. Teacher Import Staging Table
+CREATE TABLE IF NOT EXISTS teacher_import_staging (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  batch_id VARCHAR(64) NOT NULL,
+  teacher_id VARCHAR(50) NOT NULL,
+  full_name VARCHAR(255) NULL,
+  first_name VARCHAR(100) NULL,
+  middle_name VARCHAR(100) NULL,
+  last_name VARCHAR(100) NULL,
+  mobile VARCHAR(100) NULL,
+  email VARCHAR(255) NULL,
+  qualification TEXT NULL,
+  experience VARCHAR(50) NULL,
+  subjects VARCHAR(255) NULL,
+  joining_date VARCHAR(50) NULL,
+  designation VARCHAR(100) NULL,
+  designation_id VARCHAR(100) NULL,
+  gender VARCHAR(20) NULL,
+  dob VARCHAR(50) NULL,
+  address TEXT NULL,
+  tenantId VARCHAR(100) NULL,
+  created_at DATETIME NULL,
+  raw_data TEXT NULL,
+  INDEX idx_tis_batch (batch_id),
+  INDEX idx_tis_tid (teacher_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- 12. Staff Table
 CREATE TABLE IF NOT EXISTS staff (
@@ -338,7 +423,6 @@ CREATE TABLE IF NOT EXISTS staff (
   photo LONGTEXT,
   aadharFile LONGTEXT,
   certificateFile LONGTEXT,
-  status VARCHAR(50) DEFAULT 'Active',
   avatarBg TEXT,
   tenantId VARCHAR(100),
   firstName VARCHAR(100),
@@ -379,7 +463,8 @@ CREATE TABLE IF NOT EXISTS staff (
   assignedGradeId VARCHAR(50) DEFAULT NULL,
   assignedSectionId VARCHAR(50) DEFAULT NULL,
   isClassTeacher TINYINT(1) DEFAULT 0,
-  attendancePermission TINYINT(1) DEFAULT 0
+  attendancePermission TINYINT(1) DEFAULT 0,
+  teachingGrades TEXT
 );
 
 -- 12B. Teachers Table (pure teachers)
@@ -404,7 +489,6 @@ CREATE TABLE IF NOT EXISTS teachers (
   photo LONGTEXT,
   aadharFile LONGTEXT,
   certificateFile LONGTEXT,
-  status VARCHAR(50) DEFAULT 'Active',
   avatarBg TEXT,
   tenantId VARCHAR(100),
   firstName VARCHAR(100),
@@ -445,7 +529,8 @@ CREATE TABLE IF NOT EXISTS teachers (
   assignedGradeId VARCHAR(50) DEFAULT NULL,
   assignedSectionId VARCHAR(50) DEFAULT NULL,
   isClassTeacher TINYINT(1) DEFAULT 0,
-  attendancePermission TINYINT(1) DEFAULT 0
+  attendancePermission TINYINT(1) DEFAULT 0,
+  teachingGrades TEXT
 );
 
 -- 13. Timetables Table
@@ -460,6 +545,46 @@ CREATE TABLE IF NOT EXISTS timetables (
   fri JSON,
   sat JSON,
   tenantId VARCHAR(100)
+);
+
+-- 13B. Auto Class Timetable Entries (Weekly Period Allocations)
+CREATE TABLE IF NOT EXISTS class_timetable_entries (
+  id VARCHAR(50) PRIMARY KEY,
+  grade VARCHAR(50) NOT NULL,
+  section VARCHAR(50) DEFAULT 'A',
+  day VARCHAR(20) NOT NULL,
+  period_no INT NOT NULL,
+  time_slot VARCHAR(100) NOT NULL,
+  subject VARCHAR(100) NOT NULL,
+  teacher_id VARCHAR(50),
+  teacher_name VARCHAR(255),
+  is_locked TINYINT(1) DEFAULT 0,
+  version INT DEFAULT 1,
+  tenantId VARCHAR(100) NOT NULL,
+  createdAt VARCHAR(100),
+  updatedAt VARCHAR(100)
+);
+
+-- 13C. Subject Period Settings (Periods per week per subject per grade)
+CREATE TABLE IF NOT EXISTS subject_period_settings (
+  id VARCHAR(50) PRIMARY KEY,
+  grade VARCHAR(50) NOT NULL,
+  subject VARCHAR(100) NOT NULL,
+  periods_per_week INT DEFAULT 5,
+  needs_double_period TINYINT(1) DEFAULT 0,
+  tenantId VARCHAR(100) NOT NULL,
+  updatedAt VARCHAR(100),
+  UNIQUE KEY unique_grade_subject_setting (grade, subject, tenantId)
+);
+
+-- 13D. Class Timetable Versions
+CREATE TABLE IF NOT EXISTS class_timetable_versions (
+  id VARCHAR(50) PRIMARY KEY,
+  version INT NOT NULL,
+  name VARCHAR(255) DEFAULT 'Weekly Schedule',
+  status VARCHAR(50) DEFAULT 'Draft',
+  generatedAt VARCHAR(100),
+  tenantId VARCHAR(100) NOT NULL
 );
 
 -- 14. Invoices Table
@@ -583,6 +708,10 @@ CREATE TABLE IF NOT EXISTS exams (
   status VARCHAR(50) DEFAULT 'Draft',
   timetablePublished TINYINT(1) DEFAULT 0,
   academicSession VARCHAR(100),
+  marks_per_subject INT DEFAULT NULL,
+  rules JSON DEFAULT NULL,
+  admin_text TEXT DEFAULT NULL,
+  plan_json JSON DEFAULT NULL,
   tenantId VARCHAR(100)
 );
 

@@ -250,27 +250,29 @@ export function PayrollHubRedesign({ type, showToast }) {
 // 2. SALARY CONFIGURATION TAB SUB-COMPONENT
 // ==========================================
 function SalaryConfigurationTab({ directoryData, loading, searchQuery, setSearchQuery, onConfigureSalary, type, allDesignations = [] }) {
-  const [selectedRole, setSelectedRole] = useState('');
+  const [selectedRole, setSelectedRole] = useState('All');
 
   const uniqueDesignations = Array.from(new Set([
     ...allDesignations,
     ...directoryData.map(e => e.role || e.designation).filter(Boolean)
   ]));
-  const rolesList = uniqueDesignations;
+  const rolesList = ['All', ...uniqueDesignations];
 
-  const activeRole = selectedRole === '' || selectedRole === 'All' || !uniqueDesignations.includes(selectedRole) ? (uniqueDesignations[0] || '') : selectedRole;
+  const activeRole = selectedRole || 'All';
 
   // Filter query
   const filtered = directoryData.filter(e => {
-    const roleOrDesig = (e.role || e.designation || '').toLowerCase();
-    const matchesSearch = e.name.toLowerCase().startsWith(searchQuery.toLowerCase()) ||
-                          e.id.toLowerCase().startsWith(searchQuery.toLowerCase()) ||
-                          (e.department || '').toLowerCase().startsWith(searchQuery.toLowerCase()) ||
-                          roleOrDesig.startsWith(searchQuery.toLowerCase());
+    const roleOrDesig = (e.role || e.designation || '').toLowerCase().trim();
+    const query = (searchQuery || '').toLowerCase().trim();
+    const matchesSearch = !query ||
+                          e.name.toLowerCase().includes(query) ||
+                          e.id.toLowerCase().includes(query) ||
+                          (e.department || '').toLowerCase().includes(query) ||
+                          roleOrDesig.includes(query);
     if (!matchesSearch) return false;
 
-    if ((type === 'Staff' || type === 'Employee') && activeRole !== '') {
-      return (e.role || e.designation) === activeRole;
+    if ((type === 'Staff' || type === 'Employee') && activeRole !== 'All') {
+      return roleOrDesig === activeRole.toLowerCase().trim();
     }
     return true;
   });
@@ -418,7 +420,7 @@ function SalaryConfigurationTab({ directoryData, loading, searchQuery, setSearch
       ) : filtered.length === 0 ? (
         <div style={{ border: '1px solid #cbd5e1', borderRadius: '12px', padding: '50px', textAlign: 'center', background: '#ffffff', color: '#64748b' }}>
           <AlertCircle size={24} style={{ marginBottom: '8px' }} />
-          <div>No employees found.</div>
+          <div>No {type === 'Staff' ? 'staff members' : type === 'Teacher' ? 'teachers' : 'employees'} found.</div>
         </div>
       ) : (
         // RENDER SINGLE TABLE

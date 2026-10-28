@@ -1,0 +1,208 @@
+/* Modal Styles for Teacher Bulk Import */
+.teacher-import-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.65);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 99999;
+  padding: 20px;
+}
+
+.teacher-import-modal-card {
+  background: var(--bg-surface, #ffffff);
+  border: 1px solid var(--border-glass, rgba(255, 140, 66, 0.2));
+  border-radius: 20px;
+  width: 100%;
+  max-width: 900px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25), 0 0 25px rgba(255, 140, 66, 0.1);
+  animation: modalSlideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes modalSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.teacher-import-modal-header {
+  padding: 20px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--border-glass, #e2e8f0);
+  background: var(--bg-surface, #ffffff);
+}
+
+.teacher-import-steps-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 24px;
+  background: rgba(255, 140, 66, 0.04);
+  border-bottom: 1px solid var(--border-glass, #e2e8f0);
+}
+
+.teacher-import-step-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-muted, #64748b);
+}
+
+.teacher-import-step-item.active {
+  color: hsl(var(--color-primary, 24 100% 50%));
+}
+
+.teacher-import-step-circle {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 700;
+  background: var(--border-glass, #e2e8f0);
+  color: var(--text-muted, #64748b);
+  transition: all 0.2s;
+}
+
+.teacher-import-step-item.active .teacher-import-step-circle {
+  background: hsl(var(--color-primary, 24 100% 50%));
+  color: #ffffff;
+}
+
+.teacher-import-step-item.done .teacher-import-step-circle {
+  background: #10b981;
+  color: #ffffff;
+}
+
+.teacher-import-modal-body {
+  padding: 24px;
+  overflow-y: auto;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.teacher-import-dropzone {
+  border: 2px dashed rgba(255, 140, 66, 0.35);
+  border-radius: 16px;
+  padding: 36px 24px;
+  text-align: center;
+  cursor: pointer;
+  background: rgba(255, 140, 66, 0.02);
+  transition: all 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.teacher-import-dropzone:hover,
+.teacher-import-dropzone.active {
+  border-color: hsl(var(--color-primary, 24 100% 50%));
+  background: rgba(255, 140, 66, 0.06);
+}
+
+.teacher-import-modal-footer {
+  padding: 16px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-top: 1px solid var(--border-glass, #e2e8f0);
+  background: var(--bg-surface, #ffffff);
+}
+
+/* Mapping Table */
+.mapping-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.mapping-table th,
+.mapping-table td {
+  padding: 10px 14px;
+  text-align: left;
+  border-bottom: 1px solid var(--border-glass, #e2e8f0);
+  font-size: 0.82rem;
+}
+
+.mapping-table th {
+  background: rgba(255, 140, 66, 0.05);
+  font-weight: 700;
+  color: var(--text-main, #0f172a);
+}
+
+/* Preview Table */
+.preview-table-container {
+  overflow-x: auto;
+  border: 1px solid var(--border-glass, #e2e8f0);
+  border-radius: 12px;
+  max-height: 380px;
+}
+
+.preview-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+
+.preview-table th {
+  position: sticky;
+  top: 0;
+  background: var(--bg-surface, #ffffff);
+  z-index: 2;
+  padding: 10px 12px;
+  text-align: left;
+  border-bottom: 2px solid var(--border-glass, #e2e8f0);
+  font-weight: 700;
+  color: var(--text-main, #0f172a);
+}
+
+.preview-table td {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border-glass, #e2e8f0);
+}
+
+.status-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.status-chip.valid {
+  background: rgba(16, 185, 129, 0.12);
+  color: #10b981;
+}
+
+.status-chip.error {
+  background: rgba(239, 68, 68, 0.12);
+  color: #ef4444;
+}
+
+.status-chip.duplicate {
+  background: rgba(245, 158, 11, 0.12);
+  color: #f59e0b;
+}

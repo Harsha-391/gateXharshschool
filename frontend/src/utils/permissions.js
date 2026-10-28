@@ -31,7 +31,6 @@ const LEGACY_MODULE_MAP = {
   
   // Academic Manager
   'class-timetable': 'academic-manager',
-  'teacher-timetable': 'academic-manager',
   'exam-timetable': 'academic-manager',
   'published-timetable': 'academic-manager',
   'published-exam': 'academic-manager',
@@ -124,12 +123,32 @@ export function hasPermission(module, action) {
   if (
     role === 'Developer Admin' || 
     role === 'Main Admin' || 
-    role === 'Admin Dashboard' ||
-    role === 'Principal' ||
-    role === 'School Admin' ||
+    role === 'Admin Dashboard' || 
+    role === 'Principal' || 
+    role === 'School Admin' || 
     role === 'Super Admin'
   ) {
     return true;
+  }
+
+  const userType = localStorage.getItem('userType');
+  const isTeacher = role === 'Teacher' || userType === 'Teacher';
+  const isClassTeacher = localStorage.getItem('isClassTeacher') === 'true' || localStorage.getItem('isClassTeacher') === '1' || localStorage.getItem('isClassTeacher') === 'Yes';
+
+  const isResultModule = [
+    'results', 'results-manager', 'results-marks-entry', 
+    'results-history', 'academic-results', 'results-analytics', 'results-report-cards'
+  ].includes(module);
+
+  const isStudentAttendanceModule = [
+    'attendance', 'attendance-history', 'attendance-manager', 'mark-attendance'
+  ].includes(module);
+
+  // If the user is a teacher and NOT a class teacher, strictly deny Result Manager and Student Attendance
+  if (isTeacher && !isClassTeacher) {
+    if (isResultModule || isStudentAttendanceModule) {
+      return false;
+    }
   }
 
   // Parse permissions from storage
@@ -192,15 +211,14 @@ export function hasPermission(module, action) {
   }
 
   // Teacher role built-in view access for teaching & academic modules
-  const userType = localStorage.getItem('userType');
-  if (role === 'Teacher' || userType === 'Teacher') {
+  if (isTeacher) {
     const teacherAllowedModules = [
-      'overview', 'dashboard', 'class-timetable', 'teacher-timetable',
+      'overview', 'dashboard', 'class-timetable',
       'published-timetable', 'published-exam', 'exam-timetable',
       'academic-manager', 'academic-calendar', 'academic-activities',
-      'events', 'notices', 'holidays', 'results', 'results-manager',
-      'results-marks-entry', 'student-directory', 'teacher-directory',
-      'attendance', 'teacher-leave', 'teacher-work-report'
+      'events', 'notices', 'holidays',
+      'student-directory', 'teacher-directory',
+      'teacher-leave', 'teacher-work-report'
     ];
     if (action === 'view' && teacherAllowedModules.includes(module)) {
       return true;

@@ -229,7 +229,7 @@ let teacherFilesCache = {
   otherFile: null
 };
 
-export default function AddStaff({ setActiveView, editData }) {
+export default function AddStaff({ setActiveView, editData, stagingData = null, onCompleteSetupSuccess = null, onCompleteSetupCancel = null }) {
   const [activeStep, setActiveStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [successToast, setSuccessToast] = useState(false);
@@ -237,6 +237,7 @@ export default function AddStaff({ setActiveView, editData }) {
   const [draftRestoredAlert, setDraftRestoredAlert] = useState(false);
   const [draftSaving, setDraftSaving] = useState(false);
   const isSubmitting = React.useRef(false);
+  const draftTimerRef = useRef(null);
 
   const tenantSubdomain = localStorage.getItem('tenant_subdomain') || 'default';
   const draftKey = `teacher_admission_draft_${tenantSubdomain}`;
@@ -265,7 +266,6 @@ export default function AddStaff({ setActiveView, editData }) {
     department: '',
     primarySubject: '',
     secondarySubject: '',
-    status: 'Active',
 
     // Step 3: Contact Details
     mobile: '',
@@ -337,22 +337,11 @@ export default function AddStaff({ setActiveView, editData }) {
     { value: 'Other', label: 'Other' }
   ];
 
-  const employmentTypeOptions = [
-    { value: '', label: 'None' },
-    { value: 'Full Time', label: 'Full Time' },
-    { value: 'Part Time', label: 'Part Time' }
-  ];
-
   const [roleOptions, setRoleOptions] = useState([]);
   const [designationOptions, setDesignationOptions] = useState([]);
 
   const [departmentOptions, setDepartmentOptions] = useState([]);
 
-  const statusOptions = [
-    { value: '', label: 'None' },
-    { value: 'Active', label: 'Active' },
-    { value: 'Inactive', label: 'Inactive' }
-  ];
 
   const [existingFiles, setExistingFiles] = useState({});
 
@@ -409,7 +398,7 @@ export default function AddStaff({ setActiveView, editData }) {
 
   // 1. Auto Load Draft
   useEffect(() => {
-    if (editData) return;
+    if (editData || stagingData) return;
     const savedDraft = localStorage.getItem(draftKey);
     if (savedDraft) {
       try {
@@ -421,11 +410,11 @@ export default function AddStaff({ setActiveView, editData }) {
         console.error('Failed to restore draft registration:', err);
       }
     }
-  }, [editData]);
+  }, [editData, stagingData]);
 
   // 2. Auto-Save Draft to LocalStorage on change
   useEffect(() => {
-    if (editData) return;
+    if (editData || stagingData) return;
     const hasAnyContent = Object.keys(formData).some(key => {
       if (
         key === 'nationality' || 
@@ -434,7 +423,6 @@ export default function AddStaff({ setActiveView, editData }) {
         key === 'permanentCountry' || 
         key === 'joiningDate' || 
         key === 'sameAsPermanent' || 
-        key === 'status' || 
         key === 'qualifications' || 
         key === 'experiences'
       ) {
@@ -449,9 +437,13 @@ export default function AddStaff({ setActiveView, editData }) {
       if (existing !== serialized) {
         setDraftSaving(true);
         localStorage.setItem(draftKey, serialized);
-        const timer = setTimeout(() => setDraftSaving(false), 600);
-        return () => clearTimeout(timer);
+        if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
+        draftTimerRef.current = setTimeout(() => {
+          setDraftSaving(false);
+        }, 800);
       }
+    } else {
+      setDraftSaving(false);
     }
   }, [formData, editData]);
 
@@ -512,7 +504,6 @@ export default function AddStaff({ setActiveView, editData }) {
         department: editData.department || '',
         primarySubject: editData.primarySubject || editData.subject || '',
         secondarySubject: editData.secondarySubject || '',
-        status: editData.status || 'Active',
         mobile: editData.mobile || editData.phone || '',
         alternateMobile: editData.alternateMobile || '',
         email: editData.email || '',
@@ -535,6 +526,49 @@ export default function AddStaff({ setActiveView, editData }) {
       });
     }
   }, [editData]);
+
+  // Populate from stagingData (Pending Import Setup)
+  useEffect(() => {
+    if (stagingData && Object.keys(stagingData).length > 0) {
+      let parsedQualifications = stagingData.qualification || stagingData.qualifications || [];
+      if (typeof parsedQualifications === 'string') {
+        try {
+          parsedQualifications = JSON.parse(parsedQualifications);
+        } catch (e) {
+          parsedQualifications = [{ degree: stagingData.qualification, institution: '', board: '', year: '', percentage: '' }];
+        }
+      }
+      if (!Array.isArray(parsedQualifications)) parsedQualifications = [];
+      if (parsedQualifications.length === 0) {
+        parsedQualifications = [{ degree: '', institution: '', board: '', year: '', percentage: '' }];
+      }
+
+      setFormData(prev => ({
+        ...prev,
+        firstName: stagingData.firstName || stagingData.first_name || '',
+        middleName: stagingData.middleName || stagingData.middle_name || '',
+        lastName: stagingData.lastName || stagingData.last_name || '',
+        fullName: stagingData.fullName || stagingData.full_name || '',
+        gender: stagingData.gender || 'Male',
+        dob: stagingData.dob ? stagingData.dob.split(/[ T]/)[0] : '',
+        bloodGroup: stagingData.bloodGroup || stagingData.blood_group || '',
+        nationality: stagingData.nationality || 'Indian',
+        maritalStatus: stagingData.maritalStatus || stagingData.marital_status || '',
+        mobile: stagingData.mobile || stagingData.phone || '',
+        alternateMobile: stagingData.alternateMobile || stagingData.alternate_mobile || '',
+        email: stagingData.email || '',
+        joiningDate: stagingData.joiningDate || stagingData.joining_date || new Date().toISOString().split('T')[0],
+        department: stagingData.department || '',
+        role: stagingData.role || stagingData.designation || '',
+        designation: stagingData.designation || '',
+        experience: stagingData.experience || '0',
+        qualifications: parsedQualifications,
+        currentAddress: stagingData.address || stagingData.currentAddress || '',
+        permanentAddress: stagingData.address || stagingData.permanentAddress || '',
+        sameAsPermanent: true
+      }));
+    }
+  }, [stagingData]);
 
   const clearDraft = () => {
     localStorage.removeItem(draftKey);
@@ -753,7 +787,7 @@ export default function AddStaff({ setActiveView, editData }) {
       firstName: '', middleName: '', lastName: '', fullName: '', gender: '', dob: '', bloodGroup: '',
       nationality: 'Indian', maritalStatus: '', aadhaarNumber: '', panNumber: '',
       joiningDate: new Date().toISOString().split('T')[0],
-      employmentType: '', role: '', hasRole: 'Yes', designation: '', department: '', primarySubject: '', secondarySubject: '', status: 'Active',
+      employmentType: '', role: '', hasRole: 'Yes', designation: '', department: '', primarySubject: '', secondarySubject: '',
       mobile: '', alternateMobile: '', email: '', password: '', emergencyContactNumber: '',
       currentAddress: '', currentCity: '', currentState: '', currentCountry: 'India', currentPostalCode: '',
       permanentAddress: '', permanentCity: '', permanentState: '', permanentCountry: 'India', permanentPostalCode: '', sameAsPermanent: false,
@@ -833,12 +867,23 @@ export default function AddStaff({ setActiveView, editData }) {
         }
       });
 
-      const url = editData ? `/api/staff/${editData.employeeId || editData.id}` : '/api/staff';
+      const isStagingSetup = Boolean(stagingData);
+      if (isStagingSetup) {
+        dataObj.append('stagingId', stagingData.id || stagingData.staffId || stagingData.staff_id);
+      }
+
+      const url = editData 
+        ? `/api/staff/${editData.employeeId || editData.id}` 
+        : (isStagingSetup ? '/api/staff/import/complete-setup' : '/api/staff');
       const method = editData ? 'PUT' : 'POST';
+      const token = localStorage.getItem('token');
 
       const res = await fetch(url, {
         method: method,
-        headers: { 'x-tenant-id': tenantSubdomain },
+        headers: { 
+          'x-tenant-id': tenantSubdomain,
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        },
         body: dataObj
       });
 
@@ -847,7 +892,10 @@ export default function AddStaff({ setActiveView, editData }) {
         setActiveStep(1);
         setLoading(false);
         isSubmitting.current = false;
-        if (editData && typeof setActiveView === 'function') {
+        alert(editData ? 'Staff profile updated successfully!' : (isStagingSetup ? 'Staff setup completed and added to Staff Directory!' : 'New Staff registered successfully!'));
+        if (typeof onCompleteSetupSuccess === 'function') {
+          onCompleteSetupSuccess();
+        } else if (typeof setActiveView === 'function') {
           setActiveView('staff');
         }
       } else {
@@ -902,6 +950,42 @@ export default function AddStaff({ setActiveView, editData }) {
         }}>
           <CheckCircle size={18} />
           <span>Draft restored! You can continue from your previous session.</span>
+        </div>
+      )}
+
+      {/* Staging Setup Info Banner */}
+      {stagingData && (
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '14px 20px',
+          borderRadius: '12px',
+          background: 'rgba(255, 140, 66, 0.08)',
+          border: '1px solid rgba(255, 140, 66, 0.3)',
+          marginBottom: '4px'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <Briefcase size={20} color="hsl(var(--color-primary))" />
+            <div>
+              <span style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-main)', display: 'block' }}>
+                Completing Setup for Staged Staff: <strong>{stagingData.fullName || stagingData.full_name}</strong>
+              </span>
+              <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                Reserved Staff ID: <strong style={{ color: 'hsl(var(--color-primary))' }}>{stagingData.staffId || stagingData.staff_id}</strong> &bull; Review details and assign role below to add to Staff Directory.
+              </span>
+            </div>
+          </div>
+          {onCompleteSetupCancel && (
+            <button
+              type="button"
+              onClick={onCompleteSetupCancel}
+              className="btn-secondary"
+              style={{ padding: '6px 14px', borderRadius: '8px', fontSize: '0.82rem', fontWeight: 600 }}
+            >
+              Cancel &amp; Return
+            </button>
+          )}
         </div>
       )}
 
@@ -1211,17 +1295,6 @@ export default function AddStaff({ setActiveView, editData }) {
               </div>
 
               <div className="form-group">
-                <label>Employment Type *</label>
-                <SearchableSelect 
-                  options={employmentTypeOptions}
-                  value={formData.employmentType}
-                  onChange={(val) => handleSelectChange('employmentType', val)}
-                  placeholder="Choose Type"
-                  className="form-control"
-                />
-              </div>
-
-              <div className="form-group">
                 <label>Has Login Role Account? *</label>
                 <SearchableSelect 
                   options={[
@@ -1268,44 +1341,8 @@ export default function AddStaff({ setActiveView, editData }) {
                 </div>
               )}
 
-              {(formData.role === 'Teacher' || formData.role === 'Staff') && (
-                <>
-                  <div className="form-group animate-slide-down">
-                    <label>Primary Subject</label>
-                    <input 
-                      type="text"
-                      name="primarySubject"
-                      value={formData.primarySubject}
-                      onChange={handleTextChange}
-                      className="form-control"
-                      placeholder="e.g. Mathematics"
-                    />
-                  </div>
 
-                  <div className="form-group animate-slide-down">
-                    <label>Secondary Subject</label>
-                    <input 
-                      type="text"
-                      name="secondarySubject"
-                      value={formData.secondarySubject}
-                      onChange={handleTextChange}
-                      className="form-control"
-                      placeholder="e.g. Science"
-                    />
-                  </div>
-                </>
-              )}
 
-              <div className="form-group">
-                <label>Employee Status *</label>
-                <SearchableSelect 
-                  options={statusOptions}
-                  value={formData.status}
-                  onChange={(val) => handleSelectChange('status', val)}
-                  placeholder="Choose Status"
-                  className="form-control"
-                />
-              </div>
 
             </div>
           </div>
@@ -1863,13 +1900,8 @@ export default function AddStaff({ setActiveView, editData }) {
                   ) : (
                     <div><strong>Role:</strong> {formData.role || 'N/A'}</div>
                   )}
-                  {(formData.role === 'Teacher' || formData.role === 'Staff') && (
-                    <>
-                      <div><strong>Subjects:</strong> {formData.primarySubject || 'N/A'} {formData.secondarySubject ? `, ${formData.secondarySubject}` : ''}</div>
-                    </>
-                  )}
-                  <div><strong>Type / Session:</strong> {formData.employmentType || 'N/A'} / {formData.joiningDate}</div>
-                  <div><strong>Status:</strong> {formData.status}</div>
+
+                  <div><strong>Joining Date:</strong> {formData.joiningDate || 'N/A'}</div>
                 </div>
               </div>
 

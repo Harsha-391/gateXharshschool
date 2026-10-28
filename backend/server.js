@@ -59,9 +59,13 @@ import leaveSettingsRoutes from './routes/leaveSettingsRoutes.js';
 import accountManagementRoutes from './routes/accountManagementRoutes.js';
 import auxiliaryIncomeRoutes from './routes/auxiliaryIncomeRoutes.js';
 import academicRoutes from './routes/academicRoutes.js';
+import classTimetableRoutes from './routes/classTimetableRoutes.js';
 import rbacRoutes from './routes/rbacRoutes.js';
 import gradeRoutes from './routes/gradeRoutes.js';
 import designationRoutes from './routes/designationRoutes.js';
+import employeeImportRoutes from './routes/employeeImportRoutes.js';
+import teacherImportRoutes from './routes/teacherImportRoutes.js';
+import staffImportRoutes from './routes/staffImportRoutes.js';
 import payrollRoutes from './routes/payrollRoutes.js';
 import teacherLeaveRoutes from './routes/teacherLeaveRoutes.js';
 import staffLeaveRoutes from './routes/staffLeaveRoutes.js';
@@ -95,6 +99,7 @@ const wsClients = new Set();
 let wss = null;
 
 async function computePlatformAnalytics() {
+  const db = readDb() || {};
   let schools = [];
   if (isSqlActive()) {
     try {
@@ -106,7 +111,6 @@ async function computePlatformAnalytics() {
     } catch (e) {}
   }
   if (!schools || schools.length === 0) {
-    const db = readDb(); // Global DB fallback
     schools = db.schools || [];
   }
 
@@ -433,6 +437,11 @@ app.use('/api', publicLimiter);
 // Helper function to authenticate against a single school tenant
 async function authenticateSchoolTenantUser({ schoolRecord, username, password, role, res, req, loginKey }) {
   const tenantId = slugify(schoolRecord.subdomain);
+  if (isSqlActive()) {
+    try {
+      await ensureTenantSqlLoaded({ headers: { 'x-tenant-id': tenantId }, query: {} }, {}, () => {});
+    } catch (e) {}
+  }
   const db = tenantStorage.run(tenantId, () => readDb());
   
   if (schoolRecord.status === 'Suspended') {
@@ -672,29 +681,32 @@ async function authenticateSchoolTenantUser({ schoolRecord, username, password, 
         }
       }
     } else if (currentRole === 'Parent') {
+      const cleanUser = (username || '').trim().toLowerCase();
+      const defaultImportPassword = process.env.IMPORT_DEFAULT_PASSWORD || '12345';
       const student = (db.students || []).find(s => {
-        if (s.status === 'Inactive') return false;
-        const decryptedParentEmail = s.parentEmail ? decrypt(s.parentEmail) : '';
-        const decryptedFatherEmail = s.fatherEmail ? decrypt(s.fatherEmail) : '';
-        const decryptedMotherEmail = s.motherEmail ? decrypt(s.motherEmail) : '';
-        const decryptedFatherMobile = s.fatherMobile ? decrypt(s.fatherMobile) : '';
-        const decryptedMotherMobile = s.motherMobile ? decrypt(s.motherMobile) : '';
+        if (s.is_deleted_by_batch === 'Yes' || s.status === 'Inactive') return false;
+        const decryptedParentEmail = (s.parentEmail ? decrypt(s.parentEmail) : '').trim().toLowerCase();
+        const decryptedFatherEmail = (s.fatherEmail ? decrypt(s.fatherEmail) : '').trim().toLowerCase();
+        const decryptedMotherEmail = (s.motherEmail ? decrypt(s.motherEmail) : '').trim().toLowerCase();
+        const decryptedFatherMobile = (s.fatherMobile ? decrypt(s.fatherMobile) : '').trim();
+        const decryptedMotherMobile = (s.motherMobile ? decrypt(s.motherMobile) : '').trim();
+        const pUser = (s.parentUsername || '').trim().toLowerCase();
         return (
-          s.parentUsername === username ||
-          decryptedParentEmail === username ||
-          decryptedFatherEmail === username ||
-          decryptedMotherEmail === username ||
-          decryptedFatherMobile === username ||
-          decryptedMotherMobile === username
+          pUser === cleanUser ||
+          decryptedParentEmail === cleanUser ||
+          decryptedFatherEmail === cleanUser ||
+          decryptedMotherEmail === cleanUser ||
+          decryptedFatherMobile === cleanUser ||
+          decryptedMotherMobile === cleanUser
         );
       });
       if (student) {
-        const isPassMatch = await comparePassword(password, student.parentPassword);
-        const isFallbackMatch = password === 'parent123';
+        const isPassMatch = student.parentPassword ? await comparePassword(password, student.parentPassword) : false;
+        const isFallbackMatch = password === defaultImportPassword || password === 'parent123';
         if (isPassMatch || isFallbackMatch) {
-          if (isPassMatch && !isBcryptHash(student.parentPassword)) {
+          if (!student.parentPassword || !isBcryptHash(student.parentPassword) || isFallbackMatch) {
             student.parentPassword = await hashPassword(password);
-            tenantStorage.run(tenantId, () => writeDb(db));
+            tenantStorage.run(tenantId, () => writeDb(db, ['students']));
           }
           resetFailedAttempts(loginKey);
           const roleRecord = (db.roles || []).find(r => r.id === 'role-parent' || r.name === 'Parent');
@@ -703,8 +715,10 @@ async function authenticateSchoolTenantUser({ schoolRecord, username, password, 
           const token = generateToken(payload);
           const refreshToken = generateRefreshToken(payload);
           setAuthCookie(res, token, 'Parent');
-          const parentEmail = student.fatherEmail ? decrypt(student.fatherEmail) : (student.motherEmail ? decrypt(student.motherEmail) : '');
-          const parentPhone = student.fatherMobile ? decrypt(student.fatherMobile) : (student.motherMobile ? decrypt(student.motherMobile) : '');
+          const parentEmail = student.parentEmail ? decrypt(student.parentEmail) : (student.fatherEmail ? decrypt(student.fatherEmail) : (student.motherEmail ? decrypt(student.motherEmail) : ''));
+          const parentPhone = student.fatherMobile ? decrypt(student.fatherMobile) : (student.motherMobile ? decrypt(student.motherMobile) : (student.guardianContact ? decrypt(student.guardianContact) : (student.phone ? decrypt(student.phone) : '')));
+          const isExplicitMustChange = (student.must_change_password === true || student.must_change_password === 'Yes' || student.mustChangePassword === true) && student.must_change_password !== 'No';
+          const isMustChange = isExplicitMustChange && student.createParentLogin !== 'Yes';
           return {
             status: 200,
             data: {
@@ -716,7 +730,8 @@ async function authenticateSchoolTenantUser({ schoolRecord, username, password, 
               email: parentEmail,
               phone: parentPhone,
               school: schoolRecord,
-              permissions
+              permissions,
+              mustChangePassword: isMustChange
             }
           };
         }
@@ -728,83 +743,88 @@ async function authenticateSchoolTenantUser({ schoolRecord, username, password, 
 
 // Global Login API
 app.post('/api/auth/login', loginLimiter, loginValidation, async (req, res) => {
-  const { username, password } = req.body;
-  const role = req.body.role || 'Auto';
-  let tenantId = tenantStorage.getStore() || req.headers['x-tenant-id'] || req.body.tenantId || req.body.tenantSubdomain || req.body.schoolSubdomain;
-  if (tenantId === 'localhost' || tenantId === 'platform' || tenantId === 'default' || tenantId === 'null' || tenantId === 'undefined') {
-    tenantId = null;
-  }
-  const loginKey = `${tenantId || 'global'}_${username}`;
-
-  // 1. Lock Status Check
-  const lockStatus = checkLoginLock(loginKey);
-  if (lockStatus.locked) {
-    return res.status(423).json({ error: `Account temporarily locked due to too many failed attempts. Try again after ${lockStatus.remainingMinutes} minutes.` });
-  }
-
-  // 2. If role is Developer Admin or credentials match the Platform Owner (dev@admin.com)
-  const globalDb = tenantStorage.run(null, () => readDb());
-  const owner = globalDb.platformOwner || {
-    name: "Platform Owner",
-    username: "dev@admin.com",
-    password: "admin123",
-    email: "dev@admin.com",
-    phone: "",
-    photo: ""
-  };
-  if (role === 'Developer Admin' || username === owner.username || username === owner.email) {
-    if ((username === owner.username || username === owner.email) && await comparePassword(password, owner.password)) {
-      if (!isBcryptHash(owner.password)) {
-        owner.password = await hashPassword(password);
-        tenantStorage.run(null, () => writeDb(globalDb));
-      }
-      resetFailedAttempts(loginKey);
-      const payload = { role: 'Developer Admin', username: owner.username };
-      const token = generateToken(payload);
-      const refreshToken = generateRefreshToken(payload);
-      setAuthCookie(res, token, 'Developer Admin');
-      return res.json({ token, refreshToken, role: 'Developer Admin', name: owner.name });
+  try {
+    const { username, password } = req.body;
+    const role = req.body.role || 'Auto';
+    let tenantId = tenantStorage.getStore() || req.headers['x-tenant-id'] || req.body.tenantId || req.body.tenantSubdomain || req.body.schoolSubdomain;
+    if (tenantId === 'localhost' || tenantId === 'platform' || tenantId === 'default' || tenantId === 'null' || tenantId === 'undefined') {
+      tenantId = null;
     }
+    const loginKey = `${tenantId || 'global'}_${username}`;
+
+    // 1. Lock Status Check
+    const lockStatus = checkLoginLock(loginKey);
+    if (lockStatus.locked) {
+      return res.status(423).json({ error: `Account temporarily locked due to too many failed attempts. Try again after ${lockStatus.remainingMinutes} minutes.` });
+    }
+
+    // 2. If role is Developer Admin or credentials match the Platform Owner (dev@admin.com)
+    const globalDb = tenantStorage.run(null, () => readDb());
+    const owner = globalDb.platformOwner || {
+      name: "Platform Owner",
+      username: "dev@admin.com",
+      password: "admin123",
+      email: "dev@admin.com",
+      phone: "",
+      photo: ""
+    };
+    if (role === 'Developer Admin' || username === owner.username || username === owner.email) {
+      if ((username === owner.username || username === owner.email) && await comparePassword(password, owner.password)) {
+        if (!isBcryptHash(owner.password)) {
+          owner.password = await hashPassword(password);
+          tenantStorage.run(null, () => writeDb(globalDb));
+        }
+        resetFailedAttempts(loginKey);
+        const payload = { role: 'Developer Admin', username: owner.username };
+        const token = generateToken(payload);
+        const refreshToken = generateRefreshToken(payload);
+        setAuthCookie(res, token, 'Developer Admin');
+        return res.json({ token, refreshToken, role: 'Developer Admin', name: owner.name });
+      }
+      const attemptsRecord = recordFailedAttempt(loginKey);
+      const remainingAttempts = Math.max(0, 5 - attemptsRecord.count);
+      return res.status(401).json({ error: 'Invalid Developer Admin credentials.', remainingAttempts });
+    }
+
+    // 3. School Tenant Authentication
+    // First check if specific tenant was provided (via header, body, or subdomain)
+    let specificTenant = tenantId && isSubdomainRegistered(tenantId) ? tenantId : null;
+    
+    if (specificTenant) {
+      const schoolRecord = (globalDb.schools || []).find(s => slugify(s.subdomain) === slugify(specificTenant));
+      if (schoolRecord) {
+        const authResult = await authenticateSchoolTenantUser({ schoolRecord, username, password, role, res, req, loginKey });
+        if (authResult) {
+          if (authResult.status === 200) {
+            return res.json(authResult.data);
+          } else {
+            return res.status(authResult.status).json({ error: authResult.error });
+          }
+        }
+      }
+    } else {
+      // Universal Multi-School / Tunnel / LAN Lookup:
+      // Try matching credentials against all registered schools
+      const schools = globalDb.schools || [];
+      for (const schoolRecord of schools) {
+        const authResult = await authenticateSchoolTenantUser({ schoolRecord, username, password, role, res, req, loginKey });
+        if (authResult) {
+          if (authResult.status === 200) {
+            return res.json(authResult.data);
+          } else if (schools.length === 1) {
+            return res.status(authResult.status).json({ error: authResult.error });
+          }
+        }
+      }
+    }
+
     const attemptsRecord = recordFailedAttempt(loginKey);
     const remainingAttempts = Math.max(0, 5 - attemptsRecord.count);
-    return res.status(401).json({ error: 'Invalid Developer Admin credentials.', remainingAttempts });
+    return res.status(401).json({ error: 'Invalid username or password.', remainingAttempts });
+  } catch (err) {
+    console.error('Login error:', err);
+    return res.status(500).json({ error: 'Internal server error during authentication.' });
   }
-
-  // 3. School Tenant Authentication
-  // First check if specific tenant was provided (via header, body, or subdomain)
-  let specificTenant = tenantId && isSubdomainRegistered(tenantId) ? tenantId : null;
-  
-  if (specificTenant) {
-    const schoolRecord = (globalDb.schools || []).find(s => slugify(s.subdomain) === slugify(specificTenant));
-    if (schoolRecord) {
-      const authResult = await authenticateSchoolTenantUser({ schoolRecord, username, password, role, res, req, loginKey });
-      if (authResult) {
-        if (authResult.status === 200) {
-          return res.json(authResult.data);
-        } else {
-          return res.status(authResult.status).json({ error: authResult.error });
-        }
-      }
-    }
-  } else {
-    // Universal Multi-School / Tunnel / LAN Lookup:
-    // Try matching credentials against all registered schools
-    const schools = globalDb.schools || [];
-    for (const schoolRecord of schools) {
-      const authResult = await authenticateSchoolTenantUser({ schoolRecord, username, password, role, res, req, loginKey });
-      if (authResult) {
-        if (authResult.status === 200) {
-          return res.json(authResult.data);
-        } else if (schools.length === 1) {
-          return res.status(authResult.status).json({ error: authResult.error });
-        }
-      }
-    }
-  }
-
-  const attemptsRecord = recordFailedAttempt(loginKey);
-  const remainingAttempts = Math.max(0, 5 - attemptsRecord.count);
-  return res.status(401).json({ error: 'Invalid username or password.', remainingAttempts });
 });
 
 // Refresh Token API
@@ -929,6 +949,53 @@ app.post('/api/auth/logout', (req, res) => {
   }
 
   res.json({ success: true, message: 'Logged out successfully, session invalidated.' });
+});
+
+// Change Password Endpoint (Supports forced password change for Parents & Users)
+app.post('/api/auth/change-password', auth, restoreTenantContext, async (req, res) => {
+  try {
+    const { newPassword } = req.body;
+    if (!newPassword || typeof newPassword !== 'string' || newPassword.length < 5) {
+      return res.status(400).json({ error: 'New password must be at least 5 characters long.' });
+    }
+
+    const tenantId = req.user?.tenantId || req.headers['x-tenant-id'] || 'platform';
+    const role = req.user?.role;
+    const username = req.user?.username;
+
+    const db = tenantStorage.run(slugify(tenantId), () => readDb());
+    const hashed = await hashPassword(newPassword);
+
+    if (role === 'Parent') {
+      const parentStudents = (db.students || []).filter(s => {
+        const sFatherEmail = s.fatherEmail ? decrypt(s.fatherEmail).toLowerCase().trim() : '';
+        const sMotherEmail = s.motherEmail ? decrypt(s.motherEmail).toLowerCase().trim() : '';
+        const sParentEmail = s.parentEmail ? decrypt(s.parentEmail).toLowerCase().trim() : '';
+        const sParentUser = (s.parentUsername || '').toLowerCase().trim();
+        const un = (username || '').toLowerCase().trim();
+        return sParentUser === un || sParentEmail === un || sFatherEmail === un || sMotherEmail === un || s.id === req.user?.id;
+      });
+
+      if (parentStudents.length === 0) {
+        return res.status(404).json({ error: 'Parent record not found.' });
+      }
+
+      parentStudents.forEach(s => {
+        s.parentPassword = hashed;
+        s.must_change_password = 'No';
+        s.mustChangePassword = false;
+      });
+
+      tenantStorage.run(slugify(tenantId), () => writeDb(db, ['students']));
+      logAudit('Change Password', `Parent (${username}) updated password`, 'Cleared must_change_password flag', req);
+      return res.json({ success: true, message: 'Password updated successfully.' });
+    }
+
+    return res.status(400).json({ error: 'Password change not supported for this role through this endpoint.' });
+  } catch (err) {
+    console.error('Error changing password:', err);
+    return res.status(500).json({ error: 'Internal server error while changing password.' });
+  }
 });
 
 // Get all schools with tenant counts
@@ -2114,6 +2181,7 @@ app.put('/api/auth/profile', auth, upload.single('photo'), restoreTenantContext,
 // 1. STUDENTS ROUTER & STATIC UPLOADS
 // ==========================================
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+app.use('/auto-timetable', express.static(path.join(__dirname, '../frontend/public/auto-timetable')));
 
 // General File Upload Endpoint
 app.post('/api/upload', auth, restoreTenantContext, upload.single('file'), async (req, res) => {
@@ -2143,11 +2211,14 @@ app.post('/api/upload', auth, restoreTenantContext, upload.single('file'), async
 });
 
 app.use('/api/students', studentRoutes);
+app.use('/students', studentRoutes);
 
 // ==========================================
 // 2. STAFF & TEACHERS ROUTERS
 // ==========================================
+app.use('/api/staff/import', staffImportRoutes);
 app.use('/api/staff', staffRoutes);
+app.use('/api/teachers/import', teacherImportRoutes);
 app.use('/api/teachers', teacherRoutes);
 
 // ==========================================
@@ -2173,6 +2244,8 @@ app.use('/api/finance/auxiliary', auxiliaryIncomeRoutes);
 // 2C. ACADEMICS ROUTER
 // ==========================================
 app.use('/api/academics', academicRoutes);
+app.use('/api/timetable', classTimetableRoutes);
+app.use('/timetable', classTimetableRoutes);
 
 // ==========================================
 // 2D. RBAC ROUTER
@@ -2269,11 +2342,8 @@ app.post('/api/notifications/read', auth, restoreTenantContext, async (req, res)
 // ==========================================
 // 2B. EMPLOYEES ENDPOINTS (Complete Module)
 // ==========================================
-// ==========================================
-// 2B. EMPLOYEES ENDPOINTS (Complete Module)
-// ==========================================
-// 2B. EMPLOYEES ENDPOINTS (Support Staff)
-// ==========================================
+app.use('/api/employees/import', employeeImportRoutes);
+
 app.get('/api/employees', auth, restoreTenantContext, ensureTenantSqlLoaded, checkPermission('employee-directory', 'view'), async (req, res) => {
   const tenantId = tenantStorage.getStore();
   const tId = tenantId ? slugify(tenantId) : 'platform';
@@ -2296,8 +2366,11 @@ app.get('/api/employees', auth, restoreTenantContext, ensureTenantSqlLoaded, che
             ...e,
             name: e.fullName || e.name || '',
             fullName: e.fullName || e.name || '',
-            phone: e.phone || e.mobile || '',
-            mobile: e.phone || e.mobile || '',
+            phone: decrypt(e.phone || e.mobile || ''),
+            mobile: decrypt(e.phone || e.mobile || ''),
+            email: decrypt(e.email || ''),
+            aadhaarNumber: decrypt(e.aadhaarNumber || ''),
+            panNumber: decrypt(e.panNumber || ''),
             role: e.designation || e.role || '',
             designation: e.designation || e.role || '',
             qualification: qual,
@@ -2311,7 +2384,14 @@ app.get('/api/employees', auth, restoreTenantContext, ensureTenantSqlLoaded, che
     }
   }
   const db = readDb();
-  res.json(db.employees || []);
+  res.json((db.employees || []).map(e => ({
+    ...e,
+    phone: decrypt(e.phone || e.mobile || ''),
+    mobile: decrypt(e.phone || e.mobile || ''),
+    email: decrypt(e.email || ''),
+    aadhaarNumber: decrypt(e.aadhaarNumber || ''),
+    panNumber: decrypt(e.panNumber || '')
+  })));
 });
 
 // Get single employee by ID
@@ -2336,8 +2416,11 @@ app.get('/api/employees/:id', auth, restoreTenantContext, ensureTenantSqlLoaded,
           ...e,
           name: e.fullName || e.name || '',
           fullName: e.fullName || e.name || '',
-          phone: e.phone || e.mobile || '',
-          mobile: e.phone || e.mobile || '',
+          phone: decrypt(e.phone || e.mobile || ''),
+          mobile: decrypt(e.phone || e.mobile || ''),
+          email: decrypt(e.email || ''),
+          aadhaarNumber: decrypt(e.aadhaarNumber || ''),
+          panNumber: decrypt(e.panNumber || ''),
           role: e.role || e.designation || '',
           designation: e.designation || e.role || '',
           qualification: qual,
@@ -2353,7 +2436,14 @@ app.get('/api/employees/:id', auth, restoreTenantContext, ensureTenantSqlLoaded,
   if (!db.employees) db.employees = [];
   const emp = db.employees.find(e => e.id === req.params.id);
   if (!emp) return res.status(404).json({ error: 'Employee not found.' });
-  res.json(emp);
+  res.json({
+    ...emp,
+    phone: decrypt(emp.phone || emp.mobile || ''),
+    mobile: decrypt(emp.phone || emp.mobile || ''),
+    email: decrypt(emp.email || ''),
+    aadhaarNumber: decrypt(emp.aadhaarNumber || ''),
+    panNumber: decrypt(emp.panNumber || '')
+  });
 });
 
 const staffUploadFields = upload.fields([
@@ -2527,7 +2617,7 @@ app.post('/api/employees', auth, staffUploadFields, restoreTenantContext, ensure
           'currentPostalCode', 'permanentAddress', 'permanentCity', 'permanentState', 'permanentCountry', 'permanentPostalCode',
           'sameAsPermanent', 'alternateMobile', 'emergencyContact', 'emergencyPhone', 'emergencyContactNumber',
           'photo', 'aadharFile', 'panFile', 'resumeFile', 'joiningLetterFile', 'certificateFile', 'otherFile',
-          'status', 'avatarBg', 'password', 'tenantId', 'designation', 'designationLevel', 'employmentType', 'staffCategory',
+          'avatarBg', 'password', 'tenantId', 'designation', 'designationLevel', 'employmentType', 'staffCategory',
           'primarySubject', 'secondarySubject', 'assignedGradeId', 'assignedSectionId', 'isClassTeacher', 'attendancePermission', 'qrCodePath'
         ];
         const updateColumns = [
@@ -2538,7 +2628,7 @@ app.post('/api/employees', auth, staffUploadFields, restoreTenantContext, ensure
           'currentPostalCode', 'permanentAddress', 'permanentCity', 'permanentState', 'permanentCountry', 'permanentPostalCode',
           'sameAsPermanent', 'alternateMobile', 'emergencyContact', 'emergencyPhone', 'emergencyContactNumber',
           'photo', 'aadharFile', 'panFile', 'resumeFile', 'joiningLetterFile', 'certificateFile', 'otherFile',
-          'status', 'avatarBg', 'password', 'designation', 'designationLevel', 'employmentType', 'staffCategory',
+          'avatarBg', 'password', 'designation', 'designationLevel', 'employmentType', 'staffCategory',
           'primarySubject', 'secondarySubject', 'assignedGradeId', 'assignedSectionId', 'isClassTeacher', 'attendancePermission', 'qrCodePath'
         ];
         const values = [
@@ -2593,7 +2683,6 @@ app.post('/api/employees', auth, staffUploadFields, restoreTenantContext, ensure
           newStaff.joiningLetterFile || '',
           newStaff.certificateFile || '',
           newStaff.otherFile || '',
-          newStaff.status || 'Active',
           newStaff.avatarBg || '',
           newStaff.password || '',
           tId,
@@ -2717,7 +2806,7 @@ app.put('/api/employees/:id', auth, staffUploadFields, restoreTenantContext, ens
           'currentPostalCode', 'permanentAddress', 'permanentCity', 'permanentState', 'permanentCountry', 'permanentPostalCode',
           'sameAsPermanent', 'alternateMobile', 'emergencyContact', 'emergencyPhone', 'emergencyContactNumber',
           'photo', 'aadharFile', 'panFile', 'resumeFile', 'joiningLetterFile', 'certificateFile', 'otherFile',
-          'status', 'avatarBg', 'password', 'designation', 'designationLevel', 'employmentType', 'staffCategory',
+          'avatarBg', 'password', 'designation', 'designationLevel', 'employmentType', 'staffCategory',
           'primarySubject', 'secondarySubject', 'assignedGradeId', 'assignedSectionId', 'isClassTeacher', 'attendancePermission'
         ];
         const values = [
@@ -2771,7 +2860,6 @@ app.put('/api/employees/:id', auth, staffUploadFields, restoreTenantContext, ens
           updatedStaff.joiningLetterFile || '',
           updatedStaff.certificateFile || '',
           updatedStaff.otherFile || '',
-          updatedStaff.status || 'Active',
           updatedStaff.avatarBg || '',
           updatedStaff.password || '',
           updatedStaff.designation || '',
@@ -2800,6 +2888,202 @@ app.put('/api/employees/:id', auth, staffUploadFields, restoreTenantContext, ens
   } catch (error) {
     console.error('Error updating employee:', error);
     res.status(500).json({ error: 'Internal server error updating employee.' });
+  }
+});
+
+app.post('/api/employees/bulk-delete', auth, restoreTenantContext, ensureTenantSqlLoaded, checkPermission('employee-directory', 'delete'), async (req, res) => {
+  try {
+    const db = readDb();
+    if (!db.employees) db.employees = [];
+    const { ids, employeeIds } = req.body;
+    const idsToDelete = Array.isArray(ids) ? ids : (Array.isArray(employeeIds) ? employeeIds : []);
+
+    if (!idsToDelete || idsToDelete.length === 0) {
+      return res.status(400).json({ error: 'No employee IDs provided for bulk deletion.' });
+    }
+
+    const normalizedIds = idsToDelete.map(id => String(id || '').trim().toLowerCase());
+    const employeesToRemove = db.employees.filter(e => {
+      const eId = String(e.id || '').trim().toLowerCase();
+      const eEmpId = String(e.employeeId || '').trim().toLowerCase();
+      return normalizedIds.some(reqId => {
+        const cleanReqId = reqId.replace(/^(emp|tea|stf|staff)-?/i, '');
+        return eId === reqId || eEmpId === reqId ||
+               (cleanReqId && (eId.replace(/^(emp|tea|stf|staff)-?/i, '') === cleanReqId || eEmpId.replace(/^(emp|tea|stf|staff)-?/i, '') === cleanReqId));
+      });
+    });
+
+    if (employeesToRemove.length === 0) {
+      return res.status(404).json({ error: 'No matching employees found to delete.' });
+    }
+
+    const allTargetIds = new Set();
+    for (const emp of employeesToRemove) {
+      if (emp.id) allTargetIds.add(emp.id);
+      if (emp.employeeId) allTargetIds.add(emp.employeeId);
+    }
+
+    // Cleanup ImageKit
+    for (const emp of employeesToRemove) {
+      const filesToDelete = [
+        emp.photo, emp.aadharFile, emp.aadhaarFile, emp.panFile, emp.resumeFile,
+        emp.joiningLetterFile, emp.certificateFile, emp.otherFile
+      ];
+      for (const fileUrl of filesToDelete) {
+        if (fileUrl) {
+          deleteFromImageKit(fileUrl).catch(e => console.error('[ImageKit Delete Error]', e?.message || e));
+        }
+      }
+    }
+
+    // Direct SQL Delete
+    if (isSqlActive()) {
+      try {
+        const sqlDb = await import('./utils/sqlDb.js');
+        const tenantId = tenantStorage.getStore();
+        const tId = tenantId ? slugify(tenantId) : 'platform';
+        for (const targetId of allTargetIds) {
+          await sqlDb.query('DELETE FROM employees WHERE id = ? AND (tenantId = ? OR tenantId IS NULL OR tenantId = ?)', [targetId, tId, ''], tId);
+          await sqlDb.query('DELETE FROM teachers WHERE id = ? AND (tenantId = ? OR tenantId IS NULL OR tenantId = ?)', [targetId, tId, ''], tId);
+          await sqlDb.query('DELETE FROM staff WHERE id = ? AND (tenantId = ? OR tenantId IS NULL OR tenantId = ?)', [targetId, tId, ''], tId);
+          await sqlDb.query('DELETE FROM employee_qr_codes WHERE (employeeId = ? OR staffId = ? OR teacherId = ?) AND (tenantId = ? OR tenantId IS NULL OR tenantId = ?)', [targetId, targetId, targetId, tId, ''], tId);
+          await sqlDb.query('DELETE FROM attendance_records WHERE (employeeId = ? OR staffId = ? OR teacherId = ?) AND (tenantId = ? OR tenantId IS NULL OR tenantId = ?)', [targetId, targetId, targetId, tId, ''], tId);
+          await sqlDb.query('DELETE FROM attendance_logs WHERE (employeeId = ? OR staffId = ? OR teacherId = ?) AND (tenantId = ? OR tenantId IS NULL OR tenantId = ?)', [targetId, targetId, targetId, tId, ''], tId);
+          await sqlDb.query('DELETE FROM user_access WHERE userId = ? AND (tenantId = ? OR tenantId IS NULL OR tenantId = ?)', [targetId, tId, ''], tId);
+        }
+
+        const syncTs = new Date().toISOString();
+        await sqlDb.query('UPDATE schools SET updatedAt = ? WHERE subdomain = ?', [syncTs, tId]);
+      } catch (sqlErr) {
+        console.error('[SQL Bulk Delete Employee Error]', sqlErr);
+      }
+    }
+
+    // Clean JSON db
+    db.employees = db.employees.filter(e => !allTargetIds.has(e.id) && !allTargetIds.has(e.employeeId));
+    if (db.teachers && Array.isArray(db.teachers)) {
+      db.teachers = db.teachers.filter(t => !allTargetIds.has(t.id) && !allTargetIds.has(t.employeeId));
+    }
+    if (db.staff && Array.isArray(db.staff)) {
+      db.staff = db.staff.filter(s => !allTargetIds.has(s.id) && !allTargetIds.has(s.employeeId));
+    }
+    if (db.employeeQrCodes) {
+      db.employeeQrCodes = db.employeeQrCodes.filter(q => !allTargetIds.has(q.employeeId) && !allTargetIds.has(q.staffId) && !allTargetIds.has(q.teacherId));
+    }
+    if (db.attendanceRecords) {
+      db.attendanceRecords = db.attendanceRecords.filter(a => !allTargetIds.has(a.employeeId) && !allTargetIds.has(a.staffId) && !allTargetIds.has(a.teacherId));
+    }
+    if (db.attendanceLogs) {
+      db.attendanceLogs = db.attendanceLogs.filter(l => !allTargetIds.has(l.employeeId) && !allTargetIds.has(l.staffId) && !allTargetIds.has(l.teacherId));
+    }
+    if (db.userAccess) {
+      db.userAccess = db.userAccess.filter(ua => !allTargetIds.has(ua.userId));
+    }
+
+    addActivity(db, 'alert', 'Employees Bulk Dismissed', `${employeesToRemove.length} employees were removed from the roster`, 'rgb(var(--color-danger-rgb))', 'rgba(var(--color-danger-rgb), 0.1)');
+    writeDb(db, ['employees', 'teachers', 'staff']);
+
+    res.json({ success: true, count: employeesToRemove.length, message: `Successfully deleted ${employeesToRemove.length} employee(s)` });
+  } catch (error) {
+    console.error('Error bulk removing employees:', error);
+    res.status(500).json({ error: 'Internal server error deleting employees.' });
+  }
+});
+
+app.delete('/api/employees/bulk-delete', auth, restoreTenantContext, ensureTenantSqlLoaded, checkPermission('employee-directory', 'delete'), async (req, res) => {
+  // Pass through to POST handler logic
+  try {
+    const db = readDb();
+    if (!db.employees) db.employees = [];
+    const { ids, employeeIds } = req.body;
+    const idsToDelete = Array.isArray(ids) ? ids : (Array.isArray(employeeIds) ? employeeIds : []);
+
+    if (!idsToDelete || idsToDelete.length === 0) {
+      return res.status(400).json({ error: 'No employee IDs provided for bulk deletion.' });
+    }
+
+    const normalizedIds = idsToDelete.map(id => String(id || '').trim().toLowerCase());
+    const employeesToRemove = db.employees.filter(e => {
+      const eId = String(e.id || '').trim().toLowerCase();
+      const eEmpId = String(e.employeeId || '').trim().toLowerCase();
+      return normalizedIds.some(reqId => {
+        const cleanReqId = reqId.replace(/^(emp|tea|stf|staff)-?/i, '');
+        return eId === reqId || eEmpId === reqId ||
+               (cleanReqId && (eId.replace(/^(emp|tea|stf|staff)-?/i, '') === cleanReqId || eEmpId.replace(/^(emp|tea|stf|staff)-?/i, '') === cleanReqId));
+      });
+    });
+
+    if (employeesToRemove.length === 0) {
+      return res.status(404).json({ error: 'No matching employees found to delete.' });
+    }
+
+    const allTargetIds = new Set();
+    for (const emp of employeesToRemove) {
+      if (emp.id) allTargetIds.add(emp.id);
+      if (emp.employeeId) allTargetIds.add(emp.employeeId);
+    }
+
+    for (const emp of employeesToRemove) {
+      const filesToDelete = [
+        emp.photo, emp.aadharFile, emp.aadhaarFile, emp.panFile, emp.resumeFile,
+        emp.joiningLetterFile, emp.certificateFile, emp.otherFile
+      ];
+      for (const fileUrl of filesToDelete) {
+        if (fileUrl) {
+          deleteFromImageKit(fileUrl).catch(e => console.error('[ImageKit Delete Error]', e?.message || e));
+        }
+      }
+    }
+
+    if (isSqlActive()) {
+      try {
+        const sqlDb = await import('./utils/sqlDb.js');
+        const tenantId = tenantStorage.getStore();
+        const tId = tenantId ? slugify(tenantId) : 'platform';
+        for (const targetId of allTargetIds) {
+          await sqlDb.query('DELETE FROM employees WHERE id = ? AND (tenantId = ? OR tenantId IS NULL OR tenantId = ?)', [targetId, tId, ''], tId);
+          await sqlDb.query('DELETE FROM teachers WHERE id = ? AND (tenantId = ? OR tenantId IS NULL OR tenantId = ?)', [targetId, tId, ''], tId);
+          await sqlDb.query('DELETE FROM staff WHERE id = ? AND (tenantId = ? OR tenantId IS NULL OR tenantId = ?)', [targetId, tId, ''], tId);
+          await sqlDb.query('DELETE FROM employee_qr_codes WHERE (employeeId = ? OR staffId = ? OR teacherId = ?) AND (tenantId = ? OR tenantId IS NULL OR tenantId = ?)', [targetId, targetId, targetId, tId, ''], tId);
+          await sqlDb.query('DELETE FROM attendance_records WHERE (employeeId = ? OR staffId = ? OR teacherId = ?) AND (tenantId = ? OR tenantId IS NULL OR tenantId = ?)', [targetId, targetId, targetId, tId, ''], tId);
+          await sqlDb.query('DELETE FROM attendance_logs WHERE (employeeId = ? OR staffId = ? OR teacherId = ?) AND (tenantId = ? OR tenantId IS NULL OR tenantId = ?)', [targetId, targetId, targetId, tId, ''], tId);
+          await sqlDb.query('DELETE FROM user_access WHERE userId = ? AND (tenantId = ? OR tenantId IS NULL OR tenantId = ?)', [targetId, tId, ''], tId);
+        }
+
+        const syncTs = new Date().toISOString();
+        await sqlDb.query('UPDATE schools SET updatedAt = ? WHERE subdomain = ?', [syncTs, tId]);
+      } catch (sqlErr) {
+        console.error('[SQL Bulk Delete Employee Error]', sqlErr);
+      }
+    }
+
+    db.employees = db.employees.filter(e => !allTargetIds.has(e.id) && !allTargetIds.has(e.employeeId));
+    if (db.teachers && Array.isArray(db.teachers)) {
+      db.teachers = db.teachers.filter(t => !allTargetIds.has(t.id) && !allTargetIds.has(t.employeeId));
+    }
+    if (db.staff && Array.isArray(db.staff)) {
+      db.staff = db.staff.filter(s => !allTargetIds.has(s.id) && !allTargetIds.has(s.employeeId));
+    }
+    if (db.employeeQrCodes) {
+      db.employeeQrCodes = db.employeeQrCodes.filter(q => !allTargetIds.has(q.employeeId) && !allTargetIds.has(q.staffId) && !allTargetIds.has(q.teacherId));
+    }
+    if (db.attendanceRecords) {
+      db.attendanceRecords = db.attendanceRecords.filter(a => !allTargetIds.has(a.employeeId) && !allTargetIds.has(a.staffId) && !allTargetIds.has(a.teacherId));
+    }
+    if (db.attendanceLogs) {
+      db.attendanceLogs = db.attendanceLogs.filter(l => !allTargetIds.has(l.employeeId) && !allTargetIds.has(l.staffId) && !allTargetIds.has(l.teacherId));
+    }
+    if (db.userAccess) {
+      db.userAccess = db.userAccess.filter(ua => !allTargetIds.has(ua.userId));
+    }
+
+    addActivity(db, 'alert', 'Employees Bulk Dismissed', `${employeesToRemove.length} employees were removed from the roster`, 'rgb(var(--color-danger-rgb))', 'rgba(var(--color-danger-rgb), 0.1)');
+    writeDb(db, ['employees', 'teachers', 'staff']);
+
+    res.json({ success: true, count: employeesToRemove.length, message: `Successfully deleted ${employeesToRemove.length} employee(s)` });
+  } catch (error) {
+    console.error('Error bulk removing employees:', error);
+    res.status(500).json({ error: 'Internal server error deleting employees.' });
   }
 });
 
@@ -3039,7 +3323,7 @@ app.post('/api/invoices', (req, res) => {
 // ==========================================
 // 4B. SCHOOL PROFILE ENDPOINTS
 // ==========================================
-app.get('/api/school', restoreTenantContext, (req, res) => {
+app.get(['/api/school', '/api/school/profile'], restoreTenantContext, (req, res) => {
   const tenantId = tenantStorage.getStore();
   const globalDb = tenantStorage.run(null, () => readDb());
   const schools = globalDb.schools || [];
@@ -3467,19 +3751,53 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: 'Internal Server Error', message: err.message });
 });
 
+// Serve frontend static build if dist exists (production SPA fallback)
+const distPath = path.join(__dirname, '..', 'frontend', 'dist');
+if (fs.existsSync(distPath)) {
+  app.use(express.static(distPath));
+  app.get('*', (req, res, next) => {
+    if (req.path.startsWith('/api/') || req.path.startsWith('/uploads/')) {
+      return next();
+    }
+    res.sendFile(path.join(distPath, 'index.html'));
+  });
+}
+
 // Start Server
 const startHttpServer = () => {
   try {
-    execSync(`npx -y kill-port ${PORT}`);
+    if (process.platform === 'win32') {
+      execSync(`powershell -NoProfile -Command "Get-NetTCPConnection -LocalPort ${PORT} -ErrorAction SilentlyContinue | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue }"`, { stdio: 'ignore' });
+    } else {
+      execSync(`npx -y kill-port ${PORT}`, { stdio: 'ignore' });
+    }
   } catch (e) {}
 
   const server = http.createServer(app);
 
-  server.listen(PORT, '0.0.0.0', () => {
-    console.log(`Aether Server running at http://localhost:${PORT}`);
+  server.on('error', (err) => {
+    if (err.code === 'EADDRINUSE') {
+      console.warn(`[Server Warning] Port ${PORT} is busy. Retrying in 2s...`);
+      try {
+        if (process.platform === 'win32') {
+          execSync(`powershell -NoProfile -Command "Get-NetTCPConnection -LocalPort ${PORT} -ErrorAction SilentlyContinue | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue }"`, { stdio: 'ignore' });
+        } else {
+          execSync(`npx -y kill-port ${PORT}`, { stdio: 'ignore' });
+        }
+      } catch (e) {}
+      setTimeout(() => {
+        try { server.close(); } catch (e) {}
+        startHttpServer();
+      }, 2000);
+    } else {
+      console.error('[Server Error]', err);
+    }
   });
 
-  setupWebSocketServer(server);
+  server.listen(PORT, '0.0.0.0', () => {
+    console.log(`Aether Server running at http://localhost:${PORT}`);
+    setupWebSocketServer(server);
+  });
 };
 
 startSqlDbInit().then(() => {
@@ -3504,4 +3822,4 @@ process.once('SIGUSR2', () => gracefulShutdown('SIGUSR2'));
 process.once('SIGINT', () => gracefulShutdown('SIGINT'));
 process.once('SIGTERM', () => gracefulShutdown('SIGTERM'));
 
-// Trigger restart to sync database cache and reload server state v30
+// Trigger restart to sync database cache and batch queries without timeouts v31

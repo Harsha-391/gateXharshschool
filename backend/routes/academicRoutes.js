@@ -7,6 +7,8 @@ import {
   createTimetable,
   deleteTimetable,
   getExams,
+  extractExamPlanWithAi,
+  previewExamTimetable,
   createExam,
   updateExam,
   deleteExam,
@@ -164,9 +166,6 @@ const getPermissionParams = (req) => {
   if (path.startsWith('/timetables')) {
     return { module: 'class-timetable', action };
   }
-  if (path.startsWith('/teacher-timetables')) {
-    return { module: 'teacher-timetable', action };
-  }
   if (path.startsWith('/published-timetables')) {
     return { module: 'published-timetable', action };
   }
@@ -232,6 +231,8 @@ router.post('/timeslots/reorder', reorderTimeslots);
 
 // Exams
 router.get('/exams', getExams);
+router.post('/exams/ai/plan', extractExamPlanWithAi);
+router.post('/exams/timetable/preview', previewExamTimetable);
 router.post('/exams', createExam);
 router.put('/exams/:id', updateExam);
 router.delete('/exams/:id', deleteExam);

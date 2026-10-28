@@ -238,6 +238,7 @@ export default function RegisterStudent({ setActiveView, editData }) {
   const [draftRestoredAlert, setDraftRestoredAlert] = useState(false);
   const [draftSaving, setDraftSaving] = useState(false);
   const isSubmitting = React.useRef(false);
+  const draftTimerRef = useRef(null);
 
   const tenantSubdomain = localStorage.getItem('tenant_subdomain') || 'default';
   const draftKey = `admission_draft_${tenantSubdomain}`;
@@ -271,7 +272,6 @@ export default function RegisterStudent({ setActiveView, editData }) {
     previousSchoolAddress: '',
     previousClassStudied: '',
     transferCertificateNumber: '',
-    status: 'Pending',
 
     // Step 3: Parent Info
     fatherName: '',
@@ -466,7 +466,6 @@ export default function RegisterStudent({ setActiveView, editData }) {
         previousSchoolAddress: editData.previousSchoolAddress || '',
         previousClassStudied: editData.previousClassStudied || '',
         transferCertificateNumber: editData.transferCertificateNumber || '',
-        status: editData.status || 'Active',
         fatherName: editData.fatherName || '',
         fatherOccupation: editData.fatherOccupation || '',
         fatherMobile: editData.fatherMobile || '',
@@ -478,6 +477,10 @@ export default function RegisterStudent({ setActiveView, editData }) {
         guardianName: editData.guardianName || '',
         guardianRelation: editData.guardianRelation || '',
         guardianContact: editData.guardianContact || '',
+        createParentLogin: editData.createParentLogin === 'Yes' || editData.createParentLogin === true ? 'Yes' : 'No',
+        parentUsername: editData.parentUsername || '',
+        parentEmail: editData.parentEmail ? (typeof editData.parentEmail === 'string' && editData.parentEmail.startsWith('ENC::') ? '' : editData.parentEmail) : (editData.fatherEmail || editData.motherEmail || ''),
+        parentPassword: '',
         currentAddress: editData.currentAddress || editData.address || '',
         permanentAddress: editData.permanentAddress || '',
         city: editData.city || '',
@@ -542,9 +545,13 @@ export default function RegisterStudent({ setActiveView, editData }) {
       if (existing !== serialized) {
         setDraftSaving(true);
         localStorage.setItem(draftKey, serialized);
-        const timer = setTimeout(() => setDraftSaving(false), 600);
-        return () => clearTimeout(timer);
+        if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
+        draftTimerRef.current = setTimeout(() => {
+          setDraftSaving(false);
+        }, 800);
       }
+    } else {
+      setDraftSaving(false);
     }
   }, [formData, editData]);
 
@@ -718,7 +725,6 @@ export default function RegisterStudent({ setActiveView, editData }) {
       previousSchoolAddress: '',
       previousClassStudied: '',
       transferCertificateNumber: '',
-      status: 'Pending',
       fatherName: '',
       fatherOccupation: '',
       fatherMobile: '',
@@ -828,9 +834,13 @@ export default function RegisterStudent({ setActiveView, editData }) {
       const url = editData ? `/api/students/${editData.id}` : '/api/students';
       const method = editData ? 'PUT' : 'POST';
 
+      const token = localStorage.getItem('token');
       const res = await fetch(url, {
         method: method,
-        headers: { 'x-tenant-id': tenantSubdomain },
+        headers: { 
+          'x-tenant-id': tenantSubdomain,
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        },
         body: dataObj
       });
 
@@ -839,9 +849,8 @@ export default function RegisterStudent({ setActiveView, editData }) {
         setActiveStep(1);
         setLoading(false);
         isSubmitting.current = false;
-        // setSuccessToast(true);
-        // setTimeout(() => setSuccessToast(false), 5000);
-        if (editData) {
+        alert(editData ? 'Student profile updated successfully!' : 'New Student registered successfully!');
+        if (typeof setActiveView === 'function') {
           setActiveView('students');
         }
       } else {
@@ -1235,7 +1244,7 @@ export default function RegisterStudent({ setActiveView, editData }) {
         {activeStep === 2 && (
           <div className="glass-panel" style={{ padding: '28px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
             <h3 style={{ fontSize: '1rem', fontWeight: 700, margin: 0, color: 'var(--text-main)', borderBottom: '1px solid var(--border-glass)', paddingBottom: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <FileSpreadsheet size={16} style={{ color: 'hsl(var(--color-info))' }} /> Academic Enrolment & Status
+              <FileSpreadsheet size={16} style={{ color: 'hsl(var(--color-info))' }} /> Academic Enrolment
             </h3>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '20px' }}>

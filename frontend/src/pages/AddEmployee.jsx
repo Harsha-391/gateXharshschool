@@ -79,10 +79,7 @@ const DEPARTMENTS = [
   'Store & Inventory', 'Campus Operations'
 ];
 
-const EMPLOYMENT_TYPES = ['None', 'Full-Time', 'Part-Time', 'Contract', 'Temporary'];
-const EMPLOYEE_STATUSES = ['None', 'Active', 'Inactive'];
 const BLOOD_GROUPS = ['None', 'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
-const DESIGNATION_LEVELS = ['None', 'Trainee', 'Junior', 'Associate', 'Senior', 'Lead', 'Supervisor', 'Coordinator', 'Manager', 'Head', 'Director'];
 
 
 
@@ -338,6 +335,7 @@ export default function AddEmployee({ setActiveView, editData }) {
     setStaffId(`STF-${new Date().getFullYear()}-${rand}`);
   }, [editData]);
 
+
   // ============================================================
   // FORM STATE
   // ============================================================
@@ -348,7 +346,7 @@ export default function AddEmployee({ setActiveView, editData }) {
     aadhaarNumber: '', panNumber: '',
     // Step 2: Employment
     joiningDate: new Date().toISOString().split('T')[0], staffCategory: '', designation: '', designationLevel: '', department: '',
-    employmentType: '', employeeStatus: 'Active',
+    employmentType: '',
     // Step 3: Contact
     mobile: '', alternateMobile: '', email: '', emergencyContactNumber: '',
     // Step 4: Address
@@ -489,7 +487,6 @@ export default function AddEmployee({ setActiveView, editData }) {
         designationLevel: editData.designationLevel || '',
         department: editData.department || '',
         employmentType: editData.employmentType || '',
-        employeeStatus: editData.employeeStatus || editData.status || 'Active',
         mobile: editData.mobile || editData.phone || '',
         alternateMobile: editData.alternateMobile || '',
         email: editData.email || '',
@@ -667,7 +664,7 @@ export default function AddEmployee({ setActiveView, editData }) {
       dob: '', bloodGroup: '', nationality: 'Indian', maritalStatus: '',
       aadhaarNumber: '', panNumber: '',
       joiningDate: new Date().toISOString().split('T')[0], staffCategory: '', designation: '', designationLevel: '', department: '',
-      employmentType: '', employeeStatus: 'Active',
+      employmentType: '',
       mobile: '', alternateMobile: '', email: '', emergencyContactNumber: '',
       currentAddress: '', currentCity: '', currentState: '', currentCountry: 'India', currentPostalCode: '',
       permanentAddress: '', permanentCity: '', permanentState: '', permanentCountry: 'India', permanentPostalCode: '',
@@ -961,14 +958,6 @@ export default function AddEmployee({ setActiveView, editData }) {
           {validationErrors.designation && <span style={{ color: '#ef4444', fontSize: '0.75rem', marginTop: '4px', display: 'block' }}>{validationErrors.designation}</span>}
         </div>
         <div className="form-group">
-          <label>Designation Level</label>
-          <CustomSelect name="designationLevel" value={formData.designationLevel} onChange={handleChange} options={DESIGNATION_LEVELS} placeholder="Choose Level" className="form-control" />
-        </div>
-        <div className="form-group">
-          <label>Employment Type</label>
-          <CustomSelect name="employmentType" value={formData.employmentType} onChange={handleChange} options={EMPLOYMENT_TYPES} placeholder="Choose Type" className="form-control" />
-        </div>
-        <div className="form-group">
           <label>Date of Birth</label>
           <input type="date" name="dob" value={formData.dob} onChange={handleChange} max={new Date().toLocaleDateString('en-CA')} className="form-control" />
         </div>
@@ -1253,9 +1242,7 @@ export default function AddEmployee({ setActiveView, editData }) {
               <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '0.82rem' }}>
                 <div><strong>Category:</strong> {formData.staffCategory || '—'}</div>
                 <div><strong>Designation:</strong> {formData.designation || '—'}</div>
-                <div><strong>Level:</strong> {formData.designationLevel || '—'}</div>
                 <div><strong>Department:</strong> {formData.department || '—'}</div>
-                <div><strong>Type:</strong> {formData.employmentType || '—'}</div>
                 <div><strong>Joining:</strong> {formData.joiningDate || '—'}</div>
               </div>
             </div>
@@ -1306,6 +1293,7 @@ export default function AddEmployee({ setActiveView, editData }) {
           </div>
         </div>
       )}
+
 
       {/* Stepper Header (Desktop view) */}
       <div className="glass-panel" style={{ padding: '20px', overflowX: 'auto' }}>

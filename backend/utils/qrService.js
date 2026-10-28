@@ -18,41 +18,35 @@ export const generateQrCode = async (employeeId, employeeType, tenantId = 'platf
     
     const payload = JSON.stringify({ employeeId, employeeType, sig });
     
-    // Generate QR code as Base64 data URL for fallback
+    // Generate QR code as Base64 data URL instantly
     const dataUrl = await QRCode.toDataURL(payload, {
       color: {
-        dark: '#1e1b4b', // Deep dark navy indigo for scannability
-        light: '#ffffff' // White background
+        dark: '#1e1b4b',
+        light: '#ffffff'
       },
       width: 300,
       margin: 2
     });
 
-    try {
-      // Generate binary buffer for uploading to ImageKit
-      const buffer = await QRCode.toBuffer(payload, {
-        type: 'png',
-        color: {
-          dark: '#1e1b4b',
-          light: '#ffffff'
-        },
-        width: 300,
-        margin: 2
-      });
+    // Background upload to ImageKit so response is sent instantly
+    Promise.resolve().then(async () => {
+      try {
+        const buffer = await QRCode.toBuffer(payload, {
+          type: 'png',
+          color: { dark: '#1e1b4b', light: '#ffffff' },
+          width: 300, margin: 2
+        });
+        const fileName = `qr-${employeeId.replace(/[^a-zA-Z0-9-]/g, '_')}-${Date.now()}.png`;
+        const folder = `school/${tenantId}/qrcodes`;
+        await uploadToImageKit(buffer, fileName, folder, ['qrcode', employeeType]);
+      } catch (uploadErr) {
+        // Silently handle background upload fallback
+      }
+    }).catch(() => {});
 
-      const fileName = `qr-${employeeId.replace(/[^a-zA-Z0-9-]/g, '_')}-${Date.now()}.png`;
-      const folder = `school/${tenantId}/qrcodes`;
-
-      const uploadResult = await uploadToImageKit(buffer, fileName, folder, ['qrcode', employeeType]);
-
-      console.log(`[QR Service] Successfully uploaded QR code for ${employeeId} to ImageKit.`);
-      return uploadResult.url;
-    } catch (uploadErr) {
-      console.warn(`[QR Service Warning] Could not upload QR code to ImageKit, using base64 fallback:`, uploadErr.message);
-      return dataUrl;
-    }
+    return dataUrl;
   } catch (error) {
     console.error(`[QR Service Error] Failed to generate QR for ${employeeId}:`, error);
-    throw error;
+    return '';
   }
 };

@@ -1,9 +1,19 @@
 import React, { useState, useEffect, useRef, lazy, Suspense } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
 import SkeletonLoader from './components/SkeletonLoader';
 import KeepAlive from './components/KeepAlive';
 import { CheckCircle, AlertCircle } from 'lucide-react';
+import { 
+  getRolePrefix, 
+  getRouteForView, 
+  getViewFromSlug, 
+  isValidScreenSlug, 
+  canAccessScreen, 
+  VALID_ROLE_PREFIXES 
+} from './utils/navigation';
+import NotFound from './pages/NotFound';
 
 import './App.css';
 
@@ -272,7 +282,21 @@ const getInitialAuthState = (targetRole) => {
 };
 
 export default function App() {
-  const [activeView, setActiveViewState] = useState('students');
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  const getInitialView = () => {
+    try {
+      const parts = window.location.pathname.split('/').filter(Boolean);
+      if (parts.length >= 2) {
+        const savedRole = localStorage.getItem('role') || localStorage.getItem('portal_role');
+        return getViewFromSlug(parts[1], savedRole);
+      }
+    } catch (e) {}
+    return localStorage.getItem('admin_view') || 'overview';
+  };
+
+  const [activeView, setActiveViewState] = useState(getInitialView);
   const [activeSubadminLogin, setActiveSubadminLogin] = useState(null);
   const [notification, setNotification] = useState(null);
   const [isSuspended, setIsSuspended] = useState(false);
@@ -285,8 +309,16 @@ export default function App() {
   const setActiveView = (view) => {
     if (view === 'admin-login') {
       setActiveSubadminLogin('admin');
+      navigate(`/admin-login${location.search}`);
     } else {
+      localStorage.setItem('admin_view', view);
       setActiveViewState(view);
+      setAdminViewState(view);
+      const userRole = userProfile?.role || localStorage.getItem('role') || localStorage.getItem('portal_role');
+      const targetRoute = getRouteForView(view, userRole);
+      if (location.pathname !== targetRoute) {
+        navigate(`${targetRoute}${location.search}`);
+      }
     }
   };
 
@@ -368,11 +400,9 @@ export default function App() {
           setIsDeveloperAdmin(true);
           setIsAdmin(false);
           setIsSchoolAdmin(false);
-          setActiveView('dashboard');
         } else if (data.role === 'Student' || data.role === 'Parent') {
           setIsAdmin(false);
           setIsSchoolAdmin(false);
-          setActiveView('students');
         } else {
           setIsAdmin(true);
           setIsSchoolAdmin(isSchoolAdminRole);
@@ -414,10 +444,16 @@ export default function App() {
   const [isSchoolAdmin, setIsSchoolAdmin] = useState(() => getInitialAuthState('SchoolAdmin'));
 
   // Active view states for sub-dashboards with persistence
-  const [adminView, setAdminViewState] = useState(() => localStorage.getItem('admin_view') || 'overview');
+  const [adminView, setAdminViewState] = useState(getInitialView);
   const setAdminView = (view) => {
     localStorage.setItem('admin_view', view);
     setAdminViewState(view);
+    setActiveViewState(view);
+    const userRole = userProfile?.role || localStorage.getItem('role') || localStorage.getItem('portal_role');
+    const targetRoute = getRouteForView(view, userRole);
+    if (location.pathname !== targetRoute) {
+      navigate(`${targetRoute}${location.search}`);
+    }
   };
 
   const initialised = useRef(false);
@@ -731,7 +767,6 @@ export default function App() {
         switch (savedRole) {
           case 'Developer Admin':
             setIsDeveloperAdmin(true);
-            setActiveView('dashboard');
             localStorage.removeItem('tenant_subdomain');
             sessionStorage.removeItem('tenant_subdomain');
             localStorage.removeItem('school_name');
@@ -742,7 +777,6 @@ export default function App() {
           case 'Parent':
             setIsAdmin(false);
             setIsSchoolAdmin(false);
-            setActiveView('students');
             break;
           case 'Main Admin':
           case 'Principal':
@@ -875,74 +909,73 @@ export default function App() {
     };
   }, []);
 
-  // Listen for browser forward/back buttons (popstate)
-  useEffect(() => {
-    const handlePopState = () => {
-      setIsDeveloperAdmin(false);
-      setIsAdmin(false);
-      setIsSchoolAdmin(false);
-
-      const savedRole = localStorage.getItem('role') || localStorage.getItem('portal_role');
-      if (savedRole) {
-        switch (savedRole) {
-          case 'Developer Admin':
-            setIsDeveloperAdmin(true);
-            setActiveView('dashboard');
-            break;
-          case 'Student':
-          case 'Parent':
-            setIsAdmin(false);
-            setIsSchoolAdmin(false);
-            setActiveView('students');
-            break;
-          case 'Main Admin':
-          case 'Principal':
-          case 'Admin Dashboard':
-          case 'School Admin':
-            setIsAdmin(true);
-            setIsSchoolAdmin(true);
-            break;
-          default:
-            // Any other role is admin/staff level (Teacher, Accountant, Clerk, etc.)
-            setIsAdmin(true);
-            setIsSchoolAdmin(false);
-            break;
-        }
-      } else {
-        setActiveView('students');
-      }
-    };
-
-    window.addEventListener('popstate', handlePopState);
-    return () => window.removeEventListener('popstate', handlePopState);
-  }, []);
-
-  // Update window address dynamically for routing appearance
+  // Synchronize URL and view state across direct navigation, deep links, and back/forward
   useEffect(() => {
     if (!initialised.current) return;
-    
-    const role = userProfile?.role || localStorage.getItem('role') || localStorage.getItem('portal_role');
-    const isDev = isDeveloperAdmin || role === 'Developer Admin';
-    const tenant = isDev ? null : getActiveTenant();
-    const host = window.location.hostname;
-    const parts = host.split('.');
-    const isSubdomainResolved = parts.length > 2 || (parts.length === 2 && parts[1] === 'localhost') || (parts.length === 1 && !['localhost', 'platform', 'www', 'admin'].includes(parts[0].toLowerCase()));
-    const query = (!isDev && tenant && !isSubdomainResolved) ? `?tenant=${tenant}` : '';
+    const token = localStorage.getItem('token');
+    const savedRole = userProfile?.role || localStorage.getItem('role') || localStorage.getItem('portal_role');
+    const isLoggedInUser = token && token !== 'null' && token !== 'undefined' && !isTokenExpired(token) && savedRole;
+    const parts = location.pathname.split('/').filter(Boolean);
 
-    const isLoggedIn = isDev || isAdmin || isSchoolAdmin;
-
-    if (!isLoggedIn) {
-      window.history.pushState(null, '', `/${query}`);
-    } else if (isDev) {
-      window.history.pushState(null, '', `/school`);
-    } else if (isAdmin || isSchoolAdmin) {
-      const userRole = userProfile?.role || localStorage.getItem('role') || localStorage.getItem('portal_role') || 'Admin';
-      const roleRoute = getRouteForRole(userRole);
-      window.history.pushState(null, '', `/${roleRoute}${query}`);
-    } else {
-      window.history.pushState(null, '', `/${activeView}${query}`);
+    // Unauthenticated guard
+    if (!isLoggedInUser) {
+      if (location.pathname !== '/login' && location.pathname !== '/admin-login' && location.pathname !== '/') {
+        navigate(`/login${location.search}`, { replace: true });
+      }
+      return;
     }
-  }, [activeView, isDeveloperAdmin, isAdmin, isSchoolAdmin, userProfile.role]);
+
+    const currentPrefix = getRolePrefix(savedRole);
+
+    // 1. Visiting root '/' or bare role prefix '/:prefix' (e.g. '/admin') -> redirect to dashboard
+    if (parts.length === 0 || (parts.length === 1 && (parts[0] === currentPrefix || VALID_ROLE_PREFIXES.includes(parts[0])))) {
+      const defaultDashboard = getRouteForView('dashboard', savedRole);
+      navigate(`${defaultDashboard}${location.search}`, { replace: true });
+      return;
+    }
+
+    // 2. Visiting login while already logged in -> redirect to dashboard
+    if (location.pathname === '/login') {
+      const defaultDashboard = getRouteForView('dashboard', savedRole);
+      navigate(`${defaultDashboard}${location.search}`, { replace: true });
+      return;
+    }
+
+    // 3. Screen route visited: '/:rolePrefix/:screenSlug'
+    if (parts.length >= 2) {
+      const [rolePrefix, screenSlug] = parts;
+
+      // Check role mismatch unless user is super admin
+      const isSuper = ['developer admin', 'platform owner', 'main admin', 'admin dashboard', 'principal', 'school admin', 'master admin'].includes(String(savedRole).toLowerCase());
+      const normalizedPrefix = getRolePrefix(rolePrefix);
+
+      if (normalizedPrefix !== currentPrefix && !isSuper) {
+        const targetSlug = isValidScreenSlug(screenSlug, currentPrefix) ? screenSlug : 'dashboard';
+        navigate(`/${currentPrefix}/${targetSlug}${location.search}`, { replace: true });
+        return;
+      }
+
+      // If user typed an alias like /academic-coordinator/dashboard, canonicalize to /academic/dashboard
+      if (rolePrefix !== currentPrefix && normalizedPrefix === currentPrefix) {
+        navigate(`/${currentPrefix}/${screenSlug}${location.search}`, { replace: true });
+        return;
+      }
+
+      // Canonicalize parent aliases (e.g., /parent/students -> /parent/dashboard)
+      if (normalizedPrefix === 'parent' && screenSlug === 'students') {
+        navigate(`/parent/dashboard${location.search}`, { replace: true });
+        return;
+      }
+
+      // If valid screen, synchronize view state
+      if (isValidScreenSlug(screenSlug, rolePrefix)) {
+        const nextView = getViewFromSlug(screenSlug, savedRole);
+        setAdminViewState(nextView);
+        setActiveViewState(nextView);
+        localStorage.setItem('admin_view', nextView);
+      }
+    }
+  }, [location.pathname, userProfile.role]);
 
   // Dynamic Browser Tab Title and Favicon Manager
   useEffect(() => {
@@ -1050,6 +1083,13 @@ export default function App() {
             localStorage.setItem('username', data.username || usernameParam);
             localStorage.setItem('name', data.name);
             
+            if (data.userType) localStorage.setItem('userType', data.userType);
+            if (data.assignedGradeId) localStorage.setItem('assignedGradeId', data.assignedGradeId);
+            if (data.assignedGradeName) localStorage.setItem('assignedGradeName', data.assignedGradeName);
+            if (data.assignedSectionId) localStorage.setItem('assignedSectionId', data.assignedSectionId);
+            if (data.assignedSectionName) localStorage.setItem('assignedSectionName', data.assignedSectionName);
+            if (data.isClassTeacher !== undefined) localStorage.setItem('isClassTeacher', String(data.isClassTeacher));
+
             if (data.permissions) {
               localStorage.setItem('permissions', JSON.stringify(data.permissions));
             } else {
@@ -1099,27 +1139,30 @@ export default function App() {
 
     if (role === 'Developer Admin') {
       setIsDeveloperAdmin(true);
-      setActiveView('dashboard');
+      setActiveViewState('dashboard');
       localStorage.removeItem('tenant_subdomain');
       sessionStorage.removeItem('tenant_subdomain');
       localStorage.removeItem('school_name');
       localStorage.removeItem('school_subdomain');
       setSchoolDetails({ name: 'School ERP Platform', principal: 'Master Admin' });
+      navigate(`/platform/dashboard${location.search}`, { replace: true });
     } else if (role === 'Student') {
       setIsAdmin(false);
       setIsSchoolAdmin(false);
-      setActiveView('students');
+      setActiveViewState('students');
+      navigate(`/student/dashboard${location.search}`, { replace: true });
     } else if (role === 'Parent') {
       setIsAdmin(false);
       setIsSchoolAdmin(false);
-      setActiveView('students');
+      setActiveViewState('children');
+      navigate(`/parent/dashboard${location.search}`, { replace: true });
     } else {
       // Any admin/subadmin/staff/teacher dashboard role
       setIsAdmin(true);
       setIsSchoolAdmin(isSchoolAdminRole);
-      
-      // Select appropriate initial view if they don't have student view access
-      setAdminView('overview');
+      setAdminViewState('overview');
+      const targetPrefix = getRolePrefix(role);
+      navigate(`/${targetPrefix}/dashboard${location.search}`, { replace: true });
     }
     fetchSchoolDetails();
     fetchUserProfile();
@@ -1153,7 +1196,7 @@ export default function App() {
     setIsDeveloperAdmin(false);
     setIsAdmin(false);
     setIsSchoolAdmin(false);
-    setActiveView('students');
+    setActiveViewState('students');
     
     // Clear path on logout
     const tenant = getActiveTenant();
@@ -1161,7 +1204,7 @@ export default function App() {
     const parts = host.split('.');
     const isSubdomainResolved = parts.length > 2 || (parts.length === 2 && parts[1] === 'localhost') || (parts.length === 1 && !['localhost', 'platform', 'www', 'admin'].includes(parts[0].toLowerCase()));
     const query = (tenant && !isSubdomainResolved) ? `?tenant=${tenant}` : '';
-    window.location.replace(`/${query}`);
+    navigate(`/login${query}`, { replace: true });
   };
 
   const handleBackToMain = () => {
@@ -1176,7 +1219,7 @@ export default function App() {
     const parts = host.split('.');
     const isSubdomainResolved = parts.length > 2 || (parts.length === 2 && parts[1] === 'localhost') || (parts.length === 1 && !['localhost', 'platform', 'www', 'admin'].includes(parts[0].toLowerCase()));
     const query = (tenant && !isSubdomainResolved) ? `?tenant=${tenant}` : '';
-    window.history.pushState(null, '', `/students${query}`);
+    navigate(`/admin/student-directory${query}`);
   };
 
   const renderCurrentView = () => {
@@ -1316,6 +1359,22 @@ export default function App() {
         )}
       </div>
     );
+  }
+
+  const pathParts = location.pathname.split('/').filter(Boolean);
+  const is404Route = (() => {
+    if (pathParts.length === 0) return false;
+    if (location.pathname === '/login' || location.pathname === '/admin-login') return false;
+    const [pfx, slg] = pathParts;
+    if (!VALID_ROLE_PREFIXES.includes(pfx)) return true;
+    if (pathParts.length > 2) return true;
+    if (pfx === 'parent' && slg === 'students') return false;
+    if (slg && !isValidScreenSlug(slg, pfx)) return true;
+    return false;
+  })();
+
+  if (is404Route) {
+    return <NotFound />;
   }
 
   if (savedRole === 'Parent') {

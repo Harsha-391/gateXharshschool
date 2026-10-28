@@ -53,7 +53,7 @@ const getStatusBadge = (status) => {
 // ============================================================================
 // ADMIN VERSION OF ROSTER DAILY MARKING VIEW (Single Submit Button)
 // ============================================================================
-export function MarkAttendanceView({ date, setDate, studentClass, setClass, section, setSection, search, setSearch, showToast, userProfile }) {
+export function MarkAttendanceView({ date, setDate, studentClass, setClass, section, setSection, search, setSearch, showToast, userProfile, isActive = true }) {
   const isTeacher = userProfile?.role === 'Teacher' || userProfile?.userType === 'Teacher' ||
     localStorage.getItem('role') === 'Teacher' || localStorage.getItem('userType') === 'Teacher';
   const assignedClass = isTeacher ? (userProfile?.assignedGradeName || userProfile?.assignedGradeId || localStorage.getItem('assignedGradeName') || localStorage.getItem('assignedGradeId') || '') : '';
@@ -155,15 +155,17 @@ export function MarkAttendanceView({ date, setDate, studentClass, setClass, sect
   const handleSaveEdit = async (stuId) => {
     try {
       setSavingEdit(true);
+      const targetClass = isTeacher ? (studentClass || assignedClass) : studentClass;
+      const targetSec = isTeacher ? (normalizeSection(section || assignedSection) || section || assignedSection) : section;
       const res = await fetch('/api/attendance', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           date,
-          studentClass,
-          section,
+          studentClass: targetClass,
+          section: targetSec,
           records: [{ studentId: stuId, status: editStatus, remarks: editRemarks }],
-          markedBy: 'uttam306115@gmail.com'
+          markedBy: userProfile?.fullName || userProfile?.name || localStorage.getItem('fullName') || 'Teacher'
         })
       });
 
@@ -187,14 +189,17 @@ export function MarkAttendanceView({ date, setDate, studentClass, setClass, sect
 
   // Load roster
   const fetchRoster = async () => {
-    if (!studentClass || !section) return;
+    const targetClass = isTeacher ? (studentClass || assignedClass) : studentClass;
+    const targetSec = isTeacher ? (normalizeSection(section || assignedSection) || section || assignedSection) : section;
+    if (!targetClass || !targetSec) return;
     try {
       setLoading(true);
       const queryParams = new URLSearchParams({
         date,
-        studentClass,
-        section,
-        search
+        studentClass: targetClass,
+        section: targetSec,
+        search,
+        _t: Date.now().toString()
       }).toString();
       const res = await fetch(`/api/attendance?${queryParams}`);
       if (res.ok) {
@@ -243,6 +248,24 @@ export function MarkAttendanceView({ date, setDate, studentClass, setClass, sect
     fetchRoster();
   }, [date, studentClass, section, search]);
 
+  useEffect(() => {
+    if (isActive) {
+      fetchRoster();
+    }
+  }, [isActive]);
+
+  useEffect(() => {
+    const handleRefresh = () => {
+      fetchRoster();
+    };
+    window.addEventListener('students-updated', handleRefresh);
+    window.addEventListener('attendance-refresh', handleRefresh);
+    return () => {
+      window.removeEventListener('students-updated', handleRefresh);
+      window.removeEventListener('attendance-refresh', handleRefresh);
+    };
+  }, [date, studentClass, section, search]);
+
   // Handle single student toggle
   const handleStatusToggle = (stuId, status) => {
     setRoster(prev => prev.map(s => {
@@ -288,16 +311,19 @@ export function MarkAttendanceView({ date, setDate, studentClass, setClass, sect
           remarks: r.remarks
         }));
 
+      const targetClass = isTeacher ? (studentClass || assignedClass) : studentClass;
+      const targetSec = isTeacher ? (normalizeSection(section || assignedSection) || section || assignedSection) : section;
+
       // Step 1: Save all attendance records
       const saveRes = await fetch('/api/attendance', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           date,
-          studentClass,
-          section,
+          studentClass: targetClass,
+          section: targetSec,
           records: recordsToSave,
-          markedBy: 'uttam306115@gmail.com'
+          markedBy: userProfile?.fullName || userProfile?.name || localStorage.getItem('fullName') || 'Teacher'
         })
       });
 
@@ -311,7 +337,7 @@ export function MarkAttendanceView({ date, setDate, studentClass, setClass, sect
       const submitRes = await fetch('/api/attendance/submit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ date, studentClass, section })
+        body: JSON.stringify({ date, studentClass: targetClass, section: targetSec })
       });
 
       if (submitRes.ok) {

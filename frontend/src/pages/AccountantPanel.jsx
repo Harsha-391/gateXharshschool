@@ -50,6 +50,7 @@ import EmployeeDirectory from './EmployeeDirectory';
 import RegisterStudent from './RegisterStudent';
 import AddStaff from './AddStaff';
 import AddEmployee from './AddEmployee';
+import ExpensePanel from './ExpensePanel';
 
 export default function AccountantPanel({ setActiveView, onLogout, accountantView, setAccountantView, onBackToMain }) {
   const [notification, setNotification] = useState(null);
@@ -76,7 +77,7 @@ export default function AccountantPanel({ setActiveView, onLogout, accountantVie
       case 'employee-pay-structure': return <PayrollHubRedesign type="Employee" showToast={showToast} />;
       case 'payroll-history': return <PayrollHistoryViewRedesign showToast={showToast} />;
 
-      case 'expenses': return <ExpensesView showToast={showToast} />;
+      case 'expenses': return <ExpensePanel hideHeader={true} showToast={showToast} />;
       case 'reports': return <ReportsView showToast={showToast} setAccountantView={setAccountantView} />;
       case 'students': return <StudentDirectory />;
       case 'staff-directory': return <StaffDirectory setActiveView={setActiveView} readOnly={true} />;
@@ -132,7 +133,7 @@ export default function AccountantPanel({ setActiveView, onLogout, accountantVie
                                     accountantView === 'reports' ? 'Financial Reports' :
                                       accountantView === 'students' ? 'Student Directory' :
                                         accountantView === 'teacher-list' ? 'Staff Directory' :
-                                          accountantView === 'staff' ? 'Employee Directory' :
+                                          accountantView === 'staff' ? 'Staff Directory' :
                                             accountantView === 'register-student' ? 'Register Student' :
                                               accountantView === 'add-teacher' ? 'Register Staff' :
                                                 accountantView === 'add-staff' ? 'Register Employee' : 'Student Fee Collection'}</h2>
@@ -354,15 +355,15 @@ function DashboardView({ setAccountantView }) {
             <button onClick={() => setAccountantView('teacher-list')} className="btn-payroll-row" style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '16px', background: 'rgba(249,115,22,0.04)', border: '1px solid var(--border-glass)', borderRadius: '12px', cursor: 'pointer', textAlign: 'left' }}>
               <div style={{ padding: '10px', borderRadius: '10px', background: '#f97316', color: '#fff' }}><UserCheck size={18} /></div>
               <div>
-                <div style={{ fontWeight: 700, fontSize: '0.85rem', color: 'var(--text-main)' }}>Staff Directory</div>
+                <div style={{ fontWeight: 700, fontSize: '0.85rem', color: 'var(--text-main)' }}>Teacher Directory</div>
                 <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>View school teachers list</div>
               </div>
             </button>
             <button onClick={() => setAccountantView('staff')} className="btn-payroll-row" style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '16px', background: 'rgba(168,85,247,0.04)', border: '1px solid var(--border-glass)', borderRadius: '12px', cursor: 'pointer', textAlign: 'left' }}>
               <div style={{ padding: '10px', borderRadius: '10px', background: '#a855f7', color: '#fff' }}><UserCog size={18} /></div>
               <div>
-                <div style={{ fontWeight: 700, fontSize: '0.85rem', color: 'var(--text-main)' }}>Employee Directory</div>
-                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>View school employees list</div>
+                <div style={{ fontWeight: 700, fontSize: '0.85rem', color: 'var(--text-main)' }}>Staff Directory</div>
+                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>View school staff list</div>
               </div>
             </button>
           </div>
@@ -2952,8 +2953,14 @@ export function FeeStructureView({ showToast }) {
         'July', 'August', 'September', 'October', 'November', 'December'
       ];
     }
-    const customPeriods = feePeriods.filter(fp => fp.frequency === frequency).map(fp => fp.name);
-    if (customPeriods.length > 0) return customPeriods;
+    const customPeriods = (feePeriods || []).filter(fp => fp.frequency === frequency).map(fp => fp.name);
+    const existingFromStructures = (structures || [])
+      .filter(s => s.frequency === frequency && s.monthRange)
+      .map(s => s.monthRange);
+
+    const merged = Array.from(new Set([...customPeriods, ...existingFromStructures]));
+    if (merged.length > 0) return merged;
+
     if (frequency === 'Quarterly') {
       return [];
     } else if (frequency === 'Half-Yearly') {
@@ -3035,7 +3042,8 @@ export function FeeStructureView({ showToast }) {
 
       const newData = {};
       activeOpts.forEach(opt => {
-        const match = classStructures.find(s => (s.monthRange || 'Full Year') === opt);
+        const match = classStructures.find(s => (s.monthRange || 'Full Year') === opt) ||
+          classStructures.find(s => (s.monthRange || 'Full Year').toLowerCase().trim() === opt.toLowerCase().trim());
         if (match) {
           newData[opt] = {
             tuitionFee: String(match.tuitionFee || '0'),
@@ -3478,20 +3486,20 @@ export function FeeStructureView({ showToast }) {
           </div>
         ) : (
           groupedStructures.map((group, i) => {
-            const activeOpts = getBillingPeriodOptions(group.frequency);
-            const totalTuition = activeOpts.reduce((sum, opt) => {
-              const match = group.items.find(item => (item.monthRange || 'Full Year') === opt);
-              return sum + (match ? (match.tuitionFee || 0) : 0);
-            }, 0);
-            const totalTransport = activeOpts.reduce((sum, opt) => {
-              const match = group.items.find(item => (item.monthRange || 'Full Year') === opt);
-              return sum + (match ? (match.transportFee || 0) : 0);
-            }, 0);
-            const totalOther = activeOpts.reduce((sum, opt) => {
-              const match = group.items.find(item => (item.monthRange || 'Full Year') === opt);
-              return sum + (match ? (match.otherCharges || 0) : 0);
-            }, 0);
-            const overallTotal = totalTuition + totalTransport + totalOther;
+            const configuredOpts = getBillingPeriodOptions(group.frequency);
+            const itemRanges = (group.items || []).map(item => item.monthRange).filter(Boolean);
+            const activeOpts = Array.from(new Set([
+              ...configuredOpts,
+              ...itemRanges
+            ]));
+            if (activeOpts.length === 0) {
+              activeOpts.push('Full Year');
+            }
+
+            const totalTuition = (group.items || []).reduce((sum, item) => sum + (Number(item.tuitionFee) || 0), 0);
+            const totalTransport = (group.items || []).reduce((sum, item) => sum + (Number(item.transportFee) || 0), 0);
+            const totalOther = (group.items || []).reduce((sum, item) => sum + (Number(item.otherCharges) || 0), 0);
+            const overallTotal = (group.items || []).reduce((sum, item) => sum + (Number(item.totalFee ?? item.amount) || ((Number(item.tuitionFee) || 0) + (Number(item.transportFee) || 0) + (Number(item.otherCharges) || 0))), 0);
 
             return (
               <div key={i} className="glass-panel" style={{
@@ -3518,10 +3526,11 @@ export function FeeStructureView({ showToast }) {
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxHeight: '175px', overflowY: 'auto', paddingRight: '4px' }}>
                   {activeOpts.map(opt => {
-                    const match = group.items.find(item => (item.monthRange || 'Full Year') === opt);
-                    const tuition = match ? (match.tuitionFee || 0) : 0;
-                    const transport = match ? (match.transportFee || 0) : 0;
-                    const other = match ? (match.otherCharges || 0) : 0;
+                    const match = group.items.find(item => (item.monthRange || 'Full Year') === opt) ||
+                      group.items.find(item => (item.monthRange || 'Full Year').toLowerCase().trim() === opt.toLowerCase().trim());
+                    const tuition = match ? (Number(match.tuitionFee) || 0) : 0;
+                    const transport = match ? (Number(match.transportFee) || 0) : 0;
+                    const other = match ? (Number(match.otherCharges) || 0) : 0;
                     const itemTotal = tuition + transport + other;
                     return (
                       <div key={opt} style={{
@@ -4933,289 +4942,10 @@ export function PayrollView({ showToast, type }) {
 }
 
 /* ============================================================
-   EXPENSES VIEW
+   EXPENSES VIEW (Redirected to unified ExpensePanel)
    ============================================================ */
-export function ExpensesView({ showToast }) {
-  const [expenses, setExpenses] = useState([]);
-  const [income, setIncome] = useState([]);
-  const [fees, setFees] = useState([]);
-  const [overview, setOverview] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [filterCat, setFilterCat] = useState('All');
-  const [search, setSearch] = useState('');
-
-  const categories = {
-    'Office & Administrative': ['Stationery', 'Printing', 'Internet Bills', 'Telephone Bills', 'Office Supplies'],
-    'Employee Welfare': ['Tea & Refreshments', 'Snacks', 'Staff Meetings', 'Staff Events', 'Training Programs'],
-    'Furniture & Equipment': ['Classroom Furniture', 'Office Furniture', 'Laboratory Equipment', 'Sports Equipment', 'Computers', 'Smart Boards', 'Projectors'],
-    'Building & Renovation': ['Construction', 'Painting', 'Flooring', 'Plumbing', 'Electrical Work', 'Classroom Renovation', 'Washroom Renovation', 'Roof Repair', 'Boundary Wall Repair'],
-    'Utilities': ['Electricity', 'Water', 'Gas', 'Generator Fuel', 'Solar Maintenance'],
-    'Transportation': ['Fuel', 'Vehicle Maintenance', 'Repairs', 'Insurance'],
-    'Maintenance & Repair': ['AC Repair', 'CCTV Maintenance', 'Computer Repair', 'Furniture Repair', 'Playground Maintenance'],
-    'Academic Expenses': ['Books', 'Library', 'Laboratory Materials', 'Examination Materials', 'Software Licenses'],
-    'Events & Functions': ['Annual Day', 'Sports Day', 'Science Exhibition', 'Seminars', 'Other Events'],
-    'Salary': ['Staff Salaries', 'Employee Payroll'],
-    'Other Expenses': ['Miscellaneous Overhead']
-  };
-
-
-
-  const fetchData = () => {
-    Promise.all([
-      fetch('/api/finance/overview').then(r => r.ok ? r.json() : null),
-      fetch('/api/finance/fees').then(r => r.ok ? r.json() : []),
-      fetch('/api/finance/income?includeAuxiliary=true').then(r => r.ok ? r.json() : []),
-      fetch('/api/finance/expenses').then(r => r.ok ? r.json() : []),
-    ]).then(([overviewData, feesData, incomeData, expensesData]) => {
-      setOverview(overviewData);
-      setFees(feesData);
-      setIncome(incomeData);
-      setExpenses(expensesData);
-      setLoading(false);
-    }).catch(err => {
-      console.error(err);
-      setLoading(false);
-    });
-  };
-
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-
-
-  // Calculations
-  const calculatedTotalExpenses = expenses.filter(e => e.status !== 'Rejected').reduce((s, e) => s + (e.amount || 0), 0);
-  const totalTuitionFees = fees.filter(f => f.paymentStatus === 'Paid').reduce((sum, f) => sum + (f.paidAmount || 0), 0);
-  const totalOtherIncome = income.reduce((sum, i) => sum + (i.amount || 0), 0);
-  const calculatedTotalIncome = totalTuitionFees + totalOtherIncome;
-  const netBalance = calculatedTotalIncome - calculatedTotalExpenses;
-
-  const salaryOverhead = expenses.filter(e => e.category === 'Salary').reduce((sum, e) => sum + (e.amount || 0), 0);
-  const operatingOverhead = calculatedTotalExpenses - salaryOverhead;
-
-  // Filter & Search
-  const filteredExpenses = expenses.filter(e => {
-    const matchSearch = e.title?.toLowerCase().includes(search.toLowerCase()) ||
-      e.expenseId?.toLowerCase().includes(search.toLowerCase()) ||
-      e.vendor?.name?.toLowerCase().includes(search.toLowerCase());
-    const matchCat = filterCat === 'All' || e.category === filterCat;
-    return matchSearch && matchCat;
-  });
-
-  // Group by category
-  const categoryGroups = {};
-  expenses.forEach(e => {
-    const cat = e.category || 'Other';
-    categoryGroups[cat] = (categoryGroups[cat] || 0) + (e.amount || 0);
-  });
-
-  const inputStyle = {
-    width: '100%', padding: '10px 14px', background: 'var(--bg-form)',
-    border: '1.5px solid var(--border-glass)', borderRadius: '10px', color: 'var(--text-main)',
-    fontSize: '0.85rem', outline: 'none', boxSizing: 'border-box'
-  };
-  const labelStyle = { fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '6px', display: 'block' };
-  const optionStyle = { background: 'var(--bg-form)', color: 'var(--text-main)' };
-
-  if (loading) {
-    return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '300px' }}>
-        <Loader2 className="animate-spin" size={32} style={{ color: '#ef4444' }} />
-      </div>
-    );
-  }
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}>
-
-      {/* KPI Cards Grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '20px' }}>
-        <div className="glass-panel" style={{ padding: '24px 28px', borderRadius: '16px', borderLeft: '4px solid #ef4444' }}>
-          <p style={{ fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '8px' }}>Total Expenses (Outflow)</p>
-          <h3 style={{ fontSize: '1.8rem', fontWeight: 800, color: '#ef4444', margin: 0 }}>₹{calculatedTotalExpenses.toLocaleString()}</h3>
-          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '6px', display: 'block' }}>Salary + Operating overheads</span>
-        </div>
-        <div className="glass-panel" style={{ padding: '24px 28px', borderRadius: '16px', borderLeft: '4px solid #f59e0b' }}>
-          <p style={{ fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '8px' }}>Operating Overhead</p>
-          <h3 style={{ fontSize: '1.8rem', fontWeight: 800, color: '#f59e0b', margin: 0 }}>₹{operatingOverhead.toLocaleString()}</h3>
-          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '6px', display: 'block' }}>Utilities, Supplies & Renovations</span>
-        </div>
-      </div>
-
-      {/* Graphs Grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: '24px' }}>
-
-        {/* Category breakdown */}
-        <div className="glass-panel" style={{ padding: '24px', borderRadius: '16px' }}>
-          <h3 style={{ fontSize: '0.92rem', fontWeight: 700, color: 'var(--text-main)', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <PieChart size={18} style={{ color: '#ef4444' }} /> Category Wise Overhead Breakdown
-          </h3>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-            {calculatedTotalExpenses === 0 || Object.entries(categoryGroups).length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '40px 10px', color: 'var(--text-muted)', fontSize: '0.82rem', display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'center', justifyContent: 'center' }}>
-                <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>No data available</span>
-                <span>Data will appear once records are added</span>
-              </div>
-            ) : (
-              Object.entries(categoryGroups)
-                .sort((a, b) => b[1] - a[1])
-                .map(([cat, val]) => {
-                  const maxVal = Math.max(...Object.values(categoryGroups), 1);
-                  const percent = Math.round((val / maxVal) * 100);
-                  const share = calculatedTotalExpenses > 0 ? Math.round((val / calculatedTotalExpenses) * 100) : 0;
-                  const catColors = {
-                    Maintenance: '#3b82f6', Salary: '#8b5cf6', Stationery: '#f59e0b',
-                    Utilities: '#06b6d4', Transportation: '#10b981', Events: '#f97316',
-                    'Furniture & Equipment': '#ec4899', 'Building & Renovation': '#ef4444',
-                    Other: '#6b7280'
-                  };
-                  const color = catColors[cat] || '#6b7280';
-                  return (
-                    <div key={cat} style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem' }}>
-                        <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>{cat}</span>
-                        <span style={{ fontWeight: 700, color: 'var(--text-muted)' }}>₹{val.toLocaleString()} ({share}%)</span>
-                      </div>
-                      <div style={{ width: '100%', height: '8px', background: 'rgba(255,255,255,0.03)', borderRadius: '4px', overflow: 'hidden' }}>
-                        <div style={{ width: `${percent}%`, height: '100%', background: color, borderRadius: '4px' }} />
-                      </div>
-                    </div>
-                  );
-                })
-            )}
-          </div>
-        </div>
-
-        {/* Monthly Trend */}
-        <div className="glass-panel" style={{ padding: '24px', borderRadius: '16px' }}>
-          <h3 style={{ fontSize: '0.92rem', fontWeight: 700, color: 'var(--text-main)', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <BarChart3 size={18} style={{ color: '#ef4444' }} /> Monthly Expenditure Trend (Last 6 Months)
-          </h3>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-            {calculatedTotalExpenses === 0 || !overview?.monthlyData || overview.monthlyData.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '40px 10px', color: 'var(--text-muted)', fontSize: '0.82rem', display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'center', justifyContent: 'center' }}>
-                <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>No data available</span>
-                <span>Data will appear once records are added</span>
-              </div>
-            ) : (
-              overview.monthlyData.map((m, idx) => {
-                const maxExpenses = Math.max(...(overview?.monthlyData?.map(o => o.expenses) || [1]));
-                const percent = Math.round((m.expenses / maxExpenses) * 100);
-                return (
-                  <div key={idx} style={{ display: 'grid', gridTemplateColumns: '80px 1fr', alignItems: 'center', gap: '12px' }}>
-                    <span style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-muted)' }}>{m.month}</span>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <div style={{ width: '100%', height: '10px', background: 'rgba(255,255,255,0.02)', borderRadius: '5px', overflow: 'hidden' }}>
-                        <div style={{ width: `${percent}%`, height: '100%', background: 'linear-gradient(90deg, #ef4444, #ef444499)', borderRadius: '5px' }} />
-                      </div>
-                      <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#ef4444', minWidth: '60px' }}>₹{m.expenses.toLocaleString()}</span>
-                    </div>
-                  </div>
-                );
-              })
-            )}
-          </div>
-        </div>
-
-      </div>
-
-      {/* Filter Toolbar */}
-      <div className="glass-panel" style={{ padding: '16px 20px', borderRadius: '12px', display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
-        <div style={{ position: 'relative' }}>
-          <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search Ledger..." style={{ ...inputStyle, paddingLeft: '36px', width: '220px' }} />
-        </div>
-        <select value={filterCat} onChange={e => setFilterCat(e.target.value)} style={{ ...inputStyle, width: '160px', cursor: 'pointer' }}>
-          <option value="All" style={optionStyle}>All Categories</option>
-          {Object.keys(categories).map(c => <option key={c} value={c} style={optionStyle}>{c}</option>)}
-        </select>
-      </div>
-
-      {/* Expense Entries Card-like Structure */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: '20px' }}>
-        {filteredExpenses.length === 0 ? (
-          <div className="glass-panel" style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)', gridColumn: '1 / -1' }}>
-            No expense records matched the criteria.
-          </div>
-        ) : (
-          filteredExpenses.map((exp, i) => (
-            <div key={i} className="glass-panel" style={{
-              padding: '24px', borderRadius: '16px', display: 'flex', flexDirection: 'column', gap: '16px',
-              border: '1px solid rgba(255,255,255,0.04)', transition: 'transform 0.2s', position: 'relative'
-            }} onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-2px)'}
-              onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}>
-
-              {/* Header block */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                <div>
-                  <h4 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--text-main)', margin: 0 }}>{exp.title}</h4>
-                  <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>ID: {exp.expenseId}</span>
-                </div>
-                <span style={{
-                  padding: '4px 10px', borderRadius: '20px', fontSize: '0.68rem', fontWeight: 700,
-                  background: exp.status === 'Approved' ? 'rgba(16,185,129,0.08)' : exp.status === 'Rejected' ? 'rgba(239,68,68,0.08)' : 'rgba(245,158,11,0.08)',
-                  color: exp.status === 'Approved' ? '#10b981' : exp.status === 'Rejected' ? '#ef4444' : '#f59e0b'
-                }}>{exp.status || 'Pending'}</span>
-              </div>
-
-              {/* Amount and category tags */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontSize: '1.4rem', fontWeight: 800, color: '#ef4444' }}>₹{exp.amount?.toLocaleString()}</span>
-                <div style={{ display: 'flex', gap: '6px' }}>
-                  <span style={{ fontSize: '0.68rem', fontWeight: 600, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', padding: '2px 8px', borderRadius: '10px', color: 'var(--text-muted)' }}>{exp.category}</span>
-                  {exp.subcategory && <span style={{ fontSize: '0.68rem', fontWeight: 600, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', padding: '2px 8px', borderRadius: '10px', color: 'var(--text-muted)' }}>{exp.subcategory}</span>}
-                </div>
-              </div>
-
-              {/* Statement / Remarks */}
-              <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: 0, lineHeight: 1.4 }}>
-                {exp.description || exp.remarks || 'No description recorded for this entry.'}
-              </p>
-
-              {/* Vendor & Payout details */}
-              {exp.vendor?.name ? (
-                <div style={{ background: 'rgba(255,255,255,0.015)', border: '1px solid rgba(255,255,255,0.03)', borderRadius: '10px', padding: '12px', fontSize: '0.75rem', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                  <div style={{ fontWeight: 700, color: 'var(--text-muted)', fontSize: '0.68rem', textTransform: 'uppercase' }}>Vendor details</div>
-                  <div>Name: <strong style={{ color: 'var(--text-main)' }}>{exp.vendor.name}</strong></div>
-                  {exp.vendor.contact && <div>Contact: <span style={{ color: 'var(--text-muted)' }}>{exp.vendor.contact}</span></div>}
-                  {exp.vendor.email && <div>Email: <span style={{ color: 'var(--text-muted)' }}>{exp.vendor.email}</span></div>}
-                  {exp.vendor.address && <div>Address: <span style={{ color: 'var(--text-muted)' }}>{exp.vendor.address}</span></div>}
-                </div>
-              ) : null}
-
-              {/* Payment execution details */}
-              {exp.paymentDetails?.method ? (
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', background: 'rgba(255,255,255,0.01)', borderRadius: '10px', padding: '10px', fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                  <div>Method: <strong style={{ color: 'var(--text-main)' }}>{exp.paymentDetails.method}</strong></div>
-                  <div>Date: <strong>{exp.paymentDate || exp.date}</strong></div>
-                  {exp.paymentDetails.transactionId && <div style={{ gridColumn: 'span 2' }}>Txn ID: <code style={{ color: '#3b82f6' }}>{exp.paymentDetails.transactionId}</code></div>}
-                  {exp.paymentDetails.invoiceNumber && <div style={{ gridColumn: 'span 2' }}>Invoice No: <span style={{ color: 'var(--text-main)' }}>{exp.paymentDetails.invoiceNumber}</span></div>}
-                </div>
-              ) : null}
-
-              {/* Remarks/Notes */}
-              {exp.notes ? (
-                <div style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.4)', fontStyle: 'italic' }}>
-                  * Notes: {exp.notes}
-                </div>
-              ) : null}
-
-              {/* Audit Footer */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.7rem', color: 'var(--text-muted)', borderTop: '1px solid rgba(255,255,255,0.03)', paddingTop: '10px' }}>
-                <span>Paid by: {exp.paidBy || 'Finance Dept'}</span>
-                <span>Submitted: {exp.submittedBy || 'System'}</span>
-              </div>
-
-            </div>
-          ))
-        )}
-      </div>
-
-
-
-    </div>
-  );
+export function ExpensesView(props) {
+  return <ExpensePanel hideHeader={true} {...props} />;
 }
 
 /* ============================================================

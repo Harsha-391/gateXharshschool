@@ -1,0 +1,95 @@
+/* Styling for Staff Pending Setup Tab */
+.pending-setup-container {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  width: 100%;
+}
+
+.pending-setup-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+
+.pending-table-container {
+  overflow-x: auto;
+  border: 1px solid var(--border-glass, #e2e8f0);
+  border-radius: 16px;
+  background: var(--bg-surface, #ffffff);
+  box-shadow: var(--shadow-sm, 0 1px 2px 0 rgba(0, 0, 0, 0.05));
+}
+
+.pending-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.pending-table th {
+  padding: 14px 18px;
+  background: rgba(255, 140, 66, 0.04);
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text-muted, #64748b);
+  border-bottom: 1px solid var(--border-glass, #e2e8f0);
+  white-space: nowrap;
+}
+
+.pending-table td {
+  padding: 14px 18px;
+  font-size: 0.85rem;
+  color: var(--text-main, #0f172a);
+  border-bottom: 1px solid var(--border-glass, #e2e8f0);
+  vertical-align: middle;
+}
+
+.pending-table tr:hover {
+  background: rgba(255, 140, 66, 0.02);
+}
+
+.pending-reserved-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: rgba(255, 140, 66, 0.1);
+  color: hsl(var(--color-primary, 24 100% 50%));
+  font-weight: 700;
+  font-size: 0.75rem;
+  letter-spacing: 0.02em;
+}
+
+.btn-complete-setup {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  background: linear-gradient(135deg, hsl(var(--color-primary, 24 100% 50%)) 0%, hsl(var(--color-secondary, 15 100% 50%)) 100%);
+  color: #ffffff;
+  border: none;
+  box-shadow: 0 2px 4px rgba(255, 140, 66, 0.2);
+  transition: all 0.2s ease;
+}
+
+.btn-complete-setup:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(255, 140, 66, 0.3);
+}
+
+.pending-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 60px 20px;
+  gap: 12px;
+}

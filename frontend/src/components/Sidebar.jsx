@@ -90,32 +90,65 @@ export default function Sidebar({
     return () => clearInterval(interval);
   }, []);
 
-  const [adminCoreOpen, setAdminCoreOpen] = useState(false);
+  const [adminCoreOpen, setAdminCoreOpen] = useState(() => {
+    return typeof adminView === 'string' && (['students', 'student-directory', 'staff', 'staff-directory', 'teachers', 'teacher-directory', 'employees', 'employee-directory'].includes(adminView));
+  });
   const [adminAttendanceOpen, setAdminAttendanceOpen] = useState(() => {
-    return typeof adminView === 'string' && (adminView === 'employee-attendance' || adminView === 'attendance' || adminView === 'attendance-history');
+    return typeof adminView === 'string' && (adminView === 'employee-attendance' || adminView === 'attendance' || adminView === 'attendance-history' || adminView === 'student-attendance' || adminView === 'student-attendance-history');
   });
   const [adminAcademicOpen, setAdminAcademicOpen] = useState(() => {
-    return typeof adminView === 'string' && (['academic-manager', 'academic-class-timetable', 'academic-teacher-timetable', 'academic-exams', 'academic-exams-history', 'academic-published-exam', 'academic-published-timetable'].includes(adminView));
+    return typeof adminView === 'string' && (['academic-manager', 'academic-class-timetable', 'academic-exams', 'academic-exams-history', 'academic-published-exam', 'academic-published-timetable', 'published-exam', 'published-timetable'].includes(adminView));
   });
   const [adminAcademicActivitiesOpen, setAdminAcademicActivitiesOpen] = useState(() => {
     return typeof adminView === 'string' && (['academic-activities', 'academic-events', 'academic-notices', 'academic-holidays', 'academic-calendar'].includes(adminView));
   });
-  const [adminRecepOpen, setAdminRecepOpen] = useState(false);
+  const [adminRecepOpen, setAdminRecepOpen] = useState(() => {
+    return typeof adminView === 'string' && (['register-student', 'register-teacher', 'add-staff', 'register-staff', 'add-employee', 'register-employee'].includes(adminView));
+  });
   const [adminFinanceOpen, setAdminFinanceOpen] = useState(() => {
     return typeof adminView === 'string' && ([
       'collect-fees', 'fee-structure', 'fees-history',
-      'payroll', 'payroll-history', 'teacher-pay-structure', 'staff-pay', 'staff-pay-structure'
+      'payroll', 'payroll-history', 'teacher-pay-structure', 'staff-pay', 'staff-pay-structure',
+      'staff-payroll-hub', 'staff-payroll', 'teacher-payroll-hub', 'teacher-payroll', 'employee-payroll-hub', 'employee-payroll'
     ].includes(adminView));
   });
   const [adminExpensesOpen, setAdminExpensesOpen] = useState(() => {
     return typeof adminView === 'string' && (adminView.startsWith('expense-'));
   });
   const [adminResultsOpen, setAdminResultsOpen] = useState(() => {
-    return typeof adminView === 'string' && (adminView.startsWith('results-') || adminView === 'academic-results' || adminView === 'results-history');
+    return typeof adminView === 'string' && (adminView.startsWith('results-') || adminView === 'academic-results' || adminView === 'results-history' || adminView === 'academic-history' || adminView === 'marks-entry');
   });
   const [adminGradeOpen, setAdminGradeOpen] = useState(() => {
     return typeof adminView === 'string' && (adminView.startsWith('grade-') || adminView === 'add-grade' || adminView === 'academic-grade-subjects');
   });
+
+  useEffect(() => {
+    if (['students', 'student-directory', 'staff', 'staff-directory', 'teachers', 'teacher-directory', 'employees', 'employee-directory'].includes(adminView)) {
+      setAdminCoreOpen(true);
+    }
+    if (['register-student', 'register-teacher', 'add-staff', 'register-staff', 'add-employee', 'register-employee'].includes(adminView)) {
+      setAdminRecepOpen(true);
+    }
+    if (['employee-attendance', 'attendance', 'student-attendance', 'attendance-history', 'student-attendance-history'].includes(adminView)) {
+      setAdminAttendanceOpen(true);
+    }
+    if (['academic-manager', 'academic-class-timetable', 'academic-exams', 'academic-exams-history', 'academic-published-exam', 'academic-published-timetable', 'published-exam', 'published-timetable'].includes(adminView)) {
+      setAdminAcademicOpen(true);
+    }
+    if (['academic-activities', 'academic-events', 'academic-notices', 'academic-holidays', 'academic-calendar'].includes(adminView)) {
+      setAdminAcademicActivitiesOpen(true);
+    }
+    if (['results-manager', 'results-analytics', 'results-marks-entry', 'marks-entry', 'results-report-cards', 'academic-results', 'results-history', 'academic-history'].includes(adminView)) {
+      setAdminResultsOpen(true);
+    }
+    if ([
+      'collect-fees', 'fee-structure', 'fees-history',
+      'payroll', 'payroll-history', 'teacher-pay-structure', 'staff-pay', 'staff-pay-structure',
+      'staff-payroll-hub', 'staff-payroll', 'teacher-payroll-hub', 'teacher-payroll', 'employee-payroll-hub', 'employee-payroll'
+    ].includes(adminView)) {
+      setAdminFinanceOpen(true);
+    }
+  }, [adminView]);
 
   const getIconColor = (viewName) => {
     switch (viewName) {
@@ -126,7 +159,6 @@ export default function Sidebar({
       // Academic Section
       case 'academic-manager':
       case 'academic-class-timetable':
-      case 'academic-teacher-timetable':
       case 'academic-exams':
       case 'academic-exams-history':
       case 'academic-published-timetable':
@@ -170,6 +202,7 @@ export default function Sidebar({
       case 'payroll-history':
         return '#F59E0B'; // Yellow/Orange
         
+      case 'expenses':
       case 'expense-dashboard':
       case 'expense-all-expenses':
       case 'expense-tracker':
@@ -632,12 +665,18 @@ export default function Sidebar({
             {/* Academic Section */}
             {((hasPermission('academic-manager', 'view') || hasPermission('published-timetable', 'view') || hasPermission('published-exam', 'view')) ||
               (hasPermission('academic-activities', 'view') || hasPermission('academic-calendar', 'view')) ||
-              (hasPermission('results-manager', 'view') || hasPermission('results-marks-entry', 'view') || hasPermission('results-history', 'view')) ||
               (() => {
-                const isClassTeacher = userProfile?.isClassTeacher === true || userProfile?.isClassTeacher === 'Yes' || userProfile?.isClassTeacher === 1;
+                const isTeacher = userProfile?.role === 'Teacher' || userProfile?.userType === 'Teacher' || localStorage.getItem('userType') === 'Teacher' || localStorage.getItem('role') === 'Teacher';
+                const isClassTeacher = userProfile?.isClassTeacher === true || userProfile?.isClassTeacher === 'Yes' || userProfile?.isClassTeacher === 1 || localStorage.getItem('isClassTeacher') === 'true';
+                if (isTeacher && !isClassTeacher) return false;
+                return hasPermission('results-manager', 'view') || hasPermission('results-marks-entry', 'view') || hasPermission('results-history', 'view');
+              })() ||
+              (() => {
+                const isTeacher = userProfile?.role === 'Teacher' || userProfile?.userType === 'Teacher' || localStorage.getItem('userType') === 'Teacher' || localStorage.getItem('role') === 'Teacher';
+                const isClassTeacher = userProfile?.isClassTeacher === true || userProfile?.isClassTeacher === 'Yes' || userProfile?.isClassTeacher === 1 || localStorage.getItem('isClassTeacher') === 'true';
                 const hasEmpAtt = hasPermission('employee-attendance', 'view');
-                const hasStuAtt = hasPermission('attendance', 'view') && (userProfile?.role === 'Teacher' ? isClassTeacher : true);
-                const hasAttHist = hasPermission('attendance-history', 'view') && (userProfile?.role === 'Teacher' ? isClassTeacher : true);
+                const hasStuAtt = (!isTeacher || isClassTeacher) && hasPermission('attendance', 'view');
+                const hasAttHist = (!isTeacher || isClassTeacher) && hasPermission('attendance-history', 'view');
                 return hasEmpAtt || hasStuAtt || hasAttHist;
               })()) && (
               <div className="sidebar-section-group" style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
@@ -650,11 +689,11 @@ export default function Sidebar({
                     <button
                       type="button"
                       onClick={() => setAdminAcademicOpen(!adminAcademicOpen)}
-                      className={`nav-item ${['academic-manager', 'academic-class-timetable', 'academic-teacher-timetable', 'academic-exams', 'academic-exams-history', 'academic-published-timetable', 'academic-published-exam'].includes(adminView) ? 'parent-active' : ''}`}
+                      className={`nav-item ${['academic-manager', 'academic-class-timetable', 'academic-exams', 'academic-exams-history', 'academic-published-timetable', 'academic-published-exam'].includes(adminView) ? 'parent-active' : ''}`}
                       style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', cursor: 'pointer' }}
                     >
                       <div style={{ display: 'flex', alignItems: 'center', gap: '16px', minWidth: 0, overflow: 'hidden' }}>
-                        <BookOpen size={20} className="flex-shrink-0" style={{ color: ['academic-manager', 'academic-class-timetable', 'academic-teacher-timetable', 'academic-exams', 'academic-exams-history', 'academic-published-timetable', 'academic-published-exam'].includes(adminView) ? '#FF8C42' : getIconColor('academic-manager') }} />
+                        <BookOpen size={20} className="flex-shrink-0" style={{ color: ['academic-manager', 'academic-class-timetable', 'academic-exams', 'academic-exams-history', 'academic-published-timetable', 'academic-published-exam'].includes(adminView) ? '#FF8C42' : getIconColor('academic-manager') }} />
                         <span className="nav-label">Academic Manager</span>
                       </div>
                       {adminAcademicOpen ? <ChevronDown size={16} className="flex-shrink-0" /> : <ChevronRight size={16} className="flex-shrink-0" />}
@@ -664,10 +703,10 @@ export default function Sidebar({
                         {hasPermission('academic-manager', 'view') && (
                           <button
                             onClick={() => { setAdminView('academic-manager'); setMobileOpen(false); }}
-                            className={`nav-item ${['academic-manager', 'academic-class-timetable', 'academic-teacher-timetable', 'academic-exams', 'academic-exams-history'].includes(adminView) ? 'active' : ''}`}
+                            className={`nav-item ${['academic-manager', 'academic-class-timetable', 'academic-exams', 'academic-exams-history'].includes(adminView) ? 'active' : ''}`}
                             style={{ padding: '10px 12px', fontSize: '0.88rem', position: 'relative' }}
                           >
-                            <BookOpen size={18} className="flex-shrink-0" style={{ color: ['academic-manager', 'academic-class-timetable', 'academic-teacher-timetable', 'academic-exams', 'academic-exams-history'].includes(adminView) ? '#FF8C42' : getIconColor('academic-manager') }} />
+                            <BookOpen size={18} className="flex-shrink-0" style={{ color: ['academic-manager', 'academic-class-timetable', 'academic-exams', 'academic-exams-history'].includes(adminView) ? '#FF8C42' : getIconColor('academic-manager') }} />
                             <span className="nav-label">Academic Manager</span>
                           </button>
                         )}
@@ -743,62 +782,74 @@ export default function Sidebar({
                   </div>
                 )}
 
-                {(hasPermission('results-manager', 'view') || hasPermission('results-marks-entry', 'view') || hasPermission('results-history', 'view')) && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                    <button
-                      type="button"
-                      onClick={() => setAdminResultsOpen(!adminResultsOpen)}
-                      className={`nav-item ${['results-manager', 'results-analytics', 'results-marks-entry', 'results-report-cards', 'academic-results', 'results-history'].includes(adminView) ? 'parent-active' : ''}`}
-                      style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', cursor: 'pointer' }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '16px', minWidth: 0, overflow: 'hidden' }}>
-                        <GraduationCap size={20} className="flex-shrink-0" style={{ color: ['results-manager', 'results-analytics', 'results-marks-entry', 'results-report-cards', 'academic-results', 'results-history'].includes(adminView) ? '#FF8C42' : getIconColor('results-manager') }} />
-                        <span className="nav-label">Results Manager</span>
-                      </div>
-                      {adminResultsOpen ? <ChevronDown size={16} className="flex-shrink-0" /> : <ChevronRight size={16} className="flex-shrink-0" />}
-                    </button>
-                    {adminResultsOpen && (
-                      <div className="sidebar-sub-menu" style={{ display: 'flex', flexDirection: 'column', paddingLeft: '16px', borderLeft: '1px solid var(--border-glass)', marginLeft: '24px', marginTop: '2px', marginBottom: '6px', gap: '4px' }}>
-                        {hasPermission('results-manager', 'view') && (
-                          <button
-                            onClick={() => { setAdminView('results-manager'); setMobileOpen(false); }}
-                            className={`nav-item ${['results-manager', 'results-analytics', 'results-report-cards', 'academic-results'].includes(adminView) ? 'active' : ''}`}
-                            style={{ padding: '10px 12px', fontSize: '0.88rem', position: 'relative' }}
-                          >
-                            <FileSpreadsheet size={18} className="flex-shrink-0" style={{ color: ['results-manager', 'results-analytics', 'results-report-cards', 'academic-results'].includes(adminView) ? '#FF8C42' : getIconColor('results-manager') }} />
-                            <span className="nav-label">Results Manager</span>
-                          </button>
-                        )}
-                        {hasPermission('results-marks-entry', 'view') && (
-                          <button
-                            onClick={() => { setAdminView('results-marks-entry'); setMobileOpen(false); }}
-                            className={`nav-item ${adminView === 'results-marks-entry' ? 'active' : ''}`}
-                            style={{ padding: '10px 12px', fontSize: '0.88rem', position: 'relative' }}
-                          >
-                            <BookOpen size={18} className="flex-shrink-0" style={{ color: adminView === 'results-marks-entry' ? '#FF8C42' : getIconColor('results-marks-entry') }} />
-                            <span className="nav-label">Marks Entry</span>
-                          </button>
-                        )}
-                        {hasPermission('results-history', 'view') && (
-                          <button
-                            onClick={() => { setAdminView('results-history'); setMobileOpen(false); }}
-                            className={`nav-item ${adminView === 'results-history' ? 'active' : ''}`}
-                            style={{ padding: '10px 12px', fontSize: '0.88rem', position: 'relative' }}
-                          >
-                            <History size={18} className="flex-shrink-0" style={{ color: adminView === 'results-history' ? '#FF8C42' : getIconColor('results-history') }} />
-                            <span className="nav-label">Academic History</span>
-                          </button>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                )}
+                {(() => {
+                  const isTeacher = userProfile?.role === 'Teacher' || userProfile?.userType === 'Teacher' || localStorage.getItem('userType') === 'Teacher' || localStorage.getItem('role') === 'Teacher';
+                  const isClassTeacher = userProfile?.isClassTeacher === true || userProfile?.isClassTeacher === 'Yes' || userProfile?.isClassTeacher === 1 || localStorage.getItem('isClassTeacher') === 'true';
+                  if (isTeacher && !isClassTeacher) return null;
+
+                  const canViewResultsManager = hasPermission('results-manager', 'view');
+                  const canViewMarksEntry = hasPermission('results-marks-entry', 'view');
+                  const canViewResultsHistory = hasPermission('results-history', 'view');
+                  if (!canViewResultsManager && !canViewMarksEntry && !canViewResultsHistory) return null;
+
+                  return (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                      <button
+                        type="button"
+                        onClick={() => setAdminResultsOpen(!adminResultsOpen)}
+                        className={`nav-item ${['results-manager', 'results-analytics', 'results-marks-entry', 'results-report-cards', 'academic-results', 'results-history'].includes(adminView) ? 'parent-active' : ''}`}
+                        style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', cursor: 'pointer' }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', minWidth: 0, overflow: 'hidden' }}>
+                          <GraduationCap size={20} className="flex-shrink-0" style={{ color: ['results-manager', 'results-analytics', 'results-marks-entry', 'results-report-cards', 'academic-results', 'results-history'].includes(adminView) ? '#FF8C42' : getIconColor('results-manager') }} />
+                          <span className="nav-label">Results Manager</span>
+                        </div>
+                        {adminResultsOpen ? <ChevronDown size={16} className="flex-shrink-0" /> : <ChevronRight size={16} className="flex-shrink-0" />}
+                      </button>
+                      {adminResultsOpen && (
+                        <div className="sidebar-sub-menu" style={{ display: 'flex', flexDirection: 'column', paddingLeft: '16px', borderLeft: '1px solid var(--border-glass)', marginLeft: '24px', marginTop: '2px', marginBottom: '6px', gap: '4px' }}>
+                          {canViewResultsManager && (
+                            <button
+                              onClick={() => { setAdminView('results-manager'); setMobileOpen(false); }}
+                              className={`nav-item ${['results-manager', 'results-analytics', 'results-report-cards', 'academic-results'].includes(adminView) ? 'active' : ''}`}
+                              style={{ padding: '10px 12px', fontSize: '0.88rem', position: 'relative' }}
+                            >
+                              <FileSpreadsheet size={18} className="flex-shrink-0" style={{ color: ['results-manager', 'results-analytics', 'results-report-cards', 'academic-results'].includes(adminView) ? '#FF8C42' : getIconColor('results-manager') }} />
+                              <span className="nav-label">Results Manager</span>
+                            </button>
+                          )}
+                          {canViewMarksEntry && (
+                            <button
+                              onClick={() => { setAdminView('results-marks-entry'); setMobileOpen(false); }}
+                              className={`nav-item ${adminView === 'results-marks-entry' ? 'active' : ''}`}
+                              style={{ padding: '10px 12px', fontSize: '0.88rem', position: 'relative' }}
+                            >
+                              <BookOpen size={18} className="flex-shrink-0" style={{ color: adminView === 'results-marks-entry' ? '#FF8C42' : getIconColor('results-marks-entry') }} />
+                              <span className="nav-label">Marks Entry</span>
+                            </button>
+                          )}
+                          {canViewResultsHistory && (
+                            <button
+                              onClick={() => { setAdminView('results-history'); setMobileOpen(false); }}
+                              className={`nav-item ${adminView === 'results-history' ? 'active' : ''}`}
+                              style={{ padding: '10px 12px', fontSize: '0.88rem', position: 'relative' }}
+                            >
+                              <History size={18} className="flex-shrink-0" style={{ color: adminView === 'results-history' ? '#FF8C42' : getIconColor('results-history') }} />
+                              <span className="nav-label">Academic History</span>
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
 
                 {(() => {
-                  const isClassTeacher = userProfile?.isClassTeacher === true || userProfile?.isClassTeacher === 'Yes' || userProfile?.isClassTeacher === 1;
+                  const isTeacher = userProfile?.role === 'Teacher' || userProfile?.userType === 'Teacher' || localStorage.getItem('userType') === 'Teacher' || localStorage.getItem('role') === 'Teacher';
+                  const isClassTeacher = userProfile?.isClassTeacher === true || userProfile?.isClassTeacher === 'Yes' || userProfile?.isClassTeacher === 1 || localStorage.getItem('isClassTeacher') === 'true';
                   const hasEmpAtt = hasPermission('employee-attendance', 'view');
-                  const hasStuAtt = hasPermission('attendance', 'view') && (userProfile?.role === 'Teacher' ? isClassTeacher : true);
-                  const hasAttHist = hasPermission('attendance-history', 'view') && (userProfile?.role === 'Teacher' ? isClassTeacher : true);
+                  const hasStuAtt = (!isTeacher || isClassTeacher) && hasPermission('attendance', 'view');
+                  const hasAttHist = (!isTeacher || isClassTeacher) && hasPermission('attendance-history', 'view');
                   if (!hasEmpAtt && !hasStuAtt && !hasAttHist) return null;
 
                   return (
@@ -977,9 +1028,9 @@ export default function Sidebar({
                 {(hasPermission('expense-dashboard', 'view') || hasPermission('expense-all-expenses', 'view') || hasPermission('expense-tracker', 'view') || hasPermission('expense-history', 'view')) && (
                   <button
                     onClick={() => { setAdminView('expense-dashboard'); setMobileOpen(false); }}
-                    className={`nav-item ${['expense-dashboard', 'expense-all-expenses', 'expense-history'].includes(adminView) ? 'active' : ''}`}
+                    className={`nav-item ${['expenses', 'expense-dashboard', 'expense-all-expenses', 'expense-history', 'expense-tracker'].includes(adminView) ? 'active' : ''}`}
                   >
-                    <Wallet size={20} className="flex-shrink-0" style={{ color: ['expense-dashboard', 'expense-all-expenses', 'expense-history'].includes(adminView) ? '#FF8C42' : getIconColor('expense-dashboard') }} />
+                    <Wallet size={20} className="flex-shrink-0" style={{ color: ['expenses', 'expense-dashboard', 'expense-all-expenses', 'expense-history', 'expense-tracker'].includes(adminView) ? '#FF8C42' : getIconColor('expense-dashboard') }} />
                     <span className="nav-label">Expenses</span>
                   </button>
                 )}

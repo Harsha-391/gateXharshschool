@@ -95,6 +95,12 @@ export default function SchoolLogin({ tenantSubdomain, onLoginSuccess }) {
           localStorage.removeItem('overrides');
         }
 
+        if (data.mustChangePassword) {
+          localStorage.setItem('mustChangePassword', 'true');
+        } else {
+          localStorage.removeItem('mustChangePassword');
+        }
+
         if (data.school && data.school.subdomain) {
           localStorage.setItem('school_name', data.school.name || '');
           localStorage.setItem('school_subdomain', data.school.subdomain);

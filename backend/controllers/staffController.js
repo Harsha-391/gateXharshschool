@@ -192,7 +192,6 @@ export const registerTeacher = async (req, res) => { // Keep export name registe
       ifscCode: encrypt(req.body.ifscCode || ''),
       accountHolder: encrypt(req.body.accountHolder || ''),
       upiId: encrypt(req.body.upiId || ''),
-      status: 'Active',
       username: generatedUsername,
       password: generatedPassword,
       photo: photoPath,
@@ -313,10 +312,6 @@ export const getTeachers = (req, res) => { // Keep getTeachers naming for compat
 
     if (employmentType && employmentType !== 'All') {
       decryptedList = decryptedList.filter(s => s.employmentType === employmentType);
-    }
-
-    if (status && status !== 'All') {
-      decryptedList = decryptedList.filter(s => s.status === status);
     }
 
     const activeRoleFilter = role !== 'All' ? role : designation;
@@ -623,3 +618,104 @@ export const deleteTeacher = async (req, res) => { // Keep deleteTeacher naming 
     res.status(500).json({ error: 'Internal server error dismissing staff.' });
   }
 };
+
+// 6. BULK DELETE / DISMISS STAFF
+export const bulkDeleteStaff = async (req, res) => {
+  try {
+    const db = readDb();
+    if (!db.staff) db.staff = [];
+    const { ids, staffIds } = req.body;
+    const idsToDelete = Array.isArray(ids) ? ids : (Array.isArray(staffIds) ? staffIds : []);
+
+    if (!idsToDelete || idsToDelete.length === 0) {
+      return res.status(400).json({ error: 'No staff IDs provided for bulk deletion.' });
+    }
+
+    const normalizedIds = idsToDelete.map(id => String(id || '').trim().toLowerCase());
+    const staffToRemove = db.staff.filter(s => {
+      const sId = String(s.id || '').trim().toLowerCase();
+      const sEmpId = String(s.employeeId || '').trim().toLowerCase();
+      return normalizedIds.some(reqId => {
+        const cleanReqId = reqId.replace(/^(emp|stf|staff)-?/i, '');
+        return sId === reqId || sEmpId === reqId ||
+               (cleanReqId && (sId.replace(/^(emp|stf|staff)-?/i, '') === cleanReqId || sEmpId.replace(/^(emp|stf|staff)-?/i, '') === cleanReqId));
+      });
+    });
+
+    if (staffToRemove.length === 0) {
+      return res.status(404).json({ error: 'No matching staff found to delete.' });
+    }
+
+    const allTargetIds = new Set();
+    for (const s of staffToRemove) {
+      if (s.id) allTargetIds.add(s.id);
+      if (s.employeeId) allTargetIds.add(s.employeeId);
+    }
+
+    // Delete files from ImageKit asynchronously
+    for (const s of staffToRemove) {
+      const filesToDelete = [
+        s.photo, s.aadhaarFile, s.panFile, s.resumeFile,
+        s.qualificationFile, s.experienceFile, s.joiningLetterFile, s.otherFile
+      ];
+      for (const fileUrl of filesToDelete) {
+        if (fileUrl) {
+          deleteFromImageKit(fileUrl).catch(e => console.error('[ImageKit Delete Error]', e?.message || e));
+        }
+      }
+    }
+
+    // Direct Synchronous SQL Delete
+    if (isSqlActive()) {
+      try {
+        const sqlDb = await import('../utils/sqlDb.js');
+        const tenantId = tenantStorage.getStore();
+        const tId = tenantId ? slugify(tenantId) : 'platform';
+
+        for (const targetId of allTargetIds) {
+          await sqlDb.query('DELETE FROM staff_leaves WHERE staffId = ? AND (tenantId = ? OR tenantId IS NULL OR tenantId = ?)', [targetId, tId, ''], tId);
+          await sqlDb.query('DELETE FROM staff_reports WHERE staffId = ? AND (tenantId = ? OR tenantId IS NULL OR tenantId = ?)', [targetId, tId, ''], tId);
+          await sqlDb.query('DELETE FROM employee_qr_codes WHERE (employeeId = ? OR staffId = ?) AND (tenantId = ? OR tenantId IS NULL OR tenantId = ?)', [targetId, targetId, tId, ''], tId);
+          await sqlDb.query('DELETE FROM attendance_records WHERE (employeeId = ? OR staffId = ?) AND (tenantId = ? OR tenantId IS NULL OR tenantId = ?)', [targetId, targetId, tId, ''], tId);
+          await sqlDb.query('DELETE FROM attendance_logs WHERE (employeeId = ? OR staffId = ?) AND (tenantId = ? OR tenantId IS NULL OR tenantId = ?)', [targetId, targetId, tId, ''], tId);
+          await sqlDb.query('DELETE FROM user_access WHERE userId = ? AND (tenantId = ? OR tenantId IS NULL OR tenantId = ?)', [targetId, tId, ''], tId);
+          await sqlDb.query('DELETE FROM staff WHERE id = ? AND (tenantId = ? OR tenantId IS NULL OR tenantId = ?)', [targetId, tId, ''], tId);
+          await sqlDb.query('DELETE FROM employees WHERE id = ? AND (tenantId = ? OR tenantId IS NULL OR tenantId = ?)', [targetId, tId, ''], tId);
+        }
+
+        const syncTs = new Date().toISOString();
+        await sqlDb.query('UPDATE schools SET updatedAt = ? WHERE subdomain = ?', [syncTs, tId]);
+      } catch (sqlErr) {
+        console.error('[SQL Direct Bulk Delete Staff Error]', sqlErr);
+      }
+    }
+
+    // Synchronize in-memory/JSON db
+    db.staff = db.staff.filter(s => !allTargetIds.has(s.id) && !allTargetIds.has(s.employeeId));
+    if (db.employees && Array.isArray(db.employees)) {
+      db.employees = db.employees.filter(e => !allTargetIds.has(e.id) && !allTargetIds.has(e.employeeId));
+    }
+    if (db.employeeQrCodes) {
+      db.employeeQrCodes = db.employeeQrCodes.filter(q => !allTargetIds.has(q.employeeId) && !allTargetIds.has(q.staffId));
+    }
+    if (db.attendanceRecords) {
+      db.attendanceRecords = db.attendanceRecords.filter(a => !allTargetIds.has(a.employeeId) && !allTargetIds.has(a.staffId));
+    }
+    if (db.attendanceLogs) {
+      db.attendanceLogs = db.attendanceLogs.filter(l => !allTargetIds.has(l.employeeId) && !allTargetIds.has(l.staffId));
+    }
+    if (db.userAccess) {
+      db.userAccess = db.userAccess.filter(ua => !allTargetIds.has(ua.userId));
+    }
+
+    addActivity(db, 'alert', 'Staff Bulk Dismissed', `${staffToRemove.length} staff members were removed from the roster`, 'rgb(var(--color-danger-rgb))', 'rgba(var(--color-danger-rgb), 0.1)');
+    writeDb(db, ['staff', 'employees']);
+    logAudit('Bulk Delete Staff', `Total: ${staffToRemove.length}`, `Dismissed staff IDs: ${Array.from(allTargetIds).join(', ')}`, req);
+
+    res.json({ success: true, count: staffToRemove.length, message: `Successfully dismissed ${staffToRemove.length} staff member(s)` });
+  } catch (error) {
+    console.error('Error removing staff records:', error);
+    res.status(500).json({ error: 'Internal server error dismissing staff.' });
+  }
+};
+

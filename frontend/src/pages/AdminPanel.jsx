@@ -26,7 +26,7 @@ import {
 } from 'lucide-react';
 import SkeletonLoader from '../components/SkeletonLoader';
 import KeepAlive from '../components/KeepAlive';
-import { fetchActiveGrades, fetchActiveSections } from '../utils/grades';
+import { fetchActiveGrades, fetchActiveSections, areGradesEqual, areSectionsEqual, normalizeSection } from '../utils/grades';
 import { hasPermission } from '../utils/permissions';
 import NotificationPanel from '../components/NotificationPanel';
 
@@ -89,7 +89,6 @@ const AttendanceHistoryView = lazyWithRetry(() => import('./AdminAttendanceViews
 const CollectFeesView = lazyWithRetry(() => import('./AccountantPanel').then(m => ({ default: m.CollectFeesView })));
 const FeeStructureView = lazyWithRetry(() => import('./AccountantPanel').then(m => ({ default: m.FeeStructureView })));
 const FeesHistoryView = lazyWithRetry(() => import('./AccountantPanel').then(m => ({ default: m.FeesHistoryView })));
-const ExpensesView = lazyWithRetry(() => import('./AccountantPanel').then(m => ({ default: m.ExpensesView })));
 const ReportsView = lazyWithRetry(() => import('./AccountantPanel').then(m => ({ default: m.ReportsView })));
 const PayrollHistoryView = lazyWithRetry(() => import('./PayrollRedesign').then(m => ({ default: m.PayrollHistoryViewRedesign })));
 const PayrollHub = lazyWithRetry(() => import('./PayrollRedesign').then(m => ({ default: m.PayrollHubRedesign })));
@@ -228,7 +227,7 @@ function StatOverviewCard({ icon, accentColor, title, subtitle, total, maleCount
 const getViewPermissionModuleAndAction = (view) => {
   if (!view || view === 'overview') return { module: 'overview', action: 'view' };
   
-  if (['grade-list', 'add-grade', 'grade-departments', 'grade-dept-mapping', 'grade-academic-settings', 'academic-grade-subjects'].includes(view)) {
+  if (['grade-list', 'add-grade', 'grade-departments', 'grade-dept-mapping', 'grade-academic-settings', 'academic-grade-subjects', 'grade-management'].includes(view)) {
     return { module: 'grade-management', action: 'view' };
   }
   if (view === 'student-manager') return { module: 'student-manager', action: 'view' };
@@ -247,7 +246,7 @@ const getViewPermissionModuleAndAction = (view) => {
   if (view === 'attendance') return { module: 'attendance', action: 'view' };
   if (view === 'attendance-history') return { module: 'attendance-history', action: 'view' };
   
-  if (['class-timetable', 'teacher-timetable', 'exam-timetable'].includes(view)) {
+  if (['class-timetable', 'exam-timetable'].includes(view)) {
     return { module: 'academic-manager', action: 'view' };
   }
   if (view === 'published-timetable') return { module: 'published-timetable', action: 'view' };
@@ -258,8 +257,15 @@ const getViewPermissionModuleAndAction = (view) => {
   }
   if (view === 'academic-calendar') return { module: 'academic-calendar', action: 'view' };
   
-  if (view === 'results') return { module: 'results-manager', action: 'view' };
-  if (view === 'results-history') return { module: 'results-history', action: 'view' };
+  if (['results', 'results-manager', 'results-analytics', 'results-report-cards', 'academic-results'].includes(view)) {
+    return { module: 'results-manager', action: 'view' };
+  }
+  if (view === 'results-marks-entry') {
+    return { module: 'results-marks-entry', action: 'view' };
+  }
+  if (view === 'results-history') {
+    return { module: 'results-history', action: 'view' };
+  }
   
   if (['staff-payroll-hub', 'staff-payroll', 'staff-pay-structure', 'teacher-payroll-hub', 'teacher-payroll', 'teacher-pay-structure', 'employee-payroll-hub', 'employee-payroll', 'employee-pay-structure', 'payroll-history'].includes(view)) {
     let mapped = view;
@@ -272,7 +278,7 @@ const getViewPermissionModuleAndAction = (view) => {
     return { module: 'finance', action: 'view' };
   }
   
-  if (view === 'expense-dashboard') return { module: 'expense-dashboard', action: 'view' };
+  if (['expenses', 'expense-dashboard'].includes(view)) return { module: 'expense-dashboard', action: 'view' };
   if (view === 'expense-all-expenses') return { module: 'expense-all-expenses', action: 'view' };
   if (view === 'expense-tracker') return { module: 'expense-tracker', action: 'view' };
   if (view === 'expense-history') return { module: 'expense-history', action: 'view' };
@@ -325,8 +331,10 @@ const AccessDeniedView = () => (
 export default function AdminPanel({ setActiveView, onLogout, adminView, setAdminView, onBackToMain, userProfile, setUserProfile, fetchUserProfile }) {
   const [editingStudentForRegister, setEditingStudentForRegister] = useState(null);
   const [editingStaffForRegister, setEditingStaffForRegister] = useState(null);
+  const [stagingStaffForRegister, setStagingStaffForRegister] = useState(null);
   const [editingEmployeeForRegister, setEditingEmployeeForRegister] = useState(null);
   const [editingTeacherForRegister, setEditingTeacherForRegister] = useState(null);
+  const [stagingTeacherForRegister, setStagingTeacherForRegister] = useState(null);
   const [directoryKey, setDirectoryKey] = useState(0);
   // Roster/Filter States for Admin Attendance Panel
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
@@ -534,12 +542,19 @@ export default function AdminPanel({ setActiveView, onLogout, adminView, setAdmi
           fetchActiveGrades(),
           fetchActiveSections()
         ]);
-        const isTeacher = userProfile?.role === 'Teacher' || userProfile?.userType === 'Teacher';
-        const teacherClass = userProfile?.assignedGradeName || userProfile?.assignedGradeId;
-        const teacherSec = userProfile?.assignedSectionName || userProfile?.assignedSectionId;
+        const isTeacher = userProfile?.role === 'Teacher' || userProfile?.userType === 'Teacher' ||
+          localStorage.getItem('role') === 'Teacher' || localStorage.getItem('userType') === 'Teacher';
+        const teacherClass = userProfile?.assignedGradeName || userProfile?.assignedGradeId || localStorage.getItem('assignedGradeName') || localStorage.getItem('assignedGradeId');
+        const teacherSec = userProfile?.assignedSectionName || userProfile?.assignedSectionId || localStorage.getItem('assignedSectionName') || localStorage.getItem('assignedSectionId');
 
         if (isTeacher && teacherClass) {
-          const foundGrade = grades.find(g => g.name === teacherClass || g.id === teacherClass);
+          const foundGrade = grades.find(g => 
+            g.name === teacherClass || 
+            g.id === teacherClass || 
+            g.gradeId === teacherClass ||
+            areGradesEqual(g.name, teacherClass) || 
+            areGradesEqual(g.gradeName, teacherClass)
+          );
           setSelectedClass(foundGrade ? foundGrade.name : teacherClass);
         } else if (grades.length > 0) {
           setSelectedClass(prev => prev || grades[0].name);
@@ -548,8 +563,12 @@ export default function AdminPanel({ setActiveView, onLogout, adminView, setAdmi
         }
 
         if (isTeacher && teacherSec) {
-          const foundSec = secs.find(s => s.name === teacherSec || s.id === teacherSec);
-          setSelectedSection(foundSec ? foundSec.name : teacherSec);
+          const foundSec = secs.find(s => 
+            s.name === teacherSec || 
+            s.id === teacherSec || 
+            areSectionsEqual(s.name, teacherSec)
+          );
+          setSelectedSection(foundSec ? foundSec.name : (normalizeSection(teacherSec) || teacherSec));
         } else if (secs.length > 0) {
           setSelectedSection(prev => prev || secs[0].name);
         }
@@ -587,7 +606,7 @@ export default function AdminPanel({ setActiveView, onLogout, adminView, setAdmi
     }
 
     const isAcademicView = [
-      'academic-manager', 'academic-class-timetable', 'academic-teacher-timetable',
+      'academic-manager', 'academic-class-timetable',
       'academic-exams', 'academic-exams-history',
       'academic-published-timetable', 'academic-published-exam', 'academic-activities',
       'academic-events', 'academic-notices', 'academic-holidays', 'academic-calendar',
@@ -598,11 +617,11 @@ export default function AdminPanel({ setActiveView, onLogout, adminView, setAdmi
 
     const isGradeView = [
       'grade-list', 'add-grade', 'grade-departments', 'grade-dept-mapping',
-      'grade-academic-settings'
+      'grade-academic-settings', 'grade-management'
     ].includes(adminView);
 
-    const isExpenseView = adminView && adminView.startsWith('expense-');
-    const expenseSubView = isExpenseView ? adminView.replace('expense-', '') : '';
+    const isExpenseView = adminView === 'expenses' || (adminView && adminView.startsWith('expense-'));
+    const expenseSubView = (adminView === 'expenses' || adminView === 'expense-dashboard') ? 'dashboard' : adminView.replace('expense-', '');
 
     return (
       <>
@@ -1068,7 +1087,7 @@ export default function AdminPanel({ setActiveView, onLogout, adminView, setAdmi
           </div>
         </KeepAlive>
 
-        <KeepAlive active={adminView === 'students' || (!adminView || adminView === 'default')} key={`students-${directoryKey}`}>
+        <KeepAlive active={adminView === 'students' || adminView === 'student-directory' || (!adminView || adminView === 'default')} key={`students-${directoryKey}`}>
           <StudentDirectory 
             readOnly={false} 
             userProfile={userProfile}
@@ -1083,36 +1102,50 @@ export default function AdminPanel({ setActiveView, onLogout, adminView, setAdmi
           />
         </KeepAlive>
 
-        <KeepAlive active={adminView === 'teachers'} key={`teacherdir-${directoryKey}`}>
+        <KeepAlive active={adminView === 'teachers' || adminView === 'teacher-directory'} key={`teacherdir-${directoryKey}`}>
           <TeacherDirectory 
             readOnly={false} 
             onAddClick={() => {
               setEditingTeacherForRegister(null);
+              setStagingTeacherForRegister(null);
               setAdminView('register-teacher');
             }} 
             onEditClick={(teacher) => {
               setEditingTeacherForRegister(teacher);
+              setStagingTeacherForRegister(null);
+              setAdminView('register-teacher');
+            }}
+            onCompleteSetupClick={(stagingTeacher) => {
+              setEditingTeacherForRegister(null);
+              setStagingTeacherForRegister(stagingTeacher);
               setAdminView('register-teacher');
             }}
           />
         </KeepAlive>
 
-        <KeepAlive active={adminView === 'staff'} key={`staff-${directoryKey}`}>
+        <KeepAlive active={adminView === 'staff' || adminView === 'staff-directory'} key={`staff-${directoryKey}`}>
           <StaffDirectory 
             setActiveView={setActiveView} 
             readOnly={false} 
             onAddClick={() => {
               setEditingStaffForRegister(null);
+              setStagingStaffForRegister(null);
               setAdminView('add-staff');
             }} 
             onEditClick={(staff) => {
               setEditingStaffForRegister(staff);
+              setStagingStaffForRegister(null);
+              setAdminView('add-staff');
+            }}
+            onCompleteSetupClick={(stagingStaff) => {
+              setEditingStaffForRegister(null);
+              setStagingStaffForRegister(stagingStaff);
               setAdminView('add-staff');
             }}
           />
         </KeepAlive>
 
-        <KeepAlive active={adminView === 'employees'} key={directoryKey}>
+        <KeepAlive active={adminView === 'employees' || adminView === 'employee-directory'} key={directoryKey}>
           <EmployeeDirectory 
             readOnly={false} 
             onAddClick={() => {
@@ -1158,9 +1191,6 @@ export default function AdminPanel({ setActiveView, onLogout, adminView, setAdmi
           <PayrollHistoryView showToast={showToast} />
         </KeepAlive>
 
-        <KeepAlive active={adminView === 'expenses'}>
-          <ExpensesView showToast={showToast} />
-        </KeepAlive>
 
 
         <KeepAlive active={adminView === 'reports'}>
@@ -1192,11 +1222,25 @@ export default function AdminPanel({ setActiveView, onLogout, adminView, setAdmi
         {adminView === 'add-staff' && (
           <AddStaff 
             editData={editingStaffForRegister} 
+            stagingData={stagingStaffForRegister}
+            onCompleteSetupSuccess={() => {
+              setStagingStaffForRegister(null);
+              setDirectoryKey(k => k + 1); 
+              setAdminView('staff'); 
+            }}
+            onCompleteSetupCancel={() => {
+              setStagingStaffForRegister(null);
+              setAdminView('staff'); 
+            }}
             setActiveView={(view) => { 
               if (view === 'staff' || view === 'staff-directory') { 
+                setEditingStaffForRegister(null);
+                setStagingStaffForRegister(null);
                 setDirectoryKey(k => k + 1); 
                 setAdminView('staff'); 
               } else {
+                setEditingStaffForRegister(null);
+                setStagingStaffForRegister(null);
                 setActiveView(view); 
               }
             }} 
@@ -1206,13 +1250,25 @@ export default function AdminPanel({ setActiveView, onLogout, adminView, setAdmi
         {adminView === 'register-teacher' && (
           <RegisterTeacher 
             editData={editingTeacherForRegister} 
+            stagingData={stagingTeacherForRegister}
+            onCompleteSetupSuccess={() => {
+              setStagingTeacherForRegister(null);
+              setDirectoryKey(k => k + 1); 
+              setAdminView('teachers'); 
+            }}
+            onCompleteSetupCancel={() => {
+              setStagingTeacherForRegister(null);
+              setAdminView('teachers'); 
+            }}
             setActiveView={(view) => { 
               if (view === 'teachers' || view === 'teacher-directory') { 
                 setEditingTeacherForRegister(null);
+                setStagingTeacherForRegister(null);
                 setDirectoryKey(k => k + 1); 
                 setAdminView('teachers'); 
               } else {
                 setEditingTeacherForRegister(null);
+                setStagingTeacherForRegister(null);
                 setActiveView(view); 
               }
             }} 
@@ -1336,15 +1392,16 @@ export default function AdminPanel({ setActiveView, onLogout, adminView, setAdmi
                 setSearch={setStudentSearch}
                 showToast={showToast}
                 userProfile={userProfile}
+                isActive={adminView === 'attendance' && attendanceTab === 'mark-attendance'}
               />
             )}
 
             {attendanceTab === 'student-reports' && (
-              <StudentReportsView showToast={showToast} userProfile={userProfile} />
+              <StudentReportsView showToast={showToast} userProfile={userProfile} isActive={adminView === 'attendance' && attendanceTab === 'student-reports'} />
             )}
 
             {attendanceTab === 'monthly-calendar' && (
-              <MonthlyCalendarView showToast={showToast} userProfile={userProfile} />
+              <MonthlyCalendarView showToast={showToast} userProfile={userProfile} isActive={adminView === 'attendance' && attendanceTab === 'monthly-calendar'} />
             )}
           </div>
         </KeepAlive>

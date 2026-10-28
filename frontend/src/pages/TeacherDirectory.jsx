@@ -27,11 +27,15 @@ import {
   Plus,
   UserCheck,
   UserPlus,
-  Loader2
+  Loader2,
+  Upload
 } from 'lucide-react';
 import { hasPermission } from '../utils/permissions';
+import TeacherPendingSetupTab from '../components/TeacherPendingSetupTab';
+import TeacherBulkImportModal from '../components/TeacherBulkImportModal';
+import RegisterTeacher from './RegisterTeacher';
 
-export default function TeacherDirectory({ readOnly = true, onAddClick, onEditClick }) {
+export default function TeacherDirectory({ readOnly = true, onAddClick, onEditClick, onCompleteSetupClick }) {
   const getQrImageUrl = (qrCodePath, employeeId, employeeType) => {
     if (qrCodePath && (qrCodePath.startsWith('data:') || qrCodePath.startsWith('http://') || qrCodePath.startsWith('https://') || qrCodePath.startsWith('/'))) {
       return qrCodePath;
@@ -70,6 +74,38 @@ export default function TeacherDirectory({ readOnly = true, onAddClick, onEditCl
   const [selectedTeacher, setSelectedTeacher] = useState(null);
   const [qrLoading, setQrLoading] = useState(false);
   const [departments, setDepartments] = useState([]);
+
+  // Bulk Import & Pending Setup additive states
+  const [activeTab, setActiveTab] = useState('directory'); // 'directory' | 'pending'
+  const [pendingCount, setPendingCount] = useState(0);
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [completingTeacherData, setCompletingTeacherData] = useState(null);
+  const [pendingRefreshKey, setPendingRefreshKey] = useState(0);
+
+  const fetchPendingCount = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch('/api/teachers/import/pending?limit=1', {
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setPendingCount(data.totalCount || 0);
+      }
+    } catch (err) {
+      console.error('Error fetching pending teachers count:', err);
+    }
+  };
+
+  useEffect(() => {
+    fetchPendingCount();
+  }, []);
+
+  useEffect(() => {
+    if (pendingCount === 0 && activeTab === 'pending' && !completingTeacherData) {
+      setActiveTab('directory');
+    }
+  }, [pendingCount, activeTab, completingTeacherData]);
 
   useEffect(() => {
     fetch('/api/grades/departments')
@@ -538,7 +574,115 @@ export default function TeacherDirectory({ readOnly = true, onAddClick, onEditCl
   return (
     <div className="animate-slide-up" style={{ display: 'flex', flexDirection: 'column', gap: '20px', width: '100%' }}>
       
-      {/* Search & Filter Control Bar */}
+      {/* TOP HEADER: TABS & ACTION BUTTONS */}
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: (pendingCount > 0 || completingTeacherData || activeTab === 'pending') ? 'space-between' : 'flex-end',
+        flexWrap: 'wrap',
+        gap: '16px',
+        paddingBottom: '4px'
+      }}>
+        {/* TAB NAVIGATION (Only visible if there are pending setup records) */}
+        {(pendingCount > 0 || completingTeacherData || activeTab === 'pending') && (
+          <div style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '8px',
+            background: 'rgba(255, 255, 255, 0.05)',
+            padding: '4px',
+            borderRadius: '12px',
+            border: '1px solid var(--border-glass)'
+          }}>
+            <button
+              type="button"
+              onClick={() => {
+                setCompletingTeacherData(null);
+                setActiveTab('directory');
+              }}
+              className={activeTab === 'directory' && !completingTeacherData ? 'btn-primary' : 'btn-secondary'}
+              style={{
+                padding: '8px 18px',
+                borderRadius: '8px',
+                fontSize: '0.88rem',
+                fontWeight: 700,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                border: 'none',
+                transition: 'all 0.2s ease'
+              }}
+            >
+              <BookOpen size={16} /> Teacher Directory
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setCompletingTeacherData(null);
+                setActiveTab('pending');
+              }}
+              className={activeTab === 'pending' || completingTeacherData ? 'btn-primary' : 'btn-secondary'}
+              style={{
+                padding: '8px 18px',
+                borderRadius: '8px',
+                fontSize: '0.88rem',
+                fontWeight: 700,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                border: 'none',
+                transition: 'all 0.2s ease'
+              }}
+            >
+              <Clock size={16} /> Pending Teachers Setup
+              {pendingCount > 0 && (
+                <span style={{
+                  background: (activeTab === 'pending' || completingTeacherData) ? 'rgba(255, 255, 255, 0.25)' : 'hsl(var(--color-primary))',
+                  color: '#ffffff',
+                  fontSize: '0.72rem',
+                  padding: '2px 7px',
+                  borderRadius: '99px',
+                  fontWeight: 800
+                }}>
+                  {pendingCount}
+                </span>
+              )}
+            </button>
+          </div>
+        )}
+
+        {/* TOP ACTIONS */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          {!readOnly && (hasPermission('teacher-directory', 'create') || hasPermission('teachers', 'create')) && (
+            <button
+              type="button"
+              onClick={() => setShowImportModal(true)}
+              className="btn-primary"
+              style={{
+                padding: '9px 18px',
+                borderRadius: '10px',
+                fontSize: '0.88rem',
+                fontWeight: 700,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                cursor: 'pointer',
+                boxShadow: '0 4px 14px rgba(hsl(var(--color-primary)), 0.25)'
+              }}
+            >
+              <Upload size={16} /> Import Teachers
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* TAB 1: TEACHER DIRECTORY */}
+      {activeTab === 'directory' && !completingTeacherData && (
+        <>
+          {/* Search & Filter Control Bar */}
       <div className="glass-panel" style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
         
         <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -566,23 +710,6 @@ export default function TeacherDirectory({ readOnly = true, onAddClick, onEditCl
               <option value="">Select Class Teacher Status</option>
               <option value="Yes">Class Teacher (Yes)</option>
               <option value="No">Normal Teacher (No)</option>
-            </select>
-
-            {/* Employment Type filter */}
-            <select className="select-custom" value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}
-              style={{ padding: '8px 12px', borderRadius: '8px', fontSize: '0.85rem' }}>
-              <option value="All">All Types</option>
-              <option value="Full Time">Full Time</option>
-              <option value="Part Time">Part Time</option>
-            </select>
-
-            {/* Status filter */}
-            <select className="select-custom" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}
-              style={{ padding: '8px 12px', borderRadius: '8px', fontSize: '0.85rem' }}>
-              <option value="All">All Status</option>
-              <option value="Active">Active</option>
-              <option value="Inactive">Inactive</option>
-              <option value="On Leave">On Leave</option>
             </select>
           </div>
         </div>
@@ -1014,26 +1141,6 @@ export default function TeacherDirectory({ readOnly = true, onAddClick, onEditCl
                   <input type="number" value={editFormData.salary || ''} onChange={(e) => setEditFormData({ ...editFormData, salary: e.target.value })}
                     className="form-control" style={{ padding: '10px 14px', borderRadius: '10px' }} min="0" />
                 </div>
-
-                <div className="form-group">
-                  <label>Employment Type</label>
-                  <select value={editFormData.employmentType || ''} onChange={(e) => setEditFormData({ ...editFormData, employmentType: e.target.value })}
-                    className="form-control" style={{ padding: '10px 14px', borderRadius: '10px' }}>
-                    <option value="">Select</option>
-                    <option value="Full Time">Full Time</option>
-                    <option value="Part Time">Part Time</option>
-                  </select>
-                </div>
-
-                <div className="form-group">
-                  <label>Status</label>
-                  <select value={editFormData.status || ''} onChange={(e) => setEditFormData({ ...editFormData, status: e.target.value })}
-                    className="form-control" style={{ padding: '10px 14px', borderRadius: '10px' }}>
-                    <option value="Active">Active</option>
-                    <option value="Inactive">Inactive</option>
-                    <option value="On Leave">On Leave</option>
-                  </select>
-                </div>
               </div>
 
               <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', marginTop: '10px' }}>
@@ -1051,6 +1158,79 @@ export default function TeacherDirectory({ readOnly = true, onAddClick, onEditCl
         </div>
       )}
 
+        </>
+      )}
+
+      {/* TAB 2: IMPORTED TEACHERS (PENDING SETUP) */}
+      {activeTab === 'pending' && !completingTeacherData && (
+        <TeacherPendingSetupTab
+          refreshKey={pendingRefreshKey}
+          triggerRefresh={pendingRefreshKey}
+          onCountChange={(count) => setPendingCount(count)}
+          onPendingCountChange={(count) => setPendingCount(count)}
+          onCompleteSetup={(stagingTeacher) => {
+            if (typeof onCompleteSetupClick === 'function') {
+              onCompleteSetupClick(stagingTeacher);
+            } else {
+              setCompletingTeacherData(stagingTeacher);
+            }
+          }}
+        />
+      )}
+
+      {/* INLINE COMPLETE SETUP VIA REGISTER TEACHER FORM */}
+      {completingTeacherData && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '14px 20px',
+            borderRadius: '12px',
+            background: 'rgba(hsl(var(--color-primary)), 0.08)',
+            border: '1px solid rgba(hsl(var(--color-primary)), 0.25)'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <UserPlus size={20} color="hsl(var(--color-primary))" />
+              <span style={{ fontWeight: 700, fontSize: '0.95rem' }}>
+                Completing Setup for Staged Teacher: <strong>{completingTeacherData.fullName}</strong> (Reserved ID: {completingTeacherData.teacherId || completingTeacherData.teacher_id})
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setCompletingTeacherData(null)}
+              className="btn-secondary"
+              style={{ padding: '6px 14px', borderRadius: '8px', fontSize: '0.82rem', fontWeight: 600 }}
+            >
+              Cancel &amp; Return to Pending List
+            </button>
+          </div>
+
+          <RegisterTeacher
+            stagingData={completingTeacherData}
+            onCompleteSetupSuccess={() => {
+              setCompletingTeacherData(null);
+              setActiveTab('directory');
+              fetchPendingCount();
+              fetchTeachers();
+            }}
+            onCompleteSetupCancel={() => {
+              setCompletingTeacherData(null);
+            }}
+          />
+        </div>
+      )}
+
+      {/* Bulk Import Wizard Modal */}
+      <TeacherBulkImportModal
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
+        onImportComplete={() => {
+          fetchPendingCount();
+          setPendingRefreshKey(k => k + 1);
+          setActiveTab('pending');
+        }}
+      />
     </div>
   );
 }

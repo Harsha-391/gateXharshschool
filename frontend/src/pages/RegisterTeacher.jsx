@@ -22,7 +22,9 @@ import {
   AlertTriangle,
   Trash2,
   Plus,
-  X
+  X,
+  Check,
+  BookOpen
 } from 'lucide-react';
 
 // Custom Reusable Searchable Dropdown Select Component
@@ -200,7 +202,7 @@ let teacherFilesCache = {
   qualificationFile: null, experienceFile: null, joiningLetterFile: null, otherFile: null
 };
 
-export default function RegisterTeacher({ setActiveView, editData }) {
+export default function RegisterTeacher({ setActiveView, editData, stagingData = null, onCompleteSetupSuccess = null, onCompleteSetupCancel = null }) {
   const [activeStep, setActiveStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [successToast, setSuccessToast] = useState(false);
@@ -234,7 +236,8 @@ export default function RegisterTeacher({ setActiveView, editData }) {
     gender: '', dob: '', bloodGroup: '', nationality: 'Indian', maritalStatus: '',
     aadhaarNumber: '', panNumber: '',
     joiningDate: new Date().toISOString().split('T')[0],
-    employmentType: '', department: '', primarySubject: '', secondarySubject: '', status: 'Active',
+    employmentType: '', department: '', primarySubject: '', secondarySubject: '',
+    teachingGrades: [],
     mobile: '', alternateMobile: '', email: '', password: '', emergencyContactNumber: '',
     currentAddress: '', currentCity: '', currentState: '', currentCountry: 'India', currentPostalCode: '',
     permanentAddress: '', permanentCity: '', permanentState: '', permanentCountry: 'India', permanentPostalCode: '',
@@ -270,15 +273,6 @@ export default function RegisterTeacher({ setActiveView, editData }) {
     { value: 'Single', label: 'Single' }, { value: 'Married', label: 'Married' },
     { value: 'Divorced', label: 'Divorced' }, { value: 'Widowed', label: 'Widowed' }, { value: 'Other', label: 'Other' }
   ];
-  const employmentTypeOptions = [
-    { value: '', label: 'None' },
-    { value: 'Full Time', label: 'Full Time' },
-    { value: 'Part Time', label: 'Part Time' }
-  ];
-  const statusOptions = [
-    { value: '', label: 'None' },
-    { value: 'Active', label: 'Active' }, { value: 'Inactive', label: 'Inactive' }
-  ];
 
   const [departmentOptions, setDepartmentOptions] = useState([]);
 
@@ -305,7 +299,7 @@ export default function RegisterTeacher({ setActiveView, editData }) {
 
   // Draft auto-load
   useEffect(() => {
-    if (editData) return;
+    if (editData || stagingData) return;
     const savedDraft = localStorage.getItem(draftKey);
     if (savedDraft) {
       try {
@@ -317,9 +311,11 @@ export default function RegisterTeacher({ setActiveView, editData }) {
     }
   }, [editData]);
 
+  const draftTimerRef = useRef(null);
+
   // Draft auto-save
   useEffect(() => {
-    if (editData) return;
+    if (editData || stagingData) return;
     const hasAnyContent = Object.keys(formData).some(key => {
       if (['nationality', 'currentCountry', 'permanentCountry', 'joiningDate', 'sameAsPermanent', 'status', 'qualifications', 'experiences', 'isClassTeacher', 'attendancePermission'].includes(key)) return false;
       return formData[key] !== '' && formData[key] !== false && formData[key] !== null;
@@ -330,9 +326,13 @@ export default function RegisterTeacher({ setActiveView, editData }) {
       if (existing !== serialized) {
         setDraftSaving(true);
         localStorage.setItem(draftKey, serialized);
-        const timer = setTimeout(() => setDraftSaving(false), 600);
-        return () => clearTimeout(timer);
+        if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
+        draftTimerRef.current = setTimeout(() => {
+          setDraftSaving(false);
+        }, 800);
       }
+    } else {
+      setDraftSaving(false);
     }
   }, [formData, editData]);
 
@@ -353,6 +353,14 @@ export default function RegisterTeacher({ setActiveView, editData }) {
       if (!Array.isArray(parsedExperiences)) parsedExperiences = [];
       if (parsedExperiences.length === 0) parsedExperiences = [{ schoolName: '', designation: '', duration: '', reason: '' }];
 
+      let parsedTeachingGrades = editData.teachingGrades || [];
+      if (typeof parsedTeachingGrades === 'string') {
+        try { parsedTeachingGrades = JSON.parse(parsedTeachingGrades); } catch(e) {
+          parsedTeachingGrades = parsedTeachingGrades.split(',').map(s => s.trim()).filter(Boolean);
+        }
+      }
+      if (!Array.isArray(parsedTeachingGrades)) parsedTeachingGrades = [];
+
       setFormData({
         firstName: editData.firstName || '', middleName: editData.middleName || '', lastName: editData.lastName || '',
         fullName: editData.fullName || editData.name || '',
@@ -364,7 +372,8 @@ export default function RegisterTeacher({ setActiveView, editData }) {
         employmentType: editData.employmentType || '',
         department: editData.department || '',
         primarySubject: editData.primarySubject || editData.subject || editData.subjectSpecialization || '',
-        secondarySubject: editData.secondarySubject || '', status: editData.status || 'Active',
+        secondarySubject: editData.secondarySubject || '',
+        teachingGrades: parsedTeachingGrades,
         mobile: editData.mobile || editData.phone || '', alternateMobile: editData.alternateMobile || '',
         email: editData.email || '', password: editData.password || '',
         emergencyContactNumber: editData.emergencyContactNumber || '',
@@ -383,6 +392,42 @@ export default function RegisterTeacher({ setActiveView, editData }) {
       });
     }
   }, [editData]);
+
+  // Populate from stagingData (Pending Import Setup)
+  useEffect(() => {
+    if (stagingData && Object.keys(stagingData).length > 0) {
+      let parsedQualifications = stagingData.qualification || stagingData.qualifications || [];
+      if (typeof parsedQualifications === 'string') {
+        try { parsedQualifications = JSON.parse(parsedQualifications); } catch (e) {
+          parsedQualifications = [{ degree: stagingData.qualification, institution: '', board: '', year: '', percentage: '' }];
+        }
+      }
+      if (!Array.isArray(parsedQualifications)) parsedQualifications = [];
+      if (parsedQualifications.length === 0) {
+        parsedQualifications = [{ degree: '', institution: '', board: '', year: '', percentage: '' }];
+      }
+
+      setFormData(prev => ({
+        ...prev,
+        firstName: stagingData.firstName || stagingData.first_name || '',
+        middleName: stagingData.middleName || stagingData.middle_name || '',
+        lastName: stagingData.lastName || stagingData.last_name || '',
+        fullName: stagingData.fullName || stagingData.full_name || '',
+        gender: stagingData.gender || 'Male',
+        dob: stagingData.dob ? stagingData.dob.split(/[ T]/)[0] : '',
+        mobile: stagingData.mobile || stagingData.phone || '',
+        email: stagingData.email || '',
+        primarySubject: stagingData.subjects || stagingData.primarySubject || '',
+        joiningDate: stagingData.joiningDate || stagingData.joining_date || new Date().toISOString().split('T')[0],
+        designation: stagingData.designation || 'Teacher',
+        experience: stagingData.experience || '0',
+        qualifications: parsedQualifications,
+        currentAddress: stagingData.address || stagingData.currentAddress || '',
+        permanentAddress: stagingData.address || stagingData.currentAddress || '',
+        sameAsPermanent: true
+      }));
+    }
+  }, [stagingData]);
 
   const clearDraft = () => localStorage.removeItem(draftKey);
 
@@ -491,15 +536,22 @@ export default function RegisterTeacher({ setActiveView, editData }) {
 
   const performReset = () => {
     clearDraft();
+    if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
+    setDraftSaving(false);
     setFormData({
       firstName: '', middleName: '', lastName: '', fullName: '', gender: '', dob: '', bloodGroup: '',
       nationality: 'Indian', maritalStatus: '', aadhaarNumber: '', panNumber: '',
       joiningDate: new Date().toISOString().split('T')[0],
-      employmentType: '', department: '', primarySubject: '', secondarySubject: '', status: 'Active',
+      employmentType: '', department: '', primarySubject: '', secondarySubject: '',
+      teachingGrades: [],
       mobile: '', alternateMobile: '', email: '', password: '', emergencyContactNumber: '',
       currentAddress: '', currentCity: '', currentState: '', currentCountry: 'India', currentPostalCode: '',
       permanentAddress: '', permanentCity: '', permanentState: '', permanentCountry: 'India', permanentPostalCode: '',
       sameAsPermanent: false,
+      assignedGradeId: '',
+      assignedSectionId: '',
+      isClassTeacher: false,
+      attendancePermission: false,
       qualifications: [
         { degree: '', institution: '', board: '', year: '', percentage: '' }
       ],
@@ -547,6 +599,8 @@ export default function RegisterTeacher({ setActiveView, editData }) {
           dataObj.append('qualifications', JSON.stringify(formData[key]));
         } else if (key === 'experiences') {
           dataObj.append(key, JSON.stringify(formData[key]));
+        } else if (key === 'teachingGrades') {
+          dataObj.append('teachingGrades', JSON.stringify(formData[key] || []));
         } else {
           dataObj.append(key, formData[key]);
         }
@@ -554,7 +608,15 @@ export default function RegisterTeacher({ setActiveView, editData }) {
 
       Object.keys(files).forEach(key => { if (files[key]) dataObj.append(key, files[key]); });
 
-      const url = editData ? `/api/teachers/${editData.employeeId || editData.id}` : '/api/teachers';
+      const isStagingSetup = Boolean(stagingData);
+      if (isStagingSetup) {
+        dataObj.append('stagingId', stagingData.id || stagingData.teacherId || stagingData.teacher_id);
+      }
+
+      const url = editData 
+        ? `/api/teachers/${editData.employeeId || editData.id}` 
+        : (isStagingSetup ? '/api/teachers/import/complete-setup' : '/api/teachers');
+      const method = editData ? 'PUT' : 'POST';
       const token = localStorage.getItem('token');
       const res = await fetch(url, {
         method: method,
@@ -570,7 +632,10 @@ export default function RegisterTeacher({ setActiveView, editData }) {
         setActiveStep(1);
         setLoading(false);
         isSubmitting.current = false;
-        if (editData && typeof setActiveView === 'function') {
+        alert(editData ? 'Teacher profile updated successfully!' : (isStagingSetup ? 'Teacher setup completed and added to Teacher Directory!' : 'New Teacher registered successfully!'));
+        if (typeof onCompleteSetupSuccess === 'function') {
+          onCompleteSetupSuccess();
+        } else if (typeof setActiveView === 'function') {
           setActiveView('teachers');
         }
       } else {
@@ -707,18 +772,48 @@ export default function RegisterTeacher({ setActiveView, editData }) {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
           <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-main)', margin: 0 }}>
-            {editData ? `Edit Teacher: ${editData.fullName || editData.name || 'Profile'}` : steps[activeStep - 1].label}
+            {stagingData 
+              ? `Complete Setup: ${stagingData.fullName || stagingData.full_name || 'Teacher'} (${stagingData.teacherId || stagingData.teacher_id})` 
+              : (editData ? `Edit Teacher: ${editData.fullName || editData.name || 'Profile'}` : steps[activeStep - 1].label)
+            }
           </h2>
           <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', margin: '4px 0 0 0' }}>
-            {editData 
-              ? `Step ${activeStep} of 8 (${steps[activeStep - 1].label}) — Make your changes and click Save.`
-              : `Step ${activeStep} of 8 — Complete fields to advance.`
+            {stagingData
+              ? `Step ${activeStep} of 8 (${steps[activeStep - 1].label}) — Pre-filled from import. Assign grades, sections & credentials to complete setup.`
+              : (editData 
+                  ? `Step ${activeStep} of 8 (${steps[activeStep - 1].label}) — Make your changes and click Save.`
+                  : `Step ${activeStep} of 8 — Complete fields to advance.`
+                )
             }
           </p>
         </div>
         
         {/* Actions Button */}
-        {editData ? (
+        {stagingData ? (
+          <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+            <button 
+              type="button" 
+              onClick={() => {
+                if (typeof onCompleteSetupCancel === 'function') onCompleteSetupCancel();
+                else if (typeof setActiveView === 'function') setActiveView('teachers');
+              }}
+              className="btn-secondary"
+              style={{ padding: '8px 16px', fontSize: '0.8rem', borderRadius: '8px', cursor: 'pointer' }}
+            >
+              Back to Pending List
+            </button>
+            <button 
+              type="button" 
+              onClick={handleSubmit}
+              disabled={loading}
+              className="btn-primary"
+              style={{ padding: '8px 20px', fontSize: '0.82rem', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '6px', cursor: loading ? 'not-allowed' : 'pointer', fontWeight: 700 }}
+            >
+              {loading ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
+              {loading ? 'Saving...' : 'Finish Setup'}
+            </button>
+          </div>
+        ) : editData ? (
           <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
             <button 
               type="button" 
@@ -767,14 +862,26 @@ export default function RegisterTeacher({ setActiveView, editData }) {
               
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '20px' }}>
                 <div className="form-group">
-                  <label>Teacher ID (Auto Generated)</label>
+                  <label>Teacher ID {stagingData ? '(Locked Reserved ID)' : '(Auto Generated)'}</label>
                   <input 
                     type="text" 
-                    value="TCH-2026-XXXX" 
+                    value={stagingData ? (stagingData.teacherId || stagingData.teacher_id) : (editData ? (editData.employeeId || editData.id) : "TCH-2026-XXXX")} 
                     disabled 
                     className="form-control" 
-                    style={{ opacity: 0.6, fontStyle: 'italic', background: 'rgba(255,255,255,0.02)' }}
+                    style={{
+                      opacity: stagingData ? 0.95 : 0.6,
+                      fontStyle: stagingData ? 'normal' : 'italic',
+                      background: stagingData ? 'rgba(255, 140, 66, 0.08)' : 'rgba(255,255,255,0.02)',
+                      fontWeight: stagingData ? 700 : 'normal',
+                      color: stagingData ? 'hsl(var(--color-primary))' : undefined,
+                      borderColor: stagingData ? 'hsl(var(--color-primary))' : undefined
+                    }}
                   />
+                  {stagingData && (
+                    <span style={{ fontSize: '0.72rem', color: 'hsl(var(--color-primary))', fontWeight: 600, display: 'block', marginTop: '4px' }}>
+                      Locked to reserved Teacher ID from import batch
+                    </span>
+                  )}
                 </div>
 
                 <div className="form-group">
@@ -934,22 +1041,189 @@ export default function RegisterTeacher({ setActiveView, editData }) {
                   <input type="date" name="joiningDate" value={formData.joiningDate} onChange={handleTextChange} className="form-control" />
                 </div>
                 <div className="form-group">
-                  <label>Employment Type</label>
-                  <SearchableSelect options={employmentTypeOptions} value={formData.employmentType} onChange={(v) => handleSelectChange('employmentType', v)} placeholder="Select Type" className="form-control" />
-                </div>
-                <div className="form-group">
                   <label>Designation</label>
                   <div className="form-control" style={{ background: 'rgba(255, 107, 0, 0.08)', fontWeight: 700, color: 'hsl(var(--color-primary))' }}>Teacher</div>
-                </div>
-                <div className="form-group">
-                  <label>Status</label>
-                  <SearchableSelect options={statusOptions} value={formData.status} onChange={(v) => handleSelectChange('status', v)} placeholder="Select" className="form-control" />
                 </div>
                 <div className="form-group">
                   <label>Subjects</label>
                   <input name="primarySubject" value={formData.primarySubject} onChange={handleTextChange} className="form-control" placeholder="e.g. Mathematics, Science" />
                 </div>
-                
+
+                {/* Assigned Teaching Grades / Classes Multi-Select (Available in both cases: Class Teacher Yes or No) */}
+                {(() => {
+                  const availableGradesList = (activeGrades && activeGrades.length > 0)
+                    ? activeGrades.map(g => (typeof g === 'object' ? g.name : g))
+                    : ['Grade 1', 'Grade 2', 'Grade 3', 'Grade 4', 'Grade 5', 'Grade 6', 'Grade 7', 'Grade 8', 'Grade 9', 'Grade 10', 'Grade 11', 'Grade 12'];
+
+                  const currentTeachingGrades = Array.isArray(formData.teachingGrades) ? formData.teachingGrades : [];
+
+                  const toggleGrade = (gradeName) => {
+                    setFormData(prev => {
+                      const cur = Array.isArray(prev.teachingGrades) ? prev.teachingGrades : [];
+                      const next = cur.includes(gradeName)
+                        ? cur.filter(g => g !== gradeName)
+                        : [...cur, gradeName];
+                      return { ...prev, teachingGrades: next };
+                    });
+                  };
+
+                  const parseGradeNumber = (str) => {
+                    if (!str) return null;
+                    const s = String(str).trim().toUpperCase();
+                    const digitMatch = s.match(/\b\d+\b/);
+                    if (digitMatch) {
+                      const d = parseInt(digitMatch[0], 10);
+                      if (!isNaN(d)) return d;
+                    }
+                    const token = s.split(/[\s()\-]+/)[0];
+                    const romanMap = {
+                      'XII': 12, 'XI': 11, 'X': 10, 'IX': 9, 'VIII': 8,
+                      'VII': 7, 'VI': 6, 'V': 5, 'IV': 4, 'III': 3, 'II': 2, 'I': 1
+                    };
+                    if (romanMap[token]) return romanMap[token];
+                    for (const [rom, val] of Object.entries(romanMap)) {
+                      const reg = new RegExp(`(^|\\b)${rom}(\\b|$)`);
+                      if (reg.test(s)) return val;
+                    }
+                    return null;
+                  };
+
+                  const applyPreset = (preset) => {
+                    setFormData(prev => {
+                      let next = [];
+                      if (preset === 'all') {
+                        next = [...availableGradesList];
+                      } else if (preset === 'clear') {
+                        next = [];
+                      } else if (preset === '1-5') {
+                        next = availableGradesList.filter(g => {
+                          const num = parseGradeNumber(g);
+                          return (num !== null && num >= 1 && num <= 5) || /nursery|lkg|ukg|kg|primary/i.test(String(g));
+                        });
+                      } else if (preset === '6-10') {
+                        next = availableGradesList.filter(g => {
+                          const num = parseGradeNumber(g);
+                          return num !== null && num >= 6 && num <= 10;
+                        });
+                      } else if (preset === '11-12') {
+                        next = availableGradesList.filter(g => {
+                          const num = parseGradeNumber(g);
+                          return (num !== null && num >= 11 && num <= 12) || /xi|xii/i.test(String(g));
+                        });
+                      }
+                      return { ...prev, teachingGrades: next };
+                    });
+                  };
+
+                  return (
+                    <div className="form-group" style={{ gridColumn: '1 / -1', background: 'var(--bg-card, rgba(255,255,255,0.02))', padding: '16px', borderRadius: '12px', border: '1px solid var(--border-glass)', marginTop: '4px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', marginBottom: '12px' }}>
+                        <div>
+                          <label style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '2px' }}>
+                            <BookOpen size={16} style={{ color: 'hsl(var(--color-primary))' }} /> Assigned Teaching Grades / Classes
+                          </label>
+                          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                            Select all grades/classes this teacher teaches for {formData.primarySubject ? `subject: "${formData.primarySubject}"` : 'their subject'} (e.g. 1 to 5, 6 to 10)
+                          </span>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                          <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 600, marginRight: '4px' }}>Quick Presets:</span>
+                          <button
+                            type="button"
+                            onClick={() => applyPreset('1-5')}
+                            style={{ padding: '4px 10px', fontSize: '0.75rem', borderRadius: '6px', border: '1px solid var(--border-glass)', background: 'rgba(255, 107, 0, 0.08)', color: 'hsl(var(--color-primary))', cursor: 'pointer', fontWeight: 600 }}
+                          >
+                            Grades 1–5
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => applyPreset('6-10')}
+                            style={{ padding: '4px 10px', fontSize: '0.75rem', borderRadius: '6px', border: '1px solid var(--border-glass)', background: 'rgba(255, 107, 0, 0.08)', color: 'hsl(var(--color-primary))', cursor: 'pointer', fontWeight: 600 }}
+                          >
+                            Grades 6–10
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => applyPreset('11-12')}
+                            style={{ padding: '4px 10px', fontSize: '0.75rem', borderRadius: '6px', border: '1px solid var(--border-glass)', background: 'rgba(255, 107, 0, 0.08)', color: 'hsl(var(--color-primary))', cursor: 'pointer', fontWeight: 600 }}
+                          >
+                            Grades 11–12
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => applyPreset('all')}
+                            style={{ padding: '4px 10px', fontSize: '0.75rem', borderRadius: '6px', border: '1px solid var(--border-glass)', background: 'var(--bg-glass, rgba(255,255,255,0.05))', color: 'var(--text-main)', cursor: 'pointer' }}
+                          >
+                            Select All
+                          </button>
+                          {currentTeachingGrades.length > 0 && (
+                            <button
+                              type="button"
+                              onClick={() => applyPreset('clear')}
+                              style={{ padding: '4px 10px', fontSize: '0.75rem', borderRadius: '6px', border: '1px solid rgba(239, 68, 68, 0.3)', color: '#ef4444', background: 'rgba(239, 68, 68, 0.08)', cursor: 'pointer', fontWeight: 600 }}
+                            >
+                              Clear
+                            </button>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Grade Pill Chips */}
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '10px' }}>
+                        {availableGradesList.map((gradeName) => {
+                          const isSelected = currentTeachingGrades.includes(gradeName);
+                          return (
+                            <button
+                              key={gradeName}
+                              type="button"
+                              onClick={() => toggleGrade(gradeName)}
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                                padding: '6px 14px',
+                                borderRadius: '20px',
+                                fontSize: '0.82rem',
+                                fontWeight: isSelected ? 700 : 500,
+                                cursor: 'pointer',
+                                transition: 'all 0.18s ease',
+                                border: isSelected
+                                  ? '1.5px solid hsl(var(--color-primary))'
+                                  : '1px solid var(--border-glass)',
+                                background: isSelected
+                                  ? 'rgba(255, 107, 0, 0.16)'
+                                  : 'var(--bg-glass, rgba(255, 255, 255, 0.03))',
+                                color: isSelected
+                                  ? 'hsl(var(--color-primary))'
+                                  : 'var(--text-main)',
+                                boxShadow: isSelected
+                                  ? '0 0 10px rgba(255, 107, 0, 0.2)'
+                                  : 'none'
+                              }}
+                            >
+                              {isSelected ? (
+                                <Check size={14} style={{ color: 'hsl(var(--color-primary))', strokeWidth: 3 }} />
+                              ) : (
+                                <Plus size={14} style={{ color: 'var(--text-muted)' }} />
+                              )}
+                              <span>{gradeName}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      {/* Selected Summary Indicator */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.78rem' }}>
+                        <span style={{ fontWeight: 600, color: currentTeachingGrades.length > 0 ? 'hsl(var(--color-primary))' : 'var(--text-muted)' }}>
+                          {currentTeachingGrades.length > 0
+                            ? `Selected (${currentTeachingGrades.length}): ${currentTeachingGrades.join(', ')}`
+                            : 'No teaching grades assigned yet (click chips or presets above to select)'}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })()}
+
                 {(() => {
                   const gradeOptions = [
                     { value: '', label: 'None' },
@@ -1282,9 +1556,9 @@ export default function RegisterTeacher({ setActiveView, editData }) {
                     <div><strong>Role:</strong> Teacher</div>
                     {formData.department ? <div><strong>Department:</strong> {formData.department}</div> : null}
                     <div><strong>Subjects:</strong> {formData.primarySubject || 'N/A'} {formData.secondarySubject ? `, ${formData.secondarySubject}` : ''}</div>
+                    <div><strong>Teaching Grades:</strong> {Array.isArray(formData.teachingGrades) && formData.teachingGrades.length > 0 ? formData.teachingGrades.join(', ') : 'None assigned'}</div>
                     <div><strong>Class Teacher:</strong> {formData.isClassTeacher ? `Yes (Grade ${formData.assignedGradeId || 'N/A'}${formData.assignedSectionId ? ` - Section ${formData.assignedSectionId}` : ''})` : 'No'}</div>
-                    <div><strong>Type / Session:</strong> {formData.employmentType || 'N/A'} / {formData.joiningDate || 'N/A'}</div>
-                    <div><strong>Status:</strong> {formData.status || 'Active'}</div>
+                    <div><strong>Joining Date:</strong> {formData.joiningDate || 'N/A'}</div>
                   </div>
                 </div>
 
@@ -1410,7 +1684,7 @@ export default function RegisterTeacher({ setActiveView, editData }) {
             ) : (
               <button type="submit" className="btn-primary" disabled={loading}
                 style={{ padding: '12px 32px', borderRadius: '10px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px', cursor: loading ? 'not-allowed' : 'pointer', fontSize: '0.9rem' }}>
-                {loading ? <><Loader2 size={16} className="animate-spin" /> {editData ? 'Updating...' : 'Registering...'}</> : <><Save size={16} /> {editData ? 'Update Teacher' : 'Register Teacher'}</>}
+                {loading ? <><Loader2 size={16} className="animate-spin" /> {editData ? 'Updating...' : (stagingData ? 'Completing Setup...' : 'Registering...')}</> : <><Save size={16} /> {editData ? 'Update Teacher' : (stagingData ? 'Complete Setup & Register' : 'Register Teacher')}</>}
               </button>
             )}
           </div>

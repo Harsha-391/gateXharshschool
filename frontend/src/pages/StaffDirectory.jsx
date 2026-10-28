@@ -26,11 +26,51 @@ import {
   Plus,
   UserCheck,
   UserPlus,
-  Loader2
+  Loader2,
+  Upload
 } from 'lucide-react';
 import { hasPermission } from '../utils/permissions';
+import StaffPendingSetupTab from '../components/StaffPendingSetupTab';
+import StaffBulkImportModal from '../components/StaffBulkImportModal';
+import AddStaff from './AddStaff';
 
-export default function StaffDirectory({ setActiveView, readOnly = true, onAddClick, onEditClick }) {
+export default function StaffDirectory({ setActiveView, readOnly = true, onAddClick, onEditClick, onCompleteSetupClick }) {
+  // Bulk Import & Pending Setup states
+  const [activeTab, setActiveTab] = useState('directory'); // 'directory' | 'pending'
+  const [pendingCount, setPendingCount] = useState(0);
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [completingStaffData, setCompletingStaffData] = useState(null);
+  const [pendingRefreshKey, setPendingRefreshKey] = useState(0);
+
+  const fetchPendingCount = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const tenantSubdomain = localStorage.getItem('tenant_subdomain') || 'default';
+      const res = await fetch('/api/staff/import/pending?limit=1', {
+        headers: {
+          'x-tenant-id': tenantSubdomain,
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setPendingCount(data.totalCount || 0);
+      }
+    } catch (err) {
+      console.error('Error fetching pending staff count:', err);
+    }
+  };
+
+  useEffect(() => {
+    fetchPendingCount();
+  }, []);
+
+  useEffect(() => {
+    if (pendingCount === 0 && activeTab === 'pending' && !completingStaffData) {
+      setActiveTab('directory');
+    }
+  }, [pendingCount, activeTab, completingStaffData]);
+
   const getQrImageUrl = (qrCodePath, employeeId, employeeType) => {
     if (qrCodePath && (qrCodePath.startsWith('data:') || qrCodePath.startsWith('http://') || qrCodePath.startsWith('https://') || qrCodePath.startsWith('/'))) {
       return qrCodePath;
@@ -54,8 +94,6 @@ export default function StaffDirectory({ setActiveView, readOnly = true, onAddCl
   // Search, Filters & Sorting States
   const [searchQuery, setSearchQuery] = useState('');
   const [departmentFilter, setDepartmentFilter] = useState('All');
-  const [typeFilter, setTypeFilter] = useState('All');
-  const [statusFilter, setStatusFilter] = useState('All');
   const [roleFilter, setRoleFilter] = useState('All');
   const [sortBy, setSortBy] = useState('name');
   const [sortOrder, setSortOrder] = useState('asc');
@@ -65,13 +103,18 @@ export default function StaffDirectory({ setActiveView, readOnly = true, onAddCl
   const [limit] = useState(8);
   const [totalPages, setTotalPages] = useState(1);
 
-  const isSearchOrFilterActive = searchQuery.trim() !== '' || departmentFilter !== 'All' || typeFilter !== 'All' || statusFilter !== 'All' || roleFilter !== 'All';
+  const isSearchOrFilterActive = searchQuery.trim() !== '' || departmentFilter !== 'All' || roleFilter !== 'All';
 
   // Inspector Drawer
   const [selectedTeacher, setSelectedTeacher] = useState(null);
   const [qrLoading, setQrLoading] = useState(false);
   const [roles, setRoles] = useState([]);
   const [departments, setDepartments] = useState([]);
+
+  // Bulk Selection & Deletion States
+  const canDelete = !readOnly && (hasPermission('staff-directory', 'delete') || hasPermission('teacher-directory', 'delete'));
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
 
   useEffect(() => {
     fetch('/api/rbac/roles')
@@ -355,8 +398,6 @@ export default function StaffDirectory({ setActiveView, readOnly = true, onAddCl
       const queryParams = new URLSearchParams({
         search: searchQuery,
         department: departmentFilter,
-        employmentType: typeFilter,
-        status: statusFilter,
         designation: roleFilter,
         role: roleFilter,
         sortBy,
@@ -382,15 +423,84 @@ export default function StaffDirectory({ setActiveView, readOnly = true, onAddCl
   // Reload on dependency changes
   useEffect(() => {
     fetchTeachers();
-  }, [searchQuery, departmentFilter, typeFilter, statusFilter, roleFilter, sortBy, sortOrder, page]);
+  }, [searchQuery, departmentFilter, roleFilter, sortBy, sortOrder, page]);
 
   // Reset page on filter change
   useEffect(() => {
     setPage(1);
-  }, [searchQuery, departmentFilter, typeFilter, statusFilter, roleFilter]);
+  }, [searchQuery, departmentFilter, roleFilter]);
+
+  // Clear selections when filters or pagination changes
+  useEffect(() => {
+    setSelectedIds([]);
+  }, [searchQuery, departmentFilter, roleFilter, sortBy, sortOrder, page]);
+
+  const handleToggleSelect = (id) => {
+    setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  };
+
+  const handleSelectAll = () => {
+    const pageIds = teachers.map(t => t.employeeId || t.id);
+    const allSelected = pageIds.length > 0 && pageIds.every(id => selectedIds.includes(id));
+    if (allSelected) {
+      setSelectedIds(prev => prev.filter(id => !pageIds.includes(id)));
+    } else {
+      setSelectedIds(prev => Array.from(new Set([...prev, ...pageIds])));
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.length === 0) return;
+    if (!window.confirm(`Are you sure you want to dismiss the ${selectedIds.length} selected staff member(s) from the roster? This action cannot be undone.`)) {
+      return;
+    }
+    setBulkDeleting(true);
+    const countToDelete = selectedIds.length;
+    const targetIds = [...selectedIds];
+
+    const originalTeachers = [...teachers];
+    const originalTotalCount = totalCount;
+
+    // Optimistically update local state
+    setTeachers(prev => prev.filter(t => !targetIds.includes(t.employeeId || t.id) && !targetIds.includes(t.id)));
+    setTotalCount(prev => Math.max(0, prev - countToDelete));
+    setSelectedIds([]);
+    if (selectedTeacher && (targetIds.includes(selectedTeacher.employeeId) || targetIds.includes(selectedTeacher.id))) {
+      setSelectedTeacher(null);
+    }
+
+    try {
+      const token = localStorage.getItem('token');
+      const tenantSubdomain = localStorage.getItem('tenant_subdomain') || 'default';
+      const res = await fetch('/api/staff/bulk-delete', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-tenant-id': tenantSubdomain,
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify({ ids: targetIds })
+      });
+      if (!res.ok) {
+        setTeachers(originalTeachers);
+        setTotalCount(originalTotalCount);
+        const errData = await res.json().catch(() => ({}));
+        alert(errData.error || 'Server error occurred during bulk deletion.');
+      } else {
+        fetchTeachers();
+      }
+    } catch (err) {
+      console.error('Error bulk removing staff:', err);
+      setTeachers(originalTeachers);
+      setTotalCount(originalTotalCount);
+      alert('Network error while bulk removing staff.');
+    } finally {
+      setBulkDeleting(false);
+    }
+  };
 
   // ==========================================
-  // DELETE TEACHER
+  // DELETE STAFF MEMBER
   // ==========================================
   const handleDeleteTeacher = async (teacherId, teacherName) => {
     if (window.confirm(`Are you sure you want to dismiss ${teacherName} (${teacherId}) from the faculty roster?`)) {
@@ -400,6 +510,7 @@ export default function StaffDirectory({ setActiveView, readOnly = true, onAddCl
       // Optimistically update local state
       setTeachers(prev => prev.filter(t => (t.employeeId !== teacherId && t.id !== teacherId)));
       setTotalCount(prev => Math.max(0, prev - 1));
+      setSelectedIds(prev => prev.filter(id => id !== teacherId));
       if (selectedTeacher && (selectedTeacher.employeeId === teacherId || selectedTeacher.id === teacherId)) {
         setSelectedTeacher(null);
       }
@@ -466,8 +577,7 @@ export default function StaffDirectory({ setActiveView, readOnly = true, onAddCl
       qualification: Array.isArray(teacher.qualification) ? teacher.qualification.map(q => q.degree).filter(Boolean).join(', ') : (teacher.qualification || ''),
       experience: teacher.experience || '',
       salary: teacher.salary || '',
-      employmentType: teacher.employmentType || '',
-      status: teacher.status || 'Active'
+      employmentType: teacher.employmentType || ''
     });
   };
 
@@ -525,8 +635,116 @@ export default function StaffDirectory({ setActiveView, readOnly = true, onAddCl
   return (
     <div className="animate-slide-up" style={{ display: 'flex', flexDirection: 'column', gap: '20px', width: '100%' }}>
 
-      {/* Search & Filter Control Bar */}
-      <div className="glass-panel" style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+      {/* TOP HEADER: TABS & ACTION BUTTONS */}
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: (pendingCount > 0 || completingStaffData || activeTab === 'pending') ? 'space-between' : 'flex-end',
+        flexWrap: 'wrap',
+        gap: '16px',
+        paddingBottom: '4px'
+      }}>
+        {/* TAB NAVIGATION (Only visible if there are pending setup records) */}
+        {(pendingCount > 0 || completingStaffData || activeTab === 'pending') && (
+          <div style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '8px',
+            background: 'rgba(255, 255, 255, 0.05)',
+            padding: '4px',
+            borderRadius: '12px',
+            border: '1px solid var(--border-glass)'
+          }}>
+            <button
+              type="button"
+              onClick={() => {
+                setCompletingStaffData(null);
+                setActiveTab('directory');
+              }}
+              className={activeTab === 'directory' && !completingStaffData ? 'btn-primary' : 'btn-secondary'}
+              style={{
+                padding: '8px 18px',
+                borderRadius: '8px',
+                fontSize: '0.88rem',
+                fontWeight: 700,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                border: 'none',
+                transition: 'all 0.2s ease'
+              }}
+            >
+              <BookOpen size={16} /> Staff Directory
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setCompletingStaffData(null);
+                setActiveTab('pending');
+              }}
+              className={activeTab === 'pending' || completingStaffData ? 'btn-primary' : 'btn-secondary'}
+              style={{
+                padding: '8px 18px',
+                borderRadius: '8px',
+                fontSize: '0.88rem',
+                fontWeight: 700,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                border: 'none',
+                transition: 'all 0.2s ease'
+              }}
+            >
+              <Clock size={16} /> Pending Staff Setup
+              {pendingCount > 0 && (
+                <span style={{
+                  background: (activeTab === 'pending' || completingStaffData) ? 'rgba(255, 255, 255, 0.25)' : 'hsl(var(--color-primary))',
+                  color: '#ffffff',
+                  fontSize: '0.72rem',
+                  padding: '2px 7px',
+                  borderRadius: '99px',
+                  fontWeight: 800
+                }}>
+                  {pendingCount}
+                </span>
+              )}
+            </button>
+          </div>
+        )}
+
+        {/* TOP ACTIONS */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          {!readOnly && (hasPermission('staff-directory', 'create') || hasPermission('add-staff', 'create')) && (
+            <button
+              type="button"
+              onClick={() => setShowImportModal(true)}
+              className="btn-primary"
+              style={{
+                padding: '9px 18px',
+                borderRadius: '10px',
+                fontSize: '0.88rem',
+                fontWeight: 700,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                cursor: 'pointer',
+                boxShadow: '0 4px 14px rgba(hsl(var(--color-primary)), 0.25)'
+              }}
+            >
+              <Upload size={16} /> Import Staff
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* TAB 1: STAFF DIRECTORY */}
+      {activeTab === 'directory' && !completingStaffData && (
+        <>
+          {/* Search & Filter Control Bar */}
+          <div className="glass-panel" style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
 
         {/* Row 1: Search & Filters */}
         <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -573,23 +791,6 @@ export default function StaffDirectory({ setActiveView, readOnly = true, onAddCl
                 ))}
               </select>
             )}
-
-            {/* Employment Type filter */}
-            <select className="select-custom" value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}
-              style={{ padding: '8px 12px', borderRadius: '8px', fontSize: '0.85rem' }}>
-              <option value="All">All Types</option>
-              <option value="Full Time">Full Time</option>
-              <option value="Part Time">Part Time</option>
-            </select>
-
-            {/* Status filter */}
-            <select className="select-custom" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}
-              style={{ padding: '8px 12px', borderRadius: '8px', fontSize: '0.85rem' }}>
-              <option value="All">All Status</option>
-              <option value="Active">Active</option>
-              <option value="Inactive">Inactive</option>
-              <option value="On Leave">On Leave</option>
-            </select>
           </div>
         </div>
 
@@ -651,10 +852,91 @@ export default function StaffDirectory({ setActiveView, readOnly = true, onAddCl
           </div>
         ) : (
           <>
+            {/* Bulk Selection Action Toolbar */}
+            {canDelete && selectedIds.length > 0 && (
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '12px 18px',
+                marginBottom: '16px',
+                borderRadius: '12px',
+                background: 'linear-gradient(135deg, rgba(255, 140, 66, 0.15) 0%, rgba(255, 90, 95, 0.15) 100%)',
+                border: '1px solid rgba(255, 140, 66, 0.35)',
+                boxShadow: '0 4px 20px rgba(0, 0, 0, 0.15)',
+                animation: 'fadeIn 0.2s ease-in-out'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <span style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    minWidth: '24px',
+                    height: '24px',
+                    padding: '0 6px',
+                    borderRadius: '12px',
+                    background: 'hsl(var(--color-primary))',
+                    color: '#fff',
+                    fontSize: '0.75rem',
+                    fontWeight: 800
+                  }}>
+                    {selectedIds.length}
+                  </span>
+                  <span style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-main)' }}>
+                    {selectedIds.length} staff member{selectedIds.length > 1 ? 's' : ''} selected
+                  </span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedIds([])}
+                    className="btn-secondary"
+                    style={{ padding: '6px 14px', borderRadius: '8px', fontSize: '0.8rem', cursor: 'pointer' }}
+                  >
+                    Deselect All
+                  </button>
+                  <button
+                    type="button"
+                    disabled={bulkDeleting}
+                    onClick={handleBulkDelete}
+                    className="btn-danger"
+                    style={{
+                      padding: '6px 16px',
+                      borderRadius: '8px',
+                      fontSize: '0.8rem',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      cursor: bulkDeleting ? 'not-allowed' : 'pointer',
+                      background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
+                      color: '#ffffff',
+                      border: 'none',
+                      boxShadow: '0 2px 8px rgba(239, 68, 68, 0.35)',
+                      fontWeight: 600
+                    }}
+                  >
+                    <Trash2 size={14} />
+                    {bulkDeleting ? 'Deleting...' : `Delete Selected (${selectedIds.length})`}
+                  </button>
+                </div>
+              </div>
+            )}
+
             <div className="custom-table-container">
               <table className="custom-table">
                 <thead>
                   <tr>
+                    {canDelete && (
+                      <th style={{ width: '44px', textAlign: 'center', padding: '10px 8px' }}>
+                        <input
+                          type="checkbox"
+                          checked={teachers.length > 0 && teachers.every(t => selectedIds.includes(t.employeeId || t.id))}
+                          onChange={handleSelectAll}
+                          aria-label="Select all staff on current page"
+                          style={{ cursor: 'pointer', width: '16px', height: '16px', accentColor: 'hsl(var(--color-primary))' }}
+                        />
+                      </th>
+                    )}
                     <th>Photo</th>
                     <th>Employee ID</th>
                     <th>Staff Name</th>
@@ -664,73 +946,90 @@ export default function StaffDirectory({ setActiveView, readOnly = true, onAddCl
                     <th>Qualification</th>
                     <th>Experience</th>
                     <th>Joining Date</th>
-                    <th>Status</th>
                     <th style={{ textAlign: 'right' }}>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {teachers.length > 0 ? (
-                    teachers.map((t) => (
-                      <tr key={t.employeeId || t.id}>
-                        <td>
-                          {t.photo ? (
-                            <img src={t.photo} alt={t.name || t.fullName} style={{ width: '36px', height: '36px', borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--border-glass)' }} />
-                          ) : (
-                            <div style={{
-                              width: '36px', height: '36px', borderRadius: '50%',
-                              background: t.avatarBg || 'linear-gradient(135deg, hsl(210, 75%, 60%), hsl(240, 85%, 50%))',
-                              display: 'flex', alignItems: 'center', justifyContent: 'center',
-                              color: 'white', fontSize: '0.75rem', fontWeight: 700
-                            }}>
-                              {(t.fullName || t.name || 'T').split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()}
-                            </div>
+                    teachers.map((t) => {
+                      const tKey = t.employeeId || t.id;
+                      const isSelected = selectedIds.includes(tKey);
+                      return (
+                        <tr 
+                          key={tKey}
+                          style={{
+                            background: isSelected ? 'rgba(var(--color-primary-rgb, 255, 140, 66), 0.08)' : undefined,
+                            transition: 'background-color 0.15s ease'
+                          }}
+                        >
+                          {canDelete && (
+                            <td style={{ textAlign: 'center', padding: '10px 8px' }} onClick={(e) => e.stopPropagation()}>
+                              <input
+                                type="checkbox"
+                                checked={isSelected}
+                                onChange={() => handleToggleSelect(tKey)}
+                                aria-label={`Select staff ${t.fullName || t.name}`}
+                                style={{ cursor: 'pointer', width: '16px', height: '16px', accentColor: 'hsl(var(--color-primary))' }}
+                              />
+                            </td>
                           )}
-                        </td>
-                        <td style={{ fontWeight: 700, color: 'hsl(var(--color-primary))' }}>{t.employeeId || t.id}</td>
-                        <td style={{ fontWeight: 600 }}>{t.fullName || t.name}</td>
-                        <td style={{ fontWeight: 500 }}>{t.department || 'N/A'}</td>
-                        <td style={{ fontWeight: 500 }}>{t.subjectSpecialization || t.subject || 'N/A'}</td>
-                        <td style={{ fontWeight: 500 }}>{t.mobile || t.phone || 'N/A'}</td>
-                        <td style={{ fontWeight: 500, maxWidth: '120px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{renderQualificationText(t.qualification)}</td>
-                        <td style={{ fontWeight: 500 }}>{t.experience ? `${t.experience}` : 'N/A'}</td>
-                        <td style={{ fontWeight: 500 }}>{t.joiningDate || 'N/A'}</td>
-                        <td>
-                          {getStatusBadge(t.status || 'Active')}
-                        </td>
-                        <td>
-                          <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
-                            <button onClick={() => setSelectedTeacher(t)} className="btn-secondary"
-                              style={{ padding: '6px 8px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                              title="Inspect"
-                            >
-                              <Info size={13} />
-                            </button>
-                            {!readOnly && (
-                              <>
-                                {hasPermission('teacher-directory', 'edit') && (
-                                  <button onClick={() => onEditClick ? onEditClick(t) : openEditModal(t)} className="btn-secondary"
-                                    style={{ padding: '6px 8px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                                    title="Edit"
-                                  >
-                                    <Edit3 size={13} />
-                                  </button>
-                                )}
-                                {hasPermission('teacher-directory', 'delete') && (
-                                  <button onClick={() => handleDeleteTeacher(t.employeeId || t.id, t.fullName || t.name)} className="btn-danger"
-                                    style={{ padding: '6px 8px', borderRadius: '8px', background: 'rgba(var(--color-danger-rgb), 0.1)', border: '1px solid rgba(var(--color-danger-rgb), 0.2)', color: 'rgb(var(--color-danger-rgb))' }}
-                                    title="Delete profile">
-                                    <Trash2 size={14} />
-                                  </button>
-                                )}
-                              </>
+                          <td>
+                            {t.photo ? (
+                              <img src={t.photo} alt={t.name || t.fullName} style={{ width: '36px', height: '36px', borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--border-glass)' }} />
+                            ) : (
+                              <div style={{
+                                width: '36px', height: '36px', borderRadius: '50%',
+                                background: t.avatarBg || 'linear-gradient(135deg, hsl(210, 75%, 60%), hsl(240, 85%, 50%))',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                color: 'white', fontSize: '0.75rem', fontWeight: 700
+                              }}>
+                                {(t.fullName || t.name || 'T').split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()}
+                              </div>
                             )}
-                          </div>
-                        </td>
-                      </tr>
-                    ))
+                          </td>
+                          <td style={{ fontWeight: 700, color: 'hsl(var(--color-primary))' }}>{t.employeeId || t.id}</td>
+                          <td style={{ fontWeight: 600 }}>{t.fullName || t.name}</td>
+                          <td style={{ fontWeight: 500 }}>{t.department || 'N/A'}</td>
+                          <td style={{ fontWeight: 500 }}>{t.subjectSpecialization || t.subject || 'N/A'}</td>
+                          <td style={{ fontWeight: 500 }}>{t.mobile || t.phone || 'N/A'}</td>
+                          <td style={{ fontWeight: 500, maxWidth: '120px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{renderQualificationText(t.qualification)}</td>
+                          <td style={{ fontWeight: 500 }}>{t.experience ? `${t.experience}` : 'N/A'}</td>
+                          <td style={{ fontWeight: 500 }}>{t.joiningDate || 'N/A'}</td>
+                          <td>
+                            <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
+                              <button onClick={() => setSelectedTeacher(t)} className="btn-secondary"
+                                style={{ padding: '6px 8px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                title="Inspect"
+                              >
+                                <Info size={13} />
+                              </button>
+                              {!readOnly && (
+                                <>
+                                  {hasPermission('staff-directory', 'edit') && (
+                                    <button onClick={() => onEditClick ? onEditClick(t) : openEditModal(t)} className="btn-secondary"
+                                      style={{ padding: '6px 8px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                      title="Edit"
+                                    >
+                                      <Edit3 size={13} />
+                                    </button>
+                                  )}
+                                  {canDelete && (
+                                    <button onClick={() => handleDeleteTeacher(t.employeeId || t.id, t.fullName || t.name)} className="btn-danger"
+                                      style={{ padding: '6px 8px', borderRadius: '8px', background: 'rgba(var(--color-danger-rgb), 0.1)', border: '1px solid rgba(var(--color-danger-rgb), 0.2)', color: 'rgb(var(--color-danger-rgb))' }}
+                                      title="Delete profile">
+                                      <Trash2 size={14} />
+                                    </button>
+                                  )}
+                                </>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
                   ) : (
                     <tr>
-                      <td colSpan="11" style={{ textAlign: 'center', padding: '50px', color: 'var(--text-muted)' }}>
+                      <td colSpan={canDelete ? "12" : "11"} style={{ textAlign: 'center', padding: '50px', color: 'var(--text-muted)' }}>
                         {searchQuery ? `No staff found starting with '${searchQuery}'.` : 'No staff found matching your filters.'}
                       </td>
                     </tr>
@@ -803,12 +1102,6 @@ export default function StaffDirectory({ setActiveView, readOnly = true, onAddCl
               )}
               <div>
                 <h4 style={{ fontSize: '1.25rem', fontWeight: 800, margin: '0 0 6px 0' }}>{selectedTeacher.fullName || selectedTeacher.name}</h4>
-                <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', flexWrap: 'wrap' }}>
-                  {getStatusBadge(selectedTeacher.status || 'Active')}
-                  <span style={{ padding: '4px 12px', borderRadius: '20px', fontSize: '0.75rem', fontWeight: 600, background: 'rgba(hsl(var(--color-primary)), 0.1)', color: 'hsl(var(--color-primary))', border: '1px solid rgba(hsl(var(--color-primary)), 0.2)' }}>
-                    {selectedTeacher.employmentType || 'Full Time'}
-                  </span>
-                </div>
               </div>
             </div>
 
@@ -1064,25 +1357,6 @@ export default function StaffDirectory({ setActiveView, readOnly = true, onAddCl
                     className="form-control" style={{ padding: '10px 14px', borderRadius: '10px' }} min="0" />
                 </div>
 
-                <div className="form-group">
-                  <label>Employment Type</label>
-                  <select value={editFormData.employmentType || ''} onChange={(e) => setEditFormData({ ...editFormData, employmentType: e.target.value })}
-                    className="form-control" style={{ padding: '10px 14px', borderRadius: '10px' }}>
-                    <option value="">Select</option>
-                    <option value="Full Time">Full Time</option>
-                    <option value="Part Time">Part Time</option>
-                  </select>
-                </div>
-
-                <div className="form-group">
-                  <label>Status</label>
-                  <select value={editFormData.status || ''} onChange={(e) => setEditFormData({ ...editFormData, status: e.target.value })}
-                    className="form-control" style={{ padding: '10px 14px', borderRadius: '10px' }}>
-                    <option value="Active">Active</option>
-                    <option value="Inactive">Inactive</option>
-                    <option value="On Leave">On Leave</option>
-                  </select>
-                </div>
               </div>
 
               <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', marginTop: '10px' }}>
@@ -1099,6 +1373,78 @@ export default function StaffDirectory({ setActiveView, readOnly = true, onAddCl
           </div>
         </div>
       )}
+
+        </>
+      )}
+
+      {/* TAB 2: IMPORTED STAFF (PENDING SETUP) */}
+      {activeTab === 'pending' && !completingStaffData && (
+        <StaffPendingSetupTab
+          refreshKey={pendingRefreshKey}
+          onCountChange={(count) => setPendingCount(count)}
+          onCompleteSetup={(stagingStaff) => {
+            if (typeof onCompleteSetupClick === 'function') {
+              onCompleteSetupClick(stagingStaff);
+            } else {
+              setCompletingStaffData(stagingStaff);
+            }
+          }}
+        />
+      )}
+
+      {/* INLINE COMPLETE SETUP VIA ADD STAFF FORM */}
+      {completingStaffData && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '14px 20px',
+            borderRadius: '12px',
+            background: 'rgba(hsl(var(--color-primary)), 0.08)',
+            border: '1px solid rgba(hsl(var(--color-primary)), 0.25)'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <UserPlus size={20} color="hsl(var(--color-primary))" />
+              <span style={{ fontWeight: 700, fontSize: '0.95rem' }}>
+                Completing Setup for Staged Staff: <strong>{completingStaffData.fullName}</strong> (Reserved ID: {completingStaffData.staffId || completingStaffData.staff_id})
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setCompletingStaffData(null)}
+              className="btn-secondary"
+              style={{ padding: '6px 14px', borderRadius: '8px', fontSize: '0.82rem', fontWeight: 600 }}
+            >
+              Cancel &amp; Return to Pending List
+            </button>
+          </div>
+
+          <AddStaff
+            stagingData={completingStaffData}
+            onCompleteSetupSuccess={() => {
+              setCompletingStaffData(null);
+              setActiveTab('directory');
+              fetchPendingCount();
+              fetchTeachers();
+            }}
+            onCompleteSetupCancel={() => {
+              setCompletingStaffData(null);
+            }}
+          />
+        </div>
+      )}
+
+      {/* Bulk Import Wizard Modal */}
+      <StaffBulkImportModal
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
+        onImportComplete={() => {
+          fetchPendingCount();
+          setPendingRefreshKey(k => k + 1);
+          setActiveTab('pending');
+        }}
+      />
 
     </div>
   );

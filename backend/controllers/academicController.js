@@ -1,4 +1,7 @@
 import { readDb, writeDb, addActivity, convertToRoman, tenantStorage, slugify, sortSubjectsByGrade, formatSubjectId } from '../utils/db.js';
+import { generateTimetable } from '../utils/timetableGenerator.js';
+import { callExamAiPlan } from '../utils/aiClient.js';
+import { validateAndNormalizeExamPlan } from '../utils/examPlanValidator.js';
 import * as sqlDb from '../utils/sqlDb.js';
 import * as XLSX from 'xlsx';
 import { PDFParse } from 'pdf-parse';
@@ -207,49 +210,610 @@ export const getExams = (req, res) => {
   res.json(enriched);
 };
 
-export const createExam = (req, res) => {
-  const { examName, examType, academicSession, description, gradeSections, totalMarks, subjectMarks, subjectIncluded } = req.body;
+export const extractExamPlanWithAi = async (req, res) => {
+  try {
+    const { text } = req.body;
+    if (!text || typeof text !== 'string' || !text.trim()) {
+      return res.status(400).json({ error: 'Text description is required.' });
+    }
 
-  if (!examName || !examType || !academicSession || !gradeSections || gradeSections.length === 0) {
-    return res.status(400).json({ error: 'Missing required exam fields.' });
+    const db = readDb();
+    const activeGrades = (db.grades || []).filter(g => g.status !== 'Inactive');
+    const dbSubjects = db.subjects || [];
+    const activeSchool = (db.schools || [])[0] || {};
+    const currentSession = activeSchool.academicSession || '2026-2027';
+
+    // Parse exam types
+    let allowedExamTypes = ['Unit Test - 1', 'Unit Test - 2', 'Quarterly Exam', 'Midterm Exam', 'Half Yearly', 'Final Exam', 'Custom Exam'];
+    if (activeSchool.examTypes) {
+      try {
+        const parsed = typeof activeSchool.examTypes === 'string' ? JSON.parse(activeSchool.examTypes) : activeSchool.examTypes;
+        if (Array.isArray(parsed) && parsed.length > 0) allowedExamTypes = parsed;
+      } catch (e) {}
+    }
+
+    // Get today's date in Asia/Kolkata timezone (YYYY-MM-DD)
+    const nowInKolkata = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Kolkata',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    }).format(new Date());
+
+    const rateLimitKey = req.ip || req.user?.id || 'global';
+
+    // Call AI client
+    const aiResult = await callExamAiPlan({
+      text,
+      today: nowInKolkata,
+      examTypes: allowedExamTypes,
+      grades: activeGrades.map(g => g.name),
+      rateLimitKey
+    });
+
+    if (!aiResult.ok) {
+      return res.status(200).json({
+        ok: false,
+        fallback: true,
+        message: aiResult.message || 'AI is not available right now. Please fill the details manually.'
+      });
+    }
+
+    // Validate and normalize plan against real database grades & subjects
+    const valResult = validateAndNormalizeExamPlan(aiResult.data, {
+      dbGrades: activeGrades,
+      dbSubjects,
+      allowedExamTypes,
+      currentSession,
+      today: nowInKolkata
+    });
+
+    if (!valResult.ok) {
+      return res.status(200).json({
+        ok: false,
+        fallback: true,
+        error: valResult.error || 'I could not find exam details. Please rewrite or fill manually.'
+      });
+    }
+
+    return res.status(200).json({
+      ok: true,
+      originalText: text,
+      plan: valResult.plan,
+      missingQuestions: valResult.missingQuestions,
+      warnings: valResult.warnings,
+      notices: valResult.notices
+    });
+  } catch (err) {
+    console.error('Error in extractExamPlanWithAi:', err);
+    return res.status(200).json({
+      ok: false,
+      fallback: true,
+      message: 'AI is not available right now. Please fill the details manually.'
+    });
   }
+};
 
-  const db = readDb();
+export const previewExamTimetable = (req, res) => {
+  try {
+    const {
+      grades,
+      startDate,
+      subjectsPerDay = 1,
+      marksPerSubject = 100,
+      timings = {},
+      subjectsByGrade: customSubjectsByGrade,
+      offDays = ['Sunday'],
+      holidays = [],
+      groups = []
+    } = req.body;
 
-  const now = Date.now();
-  const endDates = gradeSections.map(gs => gs.endDate).filter(Boolean);
-  const examEndDate = endDates.length === gradeSections.length ? endDates.sort().reverse()[0] : null;
+    const db = readDb();
+    const systemSubjectsByGrade = {};
+    (db.subjects || []).forEach(sub => {
+      if (sub && sub.grade && sub.subjectName) {
+        if (!systemSubjectsByGrade[sub.grade]) systemSubjectsByGrade[sub.grade] = [];
+        if (!systemSubjectsByGrade[sub.grade].includes(sub.subjectName)) {
+          systemSubjectsByGrade[sub.grade].push(sub.subjectName);
+        }
+      }
+    });
 
-  const newExam = {
-    id: `EXM-${now}`,
-    examName,
-    examType,
-    academicSession,
-    description: description || '',
-    totalMarks: totalMarks || 100,
-    subjectMarks: subjectMarks || {},
-    subjectIncluded: subjectIncluded || {},
-    gradeSections: gradeSections.map(gs => ({
-      grade: gs.grade,
-      section: gs.section,
-      startDate: gs.startDate,
-      endDate: gs.endDate || null
-    })),
-    endDate: examEndDate,
-    status: 'Draft',
-    createdAt: new Date().toISOString()
-  };
+    const previews = {};
+    let minStartDate = null;
+    let maxEndDate = null;
+    let totalPapers = 0;
+    const allNotices = [];
 
-  db.exams.push(newExam);
-  addActivity(db, 'alert', 'New Examination Created', `${examName} created as Draft`, 'hsl(var(--color-primary))', 'rgba(hsl(var(--color-primary)), 0.1)');
-  writeDb(db, ['exams', 'activities']);
+    // Multi-group support
+    if (Array.isArray(groups) && groups.length > 0) {
+      for (const grp of groups) {
+        const grpGrades = Array.isArray(grp.grades) ? grp.grades : [];
+        const grpStartDate = (grp.startDate || startDate || '').trim();
+        const grpPerDay = Math.max(1, parseInt(grp.subjectsPerDay || subjectsPerDay, 10) || 1);
+        const grpMarks = parseInt(grp.marksPerSubject || marksPerSubject, 10) || 100;
+        const grpTimings = grp.timings || timings || {};
+        const grpOffDays = grp.offDays || offDays || ['Sunday'];
+        const grpHolidays = grp.holidays || holidays || [];
 
-  res.status(201).json(newExam);
+        if (!grpStartDate) continue;
+
+        for (const grade of grpGrades) {
+          const subjects = (customSubjectsByGrade && customSubjectsByGrade[grade])
+            || systemSubjectsByGrade[grade]
+            || [];
+
+          const result = generateTimetable({
+            subjects,
+            startDate: grpStartDate,
+            subjectsPerDay: grpPerDay,
+            marksPerSubject: grpMarks,
+            timings: grpTimings,
+            offDays: grpOffDays,
+            holidays: grpHolidays
+          });
+
+          previews[grade] = result;
+          totalPapers += result.schedule.length;
+          if (result.summary.startDate && (!minStartDate || result.summary.startDate < minStartDate)) {
+            minStartDate = result.summary.startDate;
+          }
+          if (result.summary.endDate && (!maxEndDate || result.summary.endDate > maxEndDate)) {
+            maxEndDate = result.summary.endDate;
+          }
+          if (result.summary.notices && result.summary.notices.length > 0) {
+            allNotices.push(...result.summary.notices);
+          }
+        }
+      }
+
+      return res.json({
+        previews,
+        overallSummary: {
+          startDate: minStartDate || '',
+          endDate: maxEndDate || '',
+          gradesCount: Object.keys(previews).length,
+          totalPapers,
+          notices: [...new Set(allNotices)]
+        }
+      });
+    }
+
+    // Single group flow
+    const targetGrades = Array.isArray(grades) ? grades.filter(Boolean) : [];
+    if (targetGrades.length === 0) {
+      return res.status(400).json({ error: 'Please select at least one grade.' });
+    }
+    if (!startDate || typeof startDate !== 'string' || !startDate.trim()) {
+      return res.status(400).json({ error: 'Start date is required.' });
+    }
+
+    const marks = parseInt(marksPerSubject, 10);
+    if (isNaN(marks) || marks <= 0) {
+      return res.status(400).json({ error: 'Marks per subject must be a positive number.' });
+    }
+
+    const perDay = parseInt(subjectsPerDay, 10);
+    if (isNaN(perDay) || perDay <= 0) {
+      return res.status(400).json({ error: 'Subjects per day must be at least 1.' });
+    }
+
+    for (const grade of targetGrades) {
+      const subjects = (customSubjectsByGrade && customSubjectsByGrade[grade])
+        || systemSubjectsByGrade[grade]
+        || [];
+
+      const result = generateTimetable({
+        subjects,
+        startDate: startDate.trim(),
+        subjectsPerDay: perDay,
+        marksPerSubject: marks,
+        timings,
+        offDays,
+        holidays
+      });
+
+      previews[grade] = result;
+      totalPapers += result.schedule.length;
+      if (result.summary.startDate && (!minStartDate || result.summary.startDate < minStartDate)) {
+        minStartDate = result.summary.startDate;
+      }
+      if (result.summary.endDate && (!maxEndDate || result.summary.endDate > maxEndDate)) {
+        maxEndDate = result.summary.endDate;
+      }
+      if (result.summary.notices && result.summary.notices.length > 0) {
+        allNotices.push(...result.summary.notices);
+      }
+    }
+
+    return res.json({
+      previews,
+      overallSummary: {
+        startDate: minStartDate || startDate,
+        endDate: maxEndDate || startDate,
+        gradesCount: targetGrades.length,
+        totalPapers,
+        notices: [...new Set(allNotices)]
+      }
+    });
+  } catch (err) {
+    console.error('Error in previewExamTimetable:', err);
+    return res.status(500).json({ error: err.message || 'Failed to generate timetable preview.' });
+  }
+};
+
+export const createExam = (req, res) => {
+  try {
+    const {
+      examName: inputExamName,
+      examType,
+      customExamName,
+      academicSession,
+      description = '',
+      totalMarks,
+      marksPerSubject: inputMarksPerSubject,
+      subjectMarks,
+      subjectIncluded,
+      gradeSections: inputGradeSections,
+      grades: inputGrades,
+      selectedGrades: inputSelectedGrades,
+      startDate: inputStartDate,
+      subjectsPerDay: inputSubjectsPerDay,
+      timings: inputTimings,
+      rules: inputRules,
+      offDays: inputOffDays,
+      holidays: inputHolidays,
+      adminText,
+      admin_text,
+      planJson,
+      plan_json,
+      plan,
+      groups: inputGroups
+    } = req.body;
+
+    const examName = (inputExamName || (examType === 'Custom Exam' ? customExamName : examType) || '').trim();
+
+    if (!examType) {
+      return res.status(400).json({ error: 'Exam type is required.' });
+    }
+    if (!academicSession) {
+      return res.status(400).json({ error: 'Academic session is required.' });
+    }
+    if (!examName) {
+      return res.status(400).json({ error: 'Exam name is required.' });
+    }
+
+    // Multi-group resolution
+    const resolvedGroups = (Array.isArray(inputGroups) && inputGroups.length > 0)
+      ? inputGroups
+      : (plan && Array.isArray(plan.groups) && plan.groups.length > 0)
+        ? plan.groups
+        : null;
+
+    // Determine target grades
+    let targetGrades = [];
+    if (resolvedGroups) {
+      targetGrades = resolvedGroups.flatMap(grp => grp.grades || []).filter(Boolean);
+    } else if (Array.isArray(inputGrades) && inputGrades.length > 0) {
+      targetGrades = inputGrades.filter(Boolean);
+    } else if (Array.isArray(inputSelectedGrades) && inputSelectedGrades.length > 0) {
+      targetGrades = inputSelectedGrades.map(g => (typeof g === 'object' ? g.grade : g)).filter(Boolean);
+    } else if (Array.isArray(inputGradeSections) && inputGradeSections.length > 0) {
+      targetGrades = [...new Set(inputGradeSections.map(gs => gs.grade).filter(Boolean))];
+    }
+    targetGrades = [...new Set(targetGrades)];
+
+    if (targetGrades.length === 0) {
+      return res.status(400).json({ error: 'Please select at least one grade.' });
+    }
+
+    const db = readDb();
+    if (!db.exams) db.exams = [];
+    if (!db.examTimetables) db.examTimetables = [];
+
+    // Duplicate Check: Same academicSession + same examType/examName covering any of the same grades
+    const norm = (s) => (s || '').trim().toLowerCase();
+    const normalizeSession = (session) => {
+      if (!session) return '';
+      const clean = session.replace(/\s+/g, '');
+      const match = clean.match(/^(\d{4})-(\d{2})$/);
+      if (match) {
+        const century = match[1].slice(0, 2);
+        return `${match[1]}-${century}${match[2]}`.toLowerCase();
+      }
+      return clean.toLowerCase();
+    };
+
+    const targetSessionNorm = normalizeSession(academicSession);
+    const targetTypeNorm = norm(examType);
+    const targetNameNorm = norm(examName);
+
+    const conflictingDuplicateExam = db.exams.find(ex => {
+      if (ex.status === 'Cancelled') return false;
+      const sessionMatch = normalizeSession(ex.academicSession) === targetSessionNorm;
+      const typeMatch = norm(ex.examType) === targetTypeNorm || norm(ex.examName) === targetNameNorm;
+      if (sessionMatch && typeMatch) {
+        const exGrades = new Set([
+          ...(Array.isArray(ex.grades) ? ex.grades : []),
+          ...(Array.isArray(ex.gradeSections) ? ex.gradeSections.map(gs => gs.grade) : [])
+        ]);
+        return targetGrades.some(g => exGrades.has(g));
+      }
+      return false;
+    });
+
+    if (conflictingDuplicateExam) {
+      const exGrades = new Set([
+        ...(Array.isArray(conflictingDuplicateExam.grades) ? conflictingDuplicateExam.grades : []),
+        ...(Array.isArray(conflictingDuplicateExam.gradeSections) ? conflictingDuplicateExam.gradeSections.map(gs => gs.grade) : [])
+      ]);
+      const dupes = targetGrades.filter(g => exGrades.has(g));
+      return res.status(400).json({
+        error: `An exam for "${conflictingDuplicateExam.examName || examType}" (${academicSession}) already exists for Grade(s): ${dupes.join(', ')}.`
+      });
+    }
+
+    // Collect subjects by grade from DB
+    const systemSubjectsByGrade = {};
+    (db.subjects || []).forEach(sub => {
+      if (sub && sub.grade && sub.subjectName) {
+        if (!systemSubjectsByGrade[sub.grade]) systemSubjectsByGrade[sub.grade] = [];
+        if (!systemSubjectsByGrade[sub.grade].includes(sub.subjectName)) {
+          systemSubjectsByGrade[sub.grade].push(sub.subjectName);
+        }
+      }
+    });
+
+    // Generate timetables on server (re-running pure algorithm per group)
+    const gradeSchedules = {};
+    const gradeConfigs = {};
+
+    const globalOffDays = inputOffDays || (plan && plan.global && plan.global.offDays) || ['Sunday'];
+    const globalHolidays = inputHolidays || (plan && plan.global && plan.global.holidays) || [];
+
+    if (resolvedGroups) {
+      for (const grp of resolvedGroups) {
+        const grpGrades = Array.isArray(grp.grades) ? grp.grades : [];
+        const grpStartDate = (grp.startDate || inputStartDate || '').trim();
+        const grpPerDay = Math.max(1, parseInt(grp.subjectsPerDay, 10) || 1);
+        const grpMarks = parseInt(grp.marksPerSubject, 10) || 100;
+        const grpTimings = grp.timings || inputTimings || { startTime: '09:00', durationMinutes: 120, breakMinutes: 30 };
+        const grpOffDays = grp.offDays || globalOffDays;
+        const grpHolidays = grp.holidays || globalHolidays;
+
+        for (const grade of grpGrades) {
+          const subs = systemSubjectsByGrade[grade] || [];
+          const genResult = generateTimetable({
+            subjects: subs,
+            startDate: grpStartDate,
+            subjectsPerDay: grpPerDay,
+            marksPerSubject: grpMarks,
+            timings: grpTimings,
+            offDays: grpOffDays,
+            holidays: grpHolidays
+          });
+          gradeSchedules[grade] = genResult;
+          gradeConfigs[grade] = {
+            startDate: grpStartDate,
+            subjectsPerDay: grpPerDay,
+            marksPerSubject: grpMarks,
+            timings: grpTimings,
+            offDays: grpOffDays,
+            holidays: grpHolidays,
+            rules: {
+              startDate: grpStartDate,
+              subjectsPerDay: grpPerDay,
+              marksPerSubject: grpMarks,
+              timings: grpTimings,
+              offDays: grpOffDays,
+              holidays: grpHolidays
+            }
+          };
+        }
+      }
+    } else {
+      // Single group fallback
+      const startDate = inputStartDate || (inputRules && inputRules.startDate) || (inputGradeSections && inputGradeSections[0] && inputGradeSections[0].startDate);
+      const subjectsPerDay = parseInt(inputSubjectsPerDay || (inputRules && inputRules.subjectsPerDay) || 1, 10) || 1;
+      const marksPerSubject = parseInt(inputMarksPerSubject || (inputRules && inputRules.marksPerSubject) || totalMarks || 100, 10) || 100;
+      const timings = inputTimings || (inputRules && inputRules.timings) || {
+        startTime: '09:00',
+        durationMinutes: 120,
+        breakMinutes: 30
+      };
+
+      for (const grade of targetGrades) {
+        const subs = systemSubjectsByGrade[grade] || [];
+        const genResult = generateTimetable({
+          subjects: subs,
+          startDate,
+          subjectsPerDay,
+          marksPerSubject,
+          timings,
+          offDays: globalOffDays,
+          holidays: globalHolidays
+        });
+        gradeSchedules[grade] = genResult;
+        gradeConfigs[grade] = {
+          startDate,
+          subjectsPerDay,
+          marksPerSubject,
+          timings,
+          offDays: globalOffDays,
+          holidays: globalHolidays,
+          rules: {
+            startDate: startDate || '',
+            subjectsPerDay,
+            marksPerSubject,
+            timings,
+            offDays: globalOffDays,
+            holidays: globalHolidays
+          }
+        };
+      }
+    }
+
+    // Check date overlap conflicts for every grade
+    for (const grade of targetGrades) {
+      const genResult = gradeSchedules[grade];
+      if (genResult && genResult.summary.startDate && genResult.summary.endDate) {
+        const newStart = genResult.summary.startDate;
+        const newEnd = genResult.summary.endDate;
+
+        for (const ex of db.exams) {
+          if (ex.status === 'Cancelled') continue;
+          const exHasGrade = (ex.grades && ex.grades.includes(grade)) ||
+            (ex.gradeSections && ex.gradeSections.some(gs => gs.grade === grade));
+          if (!exHasGrade) continue;
+
+          let exStart = null;
+          let exEnd = null;
+          const exGs = (ex.gradeSections || []).find(gs => gs.grade === grade);
+          if (exGs && exGs.startDate && exGs.endDate) {
+            exStart = exGs.startDate;
+            exEnd = exGs.endDate;
+          } else if (ex.startDate && ex.endDate) {
+            exStart = ex.startDate;
+            exEnd = ex.endDate;
+          } else {
+            const exDates = db.examTimetables
+              .filter(et => et.examId === ex.id && et.grade === grade)
+              .map(et => et.examDate)
+              .filter(Boolean)
+              .sort();
+            if (exDates.length > 0) {
+              exStart = exDates[0];
+              exEnd = exDates[exDates.length - 1];
+            }
+          }
+
+          if (exStart && exEnd) {
+            if (newStart <= exEnd && newEnd >= exStart) {
+              return res.status(400).json({
+                error: `Date overlap conflict: Grade ${grade} already has exam "${ex.examName || ex.examType}" scheduled from ${exStart} to ${exEnd}, which overlaps with the proposed dates (${newStart} to ${newEnd}).`
+              });
+            }
+          }
+        }
+      }
+    }
+
+    // Build gradeSections and separate exam records
+    const now = Date.now();
+    const createdExams = [];
+    const allTimetableEntries = [];
+
+    const finalAdminText = admin_text || adminText || (plan && plan.originalText) || null;
+    const finalPlanJson = plan_json || planJson || plan || null;
+
+    for (let gIdx = 0; gIdx < targetGrades.length; gIdx++) {
+      const grade = targetGrades[gIdx];
+      const gradeSlug = grade.replace(/[^a-zA-Z0-9]/g, '');
+      const newExamId = `EXM-${now}-${gradeSlug}-${gIdx}`;
+
+      const cfg = gradeConfigs[grade] || {};
+      const genResult = gradeSchedules[grade];
+
+      // Sections for this grade
+      const gradeObj = (db.grades || []).find(g => g.name === grade);
+      const sections = gradeObj && Array.isArray(gradeObj.sections) && gradeObj.sections.length > 0
+        ? gradeObj.sections
+        : [''];
+
+      const thisGradeSections = sections.map(sec => ({
+        grade,
+        section: sec || '',
+        startDate: (genResult && genResult.summary.startDate) || cfg.startDate || '',
+        endDate: (genResult && genResult.summary.endDate) || ''
+      }));
+
+      // Timetable entries for this grade
+      const gradeTimetableEntries = [];
+      if (genResult && Array.isArray(genResult.schedule)) {
+        for (const gs of thisGradeSections) {
+          const cohort = gs.section ? `${gs.grade}-${gs.section}` : gs.grade;
+          genResult.schedule.forEach((slot, sIdx) => {
+            const entry = {
+              id: `EXMT-${now}-${gradeSlug}-${gs.section || 'all'}-${sIdx}-${Math.random().toString(36).substr(2, 4)}`,
+              examId: newExamId,
+              subject: slot.subject,
+              examDate: slot.date,
+              startTime: slot.startTime,
+              endTime: slot.endTime,
+              duration: slot.duration,
+              roomAllocation: '',
+              invigilator: '',
+              cohort,
+              grade: gs.grade,
+              section: gs.section || '',
+              marks: slot.marks
+            };
+            gradeTimetableEntries.push(entry);
+            allTimetableEntries.push(entry);
+          });
+        }
+      }
+
+      const gradeExamEnd = (genResult && genResult.summary.endDate) || '';
+      const gradeExamStart = (genResult && genResult.summary.startDate) || cfg.startDate || '';
+      const mps = cfg.marksPerSubject || 100;
+      const gradeTotalMarks = (genResult && genResult.summary.totalMarks) || (genResult && genResult.summary.totalSubjects * mps) || totalMarks || mps || 100;
+
+      const examRecord = {
+        id: newExamId,
+        examName,
+        examType,
+        academicSession,
+        description: description || '',
+        marks_per_subject: mps,
+        totalMarks: gradeTotalMarks,
+        subjectMarks: subjectMarks || {},
+        subjectIncluded: subjectIncluded || {},
+        gradeSections: thisGradeSections,
+        grades: [grade],
+        startDate: gradeExamStart,
+        endDate: gradeExamEnd,
+        rules: cfg.rules || null,
+        admin_text: finalAdminText,
+        plan_json: finalPlanJson,
+        status: gradeTimetableEntries.length > 0 ? 'Scheduled' : 'Draft',
+        timetablePublished: false,
+        createdAt: new Date().toISOString()
+      };
+
+      createdExams.push(examRecord);
+      db.exams.push(examRecord);
+    }
+
+    if (allTimetableEntries.length > 0) {
+      db.examTimetables.push(...allTimetableEntries);
+    }
+
+    addActivity(
+      db,
+      'alert',
+      'New Examination Created',
+      `${examName} created for ${createdExams.length} grade(s) with ${allTimetableEntries.length} schedule entries`,
+      'hsl(var(--color-primary))',
+      'rgba(hsl(var(--color-primary)), 0.1)'
+    );
+
+    writeDb(db, ['exams', 'examTimetables', 'activities']);
+
+    res.status(201).json({
+      ...createdExams[0],
+      createdExams,
+      createdCount: createdExams.length
+    });
+  } catch (err) {
+    console.error('Error in createExam:', err);
+    res.status(500).json({ error: err.message || 'Failed to create exam.' });
+  }
 };
 
 export const updateExam = (req, res) => {
   const { id } = req.params;
-  const { examName, examType, academicSession, description, gradeSections, status, totalMarks, subjectMarks, subjectIncluded, timetablePublished } = req.body;
+  const { examName, examType, academicSession, description, gradeSections, grades, startDate, endDate, rules, status, totalMarks, subjectMarks, subjectIncluded, timetablePublished, marksPerSubject, marks_per_subject } = req.body;
 
   const db = readDb();
   const examIndex = db.exams.findIndex(e => e.id === id);
@@ -263,6 +827,17 @@ export const updateExam = (req, res) => {
   if (academicSession) db.exams[examIndex].academicSession = academicSession;
   if (description !== undefined) db.exams[examIndex].description = description;
   if (gradeSections) db.exams[examIndex].gradeSections = gradeSections;
+  if (grades) db.exams[examIndex].grades = grades;
+  if (startDate) db.exams[examIndex].startDate = startDate;
+  if (endDate) db.exams[examIndex].endDate = endDate;
+  if (rules) db.exams[examIndex].rules = rules;
+
+  const mps = marks_per_subject !== undefined ? marks_per_subject : marksPerSubject;
+  if (mps !== undefined) {
+    const parsedMps = parseInt(mps, 10);
+    db.exams[examIndex].marks_per_subject = isNaN(parsedMps) ? mps : parsedMps;
+    db.exams[examIndex].marksPerSubject = isNaN(parsedMps) ? mps : parsedMps;
+  }
   
   if (status) {
     db.exams[examIndex].status = status;

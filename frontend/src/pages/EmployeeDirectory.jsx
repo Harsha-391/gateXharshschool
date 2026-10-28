@@ -21,8 +21,12 @@ import {
   CheckCircle,
   Download,
   ArrowUpDown,
-  Filter
+  Filter,
+  Upload,
+  RotateCcw,
+  Loader2
 } from 'lucide-react';
+import EmployeeBulkImportModal from '../components/EmployeeBulkImportModal';
 import { hasPermission } from '../utils/permissions';
 
 const STAFF_CATEGORIES = [
@@ -95,7 +99,6 @@ export default function EmployeeDirectory({ readOnly = true, onAddClick, onEditC
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [designationFilter, setDesignationFilter] = useState('All');
-  const [statusFilter, setStatusFilter] = useState('All');
   const [inspectStaff, setInspectStaff] = useState(null);
   const [editStaff, setEditStaff] = useState(null);
   const [editData, setEditData] = useState({});
@@ -105,6 +108,99 @@ export default function EmployeeDirectory({ readOnly = true, onAddClick, onEditC
   const [designations, setDesignations] = useState([]);
   const [sortBy, setSortBy] = useState('name');
   const [sortOrder, setSortOrder] = useState('asc');
+
+  // Bulk Import & Undo States
+  const canImport = hasPermission('employee-directory', 'create') || hasPermission('add-employee', 'create') || !readOnly;
+  const canDelete = !readOnly && (hasPermission('employee-directory', 'delete') || hasPermission('staff-directory', 'delete'));
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [latestBatch, setLatestBatch] = useState(() => {
+    const bId = localStorage.getItem('latest_emp_import_batch_id');
+    const bTime = localStorage.getItem('latest_emp_import_batch_time');
+    const bCount = localStorage.getItem('latest_emp_import_batch_count');
+    if (bId && bTime && (Date.now() - parseInt(bTime, 10)) < 24 * 60 * 60 * 1000) {
+      return {
+        batchId: bId,
+        importedAt: new Date(parseInt(bTime, 10)).toISOString(),
+        count: bCount ? parseInt(bCount, 10) : 10
+      };
+    }
+    return null;
+  });
+  const [undoLoading, setUndoLoading] = useState(false);
+
+  const fetchLatestBatch = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const tenantSubdomain = localStorage.getItem('tenant_subdomain') || 'default';
+      const res = await fetch('/api/employees/import/latest-batch', {
+        headers: {
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+          'x-tenant-id': tenantSubdomain
+        }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.batchId) {
+          setLatestBatch(data);
+          localStorage.setItem('latest_emp_import_batch_id', data.batchId);
+          localStorage.setItem('latest_emp_import_batch_time', Date.now().toString());
+          if (data.count) localStorage.setItem('latest_emp_import_batch_count', data.count.toString());
+        } else {
+          // If server reports no active batch, verify with localStorage expiration
+          const bTime = localStorage.getItem('latest_emp_import_batch_time');
+          if (!bTime || Date.now() - parseInt(bTime, 10) >= 24 * 60 * 60 * 1000) {
+            setLatestBatch(null);
+            localStorage.removeItem('latest_emp_import_batch_id');
+            localStorage.removeItem('latest_emp_import_batch_time');
+            localStorage.removeItem('latest_emp_import_batch_count');
+          }
+        }
+      }
+    } catch (e) {
+      console.error('Error fetching latest employee batch:', e);
+    }
+  };
+
+  const handleUndoLatestBatch = async () => {
+    if (!latestBatch?.batchId) return;
+
+    let confirmMsg = `This will remove ${latestBatch.count} employees imported on ${new Date(latestBatch.importedAt).toLocaleString()}. Continue?`;
+    if (latestBatch.dependentData?.hasDependentData) {
+      confirmMsg = `WARNING: ${latestBatch.count} employees in this batch have ${latestBatch.dependentData.totalDependentCount} dependent records (${latestBatch.dependentData.attendanceCount} attendance, ${latestBatch.dependentData.leaveCount} leaves, ${latestBatch.dependentData.payrollCount} payroll). Undoing will also delete these records. Are you sure you want to proceed?`;
+    }
+
+    if (!window.confirm(confirmMsg)) return;
+
+    setUndoLoading(true);
+    try {
+      const token = localStorage.getItem('token');
+      const tenantSubdomain = localStorage.getItem('tenant_subdomain') || 'default';
+      const res = await fetch(`/api/employees/import/undo/${latestBatch.batchId}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+          'x-tenant-id': tenantSubdomain
+        },
+        body: JSON.stringify({ force: true })
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to undo import.');
+
+      alert(data.message || 'Import undone successfully.');
+      localStorage.removeItem('latest_emp_import_batch_id');
+      localStorage.removeItem('latest_emp_import_batch_time');
+      setLatestBatch(null);
+      fetchStaff();
+    } catch (err) {
+      alert('Error undoing import: ' + err.message);
+    } finally {
+      setUndoLoading(false);
+    }
+  };
 
   const handleRegenerateQR = async (empId) => {
     try {
@@ -367,40 +463,120 @@ export default function EmployeeDirectory({ readOnly = true, onAddClick, onEditC
 
   useEffect(() => {
     fetchStaff();
+    fetchLatestBatch();
     fetch('/api/designations')
       .then(res => res.json())
       .then(data => {
         setDesignations(data.map(d => d.name));
       })
       .catch(err => console.error('Error fetching designations in StaffDirectory:', err));
+
+    const handleRefresh = () => {
+      fetchStaff();
+      fetchLatestBatch();
+    };
+    window.addEventListener('refresh_employees', handleRefresh);
+    return () => window.removeEventListener('refresh_employees', handleRefresh);
   }, []);
 
-  const handleDeleteStaff = async (staffId) => {
-    if (window.confirm('Are you sure you want to dismiss this employee?')) {
+  // Clear selections when filter/sort/search changes
+  useEffect(() => {
+    setSelectedIds([]);
+  }, [searchQuery, designationFilter, sortBy, sortOrder]);
+
+  const handleToggleSelect = (id) => {
+    setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  };
+
+  const handleSelectAll = () => {
+    const currentIds = displayStaff.map(s => s.id);
+    const allSelected = currentIds.length > 0 && currentIds.every(id => selectedIds.includes(id));
+    if (allSelected) {
+      setSelectedIds(prev => prev.filter(id => !currentIds.includes(id)));
+    } else {
+      setSelectedIds(prev => Array.from(new Set([...prev, ...currentIds])));
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.length === 0) return;
+    if (!window.confirm(`Are you sure you want to dismiss the ${selectedIds.length} selected employee(s) from the directory? This action cannot be undone.`)) {
+      return;
+    }
+    setBulkDeleting(true);
+    const targetIds = [...selectedIds];
+    const originalStaffList = [...staffList];
+
+    // Optimistically update local state
+    setStaffList(prev => prev.filter(s => !targetIds.includes(s.id) && !targetIds.includes(s.employeeId)));
+    setSelectedIds([]);
+    if (inspectStaff && (targetIds.includes(inspectStaff.id) || targetIds.includes(inspectStaff.employeeId))) {
+      setInspectStaff(null);
+    }
+
+    try {
+      const token = localStorage.getItem('token');
+      const tenantSubdomain = localStorage.getItem('tenant_subdomain') || 'default';
+      const res = await fetch('/api/employees/bulk-delete', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-tenant-id': tenantSubdomain,
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify({ ids: targetIds })
+      });
+      if (!res.ok) {
+        setStaffList(originalStaffList);
+        const errData = await res.json().catch(() => ({}));
+        alert(errData.error || 'Server error occurred during bulk deletion.');
+      } else {
+        fetchStaff();
+      }
+    } catch (err) {
+      console.error('Error bulk removing employees:', err);
+      setStaffList(originalStaffList);
+      alert('Network error while bulk removing employees.');
+    } finally {
+      setBulkDeleting(false);
+    }
+  };
+
+  const handleDeleteStaff = async (staffId, staffName) => {
+    const label = staffName ? `${staffName} (${staffId})` : staffId;
+    if (window.confirm(`Are you sure you want to dismiss employee ${label}?`)) {
       const originalStaffList = [...staffList];
 
       // Optimistically update local state
-      setStaffList(prev => prev.filter(s => s.id !== staffId));
-      if (inspectStaff?.id === staffId) {
+      setStaffList(prev => prev.filter(s => s.id !== staffId && s.employeeId !== staffId));
+      setSelectedIds(prev => prev.filter(id => id !== staffId));
+      if (inspectStaff && (inspectStaff.id === staffId || inspectStaff.employeeId === staffId)) {
         setInspectStaff(null);
       }
 
       try {
         const token = localStorage.getItem('token');
+        const tenantSubdomain = localStorage.getItem('tenant_subdomain') || 'default';
         const res = await fetch(`/api/employees/${staffId}`, { 
           method: 'DELETE',
-          headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+          headers: {
+            'x-tenant-id': tenantSubdomain,
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+          }
         });
         if (!res.ok) {
           // Rollback on server failure
           setStaffList(originalStaffList);
-          alert('Failed to delete staff member.');
+          const errData = await res.json().catch(() => ({}));
+          alert(errData.error || 'Failed to delete employee.');
+        } else {
+          fetchStaff();
         }
       } catch (err) {
         console.error('Error removing staff:', err);
         // Rollback on network failure
         setStaffList(originalStaffList);
-        alert('Network error removing staff member.');
+        alert('Network error removing employee.');
       }
     }
   };
@@ -466,8 +642,7 @@ export default function EmployeeDirectory({ readOnly = true, onAddClick, onEditC
       matchesSearch = name.includes(q) || idMatch || id.includes(q);
     }
     const matchesDesignation = designationFilter === 'All' || (s.designation || '') === designationFilter;
-    const matchesStatus = statusFilter === 'All' || s.status === statusFilter;
-    return matchesSearch && matchesDesignation && matchesStatus;
+    return matchesSearch && matchesDesignation;
   });
 
   // Sort filtered staff list
@@ -531,7 +706,6 @@ export default function EmployeeDirectory({ readOnly = true, onAddClick, onEditC
               <div>
                 <h4 style={{ margin: 0, fontWeight: 700, fontSize: '1.15rem' }}>{fullName}</h4>
                 <p style={{ margin: '2px 0 0', fontSize: '0.85rem', color: 'var(--text-muted)' }}>{s.staffCategory || s.role || '—'} • {s.department || '—'}</p>
-                <span className={`badge ${s.status === 'Active' ? 'badge-success' : s.status === 'On Leave' ? 'badge-warning' : 'badge-danger'}`} style={{ marginTop: '6px', display: 'inline-block' }}>{s.status || 'Active'}</span>
               </div>
             </div>
 
@@ -551,9 +725,8 @@ export default function EmployeeDirectory({ readOnly = true, onAddClick, onEditC
               { label: 'Category', value: s.staffCategory || s.role },
               { label: 'Designation', value: s.designation },
               { label: 'Department', value: s.department },
-              { label: 'Employment Type', value: s.employmentType },
               { label: 'Joining Date', value: s.joiningDate || s.dateOfJoining },
-              { label: 'Status', value: s.employeeStatus || s.status }
+              ...(s.batch_id ? [{ label: 'Import Batch', value: `Bulk Import (${s.batch_id})` }] : [])
             ])}
 
             {renderInfoSection('Contact', Phone, 'hsl(210, 90%, 55%)', [
@@ -687,27 +860,10 @@ export default function EmployeeDirectory({ readOnly = true, onAddClick, onEditC
                   <input type="text" name="mobile" value={editData.mobile || editData.phone || ''} onChange={(e) => { const v = e.target.value.replace(/[^0-9]/g, '').slice(0, 10); setEditData(p => ({ ...p, mobile: v, phone: v })); }} className="form-control" style={inputStyle} />
                 </div>
                 <div className="form-group">
-                  <label style={{ fontSize: '0.8rem', fontWeight: 600 }}>Status</label>
-                  <select name="status" value={editData.status || 'Active'} onChange={handleEditChange} className="form-control" style={inputStyle}>
-                    <option value="Active">Active</option>
-                    <option value="Inactive">Inactive</option>
-                  </select>
-                </div>
-                <div className="form-group">
                   <label style={{ fontSize: '0.8rem', fontWeight: 600 }}>Designation</label>
                   <select name="designation" value={editData.designation || ''} onChange={handleEditDesignationChange} className="form-control" style={inputStyle}>
                     <option value="">Select Designation</option>
                     {designations.map(d => <option key={d} value={d}>{d}</option>)}
-                  </select>
-                </div>
-                <div className="form-group">
-                  <label style={{ fontSize: '0.8rem', fontWeight: 600 }}>Employment Type</label>
-                  <select name="employmentType" value={editData.employmentType || ''} onChange={handleEditChange} className="form-control" style={inputStyle}>
-                    <option value="">Select</option>
-                    <option value="Full-Time">Full-Time</option>
-                    <option value="Part-Time">Part-Time</option>
-                    <option value="Contract">Contract</option>
-                    <option value="Temporary">Temporary</option>
                   </select>
                 </div>
               </div>
@@ -763,17 +919,44 @@ export default function EmployeeDirectory({ readOnly = true, onAddClick, onEditC
               {designations.map(d => <option key={d} value={d}>{d}</option>)}
             </select>
 
-            <select 
-              className="select-custom" 
-              value={statusFilter} 
-              onChange={(e) => setStatusFilter(e.target.value)}
-              style={{ padding: '8px 12px', borderRadius: '8px', fontSize: '0.85rem' }}
-            >
-              <option value="All">All Status</option>
-              <option value="Active">Active</option>
-              <option value="Inactive">Inactive</option>
-              <option value="On Leave">On Leave</option>
-            </select>
+            {/* Bulk Import & Undo Action Buttons */}
+            {canImport && (
+              <button
+                type="button"
+                className="btn-primary"
+                onClick={() => setShowImportModal(true)}
+                title="Import employees in bulk via Excel or CSV"
+                style={{ padding: '8px 16px', borderRadius: '8px', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}
+              >
+                <Upload size={15} /> Import Employees
+              </button>
+            )}
+
+            {latestBatch?.batchId && (
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={handleUndoLatestBatch}
+                disabled={undoLoading}
+                title={`Undo last batch: ${latestBatch.count || ''} employees imported on ${new Date(latestBatch.importedAt || Date.now()).toLocaleDateString()}`}
+                style={{
+                  padding: '8px 14px',
+                  borderRadius: '8px',
+                  fontSize: '0.85rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  color: '#ef4444',
+                  borderColor: 'rgba(239, 68, 68, 0.4)',
+                  background: 'rgba(239, 68, 68, 0.05)',
+                  fontWeight: 600,
+                  cursor: 'pointer'
+                }}
+              >
+                {undoLoading ? <Loader2 size={14} className="animate-spin" /> : <RotateCcw size={14} />}
+                Undo Last Import {latestBatch.count ? `(${latestBatch.count})` : ''}
+              </button>
+            )}
           </div>
         </div>
 
@@ -810,80 +993,171 @@ export default function EmployeeDirectory({ readOnly = true, onAddClick, onEditC
 
       {/* Directory Table */}
       <div className="glass-panel" style={{ padding: '20px', position: 'relative' }}>
+        {/* Bulk Selection Action Toolbar */}
+        {canDelete && selectedIds.length > 0 && (
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '12px 18px',
+            marginBottom: '16px',
+            borderRadius: '12px',
+            background: 'linear-gradient(135deg, rgba(255, 140, 66, 0.15) 0%, rgba(255, 90, 95, 0.15) 100%)',
+            border: '1px solid rgba(255, 140, 66, 0.35)',
+            boxShadow: '0 4px 20px rgba(0, 0, 0, 0.15)',
+            animation: 'fadeIn 0.2s ease-in-out'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <span style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                minWidth: '24px',
+                height: '24px',
+                padding: '0 6px',
+                borderRadius: '12px',
+                background: 'hsl(var(--color-primary))',
+                color: '#fff',
+                fontSize: '0.75rem',
+                fontWeight: 800
+              }}>
+                {selectedIds.length}
+              </span>
+              <span style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-main)' }}>
+                {selectedIds.length} employee{selectedIds.length > 1 ? 's' : ''} selected
+              </span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <button
+                type="button"
+                onClick={() => setSelectedIds([])}
+                className="btn-secondary"
+                style={{ padding: '6px 14px', borderRadius: '8px', fontSize: '0.8rem', cursor: 'pointer' }}
+              >
+                Deselect All
+              </button>
+              <button
+                type="button"
+                disabled={bulkDeleting}
+                onClick={handleBulkDelete}
+                className="btn-danger"
+                style={{
+                  padding: '6px 16px',
+                  borderRadius: '8px',
+                  fontSize: '0.8rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  cursor: bulkDeleting ? 'not-allowed' : 'pointer',
+                  background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
+                  color: '#ffffff',
+                  border: 'none',
+                  boxShadow: '0 2px 8px rgba(239, 68, 68, 0.35)',
+                  fontWeight: 600
+                }}
+              >
+                <Trash2 size={14} />
+                {bulkDeleting ? 'Deleting...' : `Delete Selected (${selectedIds.length})`}
+              </button>
+            </div>
+          </div>
+        )}
+
         <div className="custom-table-container" style={{ width: '100%', overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
             <table className="custom-table">
               <thead>
                 <tr>
+                  {canDelete && (
+                    <th style={{ width: '44px', textAlign: 'center', padding: '10px 8px' }}>
+                      <input
+                        type="checkbox"
+                        checked={displayStaff.length > 0 && displayStaff.every(s => selectedIds.includes(s.id))}
+                        onChange={handleSelectAll}
+                        aria-label="Select all employees"
+                        style={{ cursor: 'pointer', width: '16px', height: '16px', accentColor: 'hsl(var(--color-primary))' }}
+                      />
+                    </th>
+                  )}
                   <th>Employee ID</th>
                   <th>Employee Name</th>
                   <th>Designation</th>
-                  <th>Designation Level</th>
-                  <th>Employee Type</th>
                   <th>Contact</th>
-                  <th>Status</th>
-                  <th>Actions</th>
+                  <th style={{ textAlign: 'right' }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {displayStaff.length > 0 ? (
-                  displayStaff.map((s) => (
-                    <tr key={s.id}>
-                      <td style={{ fontWeight: 600, fontSize: '0.82rem' }}>{s.id}</td>
-                      <td>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                          <div style={{
-                            width: '34px', height: '34px', borderRadius: '50%',
-                            background: s.avatarBg || 'linear-gradient(135deg, #667eea, #764ba2)',
-                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            color: 'white', fontSize: '0.75rem', fontWeight: 700, overflow: 'hidden', flexShrink: 0
-                          }}>
-                            {s.photo ? <img src={s.photo} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : ((s.fullName || s.name || '?').split(' ').map(n => n[0]).join('').slice(0, 2))}
+                  displayStaff.map((s) => {
+                    const isSelected = selectedIds.includes(s.id);
+                    return (
+                      <tr 
+                        key={s.id}
+                        style={{
+                          background: isSelected ? 'rgba(var(--color-primary-rgb, 255, 140, 66), 0.08)' : undefined,
+                          transition: 'background-color 0.15s ease'
+                        }}
+                      >
+                        {canDelete && (
+                          <td style={{ textAlign: 'center', padding: '10px 8px' }} onClick={(e) => e.stopPropagation()}>
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={() => handleToggleSelect(s.id)}
+                              aria-label={`Select employee ${s.fullName || s.name}`}
+                              style={{ cursor: 'pointer', width: '16px', height: '16px', accentColor: 'hsl(var(--color-primary))' }}
+                            />
+                          </td>
+                        )}
+                        <td style={{ fontWeight: 600, fontSize: '0.82rem' }}>{s.id}</td>
+                        <td>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <div style={{
+                              width: '34px', height: '34px', borderRadius: '50%',
+                              background: s.avatarBg || 'linear-gradient(135deg, #667eea, #764ba2)',
+                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              color: 'white', fontSize: '0.75rem', fontWeight: 700, overflow: 'hidden', flexShrink: 0
+                            }}>
+                              {s.photo ? <img src={s.photo} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : ((s.fullName || s.name || '?').split(' ').map(n => n[0]).join('').slice(0, 2))}
+                            </div>
+                            <div>
+                              <span style={{ fontWeight: 600, fontSize: '0.88rem' }}>{s.fullName || s.name}</span>
+                            </div>
                           </div>
-                          <div>
-                            <span style={{ fontWeight: 600, fontSize: '0.88rem' }}>{s.fullName || s.name}</span>
+                        </td>
+                        <td><span style={{ fontSize: '0.82rem' }}>{s.designation || '—'}</span></td>
+                        <td>
+                          <div style={{ fontSize: '0.82rem' }}>
+                            <div>{s.mobile || s.phone || '—'}</div>
+                            {s.email && <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{s.email}</div>}
                           </div>
-                        </div>
-                      </td>
-                      <td><span style={{ fontSize: '0.82rem' }}>{s.designation || '—'}</span></td>
-                      <td><span style={{ fontSize: '0.82rem' }}>{s.designationLevel || '—'}</span></td>
-                      <td><span style={{ fontSize: '0.82rem' }}>{s.employmentType || '—'}</span></td>
-                      <td>
-                        <div style={{ fontSize: '0.82rem' }}>
-                          <div>{s.mobile || s.phone || '—'}</div>
-                          {s.email && <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{s.email}</div>}
-                        </div>
-                      </td>
-                      <td>
-                        <span className={`badge ${s.status === 'Active' ? 'badge-success' : s.status === 'On Leave' ? 'badge-warning' : s.status === 'Inactive' ? 'badge-danger' : 'badge-info'}`}>
-                          {s.status || 'Active'}
-                        </span>
-                      </td>
-                      <td>
-                        <div style={{ display: 'flex', gap: '6px' }}>
-                          <button onClick={() => setInspectStaff(s)} className="btn-secondary" style={{ padding: '6px 10px', fontSize: '0.8rem', borderRadius: '8px' }} title="Inspect">
-                            <Eye size={13} />
-                          </button>
-                          {!readOnly && (
-                            <>
-                              {hasPermission('staff-directory', 'edit') && (
-                                <button onClick={() => onEditClick ? onEditClick(s) : openEdit(s)} className="btn-secondary" style={{ padding: '6px 10px', fontSize: '0.8rem', borderRadius: '8px' }} title="Edit">
-                                  <Edit3 size={13} />
-                                </button>
-                              )}
-                              {hasPermission('staff-directory', 'delete') && (
-                                <button onClick={() => handleDeleteStaff(s.id)} className="btn-secondary" style={{ padding: '6px 10px', fontSize: '0.8rem', borderRadius: '8px', borderColor: 'rgb(var(--color-danger-rgb))', color: 'rgb(var(--color-danger-rgb))' }} title="Dismiss">
-                                  <Trash2 size={13} />
-                                </button>
-                              )}
-                            </>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))
+                        </td>
+                        <td>
+                          <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
+                            <button onClick={() => setInspectStaff(s)} className="btn-secondary" style={{ padding: '6px 10px', fontSize: '0.8rem', borderRadius: '8px' }} title="Inspect">
+                              <Eye size={13} />
+                            </button>
+                            {!readOnly && (
+                              <>
+                                {(hasPermission('employee-directory', 'edit') || hasPermission('staff-directory', 'edit')) && (
+                                  <button onClick={() => onEditClick ? onEditClick(s) : openEdit(s)} className="btn-secondary" style={{ padding: '6px 10px', fontSize: '0.8rem', borderRadius: '8px' }} title="Edit">
+                                    <Edit3 size={13} />
+                                  </button>
+                                )}
+                                {canDelete && (
+                                  <button onClick={() => handleDeleteStaff(s.id, s.fullName || s.name)} className="btn-danger" style={{ padding: '6px 10px', fontSize: '0.8rem', borderRadius: '8px', background: 'rgba(var(--color-danger-rgb), 0.1)', border: '1px solid rgba(var(--color-danger-rgb), 0.2)', color: 'rgb(var(--color-danger-rgb))' }} title="Dismiss">
+                                    <Trash2 size={13} />
+                                  </button>
+                                )}
+                              </>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
                 ) : (
                   <tr>
-                    <td colSpan="8" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
+                    <td colSpan={canDelete ? "6" : "5"} style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
                       {loading ? 'Loading employee records...' : 'No employees match your search criteria.'}
                     </td>
                   </tr>
@@ -898,6 +1172,19 @@ export default function EmployeeDirectory({ readOnly = true, onAddClick, onEditC
 
       {/* Edit Modal */}
       {renderEditModal()}
+
+      {/* Employee Bulk Import Wizard Modal */}
+      <EmployeeBulkImportModal
+        isOpen={showImportModal}
+        onClose={() => {
+          setShowImportModal(false);
+          fetchLatestBatch();
+        }}
+        onImportComplete={() => {
+          fetchLatestBatch();
+          fetchStaff();
+        }}
+      />
     </div>
   );
 }

@@ -5,12 +5,13 @@ import {
   getTeachers, 
   getTeacherById,
   updateTeacher, 
-  deleteTeacher 
+  deleteTeacher,
+  bulkDeleteTeachers 
 } from '../controllers/teacherController.js';
 import upload from '../middleware/upload.js';
 import { auth } from '../middleware/auth.js';
 import { checkPermission } from '../middleware/permissionMiddleware.js';
-import { restoreTenantContext } from '../utils/db.js';
+import { restoreTenantContext, ensureTenantSqlLoaded } from '../utils/db.js';
 
 const router = express.Router();
 
@@ -26,8 +27,9 @@ const uploadFields = upload.fields([
   { name: 'otherFile', maxCount: 1 }
 ]);
 
-// Apply tenant context and auth globally to all teacher routes
+// Apply tenant context, SQL database loader, and auth globally to all teacher routes
 router.use(restoreTenantContext);
+router.use(ensureTenantSqlLoaded);
 router.use(auth);
 
 // 1. GET ALL TEACHERS
@@ -37,12 +39,16 @@ router.get('/', checkPermission('teacher-directory', 'view'), getTeachers);
 router.get('/:id', checkPermission('teacher-directory', 'view'), getTeacherById);
 
 // 3. REGISTER NEW TEACHER
-router.post('/', uploadFields, checkPermission('register-teacher', 'create'), teacherValidation, registerTeacher);
+router.post('/', uploadFields, restoreTenantContext, checkPermission('register-teacher', 'create'), teacherValidation, registerTeacher);
 
 // 4. UPDATE TEACHER PROFILE
-router.put('/:id', uploadFields, checkPermission('teacher-directory', 'edit'), updateTeacher);
+router.put('/:id', uploadFields, restoreTenantContext, checkPermission('teacher-directory', 'edit'), updateTeacher);
 
-// 5. DISMISS/REMOVE TEACHER
+// 5. BULK DISMISS TEACHERS
+router.post('/bulk-delete', checkPermission('teacher-directory', 'delete'), bulkDeleteTeachers);
+router.delete('/bulk-delete', checkPermission('teacher-directory', 'delete'), bulkDeleteTeachers);
+
+// 6. DISMISS/REMOVE TEACHER
 router.delete('/:id', checkPermission('teacher-directory', 'delete'), deleteTeacher);
 
 export default router;

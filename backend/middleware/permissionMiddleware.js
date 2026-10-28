@@ -16,7 +16,6 @@ const LEGACY_MODULE_MAP = {
   'attendance-manager': 'attendance',
   'attendance-history': 'attendance',
   'class-timetable': 'academic-manager',
-  'teacher-timetable': 'academic-manager',
   'exam-timetable': 'academic-manager',
   'published-timetable': 'academic-manager',
   'published-exam': 'academic-manager',
@@ -175,14 +174,51 @@ export const checkPermission = (module, action) => {
     if (
       roleName === 'Developer Admin' || 
       roleName === 'Main Admin' || 
-      roleName === 'Admin Dashboard' ||
-      roleName === 'Principal' ||
+      roleName === 'Admin Dashboard' || 
+      roleName === 'Principal' || 
       role === 'Developer Admin' || 
       role === 'Main Admin' || 
-      role === 'Admin Dashboard' ||
+      role === 'Admin Dashboard' || 
       role === 'Principal'
     ) {
       return next();
+    }
+
+    const isTeacher = user.userType === 'Teacher' || 
+      (roleName && roleName.toLowerCase() === 'teacher') || 
+      (role && role.toLowerCase() === 'teacher');
+    
+    // Check if teacher is a class teacher
+    let isClassTeacher = Boolean(
+      user.isClassTeacher === true || user.isClassTeacher === 1 || 
+      user.isClassTeacher === 'Yes' || user.isClassTeacher === 'true'
+    );
+    if (isTeacher && !isClassTeacher) {
+      const teacherRecord = (db.teachers || []).find(t => t.id === user.id);
+      if (teacherRecord) {
+        isClassTeacher = Boolean(
+          teacherRecord.isClassTeacher === 1 || teacherRecord.isClassTeacher === true || 
+          teacherRecord.isClassTeacher === 'Yes' || teacherRecord.isClassTeacher === 'true'
+        );
+      }
+    }
+
+    const isResultModule = [
+      'results', 'results-manager', 'results-marks-entry', 
+      'results-history', 'academic-results'
+    ].includes(module);
+
+    const isStudentAttendanceModule = [
+      'attendance', 'attendance-history', 'attendance-manager'
+    ].includes(module);
+
+    // If teacher is NOT a class teacher, strictly deny Result Manager and Student Attendance
+    if (isTeacher && !isClassTeacher) {
+      if (isResultModule || isStudentAttendanceModule) {
+        return res.status(403).json({ 
+          error: 'Access denied. Only class teachers can access Result Manager and Student Attendance.' 
+        });
+      }
     }
 
     // Accountants have access to all finance, payroll, and expense modules
@@ -275,20 +311,13 @@ export const checkPermission = (module, action) => {
 
     // Teachers are always permitted to view timetable, exam, and calendar schedules
     if (action === 'view') {
-      if (
-        user.userType === 'Teacher' || 
-        (roleName && roleName.toLowerCase() === 'teacher')
-      ) {
+      if (isTeacher) {
         const allowedTeacherViewModules = [
           'class-timetable',
-          'teacher-timetable',
           'published-timetable',
           'exam-timetable',
           'academic-manager',
           'academic-calendar',
-          'results',
-          'results-manager',
-          'results-marks-entry',
           'student-directory',
           'teacher-directory'
         ];

@@ -1,37 +1,6 @@
 import { readDb, writeDb, addActivity } from '../utils/db.js';
 import { logAudit } from '../utils/logger.js';
-
-const normalizeGradeStr = (g) => {
-  if (!g) return '';
-  let str = String(g).trim().toUpperCase();
-  str = str.replace(/^GRADE\s+/i, '').trim();
-  const romanToNum = {
-    'I': '1', 'II': '2', 'III': '3', 'IV': '4', 'V': '5',
-    'VI': '6', 'VII': '7', 'VIII': '8', 'IX': '9', 'X': '10',
-    'XI': '11', 'XII': '12'
-  };
-  const base = str.split(/[\s()\-]+/)[0];
-  if (romanToNum[base]) {
-    return romanToNum[base];
-  }
-  return str;
-};
-
-const areGradesMatch = (g1, g2) => {
-  if (!g1 || !g2) return false;
-  if (String(g1).trim().toLowerCase() === String(g2).trim().toLowerCase()) return true;
-  return normalizeGradeStr(g1) === normalizeGradeStr(g2);
-};
-
-const normalizeSectionStr = (s) => {
-  if (!s) return '';
-  return String(s).trim().toUpperCase().replace(/^SECTION\s+/i, '').trim();
-};
-
-const areSectionsMatch = (s1, s2) => {
-  if (!s1 || !s2) return false;
-  return normalizeSectionStr(s1) === normalizeSectionStr(s2);
-};
+import { normalizeGradeStr, areGradesMatch, normalizeSectionStr, areSectionsMatch } from '../utils/gradeUtils.js';
 
 // 1. GET ATTENDANCE ROSTER FOR GIVEN DATE, CLASS, SECTION
 export const getAttendanceRoster = (req, res) => {
@@ -44,9 +13,10 @@ export const getAttendanceRoster = (req, res) => {
 
     const db = readDb();
      
-    // Filter students by class & section (only Active students)
-    let filteredStudents = db.students.filter(stu => {
-      if (stu.status !== 'Active') return false;
+    // Filter students by class & section (only Active, non-batch-deleted students)
+    let filteredStudents = (db.students || []).filter(stu => {
+      const isStatusActive = !stu.status || stu.status === 'Active';
+      if (!isStatusActive || stu.is_deleted_by_batch === 'Yes') return false;
       const matchClass = areGradesMatch(stu.studentClass, studentClass) || areGradesMatch(stu.grade?.split('-')[0], studentClass);
       const matchSec = areSectionsMatch(stu.section, section) || areSectionsMatch(stu.grade?.split('-')[1], section);
       return matchClass && matchSec;
@@ -186,14 +156,21 @@ export const getStudentAttendanceReport = (req, res) => {
     const { studentClass, section, search } = req.query;
 
     const db = readDb();
-    let filteredStudents = (db.students || []).filter(stu => stu.status === 'Active');
+    let filteredStudents = (db.students || []).filter(stu => (!stu.status || stu.status === 'Active') && stu.is_deleted_by_batch !== 'Yes');
 
     // Filters
     if (studentClass && studentClass !== 'All') {
-      filteredStudents = filteredStudents.filter(stu => stu.studentClass === studentClass || (stu.grade && stu.grade.split('-')[0] === studentClass));
+      filteredStudents = filteredStudents.filter(stu => 
+        areGradesMatch(stu.studentClass, studentClass) || 
+        areGradesMatch(stu.grade?.split('-')[0], studentClass)
+      );
     }
     if (section && section !== 'All') {
-      filteredStudents = filteredStudents.filter(stu => stu.section === section || stu.grade?.endsWith(section));
+      filteredStudents = filteredStudents.filter(stu => 
+        areSectionsMatch(stu.section, section) || 
+        areSectionsMatch(stu.grade?.split('-')[1], section) ||
+        stu.grade?.endsWith(section)
+      );
     }
     if (search && search.trim() !== '') {
       const query = search.toLowerCase();
@@ -252,7 +229,7 @@ export const getClassAttendanceReport = (req, res) => {
     const todayStr = date || new Date().toLocaleDateString('en-CA'); // 'en-CA' outputs YYYY-MM-DD in local time
     
     const db = readDb();
-    const students = (db.students || []).filter(stu => stu.status === 'Active');
+    const students = (db.students || []).filter(stu => (!stu.status || stu.status === 'Active') && stu.is_deleted_by_batch !== 'Yes');
     const attendanceRecords = db.attendance || [];
 
     // Group students by Class & Section

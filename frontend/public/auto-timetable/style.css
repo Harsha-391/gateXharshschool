@@ -1,0 +1,734 @@
+/* ========================================================
+   Auto Class Timetable - External Stylesheet
+   Theme: Vibrant Orange Glassmorphism (School System Default)
+   Zero inline styles - Pure CSS Classes & Tokens
+   ======================================================== */
+
+:root {
+  --color-primary: 24, 100%, 50%;
+  --color-primary-hover: 24, 100%, 45%;
+  --color-secondary: 215, 25%, 27%;
+  --color-success: 142, 76%, 36%;
+  --color-danger: 0, 84%, 60%;
+  --color-warning: 38, 92%, 50%;
+  --color-info: 199, 89%, 48%;
+
+  --bg-app: #0b0f19;
+  --bg-card: rgba(18, 24, 38, 0.85);
+  --bg-card-hover: rgba(26, 35, 55, 0.95);
+  --bg-glass: rgba(255, 255, 255, 0.04);
+  --bg-glass-active: rgba(255, 107, 0, 0.16);
+
+  --border-glass: rgba(255, 255, 255, 0.08);
+  --border-glass-strong: rgba(255, 255, 255, 0.15);
+  --border-primary: hsl(var(--color-primary));
+
+  --text-main: #f1f5f9;
+  --text-muted: #94a3b8;
+  --text-dim: #64748b;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -2px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.5), 0 4px 6px -4px rgba(0, 0, 0, 0.5);
+  --shadow-glow: 0 0 15px rgba(255, 107, 0, 0.25);
+
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --radius-full: 9999px;
+  --font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--font-family);
+  background-color: var(--bg-app);
+  background-image: 
+    radial-gradient(at 0% 0%, rgba(255, 107, 0, 0.08) 0px, transparent 50%),
+    radial-gradient(at 100% 100%, rgba(30, 58, 138, 0.12) 0px, transparent 50%);
+  color: var(--text-main);
+  line-height: 1.5;
+  min-height: 100vh;
+  padding: 24px;
+}
+
+/* Page Layout */
+.app-container {
+  max-width: 1440px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* Header */
+.app-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+  background: var(--bg-card);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--border-glass);
+  border-radius: var(--radius-lg);
+  padding: 18px 24px;
+  box-shadow: var(--shadow-md);
+}
+
+.header-title-group {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.header-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-md);
+  background: rgba(255, 107, 0, 0.15);
+  border: 1px solid var(--border-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: hsl(var(--color-primary));
+  font-size: 22px;
+}
+
+.header-titles h1 {
+  font-size: 1.25rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: var(--text-main);
+}
+
+.header-titles p {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* Buttons */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-family: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 8px 16px;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: 1px solid transparent;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.btn-primary {
+  background: hsl(var(--color-primary));
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(255, 107, 0, 0.35);
+}
+
+.btn-primary:hover {
+  background: hsl(var(--color-primary-hover));
+  box-shadow: var(--shadow-glow);
+  transform: translateY(-1px);
+}
+
+.btn-secondary {
+  background: var(--bg-glass);
+  color: var(--text-main);
+  border-color: var(--border-glass-strong);
+}
+
+.btn-secondary:hover {
+  background: var(--bg-card-hover);
+  border-color: var(--border-primary);
+  color: hsl(var(--color-primary));
+}
+
+.btn-danger {
+  background: rgba(239, 68, 68, 0.12);
+  color: #ef4444;
+  border-color: rgba(239, 68, 68, 0.3);
+}
+
+.btn-danger:hover {
+  background: rgba(239, 68, 68, 0.2);
+}
+
+.btn-sm {
+  padding: 4px 10px;
+  font-size: 0.75rem;
+  border-radius: var(--radius-sm);
+}
+
+/* Glass Panels */
+.glass-panel {
+  background: var(--bg-card);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--border-glass);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  box-shadow: var(--shadow-md);
+}
+
+.panel-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text-main);
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.panel-title-icon {
+  color: hsl(var(--color-primary));
+}
+
+/* Chips & Presets */
+.preset-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.preset-label {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-weight: 600;
+  margin-right: 4px;
+}
+
+.chip-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.grade-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: var(--radius-full);
+  font-size: 0.82rem;
+  font-weight: 500;
+  cursor: pointer;
+  background: var(--bg-glass);
+  border: 1px solid var(--border-glass);
+  color: var(--text-main);
+  transition: all 0.18s ease;
+  user-select: none;
+}
+
+.grade-chip:hover {
+  background: var(--bg-card-hover);
+  border-color: var(--border-primary);
+}
+
+.grade-chip.active {
+  background: var(--bg-glass-active);
+  border-color: var(--border-primary);
+  color: hsl(var(--color-primary));
+  font-weight: 700;
+  box-shadow: 0 0 10px rgba(255, 107, 0, 0.2);
+}
+
+.chip-check {
+  font-size: 13px;
+  font-weight: 900;
+}
+
+/* Diagnostics Banner */
+.diagnostics-panel {
+  border-radius: var(--radius-md);
+  padding: 14px 18px;
+  font-size: 0.85rem;
+  margin-bottom: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.diagnostics-ready {
+  background: rgba(34, 197, 94, 0.1);
+  border: 1px solid rgba(34, 197, 94, 0.3);
+  color: #4ade80;
+}
+
+.diagnostics-error {
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: #f87171;
+}
+
+.diagnostics-warning {
+  background: rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  color: #fbbf24;
+}
+
+.diag-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+/* AI Assistant Box */
+.ai-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ai-textarea {
+  width: 100%;
+  min-height: 80px;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid var(--border-glass-strong);
+  border-radius: var(--radius-md);
+  padding: 10px 14px;
+  color: var(--text-main);
+  font-family: inherit;
+  font-size: 0.85rem;
+  resize: vertical;
+}
+
+.ai-textarea:focus {
+  outline: none;
+  border-color: var(--border-primary);
+  box-shadow: 0 0 0 2px rgba(255, 107, 0, 0.2);
+}
+
+.ai-confirm-box {
+  background: rgba(255, 107, 0, 0.08);
+  border: 1px solid rgba(255, 107, 0, 0.3);
+  border-radius: var(--radius-md);
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 0.83rem;
+}
+
+.ai-confirm-title {
+  font-weight: 700;
+  color: hsl(var(--color-primary));
+}
+
+.ai-confirm-list {
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* Navigation Tabs */
+.view-tabs {
+  display: flex;
+  gap: 6px;
+  border-bottom: 1px solid var(--border-glass);
+  padding-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.view-tab {
+  padding: 8px 18px;
+  border-radius: var(--radius-md);
+  font-size: 0.85rem;
+  font-weight: 600;
+  background: transparent;
+  color: var(--text-muted);
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.view-tab:hover {
+  color: var(--text-main);
+  background: var(--bg-glass);
+}
+
+.view-tab.active {
+  color: hsl(var(--color-primary));
+  background: var(--bg-glass-active);
+  font-weight: 700;
+}
+
+.sub-tabs {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+
+.sub-tab-btn {
+  padding: 4px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 0.78rem;
+  font-weight: 500;
+  background: var(--bg-glass);
+  border: 1px solid var(--border-glass);
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.sub-tab-btn.active {
+  background: hsl(var(--color-primary));
+  color: #ffffff;
+  border-color: hsl(var(--color-primary));
+  font-weight: 700;
+}
+
+/* Timetable Matrix Grid */
+.matrix-container {
+  overflow-x: auto;
+  border: 1px solid var(--border-glass);
+  border-radius: var(--radius-md);
+  background: rgba(10, 15, 26, 0.7);
+  margin-top: 14px;
+}
+
+.matrix-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 800px;
+  font-size: 0.82rem;
+}
+
+.matrix-table th,
+.matrix-table td {
+  border: 1px solid var(--border-glass);
+  padding: 10px 12px;
+  text-align: center;
+}
+
+.matrix-table th {
+  background: rgba(255, 255, 255, 0.03);
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.matrix-table th.col-period {
+  width: 130px;
+  text-align: left;
+}
+
+.period-title {
+  font-weight: 700;
+  color: hsl(var(--color-primary));
+}
+
+.period-time {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+/* Timetable Cells */
+.tt-cell {
+  position: relative;
+  min-height: 60px;
+  border-radius: var(--radius-sm);
+  padding: 8px;
+  transition: all 0.2s ease;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 3px;
+}
+
+.tt-cell:hover {
+  background: rgba(255, 255, 255, 0.05);
+  transform: scale(1.02);
+  z-index: 2;
+}
+
+.tt-cell.break-cell {
+  background: rgba(148, 163, 184, 0.06);
+  color: var(--text-dim);
+  font-style: italic;
+  font-size: 0.78rem;
+  cursor: not-allowed;
+}
+
+.tt-cell.locked {
+  border: 1.5px solid rgba(245, 158, 11, 0.6);
+  background: rgba(245, 158, 11, 0.08);
+}
+
+.tt-cell.selected-swap {
+  border: 2px solid hsl(var(--color-primary));
+  background: rgba(255, 107, 0, 0.25);
+  box-shadow: 0 0 10px rgba(255, 107, 0, 0.5);
+}
+
+.tt-cell.clash-error {
+  border: 2px solid #ef4444;
+  background: rgba(239, 68, 68, 0.2);
+}
+
+.cell-subject {
+  font-weight: 700;
+  color: #ffffff;
+  font-size: 0.85rem;
+}
+
+.cell-teacher {
+  font-size: 0.74rem;
+  color: #cbd5e1;
+}
+
+.cell-lock-badge {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  font-size: 11px;
+  color: #f59e0b;
+}
+
+/* Modals */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 99999;
+  padding: 16px;
+}
+
+.modal-content {
+  background: var(--bg-card);
+  border: 1px solid var(--border-glass-strong);
+  border-radius: var(--radius-lg);
+  width: 100%;
+  max-width: 720px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: var(--shadow-lg);
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--border-glass);
+  padding-bottom: 12px;
+}
+
+.modal-header h3 {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.modal-close {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 20px;
+  cursor: pointer;
+}
+
+.modal-close:hover {
+  color: #ef4444;
+}
+
+.settings-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.83rem;
+}
+
+.settings-table th,
+.settings-table td {
+  border: 1px solid var(--border-glass);
+  padding: 8px 12px;
+  text-align: left;
+}
+
+.settings-table th {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.input-num {
+  width: 60px;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--border-glass-strong);
+  border-radius: var(--radius-sm);
+  color: #ffffff;
+  padding: 4px 8px;
+  text-align: center;
+  font-family: inherit;
+}
+
+/* Toast Notification */
+.toast-notice {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  padding: 12px 20px;
+  border-radius: var(--radius-md);
+  font-size: 0.85rem;
+  font-weight: 600;
+  box-shadow: var(--shadow-lg);
+  z-index: 100000;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.toast-notice.success {
+  background: #15803d;
+  color: #ffffff;
+  border: 1px solid #22c55e;
+}
+
+.toast-notice.error {
+  background: #b91c1c;
+  color: #ffffff;
+  border: 1px solid #ef4444;
+}
+
+/* ========================================================
+   PRINT STYLESHEET
+   Print-friendly formatting for class and teacher timetables
+   ======================================================== */
+@media print {
+  body {
+    background: #ffffff !important;
+    color: #000000 !important;
+    padding: 0 !important;
+    font-size: 10pt !important;
+  }
+
+  .app-header,
+  .btn,
+  .preset-bar,
+  .chip-container,
+  .diagnostics-panel,
+  .ai-section,
+  .view-tabs,
+  .sub-tabs,
+  .no-print {
+    display: none !important;
+  }
+
+  .print-header {
+    display: block !important;
+    text-align: center;
+    border-bottom: 2px solid #000000;
+    padding-bottom: 8px;
+    margin-bottom: 14px;
+  }
+
+  .print-header h2 {
+    font-size: 16pt;
+    font-weight: bold;
+    text-transform: uppercase;
+  }
+
+  .print-header p {
+    font-size: 10pt;
+    color: #444444;
+  }
+
+  .matrix-container {
+    border: none !important;
+    background: none !important;
+    overflow: visible !important;
+  }
+
+  .matrix-table {
+    border-collapse: collapse !important;
+    width: 100% !important;
+    page-break-inside: avoid;
+  }
+
+  .matrix-table th,
+  .matrix-table td {
+    border: 1px solid #333333 !important;
+    color: #000000 !important;
+    padding: 6px !important;
+  }
+
+  .matrix-table th {
+    background: #f1f5f9 !important;
+    color: #000000 !important;
+    font-weight: bold !important;
+  }
+
+  .period-title {
+    color: #000000 !important;
+    font-weight: bold;
+  }
+
+  .period-time {
+    color: #444444 !important;
+    font-size: 8pt;
+  }
+
+  .cell-subject {
+    color: #000000 !important;
+    font-weight: bold !important;
+    font-size: 10pt !important;
+  }
+
+  .cell-teacher {
+    color: #333333 !important;
+    font-size: 8pt !important;
+  }
+
+  .tt-cell {
+    background: none !important;
+    border: none !important;
+    padding: 2px !important;
+    transform: none !important;
+  }
+
+  .cell-lock-badge {
+    display: none !important;
+  }
+}
+
+.print-header {
+  display: none;
+}
+
+.hide {
+  display: none !important;
+}
+
+.mt-12 {
+  margin-top: 12px;
+}
+
+.text-center {
+  text-align: center;
+}

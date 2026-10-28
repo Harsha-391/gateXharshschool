@@ -1,145 +1,167 @@
 import { readDb, writeDb, addActivity, isSqlActive, tenantStorage, slugify } from '../utils/db.js';
-import { hashPassword } from '../utils/authHelper.js';
+import { hashPassword, isBcryptHash } from '../utils/authHelper.js';
 import { logAudit } from '../utils/logger.js';
 import { encrypt, decrypt } from '../utils/encryptionHelper.js';
 import { uploadToImageKit, deleteFromImageKit } from '../utils/imagekit.js';
+import { areGradesMatch, areSectionsMatch } from '../utils/gradeUtils.js';
 
 
 // ==========================================
 // STUDENT CONTROLLERS
 // ==========================================
 
-// 1. REGISTER NEW STUDENT
-export const registerStudent = async (req, res) => {
-  try {
-    const db = readDb();
+// Shared core entity creation function for both manual registration and bulk import
+export const createStudentEntity = async (data, options = {}) => {
+  const {
+    tenantId = 'platform',
+    db = { students: [] },
+    isImport = false,
+    importBatchId = null,
+    defaultParentPassword = null,
+    mustChangePassword = false,
+    uploadedPaths = {},
+    useMotherEmailFallback = false
+  } = options;
+
+  let {
+    fullName,
+    firstName,
+    middleName,
+    lastName,
+    gender,
+    dob,
+    bloodGroup,
+    nationality,
+    category,
+    religion,
+    aadhaarNumber,
     
-    // Parse form fields
-    let {
-      fullName,
-      firstName,
-      middleName,
-      lastName,
-      gender,
-      dob,
-      bloodGroup,
-      nationality,
-      category,
-      religion,
-      aadhaarNumber,
-      
-      fatherName,
-      fatherOccupation,
-      fatherMobile,
-      fatherEmail,
-      motherName,
-      motherOccupation,
-      motherMobile,
-      motherEmail,
-      guardianName,
-      guardianRelation,
-      guardianContact,
+    fatherName,
+    fatherOccupation,
+    fatherMobile,
+    fatherEmail,
+    motherName,
+    motherOccupation,
+    motherMobile,
+    motherEmail,
+    guardianName,
+    guardianRelation,
+    guardianContact,
 
-      admissionNumber,
-      admissionDate,
-      rollNumber,
-      studentClass,
-      section,
-      academicYear,
-      admissionType,
-      previousSchoolName,
-      previousSchoolAddress,
-      previousClassStudied,
-      transferCertificateNumber,
-      status,
+    admissionNumber,
+    admissionDate,
+    rollNumber,
+    studentClass,
+    section,
+    academicYear,
+    admissionType,
+    previousSchoolName,
+    previousSchoolAddress,
+    previousClassStudied,
+    transferCertificateNumber,
 
-      currentAddress,
-      permanentAddress,
-      city,
-      state,
-      country,
-      postalCode,
-      emergencyContactNumber,
-      isSameAddress,
+    currentAddress,
+    permanentAddress,
+    city,
+    state,
+    country,
+    postalCode,
+    emergencyContactNumber,
+    isSameAddress,
 
-      medicalConditions,
-      allergies,
-      disabilities,
-      emergencyNotes,
-      doctorName,
-      doctorContact,
+    medicalConditions,
+    allergies,
+    disabilities,
+    emergencyNotes,
+    doctorName,
+    doctorContact,
 
-      transportRequired,
-      hostelRequired,
+    transportRequired,
+    hostelRequired,
 
-      feeStructure,
-      scholarshipDetails,
-      discountType,
-      discountAmount,
-      initialPaymentStatus
-    } = req.body;
+    feeStructure,
+    scholarshipDetails,
+    discountType,
+    discountAmount,
+    initialPaymentStatus
+  } = data;
 
-    // Auto-generate academic details if missing
-    if (!admissionNumber) {
-      admissionNumber = `ADM-${Date.now().toString().slice(-6)}`;
-    }
-    if (!rollNumber) {
-      rollNumber = '';
-    }
-    if (!studentClass) {
-      studentClass = 'I';
-    }
-    if (!section) {
-      section = '';
-    }
-    if (!academicYear) {
-      academicYear = '2026-2027';
-    }
+  // Auto-generate academic details if missing
+  if (!admissionNumber) {
+    const randomSuffix = Math.floor(10 + Math.random() * 90);
+    admissionNumber = `ADM-${Date.now().toString().slice(-6)}${randomSuffix}`;
+  }
+  if (!rollNumber) {
+    rollNumber = '';
+  }
+  if (!studentClass) {
+    studentClass = 'I';
+  }
+  if (!section) {
+    section = '';
+  }
+  if (!academicYear) {
+    academicYear = '2026-2027';
+  }
 
-    const calculatedFullName = fullName || [firstName, middleName, lastName].filter(Boolean).join(' ') || 'Student';
-    const calculatedFirstName = firstName || calculatedFullName.split(' ')[0] || '';
-    const calculatedLastName = lastName || calculatedFullName.split(' ').slice(1).join(' ') || '';
+  const calculatedFullName = fullName || [firstName, middleName, lastName].filter(Boolean).join(' ') || 'Student';
+  const calculatedFirstName = firstName || calculatedFullName.split(' ')[0] || '';
+  const calculatedLastName = lastName || calculatedFullName.split(' ').slice(1).join(' ') || '';
 
-    if (!calculatedFullName || !admissionNumber || !studentClass || !adminEmailCheck(req.body)) {
-      return res.status(400).json({ error: 'Missing required student details.' });
-    }
+  // Student login credentials
+  const studentUsername = admissionNumber;
+  const studentPassword = await hashPassword(`stu@${calculatedFirstName.toLowerCase() || 'student'}`);
 
-    if (aadhaarNumber && !/^\d{12}$/.test(String(aadhaarNumber).replace(/\s/g, ''))) {
-      return res.status(400).json({ error: 'Invalid Aadhaar number. Must be exactly 12 digits.' });
+  // Parent account logic
+  let parentId = `PAR-${Math.floor(100000 + Math.random() * 900000)}`;
+  let parentUsername = '';
+  let parentPassword = '';
+  let parentMustChange = false;
+  let createParent = false;
+
+  if (isImport) {
+    let cleanFatherEmail = (fatherEmail || '').trim().toLowerCase();
+    const cleanMotherEmail = (motherEmail || '').trim().toLowerCase();
+    if (!cleanFatherEmail && useMotherEmailFallback && cleanMotherEmail) {
+      cleanFatherEmail = cleanMotherEmail;
     }
 
-    const files = req.files || {};
-    const tenantId = req.admin?.tenantId || 'platform';
-    const folder = `school/${tenantId}/students`;
+    if (cleanFatherEmail && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanFatherEmail)) {
+      createParent = true;
+      // Sibling detection: Check if father's email already belongs to an existing parent login
+      const existingParentStudent = (db.students || []).find(s => {
+        const sFatherEmail = s.fatherEmail ? decrypt(s.fatherEmail).trim().toLowerCase() : '';
+        const sMotherEmail = s.motherEmail ? decrypt(s.motherEmail).trim().toLowerCase() : '';
+        const sParentEmail = s.parentEmail ? decrypt(s.parentEmail).trim().toLowerCase() : '';
+        const sParentUser = (s.parentUsername || '').trim().toLowerCase();
+        return (
+          sParentUser === cleanFatherEmail ||
+          sParentEmail === cleanFatherEmail ||
+          sFatherEmail === cleanFatherEmail ||
+          (useMotherEmailFallback && sMotherEmail === cleanFatherEmail)
+        );
+      });
 
-    const processUpload = async (fileArray) => {
-      if (!fileArray || !fileArray[0]) return '';
-      const uploadRes = await uploadToImageKit(fileArray[0].buffer, fileArray[0].originalname, folder);
-      return uploadRes.url;
-    };
-
-    const photoPath = await processUpload(files.photo);
-    const aadhaarPath = await processUpload(files.aadhaarFile);
-    const birthCertPath = await processUpload(files.birthCertificateFile);
-    const marksheetPath = await processUpload(files.marksheetFile);
-    const tcPath = await processUpload(files.transferCertificateFile);
-    const addressProofPath = await processUpload(files.addressProofFile);
-    const medicalCertPath = await processUpload(files.medicalCertificateFile);
-    const additionalPath = await processUpload(files.additionalFile);
-
-    // Student login credentials
-    const studentUsername = admissionNumber;
-    const studentPassword = await hashPassword(`stu@${calculatedFirstName.toLowerCase() || 'student'}`);
-
-    // Parent account logic
-    let parentId = `PAR-${Math.floor(100000 + Math.random() * 900000)}`;
-    let parentUsername = '';
-    let parentPassword = '';
-
-    const createParent = req.body.createParentLogin === 'true' || req.body.createParentLogin === true || req.body.createParentLogin === 'Yes';
-
+      if (existingParentStudent) {
+        // Link to existing sibling parent account
+        parentId = existingParentStudent.parentId || parentId;
+        parentUsername = existingParentStudent.parentUsername || cleanFatherEmail;
+        parentPassword = existingParentStudent.parentPassword || await hashPassword(defaultParentPassword || process.env.IMPORT_DEFAULT_PASSWORD || '12345');
+        parentMustChange = existingParentStudent.must_change_password === true || existingParentStudent.must_change_password === 'Yes';
+      } else {
+        // Create new parent account with IMPORT_DEFAULT_PASSWORD
+        parentUsername = cleanFatherEmail;
+        const initialPass = defaultParentPassword || process.env.IMPORT_DEFAULT_PASSWORD || '12345';
+        parentPassword = await hashPassword(initialPass);
+        parentMustChange = true;
+      }
+    } else {
+      createParent = false;
+    }
+  } else {
+    // Normal registration form logic
+    createParent = data.createParentLogin === 'true' || data.createParentLogin === true || data.createParentLogin === 'Yes';
     if (createParent) {
-      // Find if parent already exists (matched by email/mobile)
       let existingParentStudent = null;
       if (fatherMobile || fatherEmail || motherMobile || motherEmail) {
         existingParentStudent = (db.students || []).find(s => {
@@ -159,154 +181,217 @@ export const registerStudent = async (req, res) => {
       if (existingParentStudent) {
         parentId = existingParentStudent.parentId || parentId;
         parentUsername = existingParentStudent.parentUsername || existingParentStudent.parentEmail || `parent_${admissionNumber}`;
-        parentPassword = existingParentStudent.parentPassword || await hashPassword('parent123'); // keep existing password (already hashed)
+        parentPassword = existingParentStudent.parentPassword || await hashPassword('parent123');
       } else {
-        parentUsername = req.body.parentUsername || fatherEmail || motherEmail || `parent_${admissionNumber}`;
-        if (req.body.parentPassword) {
-          parentPassword = await hashPassword(req.body.parentPassword);
+        parentUsername = data.parentUsername || fatherEmail || motherEmail || `parent_${admissionNumber}`;
+        if (data.parentPassword) {
+          parentPassword = await hashPassword(data.parentPassword);
         } else {
           parentPassword = await hashPassword('parent123');
         }
       }
     }
-
-    const newStudent = {
-      id: `STU-${Math.floor(1000 + Math.random() * 9000)}`,
-      enrollmentId: `ENR-${Math.floor(100000 + Math.random() * 900000)}`,
-      parentId,
-      addressId: `ADD-${Math.floor(100000 + Math.random() * 900000)}`,
-      medicalId: `MED-${Math.floor(100000 + Math.random() * 900000)}`,
-      feeAssignmentId: `FEE-ASN-${Math.floor(100000 + Math.random() * 900000)}`,
-      name: calculatedFullName,
-      fullName: calculatedFullName,
-      firstName: calculatedFirstName,
-      middleName: middleName || '',
-      lastName: calculatedLastName,
-      gender,
-      dob,
-      bloodGroup,
-      nationality: nationality || 'Indian',
-      category: category || 'General',
-      religion: religion || 'Hinduism',
-      aadhaarNumber: encrypt(aadhaarNumber || ''),
-      
-      fatherName: fatherName || '',
-      fatherOccupation: fatherOccupation || '',
-      fatherMobile: encrypt(fatherMobile || ''),
-      fatherEmail: encrypt(fatherEmail || req.body.parentEmail || ''),
-      motherName: motherName || '',
-      motherOccupation: motherOccupation || '',
-      motherMobile: encrypt(motherMobile || ''),
-      motherEmail: encrypt(motherEmail || ''),
-      guardianName: guardianName || '',
-      guardianRelation: guardianRelation || '',
-      guardianContact: encrypt(guardianContact || ''),
-
-      admissionNumber,
-      admissionDate: admissionDate || new Date().toISOString().split('T')[0],
-      rollNumber,
-      roll: rollNumber,
-      studentClass,
-      section,
-      academicYear,
-      admissionType: admissionType || 'New Admission',
-      previousSchoolName: previousSchoolName || '',
-      previousSchoolAddress: previousSchoolAddress || '',
-      previousClassStudied: previousClassStudied || '',
-      transferCertificateNumber: transferCertificateNumber || '',
-      status: status || 'Pending',
-
-      currentAddress: currentAddress || '',
-      permanentAddress: permanentAddress || '',
-      address: currentAddress || '',
-      city: city || '',
-      state: state || '',
-      country: country || 'India',
-      postalCode: postalCode || '',
-      pincode: postalCode || '',
-      emergencyContactNumber: emergencyContactNumber || '',
-      isSameAddress: isSameAddress === 'true' || isSameAddress === true,
-
-      medicalConditions: medicalConditions || '',
-      allergies: allergies || '',
-      disabilities: disabilities || '',
-      emergencyNotes: emergencyNotes || '',
-      doctorName: doctorName || '',
-      doctorContact: doctorContact || '',
-
-      transportRequired: transportRequired || 'No',
-      route: req.body.route || '',
-      pickupPoint: req.body.pickupPoint || '',
-      dropPoint: req.body.dropPoint || '',
-      transportFeePlan: req.body.transportFeePlan || '',
-
-      hostelRequired: hostelRequired || 'No',
-      hostelBlock: req.body.hostelBlock || '',
-      roomNumber: req.body.roomNumber || '',
-      bedNumber: req.body.bedNumber || '',
-
-      sameAsPermanent: (req.body.sameAsPermanent === 'true' || req.body.sameAsPermanent === true || req.body.sameAsPermanent === 'Yes' || isSameAddress === 'true' || isSameAddress === true) ? 'Yes' : 'No',
-      createParentLogin: createParent ? 'Yes' : 'No',
-
-      feeStructure: feeStructure || '',
-      scholarshipDetails: scholarshipDetails || '',
-      discountType: discountType || '',
-      discountAmount: parseFloat(discountAmount || 0),
-      feeStatus: initialPaymentStatus || 'Pending',
-      initialPaymentStatus: initialPaymentStatus || 'Pending',
-
-      studentUsername,
-      studentPassword,
-      parentUsername,
-      parentPassword,
-      parentEmail: encrypt(req.body.parentEmail || ''),
-
-      // Supporting files
-      photo: photoPath,
-      aadhaarFile: aadhaarPath,
-      birthCertificateFile: birthCertPath,
-      marksheetFile: marksheetPath,
-      transferCertificateFile: tcPath,
-      addressProofFile: addressProofPath,
-      medicalCertificateFile: medicalCertPath,
-      additionalFile: additionalPath,
-
-      // Backward-compatible properties
-      grade: section ? `${studentClass}-${section}` : studentClass,
-      guardian: guardianName || fatherName || motherName,
-      email: encrypt(fatherEmail || motherEmail || `${admissionNumber}@academy.edu`),
-      phone: encrypt(guardianContact || fatherMobile || motherMobile),
-      rank: 'N/A',
-      photoBg: `linear-gradient(135deg, hsl(${Math.random() * 360}, 75%, 60%) 0%, hsl(${Math.random() * 360}, 85%, 50%) 100%)`
-    };
-
-    db.students.push(newStudent);
-    db.students = [...db.students];
-    addActivity(db, 'registration', 'New Student Admitted', `${calculatedFullName} registered in Grade ${newStudent.grade}`, 'hsl(var(--color-primary))', 'rgba(hsl(var(--color-primary)), 0.1)');
-    writeDb(db, ['students']);
-    logAudit('Create Student', `Student: ${newStudent.name} (Adm: ${newStudent.admissionNumber})`, `Registered student ID: ${newStudent.id}`, req);
-
-    res.status(201).json(newStudent);
-  } catch (error) {
-    console.error('Error registering student:', error);
-    res.status(500).json({ error: 'Internal API Server error during registration.' });
   }
+
+  // Ensure unique ID
+  let studentId = `STU-${Math.floor(1000 + Math.random() * 9000)}`;
+  while ((db.students || []).some(s => s.id === studentId)) {
+    studentId = `STU-${Math.floor(1000 + Math.random() * 9000)}`;
+  }
+
+  const newStudent = {
+    id: studentId,
+    enrollmentId: `ENR-${Math.floor(100000 + Math.random() * 900000)}`,
+    parentId,
+    addressId: `ADD-${Math.floor(100000 + Math.random() * 900000)}`,
+    medicalId: `MED-${Math.floor(100000 + Math.random() * 900000)}`,
+    feeAssignmentId: `FEE-ASN-${Math.floor(100000 + Math.random() * 900000)}`,
+    name: calculatedFullName,
+    fullName: calculatedFullName,
+    firstName: calculatedFirstName,
+    middleName: middleName || '',
+    lastName: calculatedLastName,
+    gender,
+    dob,
+    bloodGroup,
+    nationality: nationality || 'Indian',
+    category: category || 'General',
+    religion: religion || 'Hinduism',
+    aadhaarNumber: encrypt(aadhaarNumber || ''),
+    
+    fatherName: fatherName || '',
+    fatherOccupation: fatherOccupation || '',
+    fatherMobile: encrypt(fatherMobile || ''),
+    fatherEmail: encrypt(fatherEmail || data.parentEmail || ''),
+    motherName: motherName || '',
+    motherOccupation: motherOccupation || '',
+    motherMobile: encrypt(motherMobile || ''),
+    motherEmail: encrypt(motherEmail || ''),
+    guardianName: guardianName || '',
+    guardianRelation: guardianRelation || '',
+    guardianContact: encrypt(guardianContact || ''),
+
+    admissionNumber,
+    admissionDate: admissionDate || new Date().toISOString().split('T')[0],
+    rollNumber,
+    roll: rollNumber,
+    studentClass,
+    section,
+    academicYear,
+    admissionType: admissionType || 'New Admission',
+    previousSchoolName: previousSchoolName || '',
+    previousSchoolAddress: previousSchoolAddress || '',
+    previousClassStudied: previousClassStudied || '',
+    transferCertificateNumber: transferCertificateNumber || '',
+
+    currentAddress: currentAddress || '',
+    permanentAddress: permanentAddress || '',
+    address: currentAddress || '',
+    city: city || '',
+    state: state || '',
+    country: country || 'India',
+    postalCode: postalCode || '',
+    pincode: postalCode || '',
+    emergencyContactNumber: emergencyContactNumber || '',
+    isSameAddress: isSameAddress === 'true' || isSameAddress === true,
+
+    medicalConditions: medicalConditions || '',
+    allergies: allergies || '',
+    disabilities: disabilities || '',
+    emergencyNotes: emergencyNotes || '',
+    doctorName: doctorName || '',
+    doctorContact: doctorContact || '',
+
+    transportRequired: transportRequired || 'No',
+    route: data.route || '',
+    pickupPoint: data.pickupPoint || '',
+    dropPoint: data.dropPoint || '',
+    transportFeePlan: data.transportFeePlan || '',
+
+    hostelRequired: hostelRequired || 'No',
+    hostelBlock: data.hostelBlock || '',
+    roomNumber: data.roomNumber || '',
+    bedNumber: data.bedNumber || '',
+
+    sameAsPermanent: (data.sameAsPermanent === 'true' || data.sameAsPermanent === true || data.sameAsPermanent === 'Yes' || isSameAddress === 'true' || isSameAddress === true) ? 'Yes' : 'No',
+    createParentLogin: createParent ? 'Yes' : 'No',
+
+    feeStructure: feeStructure || '',
+    scholarshipDetails: scholarshipDetails || '',
+    discountType: discountType || '',
+    discountAmount: parseFloat(discountAmount || 0),
+    feeStatus: initialPaymentStatus || 'Pending',
+    initialPaymentStatus: initialPaymentStatus || 'Pending',
+
+    studentUsername,
+    studentPassword,
+    parentUsername,
+    parentPassword,
+    parentEmail: encrypt(data.parentEmail || fatherEmail || ''),
+
+    // Supporting files
+    photo: uploadedPaths.photo || '',
+    aadhaarFile: uploadedPaths.aadhaarFile || '',
+    birthCertificateFile: uploadedPaths.birthCertificateFile || '',
+    marksheetFile: uploadedPaths.marksheetFile || '',
+    transferCertificateFile: uploadedPaths.transferCertificateFile || '',
+    addressProofFile: uploadedPaths.addressProofFile || '',
+    medicalCertificateFile: uploadedPaths.medicalCertificateFile || '',
+    additionalFile: uploadedPaths.additionalFile || '',
+
+    // Backward-compatible properties
+    grade: section ? `${studentClass}-${section}` : studentClass,
+    guardian: guardianName || fatherName || motherName,
+    email: encrypt(fatherEmail || motherEmail || `${admissionNumber}@academy.edu`),
+    phone: encrypt(guardianContact || fatherMobile || motherMobile),
+    rank: 'N/A',
+    photoBg: `linear-gradient(135deg, hsl(${Math.random() * 360}, 75%, 60%) 0%, hsl(${Math.random() * 360}, 85%, 50%) 100%)`,
+
+    // Bulk Import and Password Change Tracking
+    import_batch_id: importBatchId || null,
+    imported_at: isImport ? (options.importedAt || new Date().toISOString()) : null,
+    is_deleted_by_batch: 'No',
+    must_change_password: (mustChangePassword || parentMustChange) ? 'Yes' : 'No'
+  };
+
+  return newStudent;
+};
+
+// 1. REGISTER NEW STUDENT
+export const registerStudent = async (req, res) => {
+  const tenantId = req.admin?.tenantId || req.user?.tenantId || req.headers['x-tenant-id'] || 'platform';
+  return tenantStorage.run(slugify(tenantId), async () => {
+    try {
+      const db = readDb(tenantId);
+
+      const calculatedFullName = req.body.fullName || [req.body.firstName, req.body.middleName, req.body.lastName].filter(Boolean).join(' ') || 'Student';
+      const admissionNumber = req.body.admissionNumber || `ADM-${Date.now().toString().slice(-6)}`;
+      const studentClass = req.body.studentClass || 'I';
+
+      if (!calculatedFullName || !admissionNumber || !studentClass) {
+        return res.status(400).json({ error: 'Missing required student details.' });
+      }
+
+      if (req.body.aadhaarNumber && !/^\d{12}$/.test(String(req.body.aadhaarNumber).replace(/\s/g, ''))) {
+        return res.status(400).json({ error: 'Invalid Aadhaar number. Must be exactly 12 digits.' });
+      }
+
+      const files = req.files || {};
+      const folder = `school/${tenantId}/students`;
+
+      const processUpload = async (fileArray) => {
+        if (!fileArray || !fileArray[0]) return '';
+        try {
+          const uploadPromise = uploadToImageKit(fileArray[0].buffer, fileArray[0].originalname, folder);
+          const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Upload timeout')), 2500));
+          const uploadRes = await Promise.race([uploadPromise, timeoutPromise]);
+          return uploadRes.url;
+        } catch (uploadErr) {
+          console.warn('[Student Upload Warning] Could not upload file to ImageKit:', uploadErr.message);
+          return '';
+        }
+      };
+
+      const uploadedPaths = {
+        photo: await processUpload(files.photo),
+        aadhaarFile: await processUpload(files.aadhaarFile),
+        birthCertificateFile: await processUpload(files.birthCertificateFile),
+        marksheetFile: await processUpload(files.marksheetFile),
+        transferCertificateFile: await processUpload(files.transferCertificateFile),
+        addressProofFile: await processUpload(files.addressProofFile),
+        medicalCertificateFile: await processUpload(files.medicalCertificateFile),
+        additionalFile: await processUpload(files.additionalFile)
+      };
+
+      const newStudent = await createStudentEntity(req.body, {
+        tenantId,
+        db,
+        isImport: false,
+        uploadedPaths
+      });
+
+      db.students.push(newStudent);
+      db.students = [...db.students];
+      addActivity(db, 'registration', 'New Student Admitted', `${newStudent.name} registered in Grade ${newStudent.grade}`, 'hsl(var(--color-primary))', 'rgba(hsl(var(--color-primary)), 0.1)');
+      writeDb(db, ['students'], tenantId);
+      logAudit('Create Student', `Student: ${newStudent.name} (Adm: ${newStudent.admissionNumber})`, `Registered student ID: ${newStudent.id}`, req);
+
+      res.status(201).json(newStudent);
+    } catch (error) {
+      console.error('Error registering student:', error);
+      res.status(500).json({ error: 'Internal API Server error during registration.' });
+    }
+  });
 };
 
 // 2. GET STUDENTS (With Search, Filters, Sorting & Pagination)
 export const getStudents = async (req, res) => {
-  try {
-    const db = readDb();
+  const tenantId = req.admin?.tenantId || req.user?.tenantId || req.headers['x-tenant-id'] || 'platform';
+  return tenantStorage.run(slugify(tenantId), async () => {
+    try {
+      const db = readDb(tenantId);
     
-    // If teacher is logged in, restrict query options to their assigned class and section
     const user = req.admin;
-    if (user && user.role === 'Teacher') {
-      const teacher = (db.teachers || []).find(t => t.id === user.id);
-      if (teacher) {
-        req.query.class = teacher.assignedGradeId || 'NONE';
-        req.query.section = teacher.assignedSectionId || 'NONE';
-      }
-    }
 
     let result = [...db.students];
 
@@ -339,10 +424,9 @@ export const getStudents = async (req, res) => {
       }
     }
 
-    // 0. Status Filter (Default to 'Active')
-    const statusFilter = req.query.status || 'Active';
-    if (statusFilter !== 'All') {
-      result = result.filter(s => s.status === statusFilter);
+    // Exclude batch undone records unless explicitly requested
+    if (req.query.purpose !== 'overview' && req.query.includeBatchDeleted !== 'true') {
+      result = result.filter(s => s.is_deleted_by_batch !== 'Yes');
     }
 
     // 1. Search Query (always searches by name startsWith OR id/admissionNumber includes, avoiding prefix collision)
@@ -362,16 +446,27 @@ export const getStudents = async (req, res) => {
       });
     }
 
-    // 2. Class Filter
-    const classFilter = req.query.class || 'All';
+    // 2. Class Filter (robust grade matching across Grade III, Class 3, III, 3, etc.)
+    const classFilter = req.query.class || req.query.studentClass || 'All';
     if (classFilter !== 'All') {
-      result = result.filter(s => s.studentClass === classFilter || (s.grade && s.grade.split('-')[0] === classFilter));
+      const matchedGrade = (db.grades || []).find(g => g.id === classFilter || g.name === classFilter);
+      const targetGradeName = matchedGrade ? matchedGrade.name : classFilter;
+      result = result.filter(s => 
+        areGradesMatch(s.studentClass, classFilter) || 
+        areGradesMatch(s.studentClass, targetGradeName) ||
+        areGradesMatch(s.grade?.split('-')[0], classFilter) ||
+        areGradesMatch(s.grade?.split('-')[0], targetGradeName)
+      );
     }
 
-    // 3. Section Filter
+    // 3. Section Filter (robust section matching across Section A, Sec A, A)
     const sectionFilter = req.query.section || 'All';
     if (sectionFilter !== 'All') {
-      result = result.filter(s => s.section === sectionFilter);
+      result = result.filter(s => 
+        areSectionsMatch(s.section, sectionFilter) ||
+        areSectionsMatch(s.grade?.split('-')[1], sectionFilter) ||
+        s.section === sectionFilter
+      );
     }
 
     // 4. Academic Year Filter
@@ -425,12 +520,15 @@ export const getStudents = async (req, res) => {
     console.error('Error fetching students:', error);
     res.status(500).json({ error: 'Internal Server Error.' });
   }
+  });
 };
 
 // 3. UPDATE STUDENT DETAILS
 export const updateStudent = async (req, res) => {
-  try {
-    const db = readDb();
+  const tenantId = req.admin?.tenantId || req.user?.tenantId || req.headers['x-tenant-id'] || 'platform';
+  return tenantStorage.run(slugify(tenantId), async () => {
+    try {
+      const db = readDb(tenantId);
     const studentId = req.params.id;
     const studentIndex = db.students.findIndex(s => s.id === studentId);
 
@@ -446,7 +544,6 @@ export const updateStudent = async (req, res) => {
     }
 
     const files = req.files || {};
-    const tenantId = req.admin?.tenantId || 'platform';
     const folder = `school/${tenantId}/students`;
 
     const processUpdateUpload = async (fileArray, oldPath) => {
@@ -466,6 +563,14 @@ export const updateStudent = async (req, res) => {
     const addressProofPath = await processUpdateUpload(files.addressProofFile, currentStudent.addressProofFile);
     const medicalCertPath = await processUpdateUpload(files.medicalCertificateFile, currentStudent.medicalCertificateFile);
     const additionalPath = await processUpdateUpload(files.additionalFile, currentStudent.additionalFile);
+
+    // Parent login credentials update handling
+    let finalParentPassword = currentStudent.parentPassword;
+    if (updateData.parentPassword && typeof updateData.parentPassword === 'string' && updateData.parentPassword.trim() !== '') {
+      finalParentPassword = isBcryptHash(updateData.parentPassword.trim())
+        ? updateData.parentPassword.trim()
+        : await hashPassword(updateData.parentPassword.trim());
+    }
 
     const updatedStudent = {
       ...currentStudent,
@@ -516,13 +621,17 @@ export const updateStudent = async (req, res) => {
       transferCertificateNumber: updateData.transferCertificateNumber !== undefined ? updateData.transferCertificateNumber : currentStudent.transferCertificateNumber,
       sameAsPermanent: updateData.sameAsPermanent !== undefined ? updateData.sameAsPermanent : (updateData.isSameAddress !== undefined ? (updateData.isSameAddress ? 'Yes' : 'No') : currentStudent.sameAsPermanent),
       createParentLogin: updateData.createParentLogin !== undefined ? (updateData.createParentLogin === true || updateData.createParentLogin === 'true' || updateData.createParentLogin === 'Yes' ? 'Yes' : 'No') : currentStudent.createParentLogin,
-      parentUsername: updateData.parentUsername !== undefined ? updateData.parentUsername : currentStudent.parentUsername
+      parentUsername: updateData.parentUsername !== undefined ? updateData.parentUsername : currentStudent.parentUsername,
+      parentEmail: updateData.parentEmail !== undefined ? (updateData.parentEmail ? encrypt(updateData.parentEmail) : '') : currentStudent.parentEmail,
+      parentPassword: finalParentPassword,
+      must_change_password: 'No',
+      mustChangePassword: false
     };
 
     db.students[studentIndex] = updatedStudent;
     db.students = [...db.students];
     addActivity(db, 'alert', 'Student Profile Modified', `${updatedStudent.name}'s registry was modified.`, 'hsl(var(--color-secondary))', 'rgba(hsl(var(--color-secondary)), 0.1)');
-    writeDb(db, ['students']);
+    writeDb(db, ['students'], tenantId);
     logAudit('Update Student', `Student: ${updatedStudent.name} (Adm: ${updatedStudent.admissionNumber})`, `Updated student registry details`, req);
 
     res.json(updatedStudent);
@@ -530,12 +639,15 @@ export const updateStudent = async (req, res) => {
     console.error('Error updating student:', error);
     res.status(500).json({ error: 'Internal server error while updating student.' });
   }
+  });
 };
 
 // 4. DELETE / DISMISS STUDENT
 export const deleteStudent = async (req, res) => {
-  try {
-    const db = readDb();
+  const tenantId = req.admin?.tenantId || req.user?.tenantId || req.headers['x-tenant-id'] || 'platform';
+  return tenantStorage.run(slugify(tenantId), async () => {
+    try {
+      const db = readDb(tenantId);
     if (!db.students) db.students = [];
     const reqId = String(req.params.id || '').trim();
     const cleanReqId = reqId.replace(/^stu-?/i, '');
@@ -571,8 +683,7 @@ export const deleteStudent = async (req, res) => {
     if (isSqlActive()) {
       try {
         const sqlDb = await import('../utils/sqlDb.js');
-        const tenantId = tenantStorage.getStore();
-        const tId = tenantId ? slugify(tenantId) : 'platform';
+        const tId = tenantId ? slugify(tenantId) : (tenantStorage.getStore() ? slugify(tenantStorage.getStore()) : 'platform');
         
         // Remove from child tables first to prevent any foreign key constraint failures
         const childTables = [
@@ -604,7 +715,7 @@ export const deleteStudent = async (req, res) => {
     }
 
     addActivity(db, 'alert', 'Student Dismissed', `${studentName} was removed from the registry`, 'rgb(var(--color-danger-rgb))', 'rgba(var(--color-danger-rgb), 0.1)');
-    writeDb(db, ['students']);
+    writeDb(db, ['students'], tenantId);
     logAudit('Delete Student', `Student: ${studentName} (ID: ${deletedId})`, `Dismissed student record`, req);
 
     res.json({ success: true, message: `Removed student ${studentName}` });
@@ -612,9 +723,101 @@ export const deleteStudent = async (req, res) => {
     console.error('Error removing student:', error);
     res.status(500).json({ error: 'Internal API Server Error.' });
   }
+  });
 };
 
-// Helper to check admin validator context safely
-function adminEmailCheck(body) {
-  return body.adminEmail ? true : true;
-}
+// 5. BULK DELETE / DISMISS STUDENTS
+export const bulkDeleteStudents = async (req, res) => {
+  const tenantId = req.admin?.tenantId || req.user?.tenantId || req.headers['x-tenant-id'] || 'platform';
+  return tenantStorage.run(slugify(tenantId), async () => {
+    try {
+      const db = readDb(tenantId);
+      if (!db.students) db.students = [];
+      const { ids, studentIds } = req.body;
+      const idsToDelete = Array.isArray(ids) ? ids : (Array.isArray(studentIds) ? studentIds : []);
+
+      if (!idsToDelete || idsToDelete.length === 0) {
+        return res.status(400).json({ error: 'No student IDs provided for bulk deletion.' });
+      }
+
+      const normalizedIds = idsToDelete.map(id => String(id || '').trim().toLowerCase());
+      const studentsToRemove = db.students.filter(s => {
+        const sId = String(s.id || '').trim().toLowerCase();
+        const cleanSId = sId.replace(/^stu-?/i, '');
+        const adm = String(s.admissionNumber || '').trim().toLowerCase();
+        const enr = String(s.enrollmentId || '').trim().toLowerCase();
+        return normalizedIds.some(reqId => {
+          const cleanReqId = reqId.replace(/^stu-?/i, '');
+          return sId === reqId || (cleanReqId && cleanSId === cleanReqId) || adm === reqId || enr === reqId;
+        });
+      });
+
+      if (studentsToRemove.length === 0) {
+        return res.status(404).json({ error: 'No matching students found to delete.' });
+      }
+
+      const deletedIds = studentsToRemove.map(s => s.id);
+      const tId = tenantId ? slugify(tenantId) : (tenantStorage.getStore() ? slugify(tenantStorage.getStore()) : 'platform');
+
+      // 1. Delete files from ImageKit asynchronously
+      for (const student of studentsToRemove) {
+        const filesToDelete = [
+          student.photo, student.aadhaarFile, student.birthCertificateFile, student.marksheetFile,
+          student.transferCertificateFile, student.addressProofFile, student.medicalCertificateFile, student.additionalFile
+        ];
+        for (const fileUrl of filesToDelete) {
+          if (fileUrl) {
+            deleteFromImageKit(fileUrl).catch(e => console.error('[ImageKit Delete Error]', e?.message || e));
+          }
+        }
+      }
+
+      // 2. Direct SQL Delete
+      if (isSqlActive()) {
+        try {
+          const sqlDb = await import('../utils/sqlDb.js');
+          const childTables = [
+            'student_enrollments', 'parents', 'addresses', 'medical_records',
+            'documents', 'fee_assignments', 'student_accounts', 'parent_accounts',
+            'results', 'overall_results', 'attendance', 'fees'
+          ];
+          for (const tbl of childTables) {
+            for (const delId of deletedIds) {
+              try {
+                await sqlDb.query(`DELETE FROM \`${tbl}\` WHERE studentId = ? AND (tenantId = ? OR tenantId IS NULL OR tenantId = '')`, [delId, tId], tId);
+              } catch (tblErr) {
+                // Ignore if table does not exist or column is absent
+              }
+            }
+          }
+          for (const delId of deletedIds) {
+            await sqlDb.query('DELETE FROM user_access WHERE userId = ? AND (tenantId = ? OR tenantId IS NULL OR tenantId = ?)', [delId, tId, ''], tId);
+            await sqlDb.query('DELETE FROM students WHERE id = ? AND (tenantId = ? OR tenantId IS NULL OR tenantId = ?)', [delId, tId, ''], tId);
+          }
+
+          const syncTs = new Date().toISOString();
+          await sqlDb.query('UPDATE schools SET updatedAt = ? WHERE subdomain = ?', [syncTs, tId]);
+        } catch (sqlErr) {
+          console.error('[SQL Direct Bulk Delete Student Error]', sqlErr);
+        }
+      }
+
+      // 3. Remove from JSON db
+      const idSet = new Set(deletedIds);
+      db.students = db.students.filter(s => !idSet.has(s.id));
+      if (db.userAccess) {
+        db.userAccess = db.userAccess.filter(ua => !idSet.has(ua.userId));
+      }
+
+      addActivity(db, 'alert', 'Students Bulk Dismissed', `${deletedIds.length} students were removed from the registry`, 'rgb(var(--color-danger-rgb))', 'rgba(var(--color-danger-rgb), 0.1)');
+      writeDb(db, ['students'], tenantId);
+      logAudit('Bulk Delete Students', `Total: ${deletedIds.length}`, `Removed students: ${deletedIds.join(', ')}`, req);
+
+      res.json({ success: true, count: deletedIds.length, message: `Successfully removed ${deletedIds.length} student(s)` });
+    } catch (error) {
+      console.error('Error bulk removing students:', error);
+      res.status(500).json({ error: 'Internal API Server Error.' });
+    }
+  });
+};
+
